@@ -1,0 +1,90 @@
+// Package cmd contains all cobra subcommands for the nn CLI.
+package cmd
+
+import (
+	"fmt"
+	"io"
+	"os"
+
+	"github.com/spf13/cobra"
+
+	"github.com/jaresty/nn/internal/backend"
+	"github.com/jaresty/nn/internal/backend/gitlocal"
+	"github.com/jaresty/nn/internal/config"
+)
+
+// rootState holds resolved runtime state shared by all subcommands.
+type rootState struct {
+	notebookDir string
+	backend     backend.Backend
+}
+
+// NewRootCmd creates a fresh root command. cfgFile overrides the default config path.
+func NewRootCmd(cfgFile string) *cobra.Command {
+	state := &rootState{}
+
+	root := &cobra.Command{
+		Use:          "nn",
+		Short:        "LLM-driven Zettelkasten CLI",
+		SilenceUsage: true,
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			return initState(cmd, state, cfgFile)
+		},
+	}
+
+	root.AddCommand(
+		newNewCmd(state),
+		newShowCmd(state),
+		newListCmd(state),
+		newLinkCmd(state),
+		newUnlinkCmd(state),
+		newGraphCmd(state),
+		newStatusCmd(state),
+		newPromoteCmd(state),
+		newDeleteCmd(state),
+		newInstallSkillsCmd(),
+	)
+	return root
+}
+
+// NewRootCmdForTest creates a root command wired to the given config file path.
+// Exported for use in tests within the cmd_test package.
+func NewRootCmdForTest(cfgFile string) *cobra.Command {
+	return NewRootCmd(cfgFile)
+}
+
+// initState resolves the notebook directory and initialises the backend.
+func initState(cmd *cobra.Command, state *rootState, cfgFile string) error {
+	// install-skills doesn't need a notebook
+	if cmd.Name() == "install-skills" {
+		return nil
+	}
+
+	nbName := os.Getenv("NN_NOTEBOOK")
+	if cfgFile == "" {
+		cfgFile = config.DefaultConfigPath()
+	}
+
+	cfg, err := config.Load(cfgFile)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	nb, err := cfg.Notebook(nbName)
+	if err != nil {
+		return fmt.Errorf("resolve notebook: %w", err)
+	}
+
+	b, err := gitlocal.New(nb.Path)
+	if err != nil {
+		return fmt.Errorf("open notebook %q: %w", nb.Path, err)
+	}
+
+	state.notebookDir = nb.Path
+	state.backend = b
+	return nil
+}
+
+// outWriter returns the command's output writer.
+func outWriter(cmd *cobra.Command) io.Writer {
+	return cmd.OutOrStdout()
+}

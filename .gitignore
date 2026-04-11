@@ -1,5 +1,5 @@
-# Build output
-nn
+# Build output — match only the binary at the root, not the cmd/nn/ directory
+/nn
 /bin/
 
 # Go

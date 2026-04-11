@@ -1,8 +1,14 @@
 # ADR-0001: nn — LLM-Driven Zettelkasten CLI Architecture
 
-**Status:** Accepted
+**Status:** Accepted — M0–M6 implemented
 **Date:** 2026-04-11
 **Authors:** jaresty
+
+**Implementation log:**
+- 2026-04-11 M0: repo bootstrap, CLAUDE.md, ADR, `.gitignore`, `go.mod`
+- 2026-04-11 M1: `internal/note`, `internal/backend/gitlocal`, `internal/index` — all tested
+- 2026-04-11 M2–M6: full CLI (`nn new`, `nn show`, `nn list`, `nn link`, `nn unlink`, `nn graph`, `nn status`, `nn promote`, `nn delete`, `nn install-skills`) — all tested
+- 2026-04-11 M7: GoReleaser + GitHub Actions CI (`test.yml`, `release.yml`) + Homebrew tap (`jaresty/homebrew-nn`); MCP server ruled out (skills cover LLM integration)
 
 ---
 
@@ -227,17 +233,25 @@ self-contained and installs its own Claude Code integration.
 
 ### 9. Implementation Milestones
 
-| Milestone | Scope |
-|---|---|
-| M0 | Repo bootstrap, CLAUDE.md, this ADR, `.gitignore`, `go.mod` |
-| M1 | `internal/note` (Note struct, ID gen, frontmatter read/write), `internal/backend/gitlocal` (file ops, git commit wrapper), `internal/index` (SQLite schema, rebuild) — library only, no CLI |
-| M2 | `nn new` (with `--no-edit`, `--content` path) and `nn show` — end-to-end create + read |
-| M3 | `nn list` with all filters, `--json`, TTY detection |
-| M4 | `nn link`, `nn unlink`, `nn graph` |
-| M5 | `nn status`, `nn promote`, `nn delete` — review workflow complete |
-| M6 | `nn install-skills` command + initial skills (`nn-workflow`, `nn-guide`); `//go:embed skills/` |
-| M7 | LLM integration documentation; consider MCP server wrapper |
-| M8 | Second backend (remote-git) to validate interface abstraction |
+| Milestone | Scope | Status |
+|---|---|---|
+| M0 | Repo bootstrap, CLAUDE.md, this ADR, `.gitignore`, `go.mod` | ✅ done |
+| M1 | `internal/note` (Note struct, ID gen, frontmatter read/write), `internal/backend/gitlocal` (file ops, git commit wrapper), `internal/index` (SQLite schema, rebuild) — library only, no CLI | ✅ done |
+| M2 | `nn new` (with `--no-edit`, `--content` path) and `nn show` — end-to-end create + read | ✅ done |
+| M3 | `nn list` with all filters, `--json`, TTY detection | ✅ done |
+| M4 | `nn link`, `nn unlink`, `nn graph` | ✅ done |
+| M5 | `nn status`, `nn promote`, `nn delete` — review workflow complete | ✅ done |
+| M6 | `nn install-skills` command + initial skills (`nn-workflow`, `nn-guide`); `//go:embed` via `skills/embed.go` | ✅ done |
+| M7 | Release infrastructure: GoReleaser + GitHub Actions CI/CD + Homebrew tap (`jaresty/homebrew-nn`) | ✅ done |
+| M8 | Second backend (remote-git) to validate interface abstraction | pending |
+
+**Implementation notes (deviations from original spec):**
+
+- **ID suffix: counter not random.** ADR specified a 4-digit random suffix; implementation uses a per-second monotonic counter (mutex-protected) to guarantee uniqueness under concurrent generation. Intent preserved: collision prevention.
+- **`skills/embed.go` shim.** Go's `//go:embed` does not allow `../` paths, so the embed directive lives in `skills/embed.go` (a `package skills` shim) rather than in the CLI package directly. `nn install-skills` imports `github.com/jaresty/nn/skills`.
+- **`NN_CONFIG_DIR` env var.** Added for testability: overrides the config directory without touching `$HOME`. Not in the original spec.
+- **`backend.Backend` interface.** Defined in `internal/backend/backend.go` with methods: `Write`, `Read`, `Delete`, `List`, `AddLink`, `RemoveLink`, `Promote`. All commands go through this interface.
+- **`.gitignore` scoping.** Changed `nn` to `/nn` to match only the root-level binary, not the `cmd/nn/` source directory.
 
 ---
 
