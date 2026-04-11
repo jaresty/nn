@@ -24,13 +24,10 @@ builds:
 archives:
   - id: nn
     name_template: "nn_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    format: tar.gz
+    formats: [tar.gz]
     format_overrides:
       - goos: windows
-        format: zip
-    files:
-      - README.md
-      - LICENSE
+        formats: [zip]
 
 checksum:
   name_template: "nn_{{ .Version }}_checksums.txt"
@@ -45,17 +42,13 @@ changelog:
       - Merge pull request
       - Merge branch
 
-brews:
+homebrew_casks:
   - name: nn
     repository:
       owner: jaresty
       name: homebrew-nn
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    directory: Formula
+    directory: Casks
     homepage: https://github.com/jaresty/nn
     description: "LLM-driven Zettelkasten CLI"
     license: MIT
-    test: |
-      system "#{bin}/nn", "--help"
-    install: |
-      bin.install "nn"
