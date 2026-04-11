@@ -11,6 +11,11 @@ brew tap jaresty/nn
 brew install nn
 ```
 
+> **macOS Gatekeeper:** On first install, macOS may block the binary as unverified. Run:
+> ```sh
+> xattr -d com.apple.quarantine $(which nn)
+> ```
+
 ### Go
 
 ```sh
