@@ -1,0 +1,16 @@
+# Build output
+nn
+/bin/
+
+# Go
+*.test
+*.out
+
+# Index (cache, rebuilt from files)
+*.db
+*.db-shm
+*.db-wal
+
+# Editor
+.DS_Store
+*.swp
