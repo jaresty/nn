@@ -26,11 +26,15 @@ nn new --title TEXT --type TYPE [--tags TEXT] [--content TEXT] [--no-edit]
 
 ## nn show
 
-Print note content to stdout.
+Print note content to stdout. Accepts a full ID or a title substring.
 
 ```
-nn show <id>
+nn show <id-or-title>
 ```
+
+If the query doesn't match an ID exactly, `nn` searches note titles case-insensitively.
+If multiple titles match, the command lists the candidates and exits with an error — use
+the full ID to disambiguate.
 
 ## nn list
 
@@ -39,8 +43,11 @@ List and filter notes.
 ```
 nn list [--tag TEXT] [--type TYPE] [--status STATUS]
         [--linked-from ID] [--linked-to ID] [--orphan]
-        [--limit N] [--json]
+        [--search TEXT] [--limit N] [--json]
 ```
+
+`--search TEXT` performs a case-insensitive substring match across note title and body.
+Filters compose: `nn list --search "implicit" --type concept` works as expected.
 
 ## nn link / nn unlink
 
