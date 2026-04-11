@@ -20,6 +20,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		orphan       bool
 		limit        int
 		jsonOut      bool
+		search       string
 	)
 
 	cmd := &cobra.Command{
@@ -68,6 +69,9 @@ func newListCmd(state *rootState) *cobra.Command {
 				if orphan && (hasOutbound[n.ID] || targetIDs[n.ID]) {
 					continue
 				}
+				if search != "" && !containsFold(n.Title, search) && !containsFold(n.Body, search) {
+					continue
+				}
 				filtered = append(filtered, n)
 			}
 
@@ -93,7 +97,12 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&orphan, "orphan", false, "Notes with no links (inbound or outbound)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of results")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Machine-readable JSON output")
+	cmd.Flags().StringVar(&search, "search", "", "Full-text search across title and body")
 	return cmd
+}
+
+func containsFold(s, substr string) bool {
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }
 
 func hasTag(n *note.Note, tag string) bool {

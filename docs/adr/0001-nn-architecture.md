@@ -244,6 +244,7 @@ self-contained and installs its own Claude Code integration.
 | M6 | `nn install-skills` command + initial skills (`nn-workflow`, `nn-guide`); `//go:embed` via `skills/embed.go` | ✅ done |
 | M7 | Release infrastructure: GoReleaser + GitHub Actions CI/CD + Homebrew tap (`jaresty/homebrew-nn`) | ✅ done |
 | M8 | Second backend (remote-git) to validate interface abstraction | pending |
+| M9 | `nn list --search TEXT` (full-text on title+body, in-memory); `nn show` title-prefix fallback | ✅ done |
 
 **Implementation notes (deviations from original spec):**
 
