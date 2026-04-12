@@ -31,3 +31,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+      - name: Warm Go module proxy cache
+        run: |
+          VERSION=${GITHUB_REF_NAME}
+          curl -s "https://proxy.golang.org/github.com/jaresty/nn/@v/${VERSION}.info" || true
+          curl -s "https://sum.golang.org/lookup/github.com/jaresty/nn@${VERSION}" || true
