@@ -99,6 +99,12 @@ the frontmatter value governs. The `type` field is required on creation — it f
 to make an atomicity judgment before committing the note. The `status` field enables a
 review workflow: the LLM creates `draft` notes; humans promote them to `reviewed` or `permanent`.
 
+The `type` vocabulary (`concept`, `argument`, `model`, `hypothesis`, `observation`) is a
+synthesis drawn from Sönke Ahrens, *How to Take Smart Notes* (2017), which distinguishes
+note types by their epistemic role, and from Niklas Luhmann's original Zettelkasten practice
+as documented in Schmidt, J. F. K., "Niklas Luhmann's Card Index" (2016). The specific
+five-value taxonomy is an original choice for `nn`; no single source uses this exact set.
+
 **Link section:** Links live in a dedicated `## Links` section at the bottom of the note body:
 
 ```markdown
