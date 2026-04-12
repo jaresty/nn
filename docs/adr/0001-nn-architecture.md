@@ -105,6 +105,20 @@ note types by their epistemic role, and from Niklas Luhmann's original Zettelkas
 as documented in Schmidt, J. F. K., "Niklas Luhmann's Card Index" (2016). The specific
 five-value taxonomy is an original choice for `nn`; no single source uses this exact set.
 
+The five types are not intended to be exhaustive. Their purpose is not classification but
+commitment: requiring a type forces the author (or LLM) to decide what kind of claim the
+note makes before writing it, which enforces atomicity. Fewer, sharper types serve this
+better than a complete ontology.
+
+Two genuine gaps exist at the literature-review end of the workflow:
+- `question` — a note posing an open question rather than answering one (Luhmann used
+  these extensively; `hypothesis` is the current proxy)
+- `reference` — a summary of an external source (Ahrens' "literature note"; currently
+  unrepresented)
+
+These are deferred deliberately. Adding them would be appropriate if `nn` is used heavily
+for literature review; the ADR should be updated at that point.
+
 **Link section:** Links live in a dedicated `## Links` section at the bottom of the note body:
 
 ```markdown
