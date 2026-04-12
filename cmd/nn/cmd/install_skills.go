@@ -11,22 +11,64 @@ import (
 	nnSkills "github.com/jaresty/nn/skills"
 )
 
+// skillsDestinations maps --for preset names to their default skill directories.
+// The value is a function so HOME is resolved at call time, not package init.
+var skillsDestinations = map[string]func() (string, error){
+	"claude": func() (string, error) {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(home, ".claude", "skills"), nil
+	},
+	"cursor": func() (string, error) {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(home, ".cursor", "skills"), nil
+	},
+	"zed": func() (string, error) {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(home, ".config", "zed", "skills"), nil
+	},
+}
+
 func newInstallSkillsCmd() *cobra.Command {
 	var (
-		dest    string
+		dest     string
+		forLLM   string
 		listOnly bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "install-skills",
-		Short: "Copy nn skills into ~/.claude/skills/",
+		Short: "Copy nn skills into an LLM's skills directory",
+		Long: `Copy nn skills into an LLM's skills directory.
+
+Presets (--for):
+  claude   ~/.claude/skills/         (default)
+  cursor   ~/.cursor/skills/
+  zed      ~/.config/zed/skills/
+
+Use --dest to specify a custom destination directory.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dest == "" {
-				home, err := os.UserHomeDir()
-				if err != nil {
-					return fmt.Errorf("install-skills: home dir: %w", err)
+				if forLLM == "" {
+					forLLM = "claude"
 				}
-				dest = filepath.Join(home, ".claude", "skills")
+				fn, ok := skillsDestinations[forLLM]
+				if !ok {
+					return fmt.Errorf("install-skills: unknown --for value %q (valid: claude, cursor, zed)", forLLM)
+				}
+				var err error
+				dest, err = fn()
+				if err != nil {
+					return fmt.Errorf("install-skills: resolve dest: %w", err)
+				}
 			}
 
 			entries, err := nnSkills.FS.ReadDir(".")
@@ -52,7 +94,8 @@ func newInstallSkillsCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&dest, "dest", "", "Destination directory (default: ~/.claude/skills/)")
+	cmd.Flags().StringVar(&dest, "dest", "", "Custom destination directory (overrides --for)")
+	cmd.Flags().StringVar(&forLLM, "for", "", "Target LLM preset: claude (default), cursor, zed")
 	cmd.Flags().BoolVar(&listOnly, "list", false, "List skills without copying")
 	cmd.Flags().BoolVar(&listOnly, "dry-run", false, "Alias for --list")
 	return cmd

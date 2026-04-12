@@ -34,3 +34,35 @@ func TestInstallSkillsCopies(t *testing.T) {
 		}
 	}
 }
+
+func TestInstallSkillsForClaude(t *testing.T) {
+	_, execute := setupNotebook(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	_, err := execute("install-skills", "--for", "claude", "--list")
+	if err != nil {
+		t.Fatalf("nn install-skills --for claude --list: %v", err)
+	}
+}
+
+func TestInstallSkillsForCursor(t *testing.T) {
+	_, execute := setupNotebook(t)
+	destDir := t.TempDir()
+
+	out, err := execute("install-skills", "--for", "cursor", "--dest", destDir, "--list")
+	if err != nil {
+		t.Fatalf("nn install-skills --for cursor --list: %v", err)
+	}
+	if !strings.Contains(out, "nn-workflow") {
+		t.Errorf("--for cursor --list missing skill names: %q", out)
+	}
+}
+
+func TestInstallSkillsUnknownForErrors(t *testing.T) {
+	_, execute := setupNotebook(t)
+	_, err := execute("install-skills", "--for", "unknownllm")
+	if err == nil {
+		t.Fatal("--for unknownllm: want error, got nil")
+	}
+}

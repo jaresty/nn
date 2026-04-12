@@ -2,8 +2,10 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -33,6 +35,7 @@ func NewRootCmd(cfgFile string) *cobra.Command {
 	}
 
 	root.AddCommand(
+		newInitCmd(cfgFile),
 		newNewCmd(state),
 		newShowCmd(state),
 		newListCmd(state),
@@ -55,8 +58,8 @@ func NewRootCmdForTest(cfgFile string) *cobra.Command {
 
 // initState resolves the notebook directory and initialises the backend.
 func initState(cmd *cobra.Command, state *rootState, cfgFile string) error {
-	// install-skills doesn't need a notebook
-	if cmd.Name() == "install-skills" {
+	// These commands manage config/skills and don't need a notebook.
+	if cmd.Name() == "install-skills" || cmd.Name() == "init" {
 		return nil
 	}
 
@@ -67,6 +70,9 @@ func initState(cmd *cobra.Command, state *rootState, cfgFile string) error {
 
 	cfg, err := config.Load(cfgFile)
 	if err != nil {
+		if os.IsNotExist(err) || isNotExistWrapped(err) {
+			return fmt.Errorf("no config found at %s — run `nn init --path <notebook-dir>` to get started", cfgFile)
+		}
 		return fmt.Errorf("load config: %w", err)
 	}
 	nb, err := cfg.Notebook(nbName)
@@ -87,4 +93,13 @@ func initState(cmd *cobra.Command, state *rootState, cfgFile string) error {
 // outWriter returns the command's output writer.
 func outWriter(cmd *cobra.Command) io.Writer {
 	return cmd.OutOrStdout()
+}
+
+// isNotExistWrapped reports whether err wraps a not-exist error (e.g. from config.Load).
+func isNotExistWrapped(err error) bool {
+	var pathErr *fs.PathError
+	if errors.As(err, &pathErr) {
+		return os.IsNotExist(pathErr)
+	}
+	return false
 }
