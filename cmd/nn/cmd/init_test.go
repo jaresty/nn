@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,6 +94,27 @@ func TestInitErrorIfExists(t *testing.T) {
 	root2.SetArgs([]string{"init", "--path", nbDir})
 	if err := root2.Execute(); err == nil {
 		t.Fatal("second nn init without --force: want error, got nil")
+	}
+}
+
+func TestInitUsesDefaultConfigPathWhenNoOverride(t *testing.T) {
+	// NewRootCmd("") simulates production invocation with no cfgFile override.
+	// Init must resolve to the default config path rather than erroring on "".
+	nbDir := t.TempDir()
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir) // redirect default path to temp dir
+
+	var stdout bytes.Buffer
+	root := NewRootCmd("")
+	root.SetOut(&stdout)
+	root.SetArgs([]string{"init", "--path", nbDir, "--name", "personal"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("nn init with no cfgFile override: %v", err)
+	}
+
+	expectedCfg := filepath.Join(cfgDir, "config.toml")
+	if _, err := os.Stat(expectedCfg); err != nil {
+		t.Fatalf("config not created at default path %s: %v", expectedCfg, err)
 	}
 }
 

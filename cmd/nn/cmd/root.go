@@ -65,7 +65,7 @@ func initState(cmd *cobra.Command, state *rootState, cfgFile string) error {
 
 	nbName := os.Getenv("NN_NOTEBOOK")
 	if cfgFile == "" {
-		cfgFile = config.DefaultConfigPath()
+		cfgFile = defaultConfigPath()
 	}
 
 	cfg, err := config.Load(cfgFile)
@@ -88,6 +88,11 @@ func initState(cmd *cobra.Command, state *rootState, cfgFile string) error {
 	state.notebookDir = nb.Path
 	state.backend = b
 	return nil
+}
+
+// defaultConfigPath returns the resolved path to the nn config file.
+func defaultConfigPath() string {
+	return config.DefaultConfigPath()
 }
 
 // outWriter returns the command's output writer.

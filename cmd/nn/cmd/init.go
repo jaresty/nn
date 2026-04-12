@@ -27,6 +27,9 @@ func newInitCmd(cfgFile string) *cobra.Command {
 			if nbName == "" {
 				nbName = "personal"
 			}
+			if cfgFile == "" {
+				cfgFile = defaultConfigPath()
+			}
 
 			// Expand ~ in path
 			if len(nbPath) >= 2 && nbPath[:2] == "~/" {
