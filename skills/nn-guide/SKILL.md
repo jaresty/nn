@@ -24,6 +24,20 @@ nn new --title TEXT --type TYPE [--tags TEXT] [--content TEXT] [--no-edit]
 - `--no-edit` skips `$EDITOR` launch (always use in non-TTY/LLM context)
 - `--content TEXT` sets the note body directly
 
+### Choosing a type
+
+The five types cover the epistemic roles a note can play (after Ahrens, *How to Take Smart Notes*):
+
+| Type | Use when the note… | Example title |
+|---|---|---|
+| `concept` | defines or explains a single idea, term, or principle | "The Atomicity Principle" |
+| `argument` | makes a claim and supports it with reasoning | "Atomicity enables reuse across contexts" |
+| `model` | describes a framework, pattern, or mental model | "The Zettelkasten as a second brain" |
+| `hypothesis` | states an untested conjecture worth investigating | "Dense linking predicts note longevity" |
+| `observation` | records a concrete fact, datum, or empirical finding | "Luhmann produced 90,000 notes over 40 years" |
+
+**Decision heuristic:** if you're not sure, ask — *is this a definition (concept), a claim with support (argument), a framework (model), a guess to test (hypothesis), or something I witnessed/measured (observation)?* If none fit cleanly, the note may not be atomic yet.
+
 ## nn show
 
 Print note content to stdout. Accepts a full ID or a title substring.
