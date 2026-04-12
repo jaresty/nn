@@ -28,7 +28,8 @@ Invoke it with `/nn-workflow`.
    ```
    Annotations must explain the relationship — never bare links.
 
-4. **Review**: Run `nn status` to check for orphans or broken links.
+4. **Review**: Run `nn status` to check for orphans (printed with IDs and titles) or broken links.
+   To audit link annotations for a specific note: `nn links <id>`
 
 ## Non-interactive rules
 
@@ -47,6 +48,7 @@ Invoke it with `/nn-workflow`.
 | `nn link <from> <to> --annotation "..."` | Add a link |
 | `nn unlink <from> <to>` | Remove a link |
 | `nn graph --json` | Export link graph |
-| `nn status` | Notebook health |
+| `nn status [--json]` | Notebook health (orphans listed with IDs/titles) |
+| `nn links <id> [--json]` | Outgoing links with annotations |
 | `nn promote <id> --to reviewed` | Advance review status |
 | `nn delete <id> --confirm` | Delete a note |

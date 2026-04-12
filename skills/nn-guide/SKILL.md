@@ -84,10 +84,24 @@ JSON output: `{ "nodes": [...], "edges": [...] }`
 ## nn status
 
 ```
-nn status
+nn status [--json]
 ```
 
-Reports: total notes, orphan count, draft count, broken links.
+Reports: total notes, orphan count (with IDs and titles), draft count, broken links.
+
+`--json` output: `{ "total": N, "orphans": [{"id": "...", "title": "..."}], "drafts": N, "broken_links": [...] }`
+
+## nn links
+
+```
+nn links <id> [--json]
+```
+
+Lists all outgoing links from a note with their annotations.
+
+Text output: one entry per link — `targetID  title\n  annotation`
+
+`--json` output: `[{"id": "...", "title": "...", "annotation": "..."}]`
 
 ## nn promote
 
