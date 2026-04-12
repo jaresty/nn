@@ -9,6 +9,7 @@
 - 2026-04-11 M1: `internal/note`, `internal/backend/gitlocal`, `internal/index` — all tested
 - 2026-04-11 M2–M6: full CLI (`nn new`, `nn show`, `nn list`, `nn link`, `nn unlink`, `nn graph`, `nn status`, `nn promote`, `nn delete`, `nn install-skills`) — all tested
 - 2026-04-11 M7: GoReleaser + GitHub Actions CI (`test.yml`, `release.yml`) + Homebrew tap (`jaresty/homebrew-nn`); MCP server ruled out (skills cover LLM integration)
+- 2026-04-12 `question` added as sixth note type; `reference` deferred
 
 ---
 
@@ -110,14 +111,12 @@ commitment: requiring a type forces the author (or LLM) to decide what kind of c
 note makes before writing it, which enforces atomicity. Fewer, sharper types serve this
 better than a complete ontology.
 
-Two genuine gaps exist at the literature-review end of the workflow:
-- `question` — a note posing an open question rather than answering one (Luhmann used
-  these extensively; `hypothesis` is the current proxy)
+One known gap remains at the literature-review end of the workflow:
 - `reference` — a summary of an external source (Ahrens' "literature note"; currently
   unrepresented)
 
-These are deferred deliberately. Adding them would be appropriate if `nn` is used heavily
-for literature review; the ADR should be updated at that point.
+`question` was added as a sixth type (see implementation log). `reference` is deferred
+deliberately; adding it would be appropriate if `nn` is used heavily for literature review.
 
 **Link section:** Links live in a dedicated `## Links` section at the bottom of the note body:
 

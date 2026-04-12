@@ -94,6 +94,9 @@ func TestValidTypes(t *testing.T) {
 	if invalid.IsValid() {
 		t.Errorf("Type %q.IsValid() = true, want false", invalid)
 	}
+	if !note.TypeQuestion.IsValid() {
+		t.Errorf("Type %q.IsValid() = false, want true", note.TypeQuestion)
+	}
 }
 
 func TestValidStatuses(t *testing.T) {

@@ -35,6 +35,7 @@ The five types cover the epistemic roles a note can play (after Ahrens, *How to 
 | `model` | describes a framework, pattern, or mental model | "The Zettelkasten as a second brain" |
 | `hypothesis` | states an untested conjecture worth investigating | "Dense linking predicts note longevity" |
 | `observation` | records a concrete fact, datum, or empirical finding | "Luhmann produced 90,000 notes over 40 years" |
+| `question` | poses an open question that the graph should eventually answer | "Why did Luhmann avoid hierarchical folders?" |
 
 **Decision heuristic:** if you're not sure, ask — *is this a definition (concept), a claim with support (argument), a framework (model), a guess to test (hypothesis), or something I witnessed/measured (observation)?* If none fit cleanly, the note may not be atomic yet.
 

@@ -30,7 +30,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 			}
 			noteType := note.Type(typ)
 			if !noteType.IsValid() {
-				return fmt.Errorf("invalid --type %q: must be concept|argument|model|hypothesis|observation", typ)
+				return fmt.Errorf("invalid --type %q: must be concept|argument|model|hypothesis|observation|question", typ)
 			}
 
 			var parsedTags []string
@@ -71,7 +71,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&title, "title", "", "Note title")
-	cmd.Flags().StringVar(&typ, "type", "", "Note type: concept|argument|model|hypothesis|observation")
+	cmd.Flags().StringVar(&typ, "type", "", "Note type: concept|argument|model|hypothesis|observation|question")
 	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tags")
 	cmd.Flags().StringVar(&content, "content", "", "Note body (use with --no-edit)")
 	cmd.Flags().BoolVar(&noEdit, "no-edit", false, "Skip opening $EDITOR")
