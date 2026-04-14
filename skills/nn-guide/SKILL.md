@@ -102,14 +102,14 @@ Reports: total notes, orphan count (with IDs and titles), draft count, broken li
 ## nn links
 
 ```
-nn links <id> [--json]
+nn links <id> [--type TYPE] [--json]
 ```
 
-Lists all outgoing links from a note with their annotations.
+Lists outgoing links from a note with their annotations. `--type` filters to a specific relationship type.
 
-Text output: one entry per link — `targetID  title\n  annotation`
+Text output: one entry per link — `targetID  title\n  [type] annotation` (type shown when present)
 
-`--json` output: `[{"id": "...", "title": "...", "annotation": "..."}]`
+`--json` output: `[{"id": "...", "title": "...", "annotation": "...", "type": "..."}]` (type omitted when empty)
 
 ## nn update
 

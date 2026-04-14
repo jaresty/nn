@@ -32,6 +32,32 @@ func TestLinksText(t *testing.T) {
 	}
 }
 
+// --type filter: only returns links matching the given type.
+func TestLinksTypeFilter(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	from := newTestNoteForCLI(note.GenerateID(), "Source", note.TypeConcept)
+	to1 := newTestNoteForCLI(note.GenerateID(), "Refines Target", note.TypeConcept)
+	to2 := newTestNoteForCLI(note.GenerateID(), "Contradicts Target", note.TypeConcept)
+	from.Links = []note.Link{
+		{TargetID: to1.ID, Annotation: "narrows scope", Type: "refines"},
+		{TargetID: to2.ID, Annotation: "opposes claim", Type: "contradicts"},
+	}
+	writeNoteFile(t, nbDir, from)
+	writeNoteFile(t, nbDir, to1)
+	writeNoteFile(t, nbDir, to2)
+
+	out, err := execute("links", from.ID, "--type", "refines")
+	if err != nil {
+		t.Fatalf("nn links --type refines: %v", err)
+	}
+	if !strings.Contains(out, "Refines Target") {
+		t.Errorf("missing refines link:\n%s", out)
+	}
+	if strings.Contains(out, "Contradicts Target") {
+		t.Errorf("contradicts link should be filtered out:\n%s", out)
+	}
+}
+
 // Assertion D: nn links <id> --json produces valid JSON array with id/title/annotation.
 func TestLinksJSON(t *testing.T) {
 	nbDir, execute := setupNotebook(t)

@@ -9,6 +9,7 @@ import (
 
 func newLinksCmd(state *rootState) *cobra.Command {
 	var jsonOut bool
+	var filterType string
 
 	cmd := &cobra.Command{
 		Use:   "links <id>",
@@ -41,14 +42,22 @@ func newLinksCmd(state *rootState) *cobra.Command {
 						ID         string `json:"id"`
 						Title      string `json:"title"`
 						Annotation string `json:"annotation"`
+						Type       string `json:"type,omitempty"`
 					}
-					entries := make([]linkEntry, len(n.Links))
-					for i, lnk := range n.Links {
-						entries[i] = linkEntry{
+					var entries []linkEntry
+					for _, lnk := range n.Links {
+						if filterType != "" && lnk.Type != filterType {
+							continue
+						}
+						entries = append(entries, linkEntry{
 							ID:         lnk.TargetID,
 							Title:      titles[lnk.TargetID],
 							Annotation: lnk.Annotation,
-						}
+							Type:       lnk.Type,
+						})
+					}
+					if entries == nil {
+						entries = []linkEntry{}
 					}
 					enc := json.NewEncoder(w)
 					enc.SetIndent("", "  ")
@@ -56,6 +65,9 @@ func newLinksCmd(state *rootState) *cobra.Command {
 				}
 
 				for _, lnk := range n.Links {
+					if filterType != "" && lnk.Type != filterType {
+						continue
+					}
 					if lnk.Type != "" {
 						fmt.Fprintf(w, "%s  %s\n  [%s] %s\n", lnk.TargetID, titles[lnk.TargetID], lnk.Type, lnk.Annotation)
 					} else {
@@ -71,5 +83,6 @@ func newLinksCmd(state *rootState) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON")
+	cmd.Flags().StringVar(&filterType, "type", "", "Filter by link type (e.g. refines, contradicts)")
 	return cmd
 }

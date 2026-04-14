@@ -56,7 +56,7 @@ Invoke it with `/nn-workflow`.
 | `nn unlink <from> <to>` | Remove a link |
 | `nn graph --json` | Export link graph |
 | `nn status [--json]` | Notebook health (orphans listed with IDs/titles) |
-| `nn links <id> [--json]` | Outgoing links with annotations |
+| `nn links <id> [--type TYPE] [--json]` | Outgoing links with annotations (filterable by type) |
 | `nn update <id> --content "..." --no-edit` | Replace note body |
 | `nn update <id> --append "..." --no-edit` | Append to note body |
 | `nn update <id> --title "..." --no-edit` | Rename note |
