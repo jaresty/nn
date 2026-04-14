@@ -21,4 +21,5 @@ type Backend interface {
 	RemoveLink(fromID, toID string) error
 	Promote(id string, to note.Status) error
 	Update(n *note.Note) error
+	UpdateLink(fromID, toID string, annotation, linkType *string) error
 }

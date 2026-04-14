@@ -67,6 +67,14 @@ nn list [--tag TEXT] [--type TYPE] [--status STATUS]
 
 Filters compose: `nn list --search "implicit" --type concept --sort modified` works as expected.
 
+## nn update-link
+
+```
+nn update-link <from-id> <to-id> [--annotation TEXT] [--type TYPE]
+```
+
+Updates the annotation and/or type of an existing link in place — no unlink/relink needed. At least one flag is required. Only the specified fields are changed; unspecified fields are preserved.
+
 ## nn link / nn unlink / nn bulk-link
 
 ```

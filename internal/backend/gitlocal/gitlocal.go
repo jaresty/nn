@@ -236,6 +236,42 @@ func (b *Backend) RemoveLink(fromID, toID string) error {
 	return b.commit(path, msg)
 }
 
+// UpdateLink modifies the annotation and/or type of an existing link without removing it.
+// nil pointer arguments mean "leave unchanged".
+func (b *Backend) UpdateLink(fromID, toID string, annotation, linkType *string) error {
+	n, err := b.Read(fromID)
+	if err != nil {
+		return fmt.Errorf("gitlocal.UpdateLink: %w", err)
+	}
+	found := false
+	for i, lnk := range n.Links {
+		if lnk.TargetID != toID {
+			continue
+		}
+		found = true
+		if annotation != nil {
+			n.Links[i].Annotation = *annotation
+		}
+		if linkType != nil {
+			n.Links[i].Type = *linkType
+		}
+		break
+	}
+	if !found {
+		return fmt.Errorf("gitlocal.UpdateLink: link %s→%s not found", fromID, toID)
+	}
+	data, err := n.Marshal()
+	if err != nil {
+		return fmt.Errorf("gitlocal.UpdateLink: marshal: %w", err)
+	}
+	path := filepath.Join(b.dir, n.Filename())
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("gitlocal.UpdateLink: write: %w", err)
+	}
+	msg := fmt.Sprintf("note: update-link %s → %s", fromID, toID)
+	return b.commit(path, msg)
+}
+
 // Update writes the modified note and commits with an "update" message.
 func (b *Backend) Update(n *note.Note) error {
 	data, err := n.Marshal()
