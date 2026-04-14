@@ -9,6 +9,13 @@ type LinkTarget struct {
 	Annotation string
 }
 
+// LinkUpdate is a (toID, optional annotation, optional type) used by BulkUpdateLinks.
+type LinkUpdate struct {
+	ToID       string
+	Annotation *string // nil = leave unchanged
+	Type       *string // nil = leave unchanged
+}
+
 // Backend abstracts note storage so the CLI can be tested and extended
 // without depending on a specific implementation.
 type Backend interface {
@@ -22,4 +29,5 @@ type Backend interface {
 	Promote(id string, to note.Status) error
 	Update(n *note.Note) error
 	UpdateLink(fromID, toID string, annotation, linkType *string) error
+	BulkUpdateLinks(fromID string, updates []LinkUpdate) error
 }

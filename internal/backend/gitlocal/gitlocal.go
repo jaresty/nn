@@ -236,6 +236,43 @@ func (b *Backend) RemoveLink(fromID, toID string) error {
 	return b.commit(path, msg)
 }
 
+// BulkUpdateLinks applies multiple link updates to fromID in a single git commit.
+func (b *Backend) BulkUpdateLinks(fromID string, updates []backend.LinkUpdate) error {
+	n, err := b.Read(fromID)
+	if err != nil {
+		return fmt.Errorf("gitlocal.BulkUpdateLinks: %w", err)
+	}
+	for _, u := range updates {
+		found := false
+		for i, lnk := range n.Links {
+			if lnk.TargetID != u.ToID {
+				continue
+			}
+			found = true
+			if u.Annotation != nil {
+				n.Links[i].Annotation = *u.Annotation
+			}
+			if u.Type != nil {
+				n.Links[i].Type = *u.Type
+			}
+			break
+		}
+		if !found {
+			return fmt.Errorf("gitlocal.BulkUpdateLinks: link %s→%s not found", fromID, u.ToID)
+		}
+	}
+	data, err := n.Marshal()
+	if err != nil {
+		return fmt.Errorf("gitlocal.BulkUpdateLinks: marshal: %w", err)
+	}
+	path := filepath.Join(b.dir, n.Filename())
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("gitlocal.BulkUpdateLinks: write: %w", err)
+	}
+	msg := fmt.Sprintf("note: bulk-update-link %s (%d links)", fromID, len(updates))
+	return b.commit(path, msg)
+}
+
 // UpdateLink modifies the annotation and/or type of an existing link without removing it.
 // nil pointer arguments mean "leave unchanged".
 func (b *Backend) UpdateLink(fromID, toID string, annotation, linkType *string) error {

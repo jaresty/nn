@@ -58,6 +58,7 @@ Invoke it with `/nn-workflow`.
 | `nn status [--json]` | Notebook health (orphans listed with IDs/titles) |
 | `nn links <id> [--type TYPE] [--json]` | Outgoing links with annotations (filterable by type) |
 | `nn update-link <from> <to> [--annotation "..."] [--type TYPE]` | Update link metadata in place |
+| `nn bulk-update-link <from> --to <id> --type TYPE ...` | Update multiple links (1 commit) |
 | `nn update <id> --content "..." --no-edit` | Replace note body |
 | `nn update <id> --append "..." --no-edit` | Append to note body |
 | `nn update <id> --title "..." --no-edit` | Rename note |

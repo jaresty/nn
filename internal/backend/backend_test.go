@@ -26,3 +26,4 @@ func (m *mockBackend) RemoveLink(from, to string) error                     { re
 func (m *mockBackend) Promote(id string, to note.Status) error              { return nil }
 func (m *mockBackend) Update(n *note.Note) error                                          { return nil }
 func (m *mockBackend) UpdateLink(from, to string, ann, typ *string) error                 { return nil }
+func (m *mockBackend) BulkUpdateLinks(from string, updates []backend.LinkUpdate) error    { return nil }

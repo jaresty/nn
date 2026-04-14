@@ -67,13 +67,16 @@ nn list [--tag TEXT] [--type TYPE] [--status STATUS]
 
 Filters compose: `nn list --search "implicit" --type concept --sort modified` works as expected.
 
-## nn update-link
+## nn update-link / nn bulk-update-link
 
 ```
 nn update-link <from-id> <to-id> [--annotation TEXT] [--type TYPE]
+nn bulk-update-link <from-id> --to <id> [--type TYPE] [--annotation TEXT] [--to <id> ...]
 ```
 
-Updates the annotation and/or type of an existing link in place — no unlink/relink needed. At least one flag is required. Only the specified fields are changed; unspecified fields are preserved.
+Update annotation and/or type of existing links in place — no unlink/relink needed. At least one change flag is required. Only specified fields are modified; unspecified fields are preserved.
+
+`nn bulk-update-link` applies all updates in a single git commit. `--type` and `--annotation` are paired with `--to` by position; if provided, their counts must match `--to`.
 
 ## nn link / nn unlink / nn bulk-link
 
