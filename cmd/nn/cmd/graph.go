@@ -64,7 +64,11 @@ func newGraphCmd(state *rootState) *cobra.Command {
 			}
 			// Plain text: one edge per line
 			for _, e := range g.Edges {
-				fmt.Fprintf(outWriter(cmd), "%s → %s — %s\n", e.From, e.To, e.Annotation)
+				if e.LinkType != "" {
+					fmt.Fprintf(outWriter(cmd), "%s -> %s [%s] -- %s\n", e.From, e.To, e.LinkType, e.Annotation)
+				} else {
+					fmt.Fprintf(outWriter(cmd), "%s -> %s -- %s\n", e.From, e.To, e.Annotation)
+				}
 			}
 			return nil
 		},

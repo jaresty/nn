@@ -1,10 +1,28 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jaresty/nn/internal/note"
 )
+
+func TestGraphTextIncludesType(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	src := newTestNoteForCLI(note.GenerateID(), "Source", note.TypeConcept)
+	dst := newTestNoteForCLI(note.GenerateID(), "Target", note.TypeArgument)
+	src.Links = []note.Link{{TargetID: dst.ID, Annotation: "opposes claim", Type: "contradicts"}}
+	writeNoteFile(t, nbDir, src)
+	writeNoteFile(t, nbDir, dst)
+
+	out, err := execute("graph")
+	if err != nil {
+		t.Fatalf("nn graph: %v", err)
+	}
+	if !strings.Contains(out, "[contradicts]") {
+		t.Errorf("graph text output missing type:\n%s", out)
+	}
+}
 
 func TestGraphJSON(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
