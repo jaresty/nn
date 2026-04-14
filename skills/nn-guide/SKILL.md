@@ -111,6 +111,24 @@ Text output: one entry per link — `targetID  title\n  annotation`
 
 `--json` output: `[{"id": "...", "title": "...", "annotation": "..."}]`
 
+## nn update
+
+```
+nn update <id> [--title TEXT] [--tags TEXT] [--content TEXT] [--append TEXT] [--no-edit]
+```
+
+At least one change flag is required. `--content` and `--append` are mutually exclusive.
+
+| Flag | Effect |
+|---|---|
+| `--title TEXT` | Replace note title |
+| `--tags TEXT` | Replace all tags (comma-separated) |
+| `--content TEXT` | Replace note body entirely |
+| `--append TEXT` | Append text to note body (double-newline separator) |
+| `--no-edit` | Skip `$EDITOR` (always use in non-TTY/LLM context) |
+
+Direct file editing is also safe — the index is a cache rebuilt from files.
+
 ## nn promote
 
 ```

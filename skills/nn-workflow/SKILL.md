@@ -57,5 +57,8 @@ Invoke it with `/nn-workflow`.
 | `nn graph --json` | Export link graph |
 | `nn status [--json]` | Notebook health (orphans listed with IDs/titles) |
 | `nn links <id> [--json]` | Outgoing links with annotations |
+| `nn update <id> --content "..." --no-edit` | Replace note body |
+| `nn update <id> --append "..." --no-edit` | Append to note body |
+| `nn update <id> --title "..." --no-edit` | Rename note |
 | `nn promote <id> --to reviewed` | Advance review status |
 | `nn delete <id> --confirm` | Delete a note |

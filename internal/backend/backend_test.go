@@ -24,3 +24,4 @@ func (m *mockBackend) AddLink(from, to, annotation, linkType string) error  { re
 func (m *mockBackend) AddLinks(from string, targets []backend.LinkTarget) error { return nil }
 func (m *mockBackend) RemoveLink(from, to string) error                     { return nil }
 func (m *mockBackend) Promote(id string, to note.Status) error              { return nil }
+func (m *mockBackend) Update(n *note.Note) error                            { return nil }

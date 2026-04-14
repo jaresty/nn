@@ -236,6 +236,20 @@ func (b *Backend) RemoveLink(fromID, toID string) error {
 	return b.commit(path, msg)
 }
 
+// Update writes the modified note and commits with an "update" message.
+func (b *Backend) Update(n *note.Note) error {
+	data, err := n.Marshal()
+	if err != nil {
+		return fmt.Errorf("gitlocal.Update: %w", err)
+	}
+	path := filepath.Join(b.dir, n.Filename())
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("gitlocal.Update: %w", err)
+	}
+	msg := fmt.Sprintf("note: update %s — %s", n.ID, n.Title)
+	return b.commit(path, msg)
+}
+
 // Promote updates the status of the note with the given id and commits.
 func (b *Backend) Promote(id string, to note.Status) error {
 	n, err := b.Read(id)
