@@ -30,7 +30,7 @@ func TestAddLink(t *testing.T) {
 	b.Write(n1)
 	b.Write(n2)
 
-	if err := b.AddLink(n1.ID, n2.ID, "provides context for"); err != nil {
+	if err := b.AddLink(n1.ID, n2.ID, "provides context for", ""); err != nil {
 		t.Fatalf("AddLink: %v", err)
 	}
 
@@ -51,7 +51,7 @@ func TestAddLinkCommitMessage(t *testing.T) {
 	n1, n2 := newNoteWithLinks(t)
 	b.Write(n1)
 	b.Write(n2)
-	b.AddLink(n1.ID, n2.ID, "provides context for")
+	b.AddLink(n1.ID, n2.ID, "provides context for", "")
 
 	cmd := exec.Command("git", "log", "--oneline", "-1")
 	cmd.Dir = dir
@@ -66,7 +66,7 @@ func TestRemoveLink(t *testing.T) {
 	n1, n2 := newNoteWithLinks(t)
 	b.Write(n1)
 	b.Write(n2)
-	b.AddLink(n1.ID, n2.ID, "provides context for")
+	b.AddLink(n1.ID, n2.ID, "provides context for", "")
 
 	if err := b.RemoveLink(n1.ID, n2.ID); err != nil {
 		t.Fatalf("RemoveLink: %v", err)

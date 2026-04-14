@@ -58,20 +58,28 @@ List and filter notes.
 ```
 nn list [--tag TEXT] [--type TYPE] [--status STATUS]
         [--linked-from ID] [--linked-to ID] [--orphan]
-        [--search TEXT] [--limit N] [--json]
+        [--search TEXT] [--sort FIELD] [--limit N] [--json]
 ```
 
-`--search TEXT` performs a case-insensitive substring match across note title and body.
-Filters compose: `nn list --search "implicit" --type concept` works as expected.
+`--search TEXT` performs a ranked case-insensitive search across note title and body. Title matches rank above body matches.
 
-## nn link / nn unlink
+`--sort FIELD` sorts results: `title` (alphabetical), `modified` (most-recently-modified first), `created` (default, most-recently-created first). Applied after filtering and ranking.
+
+Filters compose: `nn list --search "implicit" --type concept --sort modified` works as expected.
+
+## nn link / nn unlink / nn bulk-link
 
 ```
-nn link <from-id> <to-id> --annotation "relationship description"
+nn link <from-id> <to-id> --annotation "relationship description" [--type TYPE]
 nn unlink <from-id> <to-id>
+nn bulk-link <from-id> --to <id> --annotation "..." [--to <id> --annotation "..."]...
 ```
 
 Annotations are required. A bare link is a schema violation.
+
+`--type` is optional. Open vocabulary: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `questions`.
+
+`nn bulk-link` creates all links in a single git commit. `--to` and `--annotation` are paired by position; counts must match.
 
 ## nn graph
 

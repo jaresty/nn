@@ -56,7 +56,11 @@ func newLinksCmd(state *rootState) *cobra.Command {
 				}
 
 				for _, lnk := range n.Links {
-					fmt.Fprintf(w, "%s  %s\n  %s\n", lnk.TargetID, titles[lnk.TargetID], lnk.Annotation)
+					if lnk.Type != "" {
+						fmt.Fprintf(w, "%s  %s\n  [%s] %s\n", lnk.TargetID, titles[lnk.TargetID], lnk.Type, lnk.Annotation)
+					} else {
+						fmt.Fprintf(w, "%s  %s\n  %s\n", lnk.TargetID, titles[lnk.TargetID], lnk.Annotation)
+					}
 				}
 				break
 			}

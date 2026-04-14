@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -21,6 +22,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		limit        int
 		jsonOut      bool
 		search       string
+		sortBy       string
 	)
 
 	cmd := &cobra.Command{
@@ -75,6 +77,36 @@ func newListCmd(state *rootState) *cobra.Command {
 				filtered = append(filtered, n)
 			}
 
+			if search != "" {
+				scores := make(map[string]int, len(filtered))
+				for _, n := range filtered {
+					if containsFold(n.Title, search) {
+						scores[n.ID] += 10
+					}
+					if containsFold(n.Body, search) {
+						scores[n.ID] += 1
+					}
+				}
+				sort.SliceStable(filtered, func(i, j int) bool {
+					return scores[filtered[i].ID] > scores[filtered[j].ID]
+				})
+			}
+
+			switch sortBy {
+			case "modified":
+				sort.Slice(filtered, func(i, j int) bool {
+					return filtered[i].Modified.After(filtered[j].Modified)
+				})
+			case "title":
+				sort.Slice(filtered, func(i, j int) bool {
+					return filtered[i].Title < filtered[j].Title
+				})
+			case "created", "":
+				sort.Slice(filtered, func(i, j int) bool {
+					return filtered[i].Created.After(filtered[j].Created)
+				})
+			}
+
 			if limit > 0 && len(filtered) > limit {
 				filtered = filtered[:limit]
 			}
@@ -98,6 +130,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of results")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Machine-readable JSON output")
 	cmd.Flags().StringVar(&search, "search", "", "Full-text search across title and body")
+	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by field: title, modified, created (default: created desc)")
 	return cmd
 }
 

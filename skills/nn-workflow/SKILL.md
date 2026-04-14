@@ -21,10 +21,16 @@ Invoke it with `/nn-workflow`.
    nn new --title "..." --type <type> --content "..." --no-edit
    ```
 
-3. **Link**: For each relevant existing note, add an annotated link:
+3. **Link**: For each relevant existing note, add annotated links. Use `--type` when the relationship is specific:
    ```
-   nn link <new-id> <existing-id> --annotation "..."
+   nn link <new-id> <existing-id> --annotation "..." [--type refines|contradicts|source-of|extends|supports|questions]
    nn link <existing-id> <new-id> --annotation "..."
+   ```
+   For multiple targets at once (single commit):
+   ```
+   nn bulk-link <new-id> \
+     --to <id1> --annotation "..." \
+     --to <id2> --annotation "..."
    ```
    Annotations must explain the relationship — never bare links.
 
@@ -44,8 +50,9 @@ Invoke it with `/nn-workflow`.
 |---|---|
 | `nn new` | Create a note |
 | `nn show <id>` | Read a note |
-| `nn list` | List/filter notes |
-| `nn link <from> <to> --annotation "..."` | Add a link |
+| `nn list [--search TEXT] [--sort modified|title|created]` | List/filter/rank notes |
+| `nn link <from> <to> --annotation "..." [--type TYPE]` | Add a link |
+| `nn bulk-link <from> --to <id> --annotation "..."...` | Add multiple links (1 commit) |
 | `nn unlink <from> <to>` | Remove a link |
 | `nn graph --json` | Export link graph |
 | `nn status [--json]` | Notebook health (orphans listed with IDs/titles) |

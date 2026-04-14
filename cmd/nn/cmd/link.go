@@ -8,6 +8,7 @@ import (
 
 func newLinkCmd(state *rootState) *cobra.Command {
 	var annotation string
+	var linkType string
 
 	cmd := &cobra.Command{
 		Use:   "link <from-id> <to-id>",
@@ -18,7 +19,7 @@ func newLinkCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("--annotation is required")
 			}
 			fromID, toID := args[0], args[1]
-			if err := state.backend.AddLink(fromID, toID, annotation); err != nil {
+			if err := state.backend.AddLink(fromID, toID, annotation, linkType); err != nil {
 				return fmt.Errorf("link: %w", err)
 			}
 			fmt.Fprintf(outWriter(cmd), "linked %s → %s\n", fromID, toID)
@@ -26,6 +27,7 @@ func newLinkCmd(state *rootState) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&annotation, "annotation", "", "Link annotation (required)")
+	cmd.Flags().StringVar(&linkType, "type", "", "Link relationship type (e.g. refines, contradicts, source-of)")
 	return cmd
 }
 

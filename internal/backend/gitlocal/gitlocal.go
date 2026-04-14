@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/jaresty/nn/internal/backend"
 	"github.com/jaresty/nn/internal/note"
 )
 
@@ -158,7 +159,7 @@ func (b *Backend) git(args ...string) error {
 }
 
 // AddLink adds an annotated link from fromID to toID and commits.
-func (b *Backend) AddLink(fromID, toID, annotation string) error {
+func (b *Backend) AddLink(fromID, toID, annotation, linkType string) error {
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.AddLink: %w", err)
@@ -168,7 +169,7 @@ func (b *Backend) AddLink(fromID, toID, annotation string) error {
 			return fmt.Errorf("gitlocal.AddLink: link %s→%s already exists", fromID, toID)
 		}
 	}
-	n.Links = append(n.Links, note.Link{TargetID: toID, Annotation: annotation})
+	n.Links = append(n.Links, note.Link{TargetID: toID, Annotation: annotation, Type: linkType})
 	data, err := n.Marshal()
 	if err != nil {
 		return fmt.Errorf("gitlocal.AddLink: marshal: %w", err)
@@ -178,6 +179,35 @@ func (b *Backend) AddLink(fromID, toID, annotation string) error {
 		return fmt.Errorf("gitlocal.AddLink: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: link %s → %s", fromID, toID)
+	return b.commit(path, msg)
+}
+
+// AddLinks adds multiple annotated links from fromID in a single git commit.
+func (b *Backend) AddLinks(fromID string, targets []backend.LinkTarget) error {
+	n, err := b.Read(fromID)
+	if err != nil {
+		return fmt.Errorf("gitlocal.AddLinks: %w", err)
+	}
+	existing := make(map[string]bool, len(n.Links))
+	for _, lnk := range n.Links {
+		existing[lnk.TargetID] = true
+	}
+	for _, t := range targets {
+		if existing[t.ToID] {
+			return fmt.Errorf("gitlocal.AddLinks: link %s→%s already exists", fromID, t.ToID)
+		}
+		n.Links = append(n.Links, note.Link{TargetID: t.ToID, Annotation: t.Annotation})
+		existing[t.ToID] = true
+	}
+	data, err := n.Marshal()
+	if err != nil {
+		return fmt.Errorf("gitlocal.AddLinks: marshal: %w", err)
+	}
+	path := filepath.Join(b.dir, n.Filename())
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("gitlocal.AddLinks: write: %w", err)
+	}
+	msg := fmt.Sprintf("note: bulk-link %s → %d notes", fromID, len(targets))
 	return b.commit(path, msg)
 }
 
