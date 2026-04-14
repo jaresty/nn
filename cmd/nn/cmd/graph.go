@@ -17,6 +17,7 @@ type graphEdge struct {
 	From       string `json:"from"`
 	To         string `json:"to"`
 	Annotation string `json:"annotation"`
+	LinkType   string `json:"type,omitempty"`
 }
 
 type graphOutput struct {
@@ -51,6 +52,7 @@ func newGraphCmd(state *rootState) *cobra.Command {
 						From:       n.ID,
 						To:         lnk.TargetID,
 						Annotation: lnk.Annotation,
+						LinkType:   lnk.Type,
 					})
 				}
 			}

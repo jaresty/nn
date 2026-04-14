@@ -32,3 +32,32 @@ func TestGraphJSON(t *testing.T) {
 	_ = nodes
 	_ = edges
 }
+
+func TestGraphJSONEdgeIncludesType(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	src := newTestNoteForCLI(note.GenerateID(), "Source", note.TypeConcept)
+	dst := newTestNoteForCLI(note.GenerateID(), "Target", note.TypeArgument)
+	src.Links = []note.Link{{TargetID: dst.ID, Annotation: "opposes claim", Type: "contradicts"}}
+	writeNoteFile(t, nbDir, src)
+	writeNoteFile(t, nbDir, dst)
+
+	out, err := execute("graph", "--json")
+	if err != nil {
+		t.Fatalf("nn graph --json: %v", err)
+	}
+	var result struct {
+		Edges []struct {
+			From       string `json:"from"`
+			To         string `json:"to"`
+			Annotation string `json:"annotation"`
+			Type       string `json:"type"`
+		} `json:"edges"`
+	}
+	mustJSON(t, out, &result)
+	if len(result.Edges) != 1 {
+		t.Fatalf("expected 1 edge, got %d", len(result.Edges))
+	}
+	if result.Edges[0].Type != "contradicts" {
+		t.Errorf("edge type = %q, want contradicts", result.Edges[0].Type)
+	}
+}
