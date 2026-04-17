@@ -47,6 +47,7 @@ func NewRootCmd(cfgFile string) *cobra.Command {
 		newUnlinkCmd(state),
 		newGraphCmd(state),
 		newLinksCmd(state),
+		newBacklinksCmd(state),
 		newStatusCmd(state),
 		newUpdateCmd(state),
 		newPromoteCmd(state),

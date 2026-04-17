@@ -9,12 +9,10 @@ Invoke it with `/nn-workflow`.
 
 ## Workflow
 
-0. **Session Start**: Load any notebook protocols before doing other work:
-   ```
-   nn list --type protocol --json
-   ```
-   For each result, run `nn show <id>` and treat the body as a binding operating instruction
-   for this session. An empty result is a no-op.
+0. **Session Start**: Load relevant protocols before doing other work:
+   - **Global protocols** (no outgoing links): `nn list --type protocol --json` — filter to those with no links; load each with `nn show <id>`
+   - **Contextual protocols** (linked to notes in scope): when the user names specific notes or topics, run `nn backlinks <note-id> --type governs` for each; load any protocol notes returned
+   - Treat all loaded protocol bodies as binding operating instructions for this session. An empty result is a no-op.
 
 1. **Capture**: Identify the atomic idea to record. Choose a `type`:
    - `concept` — a single defined idea or principle
@@ -66,6 +64,7 @@ Invoke it with `/nn-workflow`.
 | `nn graph --json` | Export link graph |
 | `nn status [--json]` | Notebook health (orphans listed with IDs/titles) |
 | `nn links <id> [--type TYPE] [--json]` | Outgoing links with annotations (filterable by type) |
+| `nn backlinks <id> [--type TYPE] [--json]` | Notes that link TO this note (inbound links) |
 | `nn update-link <from> <to> [--annotation "..."] [--type TYPE]` | Update link metadata in place |
 | `nn bulk-update-link <from> --to <id> --type TYPE ...` | Update multiple links (1 commit) |
 | `nn update <id> --content "..." --no-edit` | Replace note body |
