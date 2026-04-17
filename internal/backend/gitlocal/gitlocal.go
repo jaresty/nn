@@ -341,3 +341,24 @@ func (b *Backend) Promote(id string, to note.Status) error {
 	msg := fmt.Sprintf("note: promote %s to %s", id, string(to))
 	return b.commit(path, msg)
 }
+
+// BulkWrite writes all notes and commits in a single commit.
+func (b *Backend) BulkWrite(notes []*note.Note) error {
+	if len(notes) == 0 {
+		return nil
+	}
+	for _, n := range notes {
+		data, err := n.Marshal()
+		if err != nil {
+			return fmt.Errorf("gitlocal.BulkWrite: marshal %s: %w", n.ID, err)
+		}
+		path := filepath.Join(b.dir, n.Filename())
+		if err := os.WriteFile(path, data, 0o644); err != nil {
+			return fmt.Errorf("gitlocal.BulkWrite: write %s: %w", n.ID, err)
+		}
+		if err := b.git("add", path); err != nil {
+			return fmt.Errorf("gitlocal.BulkWrite: stage %s: %w", n.ID, err)
+		}
+	}
+	return b.git("commit", "-m", fmt.Sprintf("note: bulk-new %d notes", len(notes)))
+}

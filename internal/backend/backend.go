@@ -31,4 +31,5 @@ type Backend interface {
 	Update(n *note.Note) error
 	UpdateLink(fromID, toID string, annotation, linkType *string) error
 	BulkUpdateLinks(fromID string, updates []LinkUpdate) error
+	BulkWrite(notes []*note.Note) error
 }
