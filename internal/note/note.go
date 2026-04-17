@@ -31,6 +31,23 @@ const (
 	TypeProtocol    Type = "protocol"
 )
 
+// KnownLinkTypes is the canonical set of link relationship types.
+// nn link --type warns when the type is not in this set.
+var KnownLinkTypes = map[string]bool{
+	"refines":     true,
+	"contradicts": true,
+	"source-of":   true,
+	"extends":     true,
+	"supports":    true,
+	"questions":   true,
+	"governs":     true,
+}
+
+// IsKnownLinkType reports whether t is in the canonical link type set.
+func IsKnownLinkType(t string) bool {
+	return t == "" || KnownLinkTypes[t]
+}
+
 // IsValid reports whether t is one of the recognised note types.
 func (t Type) IsValid() bool {
 	switch t {

@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/jaresty/nn/internal/note"
 )
 
 func newLinkCmd(state *rootState) *cobra.Command {
@@ -19,6 +21,9 @@ func newLinkCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("--annotation is required")
 			}
 			fromID, toID := args[0], args[1]
+			if !note.IsKnownLinkType(linkType) {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: unknown link type %q — known types: refines, contradicts, source-of, extends, supports, questions, governs\n", linkType)
+			}
 			if err := state.backend.AddLink(fromID, toID, annotation, linkType); err != nil {
 				return fmt.Errorf("link: %w", err)
 			}
