@@ -142,5 +142,9 @@ during note-taking sessions. Warning preserves flexibility while surfacing drift
 **`--fields` selector syntax for list:** May be over-engineered for now. `--rich`
 shorthand enables the common case; `--fields` can be deferred.
 
+**`nn show --linked-from --depth N`:** Deferred. Blind BFS at depth 2 on a dense graph
+dumps 50+ notes; selective traversal (LLM picks branches with multi-ID show) is more
+useful in practice and already achievable in 2 tool calls.
+
 **goldmark AST query language:** Interesting but large scope. Deferred — the improvements
 above address the most acute friction points without requiring a query language.
