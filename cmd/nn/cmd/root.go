@@ -26,8 +26,14 @@ func NewRootCmd(cfgFile string) *cobra.Command {
 	state := &rootState{}
 
 	root := &cobra.Command{
-		Use:          "nn",
-		Short:        "LLM-driven Zettelkasten CLI",
+		Use:   "nn",
+		Short: "LLM-driven Zettelkasten CLI",
+		Long: `nn — LLM-driven Zettelkasten CLI
+
+Workflow guidance is embedded in the binary:
+  nn guide           list available topics
+  nn guide guide     type selection, command reference, linking conventions
+  nn guide workflow  full agentic workflow with session-start protocol loading`,
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			return initState(cmd, state, cfgFile)
@@ -54,6 +60,7 @@ func NewRootCmd(cfgFile string) *cobra.Command {
 		newPromoteCmd(state),
 		newDeleteCmd(state),
 		newInstallSkillsCmd(),
+		newGuideCmd(),
 	)
 	return root
 }
