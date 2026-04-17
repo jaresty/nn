@@ -107,7 +107,7 @@ refines | contradicts | source-of | extends | supports | questions | governs
 
 `nn link --type <value>` warns (stderr, exit 0) when the type is not in the allow list.
 The allow list is enforced as a warning, not a hard error, to preserve flexibility for
-experimental types. (`nn status` unknown-type reporting deferred.)
+experimental types. `nn status` reports the count of unknown-type links.
 
 ### 7. Atomicity warning on large notes
 
