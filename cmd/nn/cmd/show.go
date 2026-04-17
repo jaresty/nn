@@ -10,12 +10,41 @@ import (
 )
 
 func newShowCmd(state *rootState) *cobra.Command {
-	return &cobra.Command{
+	var linkedFrom string
+
+	cmd := &cobra.Command{
 		Use:   "show <id-or-title> [<id-or-title>...]",
 		Short: "Print note content to stdout (accepts ID or title substring)",
-		Args:  cobra.MinimumNArgs(1),
+		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w := outWriter(cmd)
+
+			if linkedFrom != "" {
+				src, err := resolveNote(state, linkedFrom)
+				if err != nil {
+					return fmt.Errorf("show --linked-from: %w", err)
+				}
+				for i, lnk := range src.Links {
+					n, err := state.backend.Read(lnk.TargetID)
+					if err != nil {
+						continue // skip broken links silently
+					}
+					if i > 0 {
+						fmt.Fprintln(w, "---")
+					}
+					data, err := n.Marshal()
+					if err != nil {
+						return fmt.Errorf("show: marshal: %w", err)
+					}
+					fmt.Fprint(w, string(data))
+				}
+				return nil
+			}
+
+			if len(args) == 0 {
+				return fmt.Errorf("show: provide at least one ID or use --linked-from")
+			}
+
 			for i, query := range args {
 				if i > 0 {
 					fmt.Fprintln(w, "---")
@@ -33,6 +62,8 @@ func newShowCmd(state *rootState) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&linkedFrom, "linked-from", "", "Show all notes linked from this ID")
+	return cmd
 }
 
 // resolveNote finds a note by exact ID or case-insensitive title substring.
