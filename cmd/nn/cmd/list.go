@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -23,6 +24,8 @@ func newListCmd(state *rootState) *cobra.Command {
 		jsonOut      bool
 		search       string
 		sortBy       string
+		since        string
+		before       string
 	)
 
 	cmd := &cobra.Command{
@@ -73,6 +76,24 @@ func newListCmd(state *rootState) *cobra.Command {
 				}
 				if search != "" && !containsFold(n.Title, search) && !containsFold(n.Body, search) {
 					continue
+				}
+				if since != "" {
+					t, err := parseDateTime(since)
+					if err != nil {
+						return fmt.Errorf("--since: %w", err)
+					}
+					if !n.Modified.After(t) {
+						continue
+					}
+				}
+				if before != "" {
+					t, err := parseDateTime(before)
+					if err != nil {
+						return fmt.Errorf("--before: %w", err)
+					}
+					if !n.Modified.Before(t) {
+						continue
+					}
 				}
 				filtered = append(filtered, n)
 			}
@@ -131,7 +152,19 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Machine-readable JSON output")
 	cmd.Flags().StringVar(&search, "search", "", "Full-text search across title and body")
 	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by field: title, modified, created (default: created desc)")
+	cmd.Flags().StringVar(&since, "since", "", "Notes modified after this date (ISO 8601: 2006-01-02 or 2006-01-02T15:04:05Z)")
+	cmd.Flags().StringVar(&before, "before", "", "Notes modified before this date (ISO 8601)")
 	return cmd
+}
+
+// parseDateTime parses an ISO 8601 date or datetime string.
+func parseDateTime(s string) (time.Time, error) {
+	for _, layout := range []string{time.RFC3339, "2006-01-02"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.UTC(), nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("cannot parse %q: use 2006-01-02 or 2006-01-02T15:04:05Z", s)
 }
 
 func containsFold(s, substr string) bool {
