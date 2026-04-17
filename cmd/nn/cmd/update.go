@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/jaresty/nn/internal/note"
 )
 
 func newUpdateCmd(state *rootState) *cobra.Command {
@@ -14,6 +16,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 		tags    string
 		content string
 		appendS string
+		typ     string
 		noEdit  bool
 	)
 
@@ -25,8 +28,8 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 			if content != "" && appendS != "" {
 				return fmt.Errorf("--content and --append are mutually exclusive")
 			}
-			if title == "" && tags == "" && content == "" && appendS == "" {
-				return fmt.Errorf("at least one of --title, --tags, --content, --append is required")
+			if title == "" && tags == "" && content == "" && appendS == "" && typ == "" {
+				return fmt.Errorf("at least one of --title, --tags, --content, --append, --type is required")
 			}
 
 			id := args[0]
@@ -46,6 +49,13 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 					}
 				}
 				n.Tags = parsed
+			}
+			if typ != "" {
+				t := note.Type(typ)
+				if !t.IsValid() {
+					return fmt.Errorf("invalid type %q: must be one of %s", typ, strings.Join(note.ValidTypes(), ", "))
+				}
+				n.Type = t
 			}
 			if content != "" {
 				n.Body = content
@@ -71,6 +81,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&tags, "tags", "", "Replace tags (comma-separated)")
 	cmd.Flags().StringVar(&content, "content", "", "Replace note body entirely")
 	cmd.Flags().StringVar(&appendS, "append", "", "Append text to note body")
+	cmd.Flags().StringVar(&typ, "type", "", "Change note type")
 	cmd.Flags().BoolVar(&noEdit, "no-edit", false, "Skip opening $EDITOR")
 	return cmd
 }

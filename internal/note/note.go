@@ -48,6 +48,11 @@ func IsKnownLinkType(t string) bool {
 	return t == "" || KnownLinkTypes[t]
 }
 
+// ValidTypes returns the list of recognised note type strings.
+func ValidTypes() []string {
+	return []string{"concept", "argument", "model", "hypothesis", "observation", "question", "protocol"}
+}
+
 // IsValid reports whether t is one of the recognised note types.
 func (t Type) IsValid() bool {
 	switch t {
