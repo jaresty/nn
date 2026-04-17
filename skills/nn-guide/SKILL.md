@@ -20,7 +20,7 @@ nn new --title TEXT --type TYPE [--tags TEXT] [--content TEXT] [--no-edit]
        [--link-to ID --annotation TEXT]
 ```
 
-- `--type` is required: `concept | argument | model | hypothesis | observation`
+- `--type` is required: `concept | argument | model | hypothesis | observation | question | protocol`
 - `--no-edit` skips `$EDITOR` launch (always use in non-TTY/LLM context)
 - `--content TEXT` sets the note body directly
 
@@ -36,8 +36,9 @@ The five types cover the epistemic roles a note can play (after Ahrens, *How to 
 | `hypothesis` | states an untested conjecture worth investigating | "Dense linking predicts note longevity" |
 | `observation` | records a concrete fact, datum, or empirical finding | "Luhmann produced 90,000 notes over 40 years" |
 | `question` | poses an open question that the graph should eventually answer | "Why did Luhmann avoid hierarchical folders?" |
+| `protocol` | specifies an imperative procedure the LLM should follow in this notebook | "When creating a hypothesis, immediately link it to its source observation" |
 
-**Decision heuristic:** if you're not sure, ask — *is this a definition (concept), a claim with support (argument), a framework (model), a guess to test (hypothesis), or something I witnessed/measured (observation)?* If none fit cleanly, the note may not be atomic yet.
+**Decision heuristic:** if you're not sure, ask — *is this a definition (concept), a claim with support (argument), a framework (model), a guess to test (hypothesis), something I witnessed/measured (observation), an open question (question), or an operating instruction for the LLM (protocol)?* If none fit cleanly, the note may not be atomic yet.
 
 ## nn show
 

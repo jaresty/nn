@@ -9,12 +9,21 @@ Invoke it with `/nn-workflow`.
 
 ## Workflow
 
+0. **Session Start**: Load any notebook protocols before doing other work:
+   ```
+   nn list --type protocol --json
+   ```
+   For each result, run `nn show <id>` and treat the body as a binding operating instruction
+   for this session. An empty result is a no-op.
+
 1. **Capture**: Identify the atomic idea to record. Choose a `type`:
    - `concept` — a single defined idea or principle
    - `argument` — a claim with supporting reasoning
    - `model` — a framework or mental model
    - `hypothesis` — an untested conjecture
    - `observation` — a concrete empirical note
+   - `question` — an open question the graph should eventually answer
+   - `protocol` — an imperative operating instruction for the LLM (loaded at session start)
 
 2. **Create**: Run `nn new` with all flags (non-interactive):
    ```
@@ -50,7 +59,7 @@ Invoke it with `/nn-workflow`.
 |---|---|
 | `nn new` | Create a note |
 | `nn show <id>` | Read a note |
-| `nn list [--search TEXT] [--sort modified|title|created]` | List/filter/rank notes |
+| `nn list [--search TEXT] [--sort modified|title|created] [--type TYPE]` | List/filter/rank notes |
 | `nn link <from> <to> --annotation "..." [--type TYPE]` | Add a link |
 | `nn bulk-link <from> --to <id> --annotation "..."...` | Add multiple links (1 commit) |
 | `nn unlink <from> <to>` | Remove a link |

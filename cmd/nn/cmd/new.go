@@ -26,11 +26,11 @@ func newNewCmd(state *rootState) *cobra.Command {
 		Short: "Create a new note",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if typ == "" {
-				return fmt.Errorf("--type is required (concept|argument|model|hypothesis|observation)")
+				return fmt.Errorf("--type is required (concept|argument|model|hypothesis|observation|question|protocol)")
 			}
 			noteType := note.Type(typ)
 			if !noteType.IsValid() {
-				return fmt.Errorf("invalid --type %q: must be concept|argument|model|hypothesis|observation|question", typ)
+				return fmt.Errorf("invalid --type %q: must be concept|argument|model|hypothesis|observation|question|protocol", typ)
 			}
 
 			var parsedTags []string
@@ -71,7 +71,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&title, "title", "", "Note title")
-	cmd.Flags().StringVar(&typ, "type", "", "Note type: concept|argument|model|hypothesis|observation|question")
+	cmd.Flags().StringVar(&typ, "type", "", "Note type: concept|argument|model|hypothesis|observation|question|protocol")
 	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tags")
 	cmd.Flags().StringVar(&content, "content", "", "Note body (use with --no-edit)")
 	cmd.Flags().BoolVar(&noEdit, "no-edit", false, "Skip opening $EDITOR")

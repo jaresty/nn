@@ -196,7 +196,7 @@ func (b *Backend) AddLinks(fromID string, targets []backend.LinkTarget) error {
 		if existing[t.ToID] {
 			return fmt.Errorf("gitlocal.AddLinks: link %s→%s already exists", fromID, t.ToID)
 		}
-		n.Links = append(n.Links, note.Link{TargetID: t.ToID, Annotation: t.Annotation})
+		n.Links = append(n.Links, note.Link{TargetID: t.ToID, Annotation: t.Annotation, Type: t.Type})
 		existing[t.ToID] = true
 	}
 	data, err := n.Marshal()

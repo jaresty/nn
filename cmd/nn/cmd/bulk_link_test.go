@@ -40,6 +40,33 @@ func TestBulkLinkCreatesAllLinks(t *testing.T) {
 	}
 }
 
+// bulk-link --type: type is stored on each link.
+func TestBulkLinkWithType(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	src := newTestNoteForCLI(note.GenerateID(), "Source", note.TypeConcept)
+	dst1 := newTestNoteForCLI(note.GenerateID(), "Target One", note.TypeConcept)
+	dst2 := newTestNoteForCLI(note.GenerateID(), "Target Two", note.TypeConcept)
+	writeNoteFile(t, nbDir, src)
+	writeNoteFile(t, nbDir, dst1)
+	writeNoteFile(t, nbDir, dst2)
+
+	_, err := execute("bulk-link", src.ID,
+		"--to", dst1.ID, "--annotation", "extends this", "--type", "refines",
+		"--to", dst2.ID, "--annotation", "contradicts that", "--type", "contradicts",
+	)
+	if err != nil {
+		t.Fatalf("nn bulk-link --type: %v", err)
+	}
+
+	out, _ := execute("show", src.ID)
+	if !strings.Contains(out, "[refines]") {
+		t.Errorf("bulk-link: refines type missing:\n%s", out)
+	}
+	if !strings.Contains(out, "[contradicts]") {
+		t.Errorf("bulk-link: contradicts type missing:\n%s", out)
+	}
+}
+
 // Assertion D: bulk-link errors on mismatched --to/--annotation counts.
 func TestBulkLinkMismatchedCountsErrors(t *testing.T) {
 	nbDir, execute := setupNotebook(t)

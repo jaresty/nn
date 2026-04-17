@@ -3,10 +3,11 @@ package backend
 
 import "github.com/jaresty/nn/internal/note"
 
-// LinkTarget is a (toID, annotation) pair used by AddLinks.
+// LinkTarget is a (toID, annotation, optional type) pair used by AddLinks.
 type LinkTarget struct {
 	ToID       string
 	Annotation string
+	Type       string // optional
 }
 
 // LinkUpdate is a (toID, optional annotation, optional type) used by BulkUpdateLinks.

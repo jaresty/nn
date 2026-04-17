@@ -28,12 +28,13 @@ const (
 	TypeHypothesis  Type = "hypothesis"
 	TypeObservation Type = "observation"
 	TypeQuestion    Type = "question"
+	TypeProtocol    Type = "protocol"
 )
 
 // IsValid reports whether t is one of the recognised note types.
 func (t Type) IsValid() bool {
 	switch t {
-	case TypeConcept, TypeArgument, TypeModel, TypeHypothesis, TypeObservation, TypeQuestion:
+	case TypeConcept, TypeArgument, TypeModel, TypeHypothesis, TypeObservation, TypeQuestion, TypeProtocol:
 		return true
 	}
 	return false
