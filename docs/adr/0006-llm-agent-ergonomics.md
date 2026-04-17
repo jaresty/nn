@@ -52,7 +52,17 @@ nn list --json --fields id,title,type,modified,link_count,body_preview
 Eliminates the "read to triage" loop — an LLM can sort by `modified`, filter by
 `link_count > 0`, and scan `body_preview` without individual reads.
 
-### 3. `nn list --since`
+### 3. `nn show --linked-from`
+
+`nn show` gains a `--linked-from <id>` flag that resolves all notes linked from the given
+note and prints them in sequence, separated by `---`. Reduces neighborhood traversal from
+O(n) tool calls to 2 (one `nn links`, one `nn show --linked-from`).
+
+```
+nn show --linked-from <id>
+```
+
+### 4. `nn list --since`
 
 Add `--since <datetime>` and `--before <datetime>` flags to `nn list`. Accepts ISO 8601
 dates (`2026-04-15`) or datetimes (`2026-04-15T10:00:00Z`). Filters on `modified` time.
@@ -109,13 +119,14 @@ The threshold is a constant in `internal/note`; no config required.
 
 ## Implementation Order (ease → complexity)
 
-1. `nn list --since` — flag + filter, ~20 lines
-2. Atomicity size warning — threshold check, ~10 lines
-3. Multi-ID `nn show` — variadic args, ~15 lines
-4. Rich `nn list --json` — struct extension + `--rich`/`--fields` flag
-5. Link type allow list — constant set + warn path
-6. `nn bulk-new` — JSON parsing + batch write + single commit
-7. BM25 search — scoring algorithm replacement, pure Go
+1. `nn list --since` — flag + filter, ~20 lines ✓
+2. Atomicity size warning — threshold check, ~10 lines ✓
+3. Multi-ID `nn show` — variadic args, ~15 lines ✓
+4. `nn show --linked-from` — resolve links, print sequence
+5. Rich `nn list --json` — struct extension + `--rich` flag
+6. Link type allow list — constant set + warn path
+7. `nn bulk-new` — JSON parsing + batch write + single commit
+8. BM25 search — scoring algorithm replacement, pure Go
 
 ---
 
