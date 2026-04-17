@@ -61,6 +61,8 @@ func newNewCmd(state *rootState) *cobra.Command {
 				n.Links = []note.Link{{TargetID: linkTo, Annotation: annotation}}
 			}
 
+			warnIfLarge(cmd, n.Body)
+
 			if err := state.backend.Write(n); err != nil {
 				return fmt.Errorf("create note: %w", err)
 			}

@@ -58,6 +58,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 				}
 			}
 			n.Modified = time.Now().UTC()
+			warnIfLarge(cmd, n.Body)
 
 			if err := state.backend.Update(n); err != nil {
 				return fmt.Errorf("update: %w", err)

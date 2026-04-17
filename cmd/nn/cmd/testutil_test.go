@@ -45,6 +45,24 @@ backend = "gitlocal"
 	return nbDir, execute
 }
 
+// setupNotebookWithCfg is like setupNotebook but also returns the config file path.
+func setupNotebookWithCfg(t *testing.T) (string, string) {
+	t.Helper()
+	nbDir := t.TempDir()
+	initGitRepoForCLI(t, nbDir)
+	cfgDir := t.TempDir()
+	cfgFile := filepath.Join(cfgDir, "config.toml")
+	os.WriteFile(cfgFile, []byte(fmt.Sprintf(`
+[notebooks]
+default = "test"
+
+[notebooks.test]
+path = %q
+backend = "gitlocal"
+`, nbDir)), 0o644)
+	return nbDir, cfgFile
+}
+
 func initGitRepoForCLI(t *testing.T, dir string) {
 	t.Helper()
 	run := func(args ...string) {
