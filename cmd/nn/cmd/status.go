@@ -9,6 +9,7 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+
 func newStatusCmd(state *rootState) *cobra.Command {
 	var jsonOut bool
 
@@ -33,7 +34,7 @@ func newStatusCmd(state *rootState) *cobra.Command {
 				}
 			}
 
-			var drafts, broken int
+			var drafts, broken, unknownTypes int
 			var orphanList []*note.Note
 			var brokenList []string
 
@@ -48,6 +49,9 @@ func newStatusCmd(state *rootState) *cobra.Command {
 					if !allIDs[lnk.TargetID] {
 						broken++
 						brokenList = append(brokenList, fmt.Sprintf("%s→%s", n.ID, lnk.TargetID))
+					}
+					if !note.IsKnownLinkType(lnk.Type) {
+						unknownTypes++
 					}
 				}
 			}
@@ -73,15 +77,17 @@ func newStatusCmd(state *rootState) *cobra.Command {
 					brokens[i] = brokenEntry{From: b}
 				}
 				out := struct {
-					Total       int           `json:"total"`
-					Orphans     []orphanEntry `json:"orphans"`
-					Drafts      int           `json:"drafts"`
-					BrokenLinks []brokenEntry `json:"broken_links"`
+					Total            int           `json:"total"`
+					Orphans          []orphanEntry `json:"orphans"`
+					Drafts           int           `json:"drafts"`
+					BrokenLinks      []brokenEntry `json:"broken_links"`
+					UnknownLinkTypes int           `json:"unknown_link_types"`
 				}{
-					Total:       len(notes),
-					Orphans:     orphans,
-					Drafts:      drafts,
-					BrokenLinks: brokens,
+					Total:            len(notes),
+					Orphans:          orphans,
+					Drafts:           drafts,
+					BrokenLinks:      brokens,
+					UnknownLinkTypes: unknownTypes,
 				}
 				enc := json.NewEncoder(w)
 				enc.SetIndent("", "  ")
@@ -98,6 +104,7 @@ func newStatusCmd(state *rootState) *cobra.Command {
 			for _, b := range brokenList {
 				fmt.Fprintf(w, "  broken: %s\n", b)
 			}
+			fmt.Fprintf(w, "unknown link types: %d\n", unknownTypes)
 			return nil
 		},
 	}
