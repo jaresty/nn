@@ -12,8 +12,8 @@ func TestGuideListsTopics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn guide: %v", err)
 	}
-	if !strings.Contains(out, "guide") {
-		t.Errorf("expected 'guide' topic in nn guide output:\n%s", out)
+	if !strings.Contains(out, "ref") {
+		t.Errorf("expected 'ref' topic in nn guide output:\n%s", out)
 	}
 	if !strings.Contains(out, "workflow") {
 		t.Errorf("expected 'workflow' topic in nn guide output:\n%s", out)
@@ -21,18 +21,18 @@ func TestGuideListsTopics(t *testing.T) {
 }
 
 // Assertion: nn guide workflow prints skill content.
-func TestGuideWorkflowPrintsContent(t *testing.T) {
+func TestGuideRefPrintsContent(t *testing.T) {
 	_, execute := setupNotebook(t)
-	out, err := execute("guide", "workflow")
+	out, err := execute("guide", "ref")
 	if err != nil {
-		t.Fatalf("nn guide workflow: %v", err)
+		t.Fatalf("nn guide ref: %v", err)
 	}
-	// nn-workflow SKILL.md contains these strings.
-	if !strings.Contains(out, "Session Start") {
-		t.Errorf("expected 'Session Start' in workflow guide:\n%s", out)
+	// nn-guide SKILL.md contains these strings.
+	if !strings.Contains(out, "concept") {
+		t.Errorf("expected 'concept' in ref guide:\n%s", out)
 	}
 	if !strings.Contains(out, "nn new") {
-		t.Errorf("expected 'nn new' in workflow guide:\n%s", out)
+		t.Errorf("expected 'nn new' in ref guide:\n%s", out)
 	}
 }
 

@@ -32,7 +32,7 @@ func NewRootCmd(cfgFile string) *cobra.Command {
 
 Workflow guidance is embedded in the binary:
   nn guide           list available topics
-  nn guide guide     type selection, command reference, linking conventions
+  nn guide ref       type selection, command reference, linking conventions
   nn guide workflow  full agentic workflow with session-start protocol loading`,
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
