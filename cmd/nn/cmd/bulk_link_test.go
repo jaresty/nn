@@ -18,8 +18,8 @@ func TestBulkLinkCreatesAllLinks(t *testing.T) {
 	writeNoteFile(t, nbDir, dst2)
 
 	_, err := execute("bulk-link", src.ID,
-		"--to", dst1.ID, "--annotation", "extends this",
-		"--to", dst2.ID, "--annotation", "contradicts that",
+		"--to", dst1.ID, "--annotation", "extends this", "--type", "extends",
+		"--to", dst2.ID, "--annotation", "contradicts that", "--type", "contradicts",
 	)
 	if err != nil {
 		t.Fatalf("nn bulk-link: %v", err)
@@ -64,6 +64,23 @@ func TestBulkLinkWithType(t *testing.T) {
 	}
 	if !strings.Contains(out, "[contradicts]") {
 		t.Errorf("bulk-link: contradicts type missing:\n%s", out)
+	}
+}
+
+// Assertion: bulk-link without --type returns an error.
+func TestBulkLinkRequiresType(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	src := newTestNoteForCLI(note.GenerateID(), "Source", note.TypeConcept)
+	dst := newTestNoteForCLI(note.GenerateID(), "Target", note.TypeConcept)
+	writeNoteFile(t, nbDir, src)
+	writeNoteFile(t, nbDir, dst)
+
+	_, err := execute("bulk-link", src.ID,
+		"--to", dst.ID, "--annotation", "extends this",
+		// missing --type
+	)
+	if err == nil {
+		t.Fatal("nn bulk-link without --type: want error, got nil")
 	}
 }
 

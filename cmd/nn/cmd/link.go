@@ -20,6 +20,9 @@ func newLinkCmd(state *rootState) *cobra.Command {
 			if annotation == "" {
 				return fmt.Errorf("--annotation is required")
 			}
+			if linkType == "" {
+				return fmt.Errorf("--type is required")
+			}
 			fromID, toID := args[0], args[1]
 			if !note.IsKnownLinkType(linkType) {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: unknown link type %q — known types: refines, contradicts, source-of, extends, supports, questions, governs\n", linkType)

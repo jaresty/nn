@@ -28,7 +28,10 @@ func newBulkLinkCmd(state *rootState) *cobra.Command {
 			if len(toIDs) != len(annotations) {
 				return fmt.Errorf("bulk-link: %d --to flags but %d --annotation flags; counts must match", len(toIDs), len(annotations))
 			}
-			if len(types) > 0 && len(types) != len(toIDs) {
+			if len(types) == 0 {
+				return fmt.Errorf("bulk-link: --type is required for each --to")
+			}
+			if len(types) != len(toIDs) {
 				return fmt.Errorf("bulk-link: %d --to flags but %d --type flags; counts must match", len(toIDs), len(types))
 			}
 			targets := make([]backend.LinkTarget, len(toIDs))

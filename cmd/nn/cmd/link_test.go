@@ -14,7 +14,7 @@ func TestLinkAddsAnnotation(t *testing.T) {
 	writeNoteFile(t, nbDir, src)
 	writeNoteFile(t, nbDir, dst)
 
-	_, err := execute("link", src.ID, dst.ID, "--annotation", "builds on this")
+	_, err := execute("link", src.ID, dst.ID, "--annotation", "builds on this", "--type", "extends")
 	if err != nil {
 		t.Fatalf("nn link: %v", err)
 	}
@@ -38,6 +38,20 @@ func TestLinkRequiresAnnotation(t *testing.T) {
 	_, err := execute("link", src.ID, dst.ID)
 	if err == nil {
 		t.Fatal("nn link without --annotation: want error, got nil")
+	}
+}
+
+// Assertion: nn link without --type returns an error.
+func TestLinkRequiresType(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	src := newTestNoteForCLI(note.GenerateID(), "Source", note.TypeConcept)
+	dst := newTestNoteForCLI(note.GenerateID(), "Target", note.TypeArgument)
+	writeNoteFile(t, nbDir, src)
+	writeNoteFile(t, nbDir, dst)
+
+	_, err := execute("link", src.ID, dst.ID, "--annotation", "builds on this")
+	if err == nil {
+		t.Fatal("nn link without --type: want error, got nil")
 	}
 }
 
