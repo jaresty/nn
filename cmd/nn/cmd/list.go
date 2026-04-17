@@ -22,6 +22,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		orphan       bool
 		limit        int
 		jsonOut      bool
+		rich         bool
 		search       string
 		sortBy       string
 		since        string
@@ -133,6 +134,9 @@ func newListCmd(state *rootState) *cobra.Command {
 			}
 
 			if jsonOut {
+				if rich {
+					return printNotesRichJSON(cmd, filtered)
+				}
 				return printNotesJSON(cmd, filtered)
 			}
 			for _, n := range filtered {
@@ -154,6 +158,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by field: title, modified, created (default: created desc)")
 	cmd.Flags().StringVar(&since, "since", "", "Notes modified after this date (ISO 8601: 2006-01-02 or 2006-01-02T15:04:05Z)")
 	cmd.Flags().StringVar(&before, "before", "", "Notes modified before this date (ISO 8601)")
+	cmd.Flags().BoolVar(&rich, "rich", false, "Include modified, link_count, body_preview in JSON output (requires --json)")
 	return cmd
 }
 
@@ -219,6 +224,48 @@ func printNotesJSON(cmd *cobra.Command, notes []*note.Note) error {
 			Type:   string(n.Type),
 			Status: string(n.Status),
 			Tags:   tags,
+		}
+	}
+	enc := json.NewEncoder(outWriter(cmd))
+	enc.SetIndent("", "  ")
+	return enc.Encode(out)
+}
+
+const bodyPreviewLen = 200
+
+type noteRichJSON struct {
+	ID          string   `json:"id"`
+	Title       string   `json:"title"`
+	Type        string   `json:"type"`
+	Status      string   `json:"status"`
+	Tags        []string `json:"tags"`
+	Created     string   `json:"created"`
+	Modified    string   `json:"modified"`
+	LinkCount   int      `json:"link_count"`
+	BodyPreview string   `json:"body_preview"`
+}
+
+func printNotesRichJSON(cmd *cobra.Command, notes []*note.Note) error {
+	out := make([]noteRichJSON, len(notes))
+	for i, n := range notes {
+		tags := n.Tags
+		if tags == nil {
+			tags = []string{}
+		}
+		preview := n.Body
+		if len(preview) > bodyPreviewLen {
+			preview = preview[:bodyPreviewLen]
+		}
+		out[i] = noteRichJSON{
+			ID:          n.ID,
+			Title:       n.Title,
+			Type:        string(n.Type),
+			Status:      string(n.Status),
+			Tags:        tags,
+			Created:     n.Created.UTC().Format(time.RFC3339),
+			Modified:    n.Modified.UTC().Format(time.RFC3339),
+			LinkCount:   len(n.Links),
+			BodyPreview: preview,
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
