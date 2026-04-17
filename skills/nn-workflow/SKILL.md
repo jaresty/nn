@@ -29,16 +29,16 @@ Invoke it with `/nn-workflow`.
    ```
    After each `nn new`, `nn update`, or `nn link`, print one sentence to the user summarising what was recorded and why (e.g. "Captured *X* as a concept note — it defines the core invariant driving Y.").
 
-3. **Link**: For each relevant existing note, add annotated links. Use `--type` when the relationship is specific:
+3. **Link**: For each relevant existing note, add annotated links. `--type` is required:
    ```
-   nn link <new-id> <existing-id> --annotation "..." [--type refines|contradicts|source-of|extends|supports|questions]
-   nn link <existing-id> <new-id> --annotation "..."
+   nn link <new-id> <existing-id> --annotation "..." --type refines|contradicts|source-of|extends|supports|questions|governs
+   nn link <existing-id> <new-id> --annotation "..." --type <type>
    ```
    For multiple targets at once (single commit):
    ```
    nn bulk-link <new-id> \
-     --to <id1> --annotation "..." \
-     --to <id2> --annotation "..."
+     --to <id1> --annotation "..." --type <type> \
+     --to <id2> --annotation "..." --type <type>
    ```
    Annotations must explain the relationship — never bare links.
 
@@ -59,8 +59,8 @@ Invoke it with `/nn-workflow`.
 | `nn new` | Create a note |
 | `nn show <id>` | Read a note |
 | `nn list [--search TEXT] [--sort modified|title|created] [--type TYPE]` | List/filter/rank notes |
-| `nn link <from> <to> --annotation "..." [--type TYPE]` | Add a link |
-| `nn bulk-link <from> --to <id> --annotation "..."...` | Add multiple links (1 commit) |
+| `nn link <from> <to> --annotation "..." --type TYPE` | Add a link |
+| `nn bulk-link <from> --to <id> --annotation "..." --type TYPE ...` | Add multiple links (1 commit) |
 | `nn unlink <from> <to>` | Remove a link |
 | `nn graph --json` | Export link graph |
 | `nn status [--json]` | Notebook health (orphans listed with IDs/titles) |
@@ -71,5 +71,6 @@ Invoke it with `/nn-workflow`.
 | `nn update <id> --content "..." --no-edit` | Replace note body |
 | `nn update <id> --append "..." --no-edit` | Append to note body |
 | `nn update <id> --title "..." --no-edit` | Rename note |
+| `nn update <id> --type TYPE --no-edit` | Change note type |
 | `nn promote <id> --to reviewed` | Advance review status |
 | `nn delete <id> --confirm` | Delete a note |

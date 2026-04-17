@@ -82,16 +82,16 @@ Update annotation and/or type of existing links in place — no unlink/relink ne
 ## nn link / nn unlink / nn bulk-link
 
 ```
-nn link <from-id> <to-id> --annotation "relationship description" [--type TYPE]
+nn link <from-id> <to-id> --annotation "relationship description" --type TYPE
 nn unlink <from-id> <to-id>
-nn bulk-link <from-id> --to <id> --annotation "..." [--to <id> --annotation "..."]...
+nn bulk-link <from-id> --to <id> --annotation "..." --type TYPE [--to <id> --annotation "..." --type TYPE]...
 ```
 
-Annotations are required. A bare link is a schema violation.
+Both `--annotation` and `--type` are required. A bare link is a schema violation.
 
-`--type` is optional. Open vocabulary: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `questions`.
+Canonical types: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `questions`, `governs`.
 
-`nn bulk-link` creates all links in a single git commit. `--to` and `--annotation` are paired by position; counts must match.
+`nn bulk-link` creates all links in a single git commit. `--to`, `--annotation`, and `--type` are paired by position; counts must match.
 
 ## nn graph
 
@@ -126,7 +126,7 @@ Text output: one entry per link — `targetID  title\n  [type] annotation` (type
 ## nn update
 
 ```
-nn update <id> [--title TEXT] [--tags TEXT] [--content TEXT] [--append TEXT] [--no-edit]
+nn update <id> [--title TEXT] [--tags TEXT] [--content TEXT] [--append TEXT] [--type TYPE] [--no-edit]
 ```
 
 At least one change flag is required. `--content` and `--append` are mutually exclusive.
@@ -209,7 +209,7 @@ Body text.
 nn new --title "Concept A" --type concept --content "..." --no-edit
 # note ID from output: 20260411120045-0001
 nn list --json | jq '.[].id'   # find related note IDs
-nn link 20260411120045-0001 <related-id> --annotation "extends this concept"
+nn link 20260411120045-0001 <related-id> --annotation "extends this concept" --type extends
 ```
 
 **Find orphans before a review session:**
