@@ -27,6 +27,7 @@ Invoke it with `/nn-workflow`.
    ```
    nn new --title "..." --type <type> --content "..." --no-edit
    ```
+   After each `nn new`, `nn update`, or `nn link`, print one sentence to the user summarising what was recorded and why (e.g. "Captured *X* as a concept note — it defines the core invariant driving Y.").
 
 3. **Link**: For each relevant existing note, add annotated links. Use `--type` when the relationship is specific:
    ```

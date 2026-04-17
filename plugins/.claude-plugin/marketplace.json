@@ -1,0 +1,13 @@
+{
+  "name": "nn-marketplace",
+  "owner": {
+    "name": "jaresty"
+  },
+  "plugins": [
+    {
+      "name": "nn-hooks",
+      "source": "./nn-hooks",
+      "description": "Pre-compaction note capture for the nn Zettelkasten CLI"
+    }
+  ]
+}

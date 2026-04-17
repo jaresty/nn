@@ -1,0 +1,8 @@
+{
+  "name": "nn-hooks",
+  "description": "Pre-compaction note capture for the nn Zettelkasten CLI",
+  "version": "1.0.0",
+  "author": {
+    "name": "jaresty"
+  }
+}
