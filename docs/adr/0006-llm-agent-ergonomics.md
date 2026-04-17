@@ -1,6 +1,6 @@
 # ADR-0006: LLM Agent Ergonomics
 
-**Status:** Accepted — pending implementation
+**Status:** Accepted — implemented
 **Date:** 2026-04-16
 **Authors:** jaresty
 
@@ -106,8 +106,8 @@ refines | contradicts | source-of | extends | supports | questions | governs
 (`governs` added for protocol→note relationships per ADR-0005.)
 
 `nn link --type <value>` warns (stderr, exit 0) when the type is not in the allow list.
-`nn status` reports unknown-type link count. The allow list is enforced as a warning,
-not a hard error, to preserve flexibility for experimental types.
+The allow list is enforced as a warning, not a hard error, to preserve flexibility for
+experimental types. (`nn status` unknown-type reporting deferred.)
 
 ### 7. Atomicity warning on large notes
 
@@ -119,14 +119,27 @@ The threshold is a constant in `internal/note`; no config required.
 
 ## Implementation Order (ease → complexity)
 
-1. `nn list --since` — flag + filter, ~20 lines ✓
-2. Atomicity size warning — threshold check, ~10 lines ✓
-3. Multi-ID `nn show` — variadic args, ~15 lines ✓
-4. `nn show --linked-from` — resolve links, print sequence
-5. Rich `nn list --json` — struct extension + `--rich` flag
-6. Link type allow list — constant set + warn path
-7. `nn bulk-new` — JSON parsing + batch write + single commit
-8. BM25 search — scoring algorithm replacement, pure Go
+1. `nn list --since` ✓
+2. Atomicity size warning ✓
+3. Multi-ID `nn show` ✓
+4. `nn show --linked-from` ✓
+5. Rich `nn list --json --rich` ✓
+6. Link type allow list ✓
+7. `nn bulk-new` ✓
+8. BM25 search ✓
+
+### Additional: `nn guide` and session-start protocol
+
+`nn guide [topic]` was added to make workflow guidance self-contained and discoverable
+without the Claude Code skills system. Topics map to embedded skill content:
+
+- `nn guide ref` — type selection, command reference, linking conventions
+- `nn guide workflow` — full agentic workflow with session-start protocol loading
+
+`nn --help` now includes a prominent pointer to `nn guide`.
+
+A session-start `protocol` note was created in the notebook instructing the LLM to load
+protocols and run `nn guide workflow` before any other work.
 
 ---
 
