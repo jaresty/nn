@@ -159,7 +159,7 @@ func (b *Backend) git(args ...string) error {
 }
 
 // AddLink adds an annotated link from fromID to toID and commits.
-func (b *Backend) AddLink(fromID, toID, annotation, linkType string) error {
+func (b *Backend) AddLink(fromID, toID, annotation, linkType, linkStatus string) error {
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.AddLink: %w", err)
@@ -169,7 +169,7 @@ func (b *Backend) AddLink(fromID, toID, annotation, linkType string) error {
 			return fmt.Errorf("gitlocal.AddLink: link %s→%s already exists", fromID, toID)
 		}
 	}
-	n.Links = append(n.Links, note.Link{TargetID: toID, Annotation: annotation, Type: linkType})
+	n.Links = append(n.Links, note.Link{TargetID: toID, Annotation: annotation, Type: linkType, Status: linkStatus})
 	data, err := n.Marshal()
 	if err != nil {
 		return fmt.Errorf("gitlocal.AddLink: marshal: %w", err)
@@ -196,7 +196,7 @@ func (b *Backend) AddLinks(fromID string, targets []backend.LinkTarget) error {
 		if existing[t.ToID] {
 			return fmt.Errorf("gitlocal.AddLinks: link %s→%s already exists", fromID, t.ToID)
 		}
-		n.Links = append(n.Links, note.Link{TargetID: t.ToID, Annotation: t.Annotation, Type: t.Type})
+		n.Links = append(n.Links, note.Link{TargetID: t.ToID, Annotation: t.Annotation, Type: t.Type, Status: t.Status})
 		existing[t.ToID] = true
 	}
 	data, err := n.Marshal()
@@ -255,6 +255,9 @@ func (b *Backend) BulkUpdateLinks(fromID string, updates []backend.LinkUpdate) e
 			if u.Type != nil {
 				n.Links[i].Type = *u.Type
 			}
+			if u.Status != nil {
+				n.Links[i].Status = *u.Status
+			}
 			break
 		}
 		if !found {
@@ -273,9 +276,9 @@ func (b *Backend) BulkUpdateLinks(fromID string, updates []backend.LinkUpdate) e
 	return b.commit(path, msg)
 }
 
-// UpdateLink modifies the annotation and/or type of an existing link without removing it.
+// UpdateLink modifies the annotation, type, and/or status of an existing link without removing it.
 // nil pointer arguments mean "leave unchanged".
-func (b *Backend) UpdateLink(fromID, toID string, annotation, linkType *string) error {
+func (b *Backend) UpdateLink(fromID, toID string, annotation, linkType, linkStatus *string) error {
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.UpdateLink: %w", err)
@@ -291,6 +294,9 @@ func (b *Backend) UpdateLink(fromID, toID string, annotation, linkType *string) 
 		}
 		if linkType != nil {
 			n.Links[i].Type = *linkType
+		}
+		if linkStatus != nil {
+			n.Links[i].Status = *linkStatus
 		}
 		break
 	}

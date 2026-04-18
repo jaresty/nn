@@ -18,11 +18,15 @@ Create a new note.
 ```
 nn new --title TEXT --type TYPE [--tags TEXT] [--content TEXT] [--no-edit]
        [--link-to ID --annotation TEXT]
+       [--from-stdin]
+       [--from-file PATH]
 ```
 
 - `--type` is required: `concept | argument | model | hypothesis | observation | question | protocol`
 - `--no-edit` skips `$EDITOR` launch (always use in non-TTY/LLM context)
 - `--content TEXT` sets the note body directly
+- `--from-stdin` reads the note body from stdin
+- `--from-file PATH` scaffolds the note body from `nn ast` output for a source file (sets title to filename if not given)
 
 ### Choosing a type
 
@@ -58,7 +62,7 @@ List and filter notes.
 
 ```
 nn list [--tag TEXT] [--type TYPE] [--status STATUS]
-        [--linked-from ID] [--linked-to ID] [--orphan] [--global]
+        [--linked-from ID] [--linked-to ID] [--orphan] [--global] [--long]
         [--search TEXT] [--sort FIELD] [--limit N] [--json]
 ```
 
@@ -68,32 +72,38 @@ nn list [--tag TEXT] [--type TYPE] [--status STATUS]
 
 `--global` returns protocol notes with no outgoing `governs` links — protocols that apply universally to the entire notebook rather than governing specific notes. Distinct from `--orphan`: a global protocol is intentionally universal, not forgotten.
 
+`--long` filters to notes whose body exceeds the atomicity threshold (2000 chars). Use to find notes that have grown too large to split.
+
 Filters compose: `nn list --search "implicit" --type concept --sort modified` works as expected.
 
 ## nn update-link / nn bulk-update-link
 
 ```
-nn update-link <from-id> <to-id> [--annotation TEXT] [--type TYPE]
-nn bulk-update-link <from-id> --to <id> [--type TYPE] [--annotation TEXT] [--to <id> ...]
+nn update-link <from-id> <to-id> [--annotation TEXT] [--type TYPE] [--status draft|reviewed]
+nn bulk-update-link <from-id> --to <id> [--type TYPE] [--annotation TEXT] [--status draft|reviewed] [--to <id> ...]
 ```
 
-Update annotation and/or type of existing links in place — no unlink/relink needed. At least one change flag is required. Only specified fields are modified; unspecified fields are preserved.
+Update annotation, type, and/or status of existing links in place — no unlink/relink needed. At least one change flag is required. Only specified fields are modified; unspecified fields are preserved.
 
-`nn bulk-update-link` applies all updates in a single git commit. `--type` and `--annotation` are paired with `--to` by position; if provided, their counts must match `--to`.
+`--status reviewed` signs off a draft link as human-endorsed. Use after verifying LLM-suggested links.
+
+`nn bulk-update-link` applies all updates in a single git commit. `--type` and `--annotation` are paired with `--to` by position; if provided, their counts must match `--to`. `--status` applies to all `--to` targets.
 
 ## nn link / nn unlink / nn bulk-link
 
 ```
-nn link <from-id> <to-id> --annotation "relationship description" --type TYPE
+nn link <from-id> <to-id> --annotation "relationship description" --type TYPE [--status draft|reviewed]
 nn unlink <from-id> <to-id>
-nn bulk-link <from-id> --to <id> --annotation "..." --type TYPE [--to <id> --annotation "..." --type TYPE]...
+nn bulk-link <from-id> --to <id> --annotation "..." --type TYPE [--status draft|reviewed] [--to <id> --annotation "..." --type TYPE]...
 ```
 
 Both `--annotation` and `--type` are required. A bare link is a schema violation.
 
 Canonical types: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `questions`, `governs`.
 
-`nn bulk-link` creates all links in a single git commit. `--to`, `--annotation`, and `--type` are paired by position; counts must match.
+`--status` defaults to `draft`. Pass `--status reviewed` when a human is explicitly creating and endorsing the link at creation time.
+
+`nn bulk-link` creates all links in a single git commit. `--to`, `--annotation`, and `--type` are paired by position; counts must match. `--status` applies to all targets.
 
 ## nn graph
 
@@ -106,24 +116,86 @@ JSON output: `{ "nodes": [...], "edges": [...] }`
 ## nn status
 
 ```
-nn status [--json]
+nn status [--json] [--hubs N]
 ```
 
-Reports: total notes, orphan count (with IDs and titles), draft count, broken links.
+Reports: total notes, orphan count (with IDs/titles), draft count, broken links, draft link count, long notes, hub notes.
 
-`--json` output: `{ "total": N, "orphans": [{"id": "...", "title": "..."}], "drafts": N, "broken_links": [...] }`
+- **long notes**: notes whose body exceeds 2000 chars — candidates for splitting. Section omitted when none exist.
+- **hub notes**: top N notes by link degree (inbound + outbound). Only shown when notebook has ≥10 notes. `--hubs N` overrides the default of 5.
+- **draft links**: count of links with `status: draft` — links not yet human-endorsed.
+
+`--json` output adds: `"draft_links": N`, `"long_notes": [{"id": "...", "title": "...", "body_len": N}]`, `"hub_notes": [{"id": "...", "title": "...", "degree": N}]`
 
 ## nn links
 
 ```
-nn links <id> [--type TYPE] [--json]
+nn links <id> [--type TYPE] [--status draft|reviewed] [--json]
 ```
 
-Lists outgoing links from a note with their annotations. `--type` filters to a specific relationship type.
+Lists outgoing links from a note with their annotations. `--type` filters by relationship type. `--status` filters by link status.
 
-Text output: one entry per link — `targetID  title\n  [type] annotation` (type shown when present)
+Link status: `draft` (default for new links — not yet human-endorsed), `reviewed` (human has verified the relationship). Legacy links without a status field are treated as `reviewed` for backward compatibility.
 
-`--json` output: `[{"id": "...", "title": "...", "annotation": "...", "type": "..."}]` (type omitted when empty)
+Text output: one entry per link — `targetID  title {status}\n  [type] annotation` (status and type shown when present)
+
+`--json` output: `[{"id": "...", "title": "...", "annotation": "...", "type": "...", "status": "..."}]`
+
+**Triage draft links:** `nn links <id> --status draft` shows only unreviewed links for a specific note.
+
+## nn path
+
+```
+nn path <id-a> <id-b> [--json]
+```
+
+Find and print the shortest undirected path between two notes via the link graph (BFS). Returns an error when no path exists.
+
+Text output: each note on its own line with an `→` separator between hops.
+
+`--json` output: `[{"id": "...", "title": "..."}]` — ordered path from A to B.
+
+## nn clusters
+
+```
+nn clusters [--min N] [--singletons] [--json]
+```
+
+Detect topological clusters of notes using label propagation. Each note starts with its own label and iteratively adopts the most common label among its linked neighbours.
+
+- `--min N` omits clusters smaller than N notes (default: 2). Notes with no links are singletons and omitted by default.
+- `--singletons` includes singleton clusters (notes with no links).
+
+Text output: one cluster per block — `cluster N (K notes):\n  ID  Title\n  ...`
+
+`--json` output: `[{"notes": [{"id": "...", "title": "..."}]}]`
+
+## nn ast
+
+```
+nn ast <file> [--json] [--trace] [--root DIR]
+```
+
+Print a compact structural outline of a source file (imports, types, functions, constants). Uses gotreesitter (pure Go) to parse the file.
+
+Supported languages: Go, Python, JavaScript, TypeScript, Rust, Java.
+
+Text output:
+```
+file: src/backend/gitlocal.go  language: go
+imports: fmt, os, path/filepath, ...
+type Backend struct {
+func (b *Backend) Write(n *note.Note) error {
+...
+```
+
+`--json` output: `[{"kind": "...", "name": "...", "signature": "...", "line": N}]`
+
+`--trace` searches for name-match references to every symbol in the outline across the codebase rooted at `--root` (default: `.`). Emits one `references to "X"` section per symbol. Explicitly name-match only — not symbol-resolved, may include false positives.
+
+```
+nn ast src/backend/gitlocal.go --trace --root ./
+```
 
 ## nn update
 
@@ -201,8 +273,12 @@ Body text.
 
 ## Links
 
-- [[20260411090000-1234]] — provides the foundational philosophy this principle implements
+- [[20260411090000-1234]] [extends] {draft} — provides the foundational philosophy this principle implements
 ```
+
+Link format: `- [[target-id]] [type] {status} — annotation`
+- `[type]` optional: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `questions`, `governs`
+- `{status}` optional: `draft` (default for new links), `reviewed` (human-endorsed). Absent = `reviewed` (legacy compat).
 
 ## LLM usage patterns
 

@@ -29,11 +29,12 @@ Invoke it with `/nn-workflow`.
    ```
    After each `nn new`, `nn update`, or `nn link`, print one sentence to the user summarising what was recorded and why (e.g. "Captured *X* as a concept note — it defines the core invariant driving Y.").
 
-3. **Link**: For each relevant existing note, add annotated links. `--type` is required:
+3. **Link**: For each relevant existing note, add annotated links. `--type` is required. New links default to `--status draft`.
    ```
    nn link <new-id> <existing-id> --annotation "..." --type refines|contradicts|source-of|extends|supports|questions|governs
    nn link <existing-id> <new-id> --annotation "..." --type <type>
    ```
+   Pass `--status reviewed` when you (as a human) are explicitly creating and endorsing the link.
    For multiple targets at once (single commit):
    ```
    nn bulk-link <new-id> \
@@ -42,8 +43,11 @@ Invoke it with `/nn-workflow`.
    ```
    Annotations must explain the relationship — never bare links.
 
-4. **Review**: Run `nn status` to check for orphans (printed with IDs and titles) or broken links.
-   To audit link annotations for a specific note: `nn links <id>`
+4. **Review**: Run `nn status` to check for orphans, broken links, long notes (candidates for splitting), and hub notes (high-connectivity anchors). Draft links count is also reported.
+   - Triage unendorsed links: `nn links <id> --status draft` — review each and run `nn update-link <from> <to> --status reviewed` once verified.
+   - Find notes that have grown too large: `nn list --long`
+   - Explore how ideas cluster: `nn clusters`
+   - Find shortest path between two ideas: `nn path <id-a> <id-b>`
 
 ## Non-interactive rules
 
@@ -64,11 +68,17 @@ Invoke it with `/nn-workflow`.
 | `nn bulk-link <from> --to <id> --annotation "..." --type TYPE ...` | Add multiple links (1 commit) |
 | `nn unlink <from> <to>` | Remove a link |
 | `nn graph --json` | Export link graph |
-| `nn status [--json]` | Notebook health (orphans listed with IDs/titles) |
-| `nn links <id> [--type TYPE] [--json]` | Outgoing links with annotations (filterable by type) |
+| `nn status [--json] [--hubs N]` | Notebook health: orphans, drafts, broken links, draft links, long notes, hub notes |
+| `nn links <id> [--type TYPE] [--status draft\|reviewed] [--json]` | Outgoing links; filter by type or status |
 | `nn backlinks <id> [--type TYPE] [--json]` | Notes that link TO this note (inbound links) |
-| `nn update-link <from> <to> [--annotation "..."] [--type TYPE]` | Update link metadata in place |
-| `nn bulk-update-link <from> --to <id> --type TYPE ...` | Update multiple links (1 commit) |
+| `nn update-link <from> <to> [--annotation "..."] [--type TYPE] [--status reviewed]` | Update link metadata; use --status reviewed to endorse a draft link |
+| `nn bulk-update-link <from> --to <id> [--type TYPE] [--annotation "..."] [--status reviewed] ...` | Update multiple links (1 commit) |
+| `nn list --long [--json]` | Notes exceeding atomicity threshold |
+| `nn path <id-a> <id-b> [--json]` | Shortest undirected path between two notes |
+| `nn clusters [--min N] [--singletons] [--json]` | Topological clusters via label propagation |
+| `nn ast <file> [--trace] [--root DIR] [--json]` | Structural outline of a source file; --trace finds references to all symbols |
+| `nn new --from-stdin` | Create note with body from stdin |
+| `nn new --from-file PATH` | Create note scaffolded from ast outline of a source file |
 | `nn update <id> --content "..." --no-edit` | Replace note body |
 | `nn update <id> --append "..." --no-edit` | Append to note body |
 | `nn update <id> --title "..." --no-edit` | Rename note |

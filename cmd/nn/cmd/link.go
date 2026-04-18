@@ -11,6 +11,7 @@ import (
 func newLinkCmd(state *rootState) *cobra.Command {
 	var annotation string
 	var linkType string
+	var linkStatus string
 
 	cmd := &cobra.Command{
 		Use:   "link <from-id> <to-id>",
@@ -23,11 +24,14 @@ func newLinkCmd(state *rootState) *cobra.Command {
 			if linkType == "" {
 				return fmt.Errorf("--type is required")
 			}
+			if linkStatus != "draft" && linkStatus != "reviewed" {
+				return fmt.Errorf("--status must be draft or reviewed")
+			}
 			fromID, toID := args[0], args[1]
 			if !note.IsKnownLinkType(linkType) {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: unknown link type %q — known types: refines, contradicts, source-of, extends, supports, questions, governs\n", linkType)
 			}
-			if err := state.backend.AddLink(fromID, toID, annotation, linkType); err != nil {
+			if err := state.backend.AddLink(fromID, toID, annotation, linkType, linkStatus); err != nil {
 				return fmt.Errorf("link: %w", err)
 			}
 			fmt.Fprintf(outWriter(cmd), "linked %s → %s\n", fromID, toID)
@@ -36,6 +40,7 @@ func newLinkCmd(state *rootState) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&annotation, "annotation", "", "Link annotation (required)")
 	cmd.Flags().StringVar(&linkType, "type", "", "Link relationship type (e.g. refines, contradicts, source-of)")
+	cmd.Flags().StringVar(&linkStatus, "status", "draft", "Link status: draft or reviewed")
 	return cmd
 }
 

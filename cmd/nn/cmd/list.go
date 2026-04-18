@@ -21,6 +21,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		linkedTo     string
 		orphan       bool
 		global       bool
+		long         bool
 		limit        int
 		jsonOut      bool
 		rich         bool
@@ -95,6 +96,9 @@ func newListCmd(state *rootState) *cobra.Command {
 					}
 				}
 				if search != "" && !containsFold(n.Title, search) && !containsFold(n.Body, search) {
+					continue
+				}
+				if long && len(n.Body) <= atomicityThreshold {
 					continue
 				}
 				if since != "" {
@@ -172,6 +176,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&linkedTo, "linked-to", "", "Notes this ID links to")
 	cmd.Flags().BoolVar(&orphan, "orphan", false, "Notes with no links (inbound or outbound)")
 	cmd.Flags().BoolVar(&global, "global", false, "Protocol notes with no outgoing governs links (applies universally)")
+	cmd.Flags().BoolVar(&long, "long", false, "Filter to notes exceeding the atomicity threshold")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of results")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Machine-readable JSON output")
 	cmd.Flags().StringVar(&search, "search", "", "Full-text search across title and body")

@@ -85,6 +85,7 @@ type Link struct {
 	TargetID   string
 	Annotation string
 	Type       string // optional relationship type, e.g. "refines", "contradicts"
+	Status     string // "draft" or "reviewed"; empty = reviewed (backward-compat for old links)
 }
 
 // Note is the in-memory representation of a single Zettelkasten note.
@@ -169,8 +170,9 @@ type frontmatterYAML struct {
 }
 
 var (
-	// linkLineRE optionally captures a [type] bracket between ]] and —.
-	linkLineRE = regexp.MustCompile(`^\s*-\s+\[\[([^\]]+)\]\](?:\s*\[([^\]]+)\])?\s*—\s*(.+)$`)
+	// linkLineRE optionally captures [type] and {status} between ]] and —.
+	// Groups: 1=targetID, 2=type, 3=status, 4=annotation
+	linkLineRE = regexp.MustCompile(`^\s*-\s+\[\[([^\]]+)\]\](?:\s*\[([^\]]+)\])?(?:\s*\{([^}]+)\})?\s*—\s*(.+)$`)
 	bareLinkRE = regexp.MustCompile(`^\s*-\s+\[\[([^\]]+)\]\]\s*$`)
 )
 
@@ -264,7 +266,8 @@ func parseBody(data []byte) (body string, links []Link, err error) {
 			links = append(links, Link{
 				TargetID:   m[1],
 				Type:       m[2],
-				Annotation: strings.TrimSpace(m[3]),
+				Status:     m[3],
+				Annotation: strings.TrimSpace(m[4]),
 			})
 			continue
 		}
@@ -306,9 +309,14 @@ func (n *Note) Marshal() ([]byte, error) {
 	if len(n.Links) > 0 {
 		buf.WriteString("\n## Links\n\n")
 		for _, lnk := range n.Links {
-			if lnk.Type != "" {
+			switch {
+			case lnk.Type != "" && lnk.Status != "":
+				fmt.Fprintf(&buf, "- [[%s]] [%s] {%s} — %s\n", lnk.TargetID, lnk.Type, lnk.Status, lnk.Annotation)
+			case lnk.Type != "":
 				fmt.Fprintf(&buf, "- [[%s]] [%s] — %s\n", lnk.TargetID, lnk.Type, lnk.Annotation)
-			} else {
+			case lnk.Status != "":
+				fmt.Fprintf(&buf, "- [[%s]] {%s} — %s\n", lnk.TargetID, lnk.Status, lnk.Annotation)
+			default:
 				fmt.Fprintf(&buf, "- [[%s]] — %s\n", lnk.TargetID, lnk.Annotation)
 			}
 		}

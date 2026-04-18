@@ -10,6 +10,7 @@ import (
 func newLinksCmd(state *rootState) *cobra.Command {
 	var jsonOut bool
 	var filterType string
+	var filterStatus string
 
 	cmd := &cobra.Command{
 		Use:   "links <id>",
@@ -43,17 +44,29 @@ func newLinksCmd(state *rootState) *cobra.Command {
 						Title      string `json:"title"`
 						Annotation string `json:"annotation"`
 						Type       string `json:"type,omitempty"`
+						Status     string `json:"status,omitempty"`
 					}
 					var entries []linkEntry
 					for _, lnk := range n.Links {
 						if filterType != "" && lnk.Type != filterType {
 							continue
 						}
+						if filterStatus != "" {
+							// Empty status = reviewed (backward compat)
+							effectiveStatus := lnk.Status
+							if effectiveStatus == "" {
+								effectiveStatus = "reviewed"
+							}
+							if effectiveStatus != filterStatus {
+								continue
+							}
+						}
 						entries = append(entries, linkEntry{
 							ID:         lnk.TargetID,
 							Title:      titles[lnk.TargetID],
 							Annotation: lnk.Annotation,
 							Type:       lnk.Type,
+							Status:     lnk.Status,
 						})
 					}
 					if entries == nil {
@@ -68,11 +81,24 @@ func newLinksCmd(state *rootState) *cobra.Command {
 					if filterType != "" && lnk.Type != filterType {
 						continue
 					}
-					if lnk.Type != "" {
-						fmt.Fprintf(w, "%s  %s\n  [%s] %s\n", lnk.TargetID, titles[lnk.TargetID], lnk.Type, lnk.Annotation)
-					} else {
-						fmt.Fprintf(w, "%s  %s\n  %s\n", lnk.TargetID, titles[lnk.TargetID], lnk.Annotation)
+					if filterStatus != "" {
+						effectiveStatus := lnk.Status
+						if effectiveStatus == "" {
+							effectiveStatus = "reviewed"
+						}
+						if effectiveStatus != filterStatus {
+							continue
+						}
 					}
+					typePart := ""
+					if lnk.Type != "" {
+						typePart = fmt.Sprintf("[%s] ", lnk.Type)
+					}
+					statusPart := ""
+					if lnk.Status != "" {
+						statusPart = fmt.Sprintf(" {%s}", lnk.Status)
+					}
+					fmt.Fprintf(w, "%s  %s%s\n  %s%s\n", lnk.TargetID, titles[lnk.TargetID], statusPart, typePart, lnk.Annotation)
 				}
 				break
 			}
@@ -84,5 +110,6 @@ func newLinksCmd(state *rootState) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON")
 	cmd.Flags().StringVar(&filterType, "type", "", "Filter by link type (e.g. refines, contradicts)")
+	cmd.Flags().StringVar(&filterStatus, "status", "", "Filter by link status: draft or reviewed")
 	return cmd
 }

@@ -12,6 +12,7 @@ func newBulkLinkCmd(state *rootState) *cobra.Command {
 	var toIDs []string
 	var annotations []string
 	var types []string
+	var linkStatus string
 
 	cmd := &cobra.Command{
 		Use:   "bulk-link <from-id>",
@@ -34,9 +35,12 @@ func newBulkLinkCmd(state *rootState) *cobra.Command {
 			if len(types) != len(toIDs) {
 				return fmt.Errorf("bulk-link: %d --to flags but %d --type flags; counts must match", len(toIDs), len(types))
 			}
+			if linkStatus != "draft" && linkStatus != "reviewed" {
+				return fmt.Errorf("bulk-link: --status must be draft or reviewed")
+			}
 			targets := make([]backend.LinkTarget, len(toIDs))
 			for i, id := range toIDs {
-				t := backend.LinkTarget{ToID: id, Annotation: annotations[i]}
+				t := backend.LinkTarget{ToID: id, Annotation: annotations[i], Status: linkStatus}
 				if len(types) > 0 {
 					t.Type = types[i]
 				}
@@ -52,5 +56,6 @@ func newBulkLinkCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringArrayVar(&toIDs, "to", nil, "Target note ID (repeatable)")
 	cmd.Flags().StringArrayVar(&annotations, "annotation", nil, "Link annotation (repeatable, paired with --to)")
 	cmd.Flags().StringArrayVar(&types, "type", nil, "Link type (repeatable, optional, paired with --to)")
+	cmd.Flags().StringVar(&linkStatus, "status", "draft", "Link status for all links: draft or reviewed")
 	return cmd
 }

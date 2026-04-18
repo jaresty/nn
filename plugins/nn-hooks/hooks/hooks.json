@@ -11,6 +11,18 @@
           }
         ]
       }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "agent",
+            "agent": "nn-reload-protocols",
+            "statusMessage": "Reloading global protocols after compaction...",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }
