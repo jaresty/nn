@@ -88,7 +88,36 @@ nn path <id-a> <id-b> --json
 Implemented as BFS over the in-memory link graph (already constructed at list time). No
 index changes required.
 
-### 5. Link status
+### 5. `nn clusters`
+
+Detect and print topological clusters of notes using label propagation — each note starts
+with its own label and iteratively adopts the most common label among its linked neighbours.
+The algorithm runs until labels stabilise (typically <20 iterations on notebook-scale graphs).
+Pure Go, no dependencies, no index changes required.
+
+```
+nn clusters
+nn clusters --min 3       # omit clusters smaller than N notes
+nn clusters --json
+```
+
+Text output:
+```
+cluster 1 (8 notes): BM25 Search, Tokenization, IDF Scoring, ...
+cluster 2 (5 notes): Protocol Type, Session Start, Governs Link, ...
+cluster 3 (12 notes): Backend Interface, GitLocal, BulkWrite, ...
+```
+
+JSON output: array of clusters, each with a `notes` array of `{id, title}`.
+
+Notes with no links appear as singleton clusters and are omitted by default (use `--singletons`
+to include them). `--min N` omits clusters smaller than N notes (default: 2).
+
+Label propagation is non-deterministic when neighbour label counts are tied. For notebook
+scale this is stable in practice. The output is a starting point for exploration, not a
+canonical partition.
+
+### 6. Link status
 
 Links gain an optional `status` field mirroring the note review workflow: `draft` (default)
 or `reviewed`. A `draft` link was created but not yet endorsed by a human; `reviewed` means
@@ -180,20 +209,22 @@ These reduce the friction of creating notes about code or external content witho
 2. `nn status` long notes ☐
 3. `nn status` hub notes ☐
 4. `nn path` ☐
-5. `nn new --from-stdin` ☐
-6. Link status (`draft` / `reviewed`) ☐
-7. `nn ast` (gotreesitter) ☐
-8. `nn ast --trace` (name-match reference search) ☐
-9. `nn new --from-file` (depends on `nn ast`) ☐
+5. `nn clusters` (label propagation) ☐
+6. `nn new --from-stdin` ☐
+7. Link status (`draft` / `reviewed`) ☐
+8. `nn ast` (gotreesitter) ☐
+9. `nn ast --trace` (name-match reference search) ☐
+10. `nn new --from-file` (depends on `nn ast`) ☐
 
 ---
 
 ## Alternatives Considered
 
-**Leiden community detection (`nn clusters`):** Computable from the link graph but requires
-a graph clustering algorithm implementation. Deferred — the hub-notes feature in `nn status`
-provides the most actionable signal (identify anchors) without the complexity of full
-community detection. Can be revisited when the graph is denser.
+**Leiden / Louvain community detection:** More theoretically rigorous than label propagation
+but requires a non-trivial modularity optimisation implementation. At notebook scale (hundreds
+of notes, not millions) label propagation converges quickly and produces clusters good enough
+for exploration. Leiden/Louvain can be revisited if label propagation proves unstable on
+denser graphs.
 
 **Confidence as a review status enum instead of float:** Simpler schema (`reviewed` |
 `unreviewed` | `rejected`) but loses the gradient. Float preserves LLM-native output
