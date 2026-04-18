@@ -34,6 +34,9 @@ func newListCmd(state *rootState) *cobra.Command {
 		Use:   "list",
 		Short: "List and filter notes",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if global && filterType != "" && filterType != "protocol" {
+				return fmt.Errorf("list: --global only applies to protocol notes; --type %q is incompatible", filterType)
+			}
 			notes, err := state.backend.List()
 			if err != nil {
 				return fmt.Errorf("list: %w", err)

@@ -170,3 +170,12 @@ func TestListGlobalExcludesNonProtocol(t *testing.T) {
 		t.Errorf("expected non-protocol note excluded from --global output:\n%s", out)
 	}
 }
+
+// Assertion: --global with --type non-protocol returns an error.
+func TestListGlobalWithNonProtocolTypeErrors(t *testing.T) {
+	_, execute := setupNotebook(t)
+	_, err := execute("list", "--global", "--type", "concept")
+	if err == nil {
+		t.Fatal("nn list --global --type concept: want error, got nil")
+	}
+}
