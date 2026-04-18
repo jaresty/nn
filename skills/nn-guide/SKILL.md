@@ -58,13 +58,15 @@ List and filter notes.
 
 ```
 nn list [--tag TEXT] [--type TYPE] [--status STATUS]
-        [--linked-from ID] [--linked-to ID] [--orphan]
+        [--linked-from ID] [--linked-to ID] [--orphan] [--global]
         [--search TEXT] [--sort FIELD] [--limit N] [--json]
 ```
 
 `--search TEXT` performs a ranked case-insensitive search across note title and body. Title matches rank above body matches.
 
 `--sort FIELD` sorts results: `title` (alphabetical), `modified` (most-recently-modified first), `created` (default, most-recently-created first). Applied after filtering and ranking.
+
+`--global` returns protocol notes with no outgoing `governs` links — protocols that apply universally to the entire notebook rather than governing specific notes. Distinct from `--orphan`: a global protocol is intentionally universal, not forgotten.
 
 Filters compose: `nn list --search "implicit" --type concept --sort modified` works as expected.
 

@@ -130,3 +130,43 @@ func TestListLimit(t *testing.T) {
 		t.Errorf("limited list count = %d, want 2", len(result))
 	}
 }
+
+// Assertion: --global returns only protocols with no outgoing governs links.
+func TestListGlobalProtocols(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	global := newTestNoteForCLI(note.GenerateID(), "Global Protocol", note.TypeProtocol)
+	contextual := newTestNoteForCLI(note.GenerateID(), "Contextual Protocol", note.TypeProtocol)
+	target := newTestNoteForCLI(note.GenerateID(), "Target Note", note.TypeConcept)
+	contextual.Links = []note.Link{{TargetID: target.ID, Annotation: "governs", Type: "governs"}}
+	writeNoteFile(t, nbDir, global)
+	writeNoteFile(t, nbDir, contextual)
+	writeNoteFile(t, nbDir, target)
+
+	out, err := execute("list", "--global")
+	if err != nil {
+		t.Fatalf("nn list --global: %v", err)
+	}
+	if !strings.Contains(out, "Global Protocol") {
+		t.Errorf("expected global protocol in output:\n%s", out)
+	}
+	if strings.Contains(out, "Contextual Protocol") {
+		t.Errorf("expected contextual protocol excluded from output:\n%s", out)
+	}
+}
+
+// Assertion: --global excludes non-protocol notes.
+func TestListGlobalExcludesNonProtocol(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	proto := newTestNoteForCLI(note.GenerateID(), "A Protocol", note.TypeProtocol)
+	concept := newTestNoteForCLI(note.GenerateID(), "A Concept", note.TypeConcept)
+	writeNoteFile(t, nbDir, proto)
+	writeNoteFile(t, nbDir, concept)
+
+	out, err := execute("list", "--global")
+	if err != nil {
+		t.Fatalf("nn list --global: %v", err)
+	}
+	if strings.Contains(out, "A Concept") {
+		t.Errorf("expected non-protocol note excluded from --global output:\n%s", out)
+	}
+}

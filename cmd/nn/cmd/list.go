@@ -20,6 +20,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		linkedFrom   string
 		linkedTo     string
 		orphan       bool
+		global       bool
 		limit        int
 		jsonOut      bool
 		rich         bool
@@ -74,6 +75,21 @@ func newListCmd(state *rootState) *cobra.Command {
 				}
 				if orphan && (hasOutbound[n.ID] || targetIDs[n.ID]) {
 					continue
+				}
+				if global {
+					if n.Type != note.TypeProtocol {
+						continue
+					}
+					hasGoverns := false
+					for _, lnk := range n.Links {
+						if lnk.Type == "governs" {
+							hasGoverns = true
+							break
+						}
+					}
+					if hasGoverns {
+						continue
+					}
 				}
 				if search != "" && !containsFold(n.Title, search) && !containsFold(n.Body, search) {
 					continue
@@ -152,6 +168,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&linkedFrom, "linked-from", "", "Notes that link to this ID")
 	cmd.Flags().StringVar(&linkedTo, "linked-to", "", "Notes this ID links to")
 	cmd.Flags().BoolVar(&orphan, "orphan", false, "Notes with no links (inbound or outbound)")
+	cmd.Flags().BoolVar(&global, "global", false, "Protocol notes with no outgoing governs links (applies universally)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of results")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Machine-readable JSON output")
 	cmd.Flags().StringVar(&search, "search", "", "Full-text search across title and body")
