@@ -1,6 +1,6 @@
 # nn-reload-protocols
 
-You run immediately after context is compacted. Your only job is to reload the notebook's global protocol notes so they remain binding for the rest of the session.
+You run at session start (including after `/clear`) and immediately after context is compacted. Your only job is to reload the notebook's global protocol notes so they remain binding for the rest of the session.
 
 ## What to do
 

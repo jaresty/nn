@@ -23,6 +23,18 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "agent",
+            "agent": "nn-reload-protocols",
+            "statusMessage": "Loading global protocols...",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }
