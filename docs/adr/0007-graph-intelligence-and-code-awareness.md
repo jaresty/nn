@@ -88,26 +88,29 @@ nn path <id-a> <id-b> --json
 Implemented as BFS over the in-memory link graph (already constructed at list time). No
 index changes required.
 
-### 5. Link provenance flag
+### 5. Link status
 
-`nn link` and `nn bulk-link` gain an optional `--provenance` flag accepting `human`
-(default, explicit) or `inferred` (LLM-suggested, worth reviewing). Stored as a frontmatter
-field on the link. `nn links` and `nn show` display provenance when present.
+Links gain an optional `status` field mirroring the note review workflow: `draft` (default)
+or `reviewed`. A `draft` link was created but not yet endorsed by a human; `reviewed` means
+a human has examined and accepted the relationship.
 
-`nn status` reports the count of inferred links not yet reviewed. `nn list --unreviewed`
-filters to notes with at least one inferred link.
+`nn link` and `nn bulk-link` default to `draft`. Pass `--status reviewed` to mark as
+endorsed at creation time (e.g. when a human is explicitly creating the link).
 
-The flag is optional — existing links without provenance are treated as `human`. This
-preserves backward compatibility.
+`nn update-link` and `nn bulk-update-link` accept `--status reviewed` to sign off on
+existing links, individually or in bulk.
 
-### 6. Link confidence score
+`nn links <id>` shows link status when present. `nn links <id> --status draft` filters to
+unreviewed links for triage.
 
-`nn link` gains an optional `--confidence` flag (float 0.0–1.0). Stored alongside the link.
-`nn links` shows confidence when present. `nn status` reports links with confidence below a
-threshold (default 0.5) as candidates for review.
+`nn status` reports the count of draft (unreviewed) links alongside orphans and long notes.
 
-Intended for LLM-created links where the relationship is plausible but not certain.
-Human-created links typically omit the flag.
+Existing links without a status field are treated as `reviewed` for backward compatibility —
+they predate this feature and were created deliberately.
+
+LLMs should express uncertainty via the annotation text ("possibly extends — needs
+verification") rather than a separate field. Status answers the binary question a human cares
+about: has this relationship been endorsed or not?
 
 ### 7. `nn ast <file>`
 
@@ -178,11 +181,10 @@ These reduce the friction of creating notes about code or external content witho
 3. `nn status` hub notes ☐
 4. `nn path` ☐
 5. `nn new --from-stdin` ☐
-6. Link provenance flag ☐
-7. Link confidence score ☐
-8. `nn ast` (gotreesitter) ☐
-9. `nn ast --trace` (name-match reference search) ☐
-10. `nn new --from-file` (depends on nn ast) ☐
+6. Link status (`draft` / `reviewed`) ☐
+7. `nn ast` (gotreesitter) ☐
+8. `nn ast --trace` (name-match reference search) ☐
+9. `nn new --from-file` (depends on `nn ast`) ☐
 
 ---
 
@@ -199,6 +201,12 @@ community detection. Can be revisited when the graph is denser.
 
 **Embedding-based similarity search:** Rejected again (as in ADR-0006) — heavy dependencies
 incompatible with nn's philosophy. BM25 remains the search strategy.
+
+**Link provenance flag + confidence score:** Rejected in favour of link status. Provenance
+(`human` / `inferred`) is mostly noise — in practice the LLM creates nearly all links.
+Confidence as a float (0.0–1.0) adds schema complexity and requires threshold decisions.
+Both are superseded by the simpler binary question: has a human reviewed this link or not?
+Uncertainty is better expressed in the annotation text than in a separate field.
 
 **tree-sitter via CGo bindings (`smacker/go-tree-sitter`):** Rejected in favour of
 `gotreesitter` (pure Go, no CGo). Single-binary distribution must be preserved.
