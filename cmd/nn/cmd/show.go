@@ -26,6 +26,10 @@ func newShowCmd(state *rootState) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("show --linked-from: %w", err)
 				}
+				all, err := state.backend.List()
+				if err != nil {
+					return fmt.Errorf("show --linked-from: list: %w", err)
+				}
 				for i, lnk := range src.Links {
 					n, err := state.backend.Read(lnk.TargetID)
 					if err != nil {
@@ -33,6 +37,14 @@ func newShowCmd(state *rootState) *cobra.Command {
 					}
 					if i > 0 {
 						fmt.Fprintln(w, "---")
+					}
+					protos := findGoverningProtocols(n.ID, all)
+					if len(protos) > 0 {
+						fmt.Fprintf(w, "governing protocols:\n")
+						for _, p := range protos {
+							fmt.Fprintf(w, "  - [%s] %s\n", p.ID, p.Title)
+						}
+						fmt.Fprintln(w)
 					}
 					data, err := n.Marshal()
 					if err != nil {

@@ -104,3 +104,27 @@ func TestShowNoGoverningProtocolsJSON(t *testing.T) {
 		t.Errorf("expected empty governing_protocols array, got: %v", arr)
 	}
 }
+
+// Assertion: --linked-from shows governing protocols for each note displayed.
+func TestShowLinkedFromGoverningProtocols(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	proto := newTestNoteForCLI(note.GenerateID(), "Linked-From Protocol", note.TypeProtocol)
+	src := newTestNoteForCLI(note.GenerateID(), "Source Note", note.TypeConcept)
+	target := newTestNoteForCLI(note.GenerateID(), "Target Note", note.TypeConcept)
+	src.Links = []note.Link{{TargetID: target.ID, Annotation: "links to", Type: "extends"}}
+	proto.Links = []note.Link{{TargetID: target.ID, Annotation: "governs this", Type: "governs"}}
+	writeNoteFile(t, nbDir, proto)
+	writeNoteFile(t, nbDir, src)
+	writeNoteFile(t, nbDir, target)
+
+	out, err := execute("show", "--linked-from", src.ID)
+	if err != nil {
+		t.Fatalf("nn show --linked-from: %v", err)
+	}
+	if !strings.Contains(out, "governing protocols") {
+		t.Errorf("expected 'governing protocols' in --linked-from output:\n%s", out)
+	}
+	if !strings.Contains(out, "Linked-From Protocol") {
+		t.Errorf("expected protocol title in --linked-from output:\n%s", out)
+	}
+}
