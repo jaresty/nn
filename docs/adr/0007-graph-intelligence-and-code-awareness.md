@@ -122,6 +122,8 @@ structure, not implementation.
 ```
 nn ast src/backend/gitlocal.go
 nn ast --json src/backend/gitlocal.go
+nn ast src/backend/gitlocal.go --trace Write
+nn ast src/backend/gitlocal.go --trace Write --root ./
 ```
 
 Text output (compact, one entry per line):
@@ -136,6 +138,22 @@ type Backend struct
 ```
 
 JSON output: structured array of symbols with `kind`, `name`, `signature`, `line`.
+
+**`--trace <name>`** appends a name-based reference search across the codebase rooted at
+`--root` (default: current directory). Output lists every file and line where the name
+appears as a plain-text match. This is explicitly not symbol-aware — the same name in
+different scopes or packages will both appear. A disclaimer is printed in the output:
+
+```
+references to "Write" (name-match only — not symbol-resolved, may include false positives):
+  internal/backend/backend.go:27    Write(n *note.Note) error
+  cmd/nn/cmd/new.go:45              state.backend.Write(n)
+  cmd/nn/cmd/update.go:65           state.backend.Write(n)
+```
+
+The LLM is expected to filter false positives using context. A future decision may add
+cross-file symbol resolution via a code index, but that is explicitly deferred — maintaining
+a symbol index is a meaningful scope expansion and is not part of this decision.
 
 `gotreesitter` is the first third-party dependency in `nn`. It is isolated to an `internal/ast`
 package so it can be replaced or removed without affecting the rest of the codebase. The
@@ -163,7 +181,8 @@ These reduce the friction of creating notes about code or external content witho
 6. Link provenance flag ☐
 7. Link confidence score ☐
 8. `nn ast` (gotreesitter) ☐
-9. `nn new --from-file` (depends on nn ast) ☐
+9. `nn ast --trace` (name-match reference search) ☐
+10. `nn new --from-file` (depends on nn ast) ☐
 
 ---
 
@@ -183,3 +202,10 @@ incompatible with nn's philosophy. BM25 remains the search strategy.
 
 **tree-sitter via CGo bindings (`smacker/go-tree-sitter`):** Rejected in favour of
 `gotreesitter` (pure Go, no CGo). Single-binary distribution must be preserved.
+
+**Cross-file symbol resolution for `--trace`:** Deferred. Resolving `Write` in `a.go` to
+the specific `Write` defined in `b.go` requires a cross-file symbol index — a persistent
+data structure that maps names to definitions across the whole codebase. This is a meaningful
+scope expansion (analogous to a language server's workspace index) and is explicitly not part
+of this ADR. The name-match approach in `--trace` is honest about its limitations and covers
+the common case where the LLM needs candidate references, not a verified call graph.
