@@ -18,12 +18,19 @@ func newInstallHooksCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "install-hooks",
-		Short: "Install the nn Claude Code plugin (pre-compaction note capture)",
+		Short: "Install the nn Claude Code plugin (protocol reload + note capture hooks)",
 		Long: `Install the nn-hooks Claude Code plugin.
 
-The plugin adds a pre-compaction hook that spawns an agent to review the
-session and decide what knowledge is worth capturing as notes before context
-is compacted.
+The plugin installs three hooks:
+
+  SessionStart  — reloads global protocol notes into context at the start of
+                  every session and after /clear, so protocols remain binding.
+
+  PreCompact    — before context is compacted, spawns an agent to review the
+                  session and capture durable knowledge as atomic notes.
+
+  PostCompact   — after compaction, reloads global protocol notes so they
+                  remain binding in the new context window.
 
 Scopes:
   user     ~/.claude/settings.json (default, global)
@@ -57,7 +64,7 @@ Scopes:
 				}
 			}
 
-			fmt.Fprintf(outWriter(cmd), "nn-hooks installed (scope: %s)\nRestart Claude Code to activate the pre-compaction hook.\n", scope)
+			fmt.Fprintf(outWriter(cmd), "nn-hooks installed (scope: %s)\nRestart Claude Code to activate the hooks.\n", scope)
 			return nil
 		},
 	}
