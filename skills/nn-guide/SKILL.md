@@ -49,12 +49,25 @@ The five types cover the epistemic roles a note can play (after Ahrens, *How to 
 Print note content to stdout. Accepts a full ID or a title substring.
 
 ```
-nn show <id-or-title>
+nn show <id-or-title> [--depth N] [--json]
+nn show --linked-from <id>
 ```
 
 If the query doesn't match an ID exactly, `nn` searches note titles case-insensitively.
 If multiple titles match, the command lists the candidates and exits with an error — use
 the full ID to disambiguate.
+
+`--depth N` traverses outgoing links from the given note up to N hops, collecting all
+reachable notes and printing them as a single concatenated Markdown document separated by
+`---`. Useful for loading a coherent subgraph as context for an LLM.
+
+```
+nn show <id> --depth 2                 # root + 2 hops of outgoing links
+nn show <id> --depth 1 --json          # JSON array with depth field per note
+```
+
+`--json` with `--depth` returns an array of note objects in BFS order, each with an added
+`depth` field (0 = origin note, 1 = direct links, etc.).
 
 ## nn list
 
@@ -63,12 +76,20 @@ List and filter notes.
 ```
 nn list [--tag TEXT] [--type TYPE] [--status STATUS]
         [--linked-from ID] [--linked-to ID] [--orphan] [--global] [--long]
-        [--search TEXT] [--sort FIELD] [--limit N] [--json]
+        [--search TEXT] [--similar ID] [--sort FIELD] [--limit N] [--json]
 ```
 
 `--search TEXT` performs a ranked case-insensitive search across note title and body. Title matches rank above body matches.
 
-`--sort FIELD` sorts results: `title` (alphabetical), `modified` (most-recently-modified first), `created` (default, most-recently-created first). Applied after filtering and ranking.
+`--similar ID` ranks all notes by BM25 similarity to the given note's title and body, excluding the note itself. Use for serendipitous discovery — find notes that share vocabulary with a given note but have no explicit link. Composes with `--status`, `--tag`, `--type`, `--limit`, `--json`. When `--similar` is active, `--sort` is ignored (similarity ranking takes precedence).
+
+```
+nn list --similar <id>                 # notes most similar to <id>
+nn list --similar <id> --limit 5       # top 5 most similar
+nn list --similar <id> --status permanent --json
+```
+
+`--sort FIELD` sorts results: `title` (alphabetical), `modified` (most-recently-modified first), `created` (default, most-recently-created first). Applied after filtering and ranking. Ignored when `--similar` is active.
 
 `--global` returns protocol notes with no outgoing `governs` links — protocols that apply universally to the entire notebook rather than governing specific notes. Distinct from `--orphan`: a global protocol is intentionally universal, not forgotten.
 
@@ -231,6 +252,24 @@ nn delete <id> --confirm
 
 `--confirm` is required. Warns if other notes link to the deleted note.
 
+## nn random
+
+Return a randomly selected note. Optionally filtered.
+
+```
+nn random [--tag TEXT] [--type TYPE] [--status STATUS] [--json]
+```
+
+Returns one note at random from the notebook. All filters from `nn list` are supported.
+Use for deliberate serendipity — re-encounter a forgotten note and consider whether it
+connects to current work.
+
+```
+nn random                         # any note
+nn random --status permanent      # a random permanent note
+nn random --tag philosophy --json
+```
+
 ## nn install-skills
 
 ```
@@ -298,4 +337,19 @@ nn list --orphan --json
 **Export graph for visualisation:**
 ```
 nn graph --json > graph.json
+```
+
+**Discover related notes (no known query):**
+```
+nn list --similar <id> --limit 10
+```
+
+**Load a topic cluster as LLM context:**
+```
+nn show <id> --depth 2
+```
+
+**Serendipitous re-encounter:**
+```
+nn random --status permanent
 ```

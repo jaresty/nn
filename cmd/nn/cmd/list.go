@@ -29,11 +29,12 @@ func newListCmd(state *rootState) *cobra.Command {
 		sortBy       string
 		since        string
 		before       string
+		similarTo    string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List and filter notes",
+		Short: "List and filter notes; --similar <id> ranks by BM25 similarity",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if global && filterType != "" && filterType != "protocol" {
 				return fmt.Errorf("list: --global only applies to protocol notes; --type %q is incompatible", filterType)
@@ -122,6 +123,25 @@ func newListCmd(state *rootState) *cobra.Command {
 				filtered = append(filtered, n)
 			}
 
+			if similarTo != "" {
+				target, err := state.backend.Read(similarTo)
+				if err != nil {
+					return fmt.Errorf("list --similar: %w", err)
+				}
+				// Exclude the target note itself from results.
+				var withoutTarget []*note.Note
+				for _, n := range filtered {
+					if n.ID != target.ID {
+						withoutTarget = append(withoutTarget, n)
+					}
+				}
+				filtered = withoutTarget
+				scores := note.BM25Scores(filtered, target.Title+" "+target.Body)
+				sort.SliceStable(filtered, func(i, j int) bool {
+					return scores[filtered[i].ID] > scores[filtered[j].ID]
+				})
+			}
+
 			if search != "" {
 				scores := make(map[string]int, len(filtered))
 				for _, n := range filtered {
@@ -137,19 +157,22 @@ func newListCmd(state *rootState) *cobra.Command {
 				})
 			}
 
-			switch sortBy {
-			case "modified":
-				sort.Slice(filtered, func(i, j int) bool {
-					return filtered[i].Modified.After(filtered[j].Modified)
-				})
-			case "title":
-				sort.Slice(filtered, func(i, j int) bool {
-					return filtered[i].Title < filtered[j].Title
-				})
-			case "created", "":
-				sort.Slice(filtered, func(i, j int) bool {
-					return filtered[i].Created.After(filtered[j].Created)
-				})
+			// Only apply sort-by when not using --similar (similarity ranking takes precedence).
+			if similarTo == "" {
+				switch sortBy {
+				case "modified":
+					sort.Slice(filtered, func(i, j int) bool {
+						return filtered[i].Modified.After(filtered[j].Modified)
+					})
+				case "title":
+					sort.Slice(filtered, func(i, j int) bool {
+						return filtered[i].Title < filtered[j].Title
+					})
+				case "created", "":
+					sort.Slice(filtered, func(i, j int) bool {
+						return filtered[i].Created.After(filtered[j].Created)
+					})
+				}
 			}
 
 			if limit > 0 && len(filtered) > limit {
@@ -184,6 +207,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&since, "since", "", "Notes modified after this date (ISO 8601: 2006-01-02 or 2006-01-02T15:04:05Z)")
 	cmd.Flags().StringVar(&before, "before", "", "Notes modified before this date (ISO 8601)")
 	cmd.Flags().BoolVar(&rich, "rich", false, "Include modified, link_count, body_preview in JSON output (requires --json)")
+	cmd.Flags().StringVar(&similarTo, "similar", "", "Rank notes by BM25 similarity to this note ID (excludes the note itself)")
 	return cmd
 }
 

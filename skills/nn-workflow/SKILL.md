@@ -48,6 +48,9 @@ Invoke it with `/nn-workflow`.
    - Find notes that have grown too large: `nn list --long`
    - Explore how ideas cluster: `nn clusters`
    - Find shortest path between two ideas: `nn path <id-a> <id-b>`
+   - Discover unlinked related notes: `nn list --similar <id> --limit 10` — surfaces notes sharing vocabulary with a given note. Good for finding connections the graph doesn't yet capture.
+   - Load a topic subgraph as context: `nn show <id> --depth 2` — prints the note and all notes reachable within 2 hops as a single Markdown document.
+   - Serendipitous re-encounter: `nn random --status permanent` — revisit a permanent note and consider whether it connects to current work.
 
 ## Non-interactive rules
 
@@ -74,6 +77,9 @@ Invoke it with `/nn-workflow`.
 | `nn update-link <from> <to> [--annotation "..."] [--type TYPE] [--status reviewed]` | Update link metadata; use --status reviewed to endorse a draft link |
 | `nn bulk-update-link <from> --to <id> [--type TYPE] [--annotation "..."] [--status reviewed] ...` | Update multiple links (1 commit) |
 | `nn list --long [--json]` | Notes exceeding atomicity threshold |
+| `nn list --similar <id> [--limit N] [--json]` | Notes ranked by BM25 similarity to a given note (excludes source) |
+| `nn random [--status STATUS] [--tag TAG] [--json]` | Random note, optionally filtered |
+| `nn show <id> --depth N [--json]` | Note + all reachable notes within N hops (BFS, outgoing links) |
 | `nn path <id-a> <id-b> [--json]` | Shortest undirected path between two notes |
 | `nn clusters [--min N] [--singletons] [--json]` | Topological clusters via label propagation |
 | `nn ast <file> [--trace] [--root DIR] [--json]` | Structural outline of a source file; --trace finds references to all symbols |

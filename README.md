@@ -50,12 +50,17 @@ mkdir ~/notes && git -C ~/notes init
 ```sh
 nn new --title "The Atomicity Principle" --type concept --no-edit
 nn show <id>
+nn show <id> --depth 2          # note + all notes reachable within 2 hops
 nn list
 nn list --type concept --status draft --json
-nn link <from-id> <to-id> --annotation "builds on this"
+nn list --similar <id>          # notes ranked by similarity to a given note
+nn random --status permanent    # serendipitous re-encounter
+nn link <from-id> <to-id> --annotation "builds on this" --type extends
 nn unlink <from-id> <to-id>
 nn graph --json
 nn status
+nn path <id-a> <id-b>           # shortest link path between two notes
+nn clusters                     # topological clusters via label propagation
 nn promote <id> --to reviewed
 nn delete <id> --confirm
 nn install-skills

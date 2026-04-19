@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -13,13 +14,105 @@ import (
 func newShowCmd(state *rootState) *cobra.Command {
 	var linkedFrom string
 	var jsonOut bool
+	var depth int
 
 	cmd := &cobra.Command{
 		Use:   "show <id-or-title> [<id-or-title>...]",
-		Short: "Print note content to stdout (accepts ID or title substring)",
+		Short: "Print note content to stdout (accepts ID or title substring; --depth N for graph traversal)",
 		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w := outWriter(cmd)
+
+			if depth > 0 {
+				if len(args) != 1 {
+					return fmt.Errorf("show --depth: provide exactly one ID")
+				}
+				root, err := resolveNote(state, args[0])
+				if err != nil {
+					return fmt.Errorf("show --depth: %w", err)
+				}
+				all, err := state.backend.List()
+				if err != nil {
+					return fmt.Errorf("show --depth: list: %w", err)
+				}
+				// Build ID→note index for fast lookup.
+				byID := make(map[string]*note.Note, len(all))
+				for _, n := range all {
+					byID[n.ID] = n
+				}
+				// BFS up to depth hops following outgoing links.
+				type entry struct {
+					n     *note.Note
+					level int
+				}
+				visited := map[string]bool{root.ID: true}
+				queue := []entry{{root, 0}}
+				var ordered []entry
+				for len(queue) > 0 {
+					cur := queue[0]
+					queue = queue[1:]
+					ordered = append(ordered, cur)
+					if cur.level >= depth {
+						continue
+					}
+					for _, lnk := range cur.n.Links {
+						if visited[lnk.TargetID] {
+							continue
+						}
+						visited[lnk.TargetID] = true
+						if target, ok := byID[lnk.TargetID]; ok {
+							queue = append(queue, entry{target, cur.level + 1})
+						}
+					}
+				}
+
+				if jsonOut {
+					type depthNoteJSON struct {
+						ID       string   `json:"id"`
+						Title    string   `json:"title"`
+						Type     string   `json:"type"`
+						Status   string   `json:"status"`
+						Tags     []string `json:"tags"`
+						Created  string   `json:"created"`
+						Modified string   `json:"modified"`
+						Body     string   `json:"body"`
+						Depth    int      `json:"depth"`
+					}
+					out := make([]depthNoteJSON, len(ordered))
+					for i, e := range ordered {
+						tags := e.n.Tags
+						if tags == nil {
+							tags = []string{}
+						}
+						out[i] = depthNoteJSON{
+							ID:       e.n.ID,
+							Title:    e.n.Title,
+							Type:     string(e.n.Type),
+							Status:   string(e.n.Status),
+							Tags:     tags,
+							Created:  e.n.Created.UTC().Format(time.RFC3339),
+							Modified: e.n.Modified.UTC().Format(time.RFC3339),
+							Body:     e.n.Body,
+							Depth:    e.level,
+						}
+					}
+					enc := json.NewEncoder(w)
+					enc.SetIndent("", "  ")
+					return enc.Encode(out)
+				}
+
+				for i, e := range ordered {
+					if i > 0 {
+						fmt.Fprintln(w, "---")
+					}
+					data, err := e.n.Marshal()
+					if err != nil {
+						return fmt.Errorf("show --depth: marshal: %w", err)
+					}
+					fmt.Fprint(w, string(data))
+				}
+				return nil
+			}
 
 			if linkedFrom != "" {
 				src, err := resolveNote(state, linkedFrom)
@@ -137,6 +230,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&linkedFrom, "linked-from", "", "Show all notes linked from this ID")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output note as JSON with governing_protocols")
+	cmd.Flags().IntVar(&depth, "depth", 0, "Traverse outgoing links to this depth and print all reachable notes")
 	return cmd
 }
 
