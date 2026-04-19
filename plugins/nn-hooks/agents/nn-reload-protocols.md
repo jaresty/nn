@@ -6,9 +6,24 @@ You run at session start (including after `/clear`) and immediately after contex
 
 1. Run `nn list --global --json` to find global protocol notes (protocols with no outgoing `governs` links — these apply universally).
 2. For each result, run `nn show <id>` and read the body.
-3. Output a brief summary block so the protocol content is visible in the new context window:
+3. Output the following block so the content is visible in the new context window:
 
 ```
+## Standing instruction: research
+
+Before doing research on any topic — looking something up, investigating a
+codebase, answering a question that requires gathering information — first
+check nn to see what already exists:
+
+  nn list --search "<topic>" --json
+
+After completing research, capture durable findings as notes:
+
+  nn new --title "..." --type <observation|concept|model|...> --content "..." --no-edit
+
+This applies in every session and every project, regardless of what is in
+the notebook.
+
 ## Active protocols (reloaded after compaction)
 
 ### <title>
@@ -17,7 +32,7 @@ You run at session start (including after `/clear`) and immediately after contex
 ---
 ```
 
-If `nn list --global` returns nothing, output:
+If `nn list --global` returns nothing, still output the standing research instruction, then:
 ```
 ## Active protocols
 (none)
