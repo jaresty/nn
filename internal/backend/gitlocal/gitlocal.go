@@ -32,6 +32,12 @@ func New(dir string) (*Backend, error) {
 
 // Write serialises n to a Markdown file and commits it to Git.
 func (b *Backend) Write(n *note.Note) error {
+	for {
+		if _, err := b.findByID(n.ID); err != nil {
+			break // no collision
+		}
+		n.ID = note.GenerateID()
+	}
 	data, err := n.Marshal()
 	if err != nil {
 		return fmt.Errorf("gitlocal.Write: %w", err)
@@ -354,6 +360,12 @@ func (b *Backend) BulkWrite(notes []*note.Note) error {
 		return nil
 	}
 	for _, n := range notes {
+		for {
+			if _, err := b.findByID(n.ID); err != nil {
+				break // no collision
+			}
+			n.ID = note.GenerateID()
+		}
 		data, err := n.Marshal()
 		if err != nil {
 			return fmt.Errorf("gitlocal.BulkWrite: marshal %s: %w", n.ID, err)
