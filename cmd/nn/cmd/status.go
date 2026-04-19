@@ -47,13 +47,34 @@ func newStatusCmd(state *rootState) *cobra.Command {
 				}
 			}
 
+			// Identify global protocols: type=protocol with no outgoing governs links.
+			globalProtocols := make(map[string]bool)
+			for _, n := range notes {
+				if n.Type != note.TypeProtocol {
+					continue
+				}
+				hasGoverns := false
+				for _, lnk := range n.Links {
+					if lnk.Type == "governs" {
+						hasGoverns = true
+						break
+					}
+				}
+				if !hasGoverns {
+					globalProtocols[n.ID] = true
+				}
+			}
+
 			var drafts, broken, unknownTypes, draftLinks int
-			var orphanList []*note.Note
+			var orphanList, globalProtocolList []*note.Note
 			var brokenList []string
 			var longNotes []*note.Note
 
 			for _, n := range notes {
-				if !hasOutbound[n.ID] && !targetIDs[n.ID] {
+				if globalProtocols[n.ID] {
+					globalProtocolList = append(globalProtocolList, n)
+					// Count drafts and other metrics but skip orphan check.
+				} else if !hasOutbound[n.ID] && !targetIDs[n.ID] {
 					orphanList = append(orphanList, n)
 				}
 				if n.Status == note.StatusDraft {
@@ -102,7 +123,7 @@ func newStatusCmd(state *rootState) *cobra.Command {
 			w := outWriter(cmd)
 
 			if jsonOut {
-				type orphanEntry struct {
+				type noteEntry struct {
 					ID    string `json:"id"`
 					Title string `json:"title"`
 				}
@@ -120,9 +141,13 @@ func newStatusCmd(state *rootState) *cobra.Command {
 					Title  string `json:"title"`
 					Degree int    `json:"degree"`
 				}
-				orphans := make([]orphanEntry, len(orphanList))
+				orphans := make([]noteEntry, len(orphanList))
 				for i, o := range orphanList {
-					orphans[i] = orphanEntry{ID: o.ID, Title: o.Title}
+					orphans[i] = noteEntry{ID: o.ID, Title: o.Title}
+				}
+				globals := make([]noteEntry, len(globalProtocolList))
+				for i, g := range globalProtocolList {
+					globals[i] = noteEntry{ID: g.ID, Title: g.Title}
 				}
 				brokens := make([]brokenEntry, len(brokenList))
 				for i, b := range brokenList {
@@ -137,9 +162,10 @@ func newStatusCmd(state *rootState) *cobra.Command {
 					hubs[i] = hubEntry{ID: h.ID, Title: h.Title, Degree: degree[h.ID]}
 				}
 				out := struct {
-					Total            int           `json:"total"`
-					Orphans          []orphanEntry `json:"orphans"`
-					Drafts           int           `json:"drafts"`
+					Total            int         `json:"total"`
+					Orphans          []noteEntry `json:"orphans"`
+					GlobalProtocols  []noteEntry `json:"global_protocols"`
+					Drafts           int         `json:"drafts"`
 					BrokenLinks      []brokenEntry `json:"broken_links"`
 					UnknownLinkTypes int           `json:"unknown_link_types"`
 					DraftLinks       int           `json:"draft_links"`
@@ -148,6 +174,7 @@ func newStatusCmd(state *rootState) *cobra.Command {
 				}{
 					Total:            len(notes),
 					Orphans:          orphans,
+					GlobalProtocols:  globals,
 					Drafts:           drafts,
 					BrokenLinks:      brokens,
 					UnknownLinkTypes: unknownTypes,
@@ -164,6 +191,10 @@ func newStatusCmd(state *rootState) *cobra.Command {
 			fmt.Fprintf(w, "orphans: %d\n", len(orphanList))
 			for _, o := range orphanList {
 				fmt.Fprintf(w, "  %s  %s\n", o.ID, o.Title)
+			}
+			fmt.Fprintf(w, "global protocols: %d\n", len(globalProtocolList))
+			for _, g := range globalProtocolList {
+				fmt.Fprintf(w, "  %s  %s\n", g.ID, g.Title)
 			}
 			fmt.Fprintf(w, "drafts:  %d\n", drafts)
 			fmt.Fprintf(w, "broken links: %d\n", broken)
