@@ -28,9 +28,8 @@
       {
         "hooks": [
           {
-            "type": "agent",
-            "agent": "nn-reload-protocols",
-            "statusMessage": "Loading global protocols...",
+            "type": "command",
+            "command": "$HOME/.local/share/nn/plugins/nn-hooks/scripts/load-protocols.sh",
             "timeout": 30
           }
         ]
