@@ -103,10 +103,12 @@ func TestGraphOrphans(t *testing.T) {
 	orphan := newTestNoteForCLI(note.GenerateID(), "Orphan Note", note.TypeConcept)
 	connected := newTestNoteForCLI(note.GenerateID(), "Connected", note.TypeConcept)
 	other := newTestNoteForCLI(note.GenerateID(), "Other", note.TypeConcept)
+	globalProto := newTestNoteForCLI(note.GenerateID(), "Global Protocol", note.TypeProtocol)
 	connected.Links = []note.Link{{TargetID: other.ID, Annotation: "link"}}
 	writeNoteFile(t, nbDir, orphan)
 	writeNoteFile(t, nbDir, connected)
 	writeNoteFile(t, nbDir, other)
+	writeNoteFile(t, nbDir, globalProto)
 
 	out, err := execute("graph", "orphans")
 	if err != nil {
@@ -117,6 +119,9 @@ func TestGraphOrphans(t *testing.T) {
 	}
 	if strings.Contains(out, connected.ID) {
 		t.Errorf("graph orphans: connected note %s should not appear:\n%s", connected.ID, out)
+	}
+	if strings.Contains(out, globalProto.ID) {
+		t.Errorf("graph orphans: global protocol %s should not appear:\n%s", globalProto.ID, out)
 	}
 }
 

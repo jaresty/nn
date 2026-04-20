@@ -181,6 +181,29 @@ func newGraphOrphansCmd(state *rootState) *cobra.Command {
 				}
 			}
 
+			// Global protocols (type=protocol with no outgoing governs links) are
+			// not orphans — they intentionally have no governs targets.
+			globalProtocol := make(map[string]bool)
+			for _, n := range notes {
+				if n.Type != note.TypeProtocol {
+					continue
+				}
+				hasGoverns := false
+				for _, lnk := range n.Links {
+					if lnk.Type == "governs" {
+						hasGoverns = true
+						break
+					}
+				}
+				if !hasGoverns {
+					globalProtocol[n.ID] = true
+				}
+			}
+
+			isOrphan := func(n *note.Note) bool {
+				return !globalProtocol[n.ID] && !hasOutbound[n.ID] && !targeted[n.ID]
+			}
+
 			w := outWriter(cmd)
 			if format == "json" {
 				type je struct {
@@ -189,7 +212,7 @@ func newGraphOrphansCmd(state *rootState) *cobra.Command {
 				}
 				var out []je
 				for _, n := range notes {
-					if !hasOutbound[n.ID] && !targeted[n.ID] {
+					if isOrphan(n) {
 						out = append(out, je{n.ID, n.Title})
 					}
 				}
@@ -201,7 +224,7 @@ func newGraphOrphansCmd(state *rootState) *cobra.Command {
 				return enc.Encode(out)
 			}
 			for _, n := range notes {
-				if !hasOutbound[n.ID] && !targeted[n.ID] {
+				if isOrphan(n) {
 					fmt.Fprintf(w, "%s  %s\n", n.ID, n.Title)
 				}
 			}
