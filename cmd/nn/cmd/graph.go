@@ -561,13 +561,22 @@ func buildHTML(nodes []dotNode, edges []dotEdge) ([]byte, error) {
 		Source string `json:"source"`
 		Target string `json:"target"`
 	}
+	nodeSet := make(map[string]bool, len(nodes))
+	for _, n := range nodes {
+		nodeSet[n.id] = true
+	}
 	jnodes := make([]jsonNode, len(nodes))
 	for i, n := range nodes {
 		jnodes[i] = jsonNode{n.id, n.title, []string{}}
 	}
-	jedges := make([]jsonEdge, len(edges))
-	for i, e := range edges {
-		jedges[i] = jsonEdge{e.from, e.to}
+	var jedges []jsonEdge
+	for _, e := range edges {
+		if nodeSet[e.from] && nodeSet[e.to] {
+			jedges = append(jedges, jsonEdge{e.from, e.to})
+		}
+	}
+	if jedges == nil {
+		jedges = []jsonEdge{}
 	}
 	graphData, err := json.Marshal(struct {
 		Nodes []jsonNode `json:"nodes"`
