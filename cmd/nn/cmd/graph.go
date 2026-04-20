@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"os"
 	"os/exec"
 	"runtime"
@@ -431,6 +433,7 @@ func newGraphExportCmd(state *rootState) *cobra.Command {
 	var focus string
 	var depth int
 	var open bool
+	var output string
 
 	cmd := &cobra.Command{
 		Use:   "export",
@@ -489,19 +492,39 @@ func newGraphExportCmd(state *rootState) *cobra.Command {
 					return fmt.Errorf("graph export svg: %w (is graphviz installed?)", err)
 				}
 				if open {
-					return openFile([]byte(svg), ".svg")
+					return openFile([]byte(svg), "")
 				}
 				fmt.Fprint(w, svg)
 				return nil
+			case "html":
+				htmlBytes, err := buildHTML(enodes, eedges)
+				if err != nil {
+					return fmt.Errorf("graph export html: %w", err)
+				}
+				if output != "" {
+					if err := os.WriteFile(output, htmlBytes, 0o644); err != nil {
+						return fmt.Errorf("graph export html: write %s: %w", output, err)
+					}
+					if open {
+						return openFile(nil, output) // open existing file by path
+					}
+					return nil
+				}
+				if open {
+					return openFile(htmlBytes, ".html")
+				}
+				fmt.Fprint(w, string(htmlBytes))
+				return nil
 			default:
-				return fmt.Errorf("graph export: unknown format %q (use dot or svg)", format)
+				return fmt.Errorf("graph export: unknown format %q (use dot, svg, or html)", format)
 			}
 		},
 	}
-	cmd.Flags().StringVar(&format, "format", "dot", "Output format: dot or svg")
+	cmd.Flags().StringVar(&format, "format", "dot", "Output format: dot, svg, or html")
 	cmd.Flags().StringVar(&focus, "focus", "", "Center note ID for ego-graph")
 	cmd.Flags().IntVar(&depth, "depth", 2, "BFS depth from focus note (when --focus is set)")
-	cmd.Flags().BoolVar(&open, "open", false, "Open output in default viewer (svg only)")
+	cmd.Flags().BoolVar(&open, "open", false, "Open output in default viewer")
+	cmd.Flags().StringVar(&output, "output", "", "Write output to file path (html only)")
 	return cmd
 }
 
@@ -528,6 +551,56 @@ func buildDOT(nodes []dotNode, edges []dotEdge) string {
 	return sb.String()
 }
 
+func buildHTML(nodes []dotNode, edges []dotEdge) ([]byte, error) {
+	type jsonNode struct {
+		ID    string   `json:"id"`
+		Title string   `json:"title"`
+		Tags  []string `json:"tags"`
+	}
+	type jsonEdge struct {
+		Source string `json:"source"`
+		Target string `json:"target"`
+	}
+	jnodes := make([]jsonNode, len(nodes))
+	for i, n := range nodes {
+		jnodes[i] = jsonNode{n.id, n.title, []string{}}
+	}
+	jedges := make([]jsonEdge, len(edges))
+	for i, e := range edges {
+		jedges[i] = jsonEdge{e.from, e.to}
+	}
+	graphData, err := json.Marshal(struct {
+		Nodes []jsonNode `json:"nodes"`
+		Edges []jsonEdge `json:"edges"`
+	}{jnodes, jedges})
+	if err != nil {
+		return nil, err
+	}
+
+	d3Bundle, err := graphTemplateFS.ReadFile("templates/d3.min.js")
+	if err != nil {
+		return nil, fmt.Errorf("read d3 bundle: %w", err)
+	}
+	tmplSrc, err := graphTemplateFS.ReadFile("templates/graph.html")
+	if err != nil {
+		return nil, fmt.Errorf("read graph template: %w", err)
+	}
+
+	tmpl, err := template.New("graph").Delims("{{", "}}").Parse(string(tmplSrc))
+	if err != nil {
+		return nil, fmt.Errorf("parse graph template: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, map[string]template.JS{
+		"D3":       template.JS(d3Bundle),
+		"GraphJSON": template.JS(graphData),
+	}); err != nil {
+		return nil, fmt.Errorf("execute graph template: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
 func dotToSVG(dot string) (string, error) {
 	c := exec.Command("dot", "-Tsvg")
 	c.Stdin = strings.NewReader(dot)
@@ -538,19 +611,24 @@ func dotToSVG(dot string) (string, error) {
 	return string(out), nil
 }
 
-func openFile(data []byte, ext string) error {
-	f, err := os.CreateTemp("", "nn-graph-*"+ext)
-	if err != nil {
-		return err
-	}
-	if _, err := f.Write(data); err != nil {
+// openFile opens data in the default viewer. If path is non-empty, it is opened
+// directly (data is ignored). Otherwise data is written to a temp file with ext.
+func openFile(data []byte, path string) error {
+	if path == "" {
+		f, err := os.CreateTemp("", "nn-graph-*")
+		if err != nil {
+			return err
+		}
+		if _, err := f.Write(data); err != nil {
+			f.Close()
+			return err
+		}
 		f.Close()
-		return err
+		path = f.Name()
 	}
-	f.Close()
 	openCmd := "xdg-open"
 	if runtime.GOOS == "darwin" {
 		openCmd = "open"
 	}
-	return exec.Command(openCmd, f.Name()).Start()
+	return exec.Command(openCmd, path).Start()
 }

@@ -303,6 +303,35 @@ func TestGraphExportDOT(t *testing.T) {
 	}
 }
 
+// ── nn graph export --format html ────────────────────────────────────────────
+
+func TestGraphExportHTML(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	b := newTestNoteForCLI(note.GenerateID(), "Beta", note.TypeConcept)
+	a.Links = []note.Link{{TargetID: b.ID, Annotation: "link"}}
+	writeNoteFile(t, nbDir, a)
+	writeNoteFile(t, nbDir, b)
+
+	out, err := execute("graph", "export", "--format", "html")
+	if err != nil {
+		t.Fatalf("nn graph export --format html: %v", err)
+	}
+	if !strings.Contains(out, "<!DOCTYPE html>") {
+		t.Errorf("html export: missing DOCTYPE:\n%.200s", out)
+	}
+	if !strings.Contains(out, "<script") {
+		t.Errorf("html export: missing <script>:\n%.200s", out)
+	}
+	if !strings.Contains(out, `"nodes"`) {
+		t.Errorf("html export: missing graph nodes JSON:\n%.200s", out)
+	}
+	if !strings.Contains(out, "highlight") {
+		t.Errorf("html export: missing highlight interaction:\n%.200s", out)
+	}
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func nonEmptyLines(s string) []string {

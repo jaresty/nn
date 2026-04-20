@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>nn graph</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #1a1a2e; color: #e0e0e0; font-family: system-ui, sans-serif; overflow: hidden; }
+#tooltip {
+  position: absolute; pointer-events: none;
+  background: rgba(0,0,0,.85); border: 1px solid #444;
+  padding: 8px 12px; border-radius: 6px; font-size: 13px;
+  max-width: 260px; line-height: 1.4; display: none;
+}
+#tooltip .title { font-weight: 600; margin-bottom: 4px; }
+#tooltip .tags { color: #aaa; font-size: 11px; }
+svg { width: 100vw; height: 100vh; }
+.link { stroke: #444; stroke-opacity: .6; }
+.link.highlighted { stroke: #7eb8f7; stroke-opacity: 1; stroke-width: 2px; }
+.node circle {
+  fill: #16213e; stroke: #7eb8f7; stroke-width: 1.5px; cursor: pointer;
+  transition: fill .15s;
+}
+.node.highlighted circle { fill: #7eb8f7; stroke: #fff; }
+.node.dimmed circle { fill: #16213e; stroke: #333; opacity: .35; }
+.node text {
+  fill: #ccc; font-size: 11px; pointer-events: none;
+  text-shadow: 0 1px 3px #000;
+}
+.node.highlighted text { fill: #fff; }
+.node.dimmed text { opacity: .3; }
+</style>
+</head>
+<body>
+<div id="tooltip"><div class="title"></div><div class="tags"></div></div>
+<svg></svg>
+<script>
+// ── D3 bundle ──────────────────────────────────────────────────────────────
+{{.D3}}
+// ── Graph data ─────────────────────────────────────────────────────────────
+const graph = {{.GraphJSON}};
+// ── Render ────────────────────────────────────────────────────────────────
+const width = window.innerWidth, height = window.innerHeight;
+const svg = d3.select("svg")
+  .call(d3.zoom().scaleExtent([.1, 8]).on("zoom", e => g.attr("transform", e.transform)));
+const g = svg.append("g");
+const tooltip = document.getElementById("tooltip");
+
+const simulation = d3.forceSimulation(graph.nodes)
+  .force("link", d3.forceLink(graph.edges).id(d => d.id).distance(120))
+  .force("charge", d3.forceManyBody().strength(-300))
+  .force("center", d3.forceCenter(width / 2, height / 2))
+  .force("collision", d3.forceCollide(30));
+
+const link = g.append("g").selectAll("line")
+  .data(graph.edges).join("line").attr("class", "link");
+
+const node = g.append("g").selectAll("g")
+  .data(graph.nodes).join("g")
+  .attr("class", "node")
+  .call(d3.drag()
+    .on("start", (e, d) => { if (!e.active) simulation.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
+    .on("drag",  (e, d) => { d.fx = e.x; d.fy = e.y; })
+    .on("end",   (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }));
+
+node.append("circle").attr("r", 10);
+node.append("text").attr("dy", "1.4em").attr("text-anchor", "middle").text(d => d.title.length > 24 ? d.title.slice(0,22)+"…" : d.title);
+
+// hover tooltip
+node.on("mousemove", (e, d) => {
+  tooltip.style.display = "block";
+  tooltip.style.left = (e.pageX + 14) + "px";
+  tooltip.style.top  = (e.pageY - 10) + "px";
+  tooltip.querySelector(".title").textContent = d.title;
+  tooltip.querySelector(".tags").textContent  = (d.tags||[]).length ? "#" + d.tags.join(" #") : "";
+}).on("mouseleave", () => { tooltip.style.display = "none"; });
+
+// click: highlight neighbors
+let selected = null;
+node.on("click", (e, d) => {
+  e.stopPropagation();
+  if (selected === d.id) { highlight(null); selected = null; return; }
+  selected = d.id;
+  highlight(d.id);
+});
+svg.on("click", () => { highlight(null); selected = null; });
+
+function highlight(id) {
+  if (!id) {
+    node.classed("highlighted", false).classed("dimmed", false);
+    link.classed("highlighted", false);
+    return;
+  }
+  const neighbors = new Set([id]);
+  graph.edges.forEach(e => {
+    const src = typeof e.source === "object" ? e.source.id : e.source;
+    const tgt = typeof e.target === "object" ? e.target.id : e.target;
+    if (src === id) neighbors.add(tgt);
+    if (tgt === id) neighbors.add(src);
+  });
+  node.classed("highlighted", d => neighbors.has(d.id))
+      .classed("dimmed",      d => !neighbors.has(d.id));
+  link.classed("highlighted", e => {
+    const src = typeof e.source === "object" ? e.source.id : e.source;
+    const tgt = typeof e.target === "object" ? e.target.id : e.target;
+    return src === id || tgt === id;
+  });
+}
+
+simulation.on("tick", () => {
+  link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+      .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+  node.attr("transform", d => `translate(${d.x},${d.y})`);
+});
+</script>
+</body>
+</html>
