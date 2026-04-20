@@ -92,7 +92,9 @@ func copyPlugins(destDir string) error {
 }
 
 func isAlreadyExists(out string) bool {
-	return strings.Contains(out, "already exists") || strings.Contains(out, "already registered")
+	return strings.Contains(out, "already exists") ||
+		strings.Contains(out, "already registered") ||
+		strings.Contains(out, "already installed")
 }
 
 func isAlreadyInstalled(out string) bool {
