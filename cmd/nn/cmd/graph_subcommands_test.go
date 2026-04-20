@@ -305,6 +305,57 @@ func TestGraphExportDOT(t *testing.T) {
 
 // ── nn graph export --format html ────────────────────────────────────────────
 
+func TestGraphExportHTMLFiltersBrokenLinks(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	a := newTestNoteForCLI(note.GenerateID(), "A", note.TypeConcept)
+	// Link to a non-existent target.
+	a.Links = []note.Link{{TargetID: "nonexistent-id-999", Annotation: "broken"}}
+	writeNoteFile(t, nbDir, a)
+
+	out, err := execute("graph", "export", "--format", "html")
+	if err != nil {
+		t.Fatalf("nn graph export --format html: %v", err)
+	}
+	if strings.Contains(out, `"nonexistent-id-999"`) {
+		t.Errorf("html export: broken-link target should be filtered from edges JSON")
+	}
+}
+
+func TestGraphExportHTMLEmbedsBodies(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	a.Body = "This is the note body content."
+	writeNoteFile(t, nbDir, a)
+
+	out, err := execute("graph", "export", "--format", "html")
+	if err != nil {
+		t.Fatalf("nn graph export --format html: %v", err)
+	}
+	if !strings.Contains(out, `"body"`) {
+		t.Errorf("html export: node JSON missing 'body' key")
+	}
+	if !strings.Contains(out, "This is the note body content.") {
+		t.Errorf("html export: note body content not found in output")
+	}
+}
+
+func TestGraphExportHTMLSidePanel(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	writeNoteFile(t, nbDir, a)
+
+	out, err := execute("graph", "export", "--format", "html")
+	if err != nil {
+		t.Fatalf("nn graph export --format html: %v", err)
+	}
+	if !strings.Contains(out, "panel") {
+		t.Errorf("html export: missing side panel element")
+	}
+}
+
 func TestGraphExportHTML(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 

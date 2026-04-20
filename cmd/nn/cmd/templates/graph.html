@@ -5,113 +5,273 @@
 <title>nn graph</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #1a1a2e; color: #e0e0e0; font-family: system-ui, sans-serif; overflow: hidden; }
+html, body { height: 100%; overflow: hidden; }
+body { background: #1a1a2e; color: #e0e0e0; font-family: system-ui, sans-serif; display: flex; }
+
+/* ── graph area ── */
+#graph-area { flex: 1; position: relative; min-width: 0; }
+svg { width: 100%; height: 100%; display: block; cursor: grab; }
+svg:active { cursor: grabbing; }
+
+/* ── tooltip ── */
 #tooltip {
-  position: absolute; pointer-events: none;
-  background: rgba(0,0,0,.85); border: 1px solid #444;
+  position: absolute; pointer-events: none; z-index: 20;
+  background: rgba(10,10,30,.92); border: 1px solid #3a4a6a;
   padding: 8px 12px; border-radius: 6px; font-size: 13px;
-  max-width: 260px; line-height: 1.4; display: none;
+  max-width: 280px; line-height: 1.4; display: none;
 }
-#tooltip .title { font-weight: 600; margin-bottom: 4px; }
-#tooltip .tags { color: #aaa; font-size: 11px; }
-svg { width: 100vw; height: 100vh; }
-.link { stroke: #444; stroke-opacity: .6; }
-.link.highlighted { stroke: #7eb8f7; stroke-opacity: 1; stroke-width: 2px; }
-.node circle {
-  fill: #16213e; stroke: #7eb8f7; stroke-width: 1.5px; cursor: pointer;
-  transition: fill .15s;
+#tooltip .tip-title { font-weight: 600; margin-bottom: 3px; }
+#tooltip .tip-tags  { color: #7eb8f7; font-size: 11px; }
+#tooltip .tip-type  { color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 3px; }
+
+/* ── zoom controls ── */
+#zoom-controls {
+  position: absolute; bottom: 18px; left: 18px; z-index: 10;
+  display: flex; flex-direction: column; gap: 4px;
 }
-.node.highlighted circle { fill: #7eb8f7; stroke: #fff; }
-.node.dimmed circle { fill: #16213e; stroke: #333; opacity: .35; }
+#zoom-controls button {
+  width: 30px; height: 30px; background: #16213e; border: 1px solid #3a4a6a;
+  color: #ccc; font-size: 16px; border-radius: 5px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; line-height: 1;
+}
+#zoom-controls button:hover { background: #2a3a5e; color: #fff; }
+
+/* ── node type legend ── */
+#legend {
+  position: absolute; top: 14px; left: 14px; z-index: 10;
+  background: rgba(10,10,30,.85); border: 1px solid #2a3a5e;
+  border-radius: 6px; padding: 8px 12px; font-size: 11px;
+}
+#legend .leg-row { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+#legend .leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+#legend .leg-label { color: #aaa; }
+
+/* ── side panel ── */
+#panel {
+  width: 360px; min-width: 360px;
+  background: #13192e; border-left: 1px solid #2a3a5e;
+  display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform .2s ease;
+  position: absolute; right: 0; top: 0; bottom: 0; z-index: 15;
+}
+#panel.open { transform: translateX(0); position: relative; }
+#panel-header {
+  padding: 14px 16px 10px; border-bottom: 1px solid #2a3a5e;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+  flex-shrink: 0;
+}
+#panel-title { font-size: 14px; font-weight: 600; line-height: 1.4; flex: 1; }
+#panel-type   { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: .05em; margin-top: 3px; }
+#panel-close  {
+  background: none; border: none; color: #666; font-size: 16px;
+  cursor: pointer; padding: 2px 4px; line-height: 1; flex-shrink: 0;
+}
+#panel-close:hover { color: #fff; }
+#panel-tags { padding: 6px 16px 8px; font-size: 11px; color: #7eb8f7; border-bottom: 1px solid #2a3a5e; flex-shrink: 0; min-height: 28px; }
+#panel-body {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 14px 16px; font-size: 13px; line-height: 1.7;
+  white-space: pre-wrap; color: #bbb;
+}
+#panel-empty { color: #444; font-style: italic; }
+
+/* ── graph elements ── */
+.link { stroke-opacity: .5; fill: none; }
+.link.highlighted { stroke-opacity: 1; stroke-width: 2px; }
+.node circle { stroke-width: 1.5px; cursor: pointer; transition: opacity .15s; }
+.node.dimmed circle { opacity: .2; }
+.node.dimmed text   { opacity: .15; }
 .node text {
-  fill: #ccc; font-size: 11px; pointer-events: none;
-  text-shadow: 0 1px 3px #000;
+  font-size: 11px; pointer-events: none;
+  fill: #ccc; paint-order: stroke;
+  stroke: #1a1a2e; stroke-width: 3px; stroke-linejoin: round;
 }
 .node.highlighted text { fill: #fff; }
-.node.dimmed text { opacity: .3; }
 </style>
 </head>
 <body>
-<div id="tooltip"><div class="title"></div><div class="tags"></div></div>
-<svg></svg>
+<div id="graph-area">
+  <div id="tooltip">
+    <div class="tip-type"></div>
+    <div class="tip-title"></div>
+    <div class="tip-tags"></div>
+  </div>
+  <div id="legend"></div>
+  <div id="zoom-controls">
+    <button id="btn-zoom-in"  title="Zoom in">+</button>
+    <button id="btn-zoom-out" title="Zoom out">−</button>
+    <button id="btn-zoom-fit" title="Fit to view" style="font-size:12px">⊡</button>
+  </div>
+  <svg></svg>
+</div>
+<div id="panel">
+  <div id="panel-header">
+    <div>
+      <div id="panel-title"></div>
+      <div id="panel-type"></div>
+    </div>
+    <button id="panel-close" title="Close">✕</button>
+  </div>
+  <div id="panel-tags"></div>
+  <div id="panel-body"></div>
+</div>
 <script>
 // ── D3 bundle ──────────────────────────────────────────────────────────────
 {{.D3}}
 // ── Graph data ─────────────────────────────────────────────────────────────
 const graph = {{.GraphJSON}};
-// ── Render ────────────────────────────────────────────────────────────────
-const width = window.innerWidth, height = window.innerHeight;
-const svg = d3.select("svg")
-  .call(d3.zoom().scaleExtent([.1, 8]).on("zoom", e => g.attr("transform", e.transform)));
-const g = svg.append("g");
-const tooltip = document.getElementById("tooltip");
+// ── Type colours ──────────────────────────────────────────────────────────
+const TYPE_COLOR = {
+  concept:     "#7eb8f7",
+  argument:    "#f7a87e",
+  model:       "#7ef7b8",
+  hypothesis:  "#c07ef7",
+  observation: "#f7e07e",
+  question:    "#f77eb8",
+  protocol:    "#f77e7e",
+};
+const DEFAULT_COLOR = "#8899bb";
+function nodeColor(d) { return TYPE_COLOR[d.type] || DEFAULT_COLOR; }
 
+// ── Legend ────────────────────────────────────────────────────────────────
+const usedTypes = [...new Set(graph.nodes.map(d => d.type))].sort();
+const legend = document.getElementById("legend");
+usedTypes.forEach(t => {
+  const row = document.createElement("div"); row.className = "leg-row";
+  row.innerHTML = `<div class="leg-dot" style="background:${TYPE_COLOR[t]||DEFAULT_COLOR}"></div><div class="leg-label">${t}</div>`;
+  legend.appendChild(row);
+});
+
+// ── SVG + zoom ─────────────────────────────────────────────────────────────
+const svgEl  = document.querySelector("svg");
+const width  = () => svgEl.clientWidth;
+const height = () => svgEl.clientHeight;
+
+const zoom = d3.zoom().scaleExtent([.05, 12]).on("zoom", e => g.attr("transform", e.transform));
+const svg  = d3.select("svg").call(zoom);
+const g    = svg.append("g");
+
+function zoomBy(k) { svg.transition().duration(200).call(zoom.scaleBy, k); }
+function zoomFit() {
+  const bounds = g.node().getBBox();
+  if (!bounds.width || !bounds.height) return;
+  const pad = 40;
+  const s = Math.min((width() - pad*2) / bounds.width, (height() - pad*2) / bounds.height, 2);
+  const tx = width()/2  - s*(bounds.x + bounds.width/2);
+  const ty = height()/2 - s*(bounds.y + bounds.height/2);
+  svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity.translate(tx,ty).scale(s));
+}
+document.getElementById("btn-zoom-in").onclick  = () => zoomBy(1.4);
+document.getElementById("btn-zoom-out").onclick = () => zoomBy(1/1.4);
+document.getElementById("btn-zoom-fit").onclick = zoomFit;
+
+// ── Simulation ─────────────────────────────────────────────────────────────
 const simulation = d3.forceSimulation(graph.nodes)
-  .force("link", d3.forceLink(graph.edges).id(d => d.id).distance(120))
-  .force("charge", d3.forceManyBody().strength(-300))
-  .force("center", d3.forceCenter(width / 2, height / 2))
-  .force("collision", d3.forceCollide(30));
+  .force("link",      d3.forceLink(graph.edges).id(d => d.id).distance(140))
+  .force("charge",    d3.forceManyBody().strength(-350))
+  .force("center",    d3.forceCenter(0, 0))
+  .force("collision", d3.forceCollide(36));
 
+// ── Links ──────────────────────────────────────────────────────────────────
 const link = g.append("g").selectAll("line")
-  .data(graph.edges).join("line").attr("class", "link");
+  .data(graph.edges).join("line")
+  .attr("class", "link")
+  .attr("stroke", "#3a4a6a");
 
+// ── Nodes ──────────────────────────────────────────────────────────────────
 const node = g.append("g").selectAll("g")
   .data(graph.nodes).join("g")
   .attr("class", "node")
   .call(d3.drag()
-    .on("start", (e, d) => { if (!e.active) simulation.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
-    .on("drag",  (e, d) => { d.fx = e.x; d.fy = e.y; })
-    .on("end",   (e, d) => { if (!e.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }));
+    .on("start", (e,d) => { if (!e.active) simulation.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; })
+    .on("drag",  (e,d) => { d.fx=e.x; d.fy=e.y; })
+    .on("end",   (e,d) => { if (!e.active) simulation.alphaTarget(0); d.fx=null; d.fy=null; }));
 
-node.append("circle").attr("r", 10);
-node.append("text").attr("dy", "1.4em").attr("text-anchor", "middle").text(d => d.title.length > 24 ? d.title.slice(0,22)+"…" : d.title);
+node.append("circle").attr("r", 10).attr("fill", nodeColor).attr("stroke", d => nodeColor(d));
+node.append("text")
+  .attr("dy", "1.5em").attr("text-anchor", "middle")
+  .text(d => d.title.length > 28 ? d.title.slice(0,26)+"…" : d.title);
 
-// hover tooltip
-node.on("mousemove", (e, d) => {
+// ── Tooltip ────────────────────────────────────────────────────────────────
+const tooltip = document.getElementById("tooltip");
+node.on("mousemove", (e,d) => {
   tooltip.style.display = "block";
-  tooltip.style.left = (e.pageX + 14) + "px";
-  tooltip.style.top  = (e.pageY - 10) + "px";
-  tooltip.querySelector(".title").textContent = d.title;
-  tooltip.querySelector(".tags").textContent  = (d.tags||[]).length ? "#" + d.tags.join(" #") : "";
+  tooltip.style.left = (e.offsetX + 16) + "px";
+  tooltip.style.top  = (e.offsetY - 10) + "px";
+  tooltip.querySelector(".tip-type").textContent  = d.type || "";
+  tooltip.querySelector(".tip-title").textContent = d.title;
+  tooltip.querySelector(".tip-tags").textContent  = (d.tags||[]).length ? d.tags.map(t=>"#"+t).join("  ") : "";
 }).on("mouseleave", () => { tooltip.style.display = "none"; });
 
-// click: highlight neighbors
+// ── Panel ──────────────────────────────────────────────────────────────────
+const panel      = document.getElementById("panel");
+const panelTitle = document.getElementById("panel-title");
+const panelType  = document.getElementById("panel-type");
+const panelTags  = document.getElementById("panel-tags");
+const panelBody  = document.getElementById("panel-body");
+
+document.getElementById("panel-close").addEventListener("click", closePanel);
+
+function openPanel(d) {
+  panelTitle.textContent = d.title;
+  panelType.textContent  = d.type || "";
+  panelType.style.color  = TYPE_COLOR[d.type] || DEFAULT_COLOR;
+  panelTags.textContent  = (d.tags||[]).length ? d.tags.map(t=>"#"+t).join("  ") : "";
+  if (d.body && d.body.trim()) {
+    panelBody.textContent = d.body;
+  } else {
+    panelBody.innerHTML = '<span id="panel-empty">No body.</span>';
+  }
+  panel.classList.add("open");
+}
+function closePanel() {
+  panel.classList.remove("open");
+  clearHighlight(); selected = null;
+}
+
+// ── Highlight ──────────────────────────────────────────────────────────────
 let selected = null;
-node.on("click", (e, d) => {
+node.on("click", (e,d) => {
   e.stopPropagation();
-  if (selected === d.id) { highlight(null); selected = null; return; }
+  if (selected === d.id) { closePanel(); return; }
   selected = d.id;
   highlight(d.id);
+  openPanel(d);
 });
-svg.on("click", () => { highlight(null); selected = null; });
+svg.on("click", () => { closePanel(); });
 
 function highlight(id) {
-  if (!id) {
-    node.classed("highlighted", false).classed("dimmed", false);
-    link.classed("highlighted", false);
-    return;
-  }
   const neighbors = new Set([id]);
   graph.edges.forEach(e => {
-    const src = typeof e.source === "object" ? e.source.id : e.source;
-    const tgt = typeof e.target === "object" ? e.target.id : e.target;
-    if (src === id) neighbors.add(tgt);
-    if (tgt === id) neighbors.add(src);
+    const s = typeof e.source==="object" ? e.source.id : e.source;
+    const t = typeof e.target==="object" ? e.target.id : e.target;
+    if (s===id) neighbors.add(t);
+    if (t===id) neighbors.add(s);
   });
   node.classed("highlighted", d => neighbors.has(d.id))
       .classed("dimmed",      d => !neighbors.has(d.id));
   link.classed("highlighted", e => {
-    const src = typeof e.source === "object" ? e.source.id : e.source;
-    const tgt = typeof e.target === "object" ? e.target.id : e.target;
-    return src === id || tgt === id;
+    const s = typeof e.source==="object" ? e.source.id : e.source;
+    const t = typeof e.target==="object" ? e.target.id : e.target;
+    return s===id || t===id;
+  }).attr("stroke", e => {
+    const s = typeof e.source==="object" ? e.source.id : e.source;
+    const t = typeof e.target==="object" ? e.target.id : e.target;
+    return (s===id || t===id) ? "#7eb8f7" : "#3a4a6a";
   });
 }
+function clearHighlight() {
+  node.classed("highlighted", false).classed("dimmed", false);
+  link.classed("highlighted", false).attr("stroke", "#3a4a6a");
+}
 
+// ── Tick ───────────────────────────────────────────────────────────────────
 simulation.on("tick", () => {
-  link.attr("x1", d => d.source.x).attr("y1", d => d.source.y)
-      .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
-  node.attr("transform", d => `translate(${d.x},${d.y})`);
+  link.attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
+      .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
+  node.attr("transform", d=>`translate(${d.x},${d.y})`);
 });
+simulation.on("end", zoomFit);
 </script>
 </body>
 </html>

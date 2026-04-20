@@ -497,7 +497,7 @@ func newGraphExportCmd(state *rootState) *cobra.Command {
 				fmt.Fprint(w, svg)
 				return nil
 			case "html":
-				htmlBytes, err := buildHTML(enodes, eedges)
+				htmlBytes, err := buildHTML(enodes, eedges, byID)
 				if err != nil {
 					return fmt.Errorf("graph export html: %w", err)
 				}
@@ -551,11 +551,13 @@ func buildDOT(nodes []dotNode, edges []dotEdge) string {
 	return sb.String()
 }
 
-func buildHTML(nodes []dotNode, edges []dotEdge) ([]byte, error) {
+func buildHTML(nodes []dotNode, edges []dotEdge, notesByID map[string]*note.Note) ([]byte, error) {
 	type jsonNode struct {
 		ID    string   `json:"id"`
 		Title string   `json:"title"`
+		Type  string   `json:"type"`
 		Tags  []string `json:"tags"`
+		Body  string   `json:"body"`
 	}
 	type jsonEdge struct {
 		Source string `json:"source"`
@@ -567,7 +569,19 @@ func buildHTML(nodes []dotNode, edges []dotEdge) ([]byte, error) {
 	}
 	jnodes := make([]jsonNode, len(nodes))
 	for i, n := range nodes {
-		jnodes[i] = jsonNode{n.id, n.title, []string{}}
+		tags := []string{}
+		body := ""
+		if nn, ok := notesByID[n.id]; ok {
+			if nn.Tags != nil {
+				tags = nn.Tags
+			}
+			body = nn.Body
+		}
+		nodeType := ""
+		if nn, ok := notesByID[n.id]; ok {
+			nodeType = string(nn.Type)
+		}
+		jnodes[i] = jsonNode{n.id, n.title, nodeType, tags, body}
 	}
 	var jedges []jsonEdge
 	for _, e := range edges {
