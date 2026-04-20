@@ -10,12 +10,14 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+
 func newRandomCmd(state *rootState) *cobra.Command {
 	var (
 		filterTag    string
 		filterType   string
 		filterStatus string
 		jsonOut      bool
+		depth        int
 	)
 
 	cmd := &cobra.Command{
@@ -46,6 +48,23 @@ func newRandomCmd(state *rootState) *cobra.Command {
 			}
 
 			n := filtered[rand.Intn(len(filtered))]
+			w := outWriter(cmd)
+
+			if depth > 0 {
+				all, err := state.backend.List()
+				if err != nil {
+					return fmt.Errorf("random: %w", err)
+				}
+				byID := make(map[string]*note.Note, len(all))
+				for _, nn := range all {
+					byID[nn.ID] = nn
+				}
+				entries := bfsDepth(n, byID, depth)
+				if jsonOut {
+					return printDepthJSON(w, entries)
+				}
+				return printDepthMarkdown(w, entries)
+			}
 
 			if jsonOut {
 				tags := n.Tags
@@ -59,7 +78,7 @@ func newRandomCmd(state *rootState) *cobra.Command {
 					Status: string(n.Status),
 					Tags:   tags,
 				}
-				enc := json.NewEncoder(outWriter(cmd))
+				enc := json.NewEncoder(w)
 				enc.SetIndent("", "  ")
 				return enc.Encode(out)
 			}
@@ -68,7 +87,7 @@ func newRandomCmd(state *rootState) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("random: marshal: %w", err)
 			}
-			fmt.Fprint(outWriter(cmd), string(data))
+			fmt.Fprint(w, string(data))
 			return nil
 		},
 	}
@@ -77,5 +96,6 @@ func newRandomCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&filterType, "type", "", "Filter by type")
 	cmd.Flags().StringVar(&filterStatus, "status", "", "Filter by status")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output note as JSON")
+	cmd.Flags().IntVar(&depth, "depth", 0, "Traverse outgoing links to this depth and print all reachable notes")
 	return cmd
 }
