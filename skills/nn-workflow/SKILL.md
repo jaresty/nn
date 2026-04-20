@@ -43,10 +43,22 @@ Invoke it with `/nn-workflow`.
    ```
    Annotations must explain the relationship — never bare links.
 
-4. **Review**: Run `nn status` to check for orphans, broken links, long notes (candidates for splitting), and hub notes (high-connectivity anchors). Draft links count is also reported.
+4. **Link discovery**: After creating or updating a note, run `nn suggest-links` to surface candidate connections:
+   ```
+   nn suggest-links <id>          # load context block
+   # LLM reasons over output and suggests links
+   nn bulk-link <id> --to <id1> --annotation "..." --type <type> \
+                     --to <id2> --annotation "..." --type <type>
+   ```
+   Candidates are BM25-ranked; zero-score notes excluded with count reported. Already-linked notes are marked so additional link types can be suggested.
+
+5. **Review**: Run `nn status` to check for orphans, broken links, long notes (candidates for splitting), and hub notes (high-connectivity anchors). Draft links count is also reported.
+   - **Notebook health report**: `nn review` — growth stats, connectivity (orphans, dead-ends), draft notes. Paste into LLM session for recommendations.
    - Triage unendorsed links: `nn links <id> --status draft` — review each and run `nn update-link <from> <to> --status reviewed` once verified.
    - Find notes that have grown too large: `nn list --long`
    - Explore how ideas cluster: `nn clusters`
+   - **Topic gap analysis**: `nn gap <topic>` — topic notes + linked neighborhood formatted for LLM to identify coverage gaps and absent ideas.
+   - **Map of Content prep**: `nn index <topic>` — topic notes grouped by cluster; LLM names clusters, identifies tensions, creates index note.
    - Find shortest path between two ideas: `nn path <id-a> <id-b>`
    - Discover unlinked related notes: `nn list --similar <id> --limit 10` — surfaces notes sharing vocabulary with a given note. Good for finding connections the graph doesn't yet capture.
    - Load a topic subgraph as context: `nn show <id> --depth 2` — prints the note and all notes reachable within 2 hops as a single Markdown document.
@@ -63,6 +75,11 @@ Invoke it with `/nn-workflow`.
 
 | Command | Usage |
 |---|---|
+| `nn capture --title TEXT [--content TEXT] [--type TYPE]` | Capture raw material as draft observation |
+| `nn suggest-links <id> [--limit N] [--format json]` | Format BM25-ranked candidate links for LLM suggestion |
+| `nn review [--format json]` | Notebook health report: growth, connectivity, dead-ends, drafts |
+| `nn gap <topic> [--limit N] [--depth N] [--format json]` | Topic + neighborhood context for LLM gap analysis |
+| `nn index <topic> [--limit N] [--format json]` | Topic notes grouped by cluster for Map of Content creation |
 | `nn new` | Create a note |
 | `nn show <id>` | Read a note |
 | `nn list [--search TEXT] [--sort modified|title|created] [--type TYPE]` | List/filter/rank notes |

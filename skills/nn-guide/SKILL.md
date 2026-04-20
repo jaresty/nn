@@ -252,6 +252,92 @@ nn delete <id> --confirm
 
 `--confirm` is required. Warns if other notes link to the deleted note.
 
+## nn capture
+
+Quickly capture raw material (articles, quotes, observations) as a draft note.
+
+```
+nn capture --title TEXT [--content TEXT] [--type TYPE] [--tags TEXT]
+```
+
+- Default type: `observation`. Override with `--type concept|argument|...`
+- Status is always `draft` — the note is intended for LLM refinement
+- Prints the created note ID to stdout
+
+Typical flow:
+```
+nn capture --title "..." --content "..." # capture → get ID
+nn update <id> --content "..." --no-edit  # LLM refines
+nn suggest-links <id>                     # discover links
+```
+
+## nn suggest-links
+
+Format context for LLM-driven link suggestion. Does not call an LLM — emits a structured block for the LLM session to reason over.
+
+```
+nn suggest-links <id> [--limit N] [--format json]
+```
+
+Output contains:
+- `## Focal note` — full body of the focal note
+- `## Candidate notes (N total, M excluded — no term overlap)` — BM25-ranked candidates, each with tags and a 200-char summary
+- Notes already linked to the focal note are marked `(already linked: <type>)`
+- Zero-BM25-score notes are excluded; the count is reported in the header
+
+Default limit: 20. The LLM reads the output and calls `nn link` or `nn bulk-link` for accepted suggestions.
+
+## nn review
+
+Notebook health report formatted for LLM-driven analysis.
+
+```
+nn review [--format json]
+```
+
+Sections:
+- **Growth**: total notes, by type, created in last 7/30 days
+- **Connectivity**: total links, avg links per note, orphan count + IDs, dead-end count + IDs
+- **Structural gaps**: draft note count + IDs
+
+A "dead-end" note has outbound links but no inbound links — it contributes to others but nothing points back to it.
+
+`--format json` keys: `growth`, `connectivity`, `drafts`
+
+## nn gap
+
+Format topic neighborhood context for LLM gap analysis.
+
+```
+nn gap <topic> [--limit N] [--depth N] [--format json]
+```
+
+Loads notes matching `<topic>` via BM25 search, then expands to their direct neighbors (depth 1 by default) via forward links and backlinks. Output:
+
+- `## Topic notes (N matching "topic")` — ranked by BM25 score
+- `## Neighborhood (N notes, depth D)` — linked neighbors not in topic set
+
+The LLM receiving this output identifies what is thoroughly covered, what is shallow, what is absent, and what questions the notes raise but do not answer.
+
+Default limit: 20. Default depth: 1.
+
+## nn index
+
+Format topic cluster context for LLM-driven Map of Content creation.
+
+```
+nn index <topic> [--limit N] [--format json]
+```
+
+Loads notes matching `<topic>` via BM25, then groups them into clusters using link-based label propagation (scoped to the topic subset). Output:
+
+- `## Topic: "topic" (N notes)` — all matching notes with summaries
+- `## Clusters (N)` — grouped by link connectivity
+
+The LLM names the clusters, identifies tensions and gaps, and creates an index note via `nn new`.
+
+Default limit: 30. `--format json` keys: `topic_notes`, `clusters`
+
 ## nn random
 
 Return a randomly selected note. Optionally filtered.
