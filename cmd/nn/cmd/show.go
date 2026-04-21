@@ -13,6 +13,8 @@ import (
 // protocolDerivationBlock is appended to every protocol note in plain-text display.
 // It instructs any LLM reading the note to derive how the protocol applies before responding.
 const protocolDerivationBlock = `
+<!-- nn:display-only — the following block is injected by nn show and is NOT part of the note body. Do not include it in nn update --content or any note edit. -->
+
 ## Protocols
 
 Before responding to any message this session, output a ` + "`## Protocols`" + ` block.
