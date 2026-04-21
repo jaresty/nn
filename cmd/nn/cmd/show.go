@@ -25,6 +25,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 	var linkedFrom string
 	var jsonOut bool
 	var depth int
+	var global bool
 
 	cmd := &cobra.Command{
 		Use:   "show <id-or-title> [<id-or-title>...]",
@@ -32,6 +33,40 @@ func newShowCmd(state *rootState) *cobra.Command {
 		Args:  cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w := outWriter(cmd)
+
+			if global {
+				all, err := state.backend.List()
+				if err != nil {
+					return fmt.Errorf("show --global: %w", err)
+				}
+				first := true
+				for _, n := range all {
+					if n.Type != note.TypeProtocol {
+						continue
+					}
+					hasGoverns := false
+					for _, lnk := range n.Links {
+						if lnk.Type == "governs" {
+							hasGoverns = true
+							break
+						}
+					}
+					if hasGoverns {
+						continue
+					}
+					if !first {
+						fmt.Fprintln(w, "---")
+					}
+					first = false
+					data, err := n.Marshal()
+					if err != nil {
+						return fmt.Errorf("show --global: marshal: %w", err)
+					}
+					fmt.Fprint(w, string(data))
+					fmt.Fprint(w, protocolDerivationBlock)
+				}
+				return nil
+			}
 
 			if depth > 0 {
 				if len(args) != 1 {
@@ -176,6 +211,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&linkedFrom, "linked-from", "", "Show all notes linked from this ID")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output note as JSON with governing_protocols")
 	cmd.Flags().IntVar(&depth, "depth", 0, "Traverse outgoing links to this depth and print all reachable notes")
+	cmd.Flags().BoolVar(&global, "global", false, "Show all global protocol notes (type:protocol with no outgoing governs links)")
 	return cmd
 }
 

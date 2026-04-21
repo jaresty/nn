@@ -10,7 +10,7 @@ Invoke it with `/nn-workflow`.
 ## Workflow
 
 0. **Session Start**: Load relevant protocols before doing other work:
-   - **Global protocols** (no outgoing `governs` links): `nn list --global --json` — load each with `nn show <id>`
+   - **Global protocols** (no outgoing `governs` links): `nn show --global` — loads all global protocols with derivation instructions in one command
    - **Contextual protocols** (linked to notes in scope): when the user names specific notes or topics, run `nn backlinks <note-id> --type governs` for each; load any protocol notes returned
    - Treat all loaded protocol bodies as binding operating instructions for this session. An empty result is a no-op.
 
@@ -83,7 +83,8 @@ Invoke it with `/nn-workflow`.
 | `nn new` | Create a note |
 | `nn show <id>` | Read a note |
 | `nn list [--search TEXT] [--sort modified|title|created] [--type TYPE]` | List/filter/rank notes |
-| `nn list --global [--json]` | Global protocols (no outgoing governs links) |
+| `nn show --global` | Show all global protocol notes (type:protocol, no governs links) with derivation instruction |
+| `nn list --global [--json]` | List global protocol note IDs/titles |
 | `nn link <from> <to> --annotation "..." --type TYPE` | Add a link |
 | `nn bulk-link <from> --to <id> --annotation "..." --type TYPE ...` | Add multiple links (1 commit) |
 | `nn unlink <from> <to>` | Remove a link |

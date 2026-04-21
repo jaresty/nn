@@ -24,44 +24,15 @@ the notebook.
 
 EOF
 
-# Load global protocols (no outgoing governs links).
-PROTOCOLS=$("$NN_BIN" list --global --json 2>/dev/null) || PROTOCOLS="[]"
+# Load and emit all global protocol notes (type:protocol, no governs links).
+# nn show --global emits full note content + derivation instruction per protocol.
+GLOBAL=$("$NN_BIN" show --global 2>/dev/null) || true
 
-COUNT=$(echo "$PROTOCOLS" | grep -c '"id"' || true)
-
-if [ "$COUNT" -eq 0 ]; then
+if [ -z "$GLOBAL" ]; then
   echo "## Active protocols"
   echo "(none)"
+else
+  echo "## Active protocols (loaded at session start)"
   echo ""
-  exit 0
+  echo "$GLOBAL"
 fi
-
-echo "## Active protocols (loaded at session start)"
-echo ""
-
-# Extract IDs and show each protocol note.
-echo "$PROTOCOLS" | grep '"id"' | sed 's/.*"id":[[:space:]]*"\([^"]*\)".*/\1/' | while read -r id; do
-  [ -z "$id" ] && continue
-
-  # Extract title from the JSON list output.
-  TITLE=$(echo "$PROTOCOLS" | awk -v id="$id" '
-    /"id":/ && $0 ~ id { found=1 }
-    found && /"title":/ {
-      sub(/.*"title":[[:space:]]*"/, "")
-      sub(/".*/, "")
-      print
-      exit
-    }
-  ')
-
-  BODY=$("$NN_BIN" show "$id" 2>/dev/null | awk '
-    /^---$/ { fm++; next }
-    fm >= 2 { print }
-  ' | sed '/^## Links/,$ d')
-
-  echo "### ${TITLE}"
-  echo "${BODY}"
-  echo ""
-  echo "---"
-  echo ""
-done

@@ -51,7 +51,10 @@ Print note content to stdout. Accepts a full ID or a title substring.
 ```
 nn show <id-or-title> [--depth N] [--json]
 nn show --linked-from <id>
+nn show --global
 ```
+
+`--global` shows all global protocol notes (type:protocol with no outgoing `governs` links) in one command, each with the derivation instruction appended. Replaces the two-step `nn list --global --json` + `nn show <id>` pattern.
 
 If the query doesn't match an ID exactly, `nn` searches note titles case-insensitively.
 If multiple titles match, the command lists the candidates and exits with an error — use
@@ -413,6 +416,11 @@ nn new --title "Concept A" --type concept --content "..." --no-edit
 # note ID from output: 20260411120045-0001
 nn list --json | jq '.[].id'   # find related note IDs
 nn link 20260411120045-0001 <related-id> --annotation "extends this concept" --type extends
+```
+
+**Load all global protocols at session start:**
+```
+nn show --global
 ```
 
 **Find orphans before a review session:**

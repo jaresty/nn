@@ -1,12 +1,11 @@
 # nn-reload-protocols
 
-You run at session start (including after `/clear`) and immediately after context is compacted. Your only job is to reload the notebook's global protocol notes so they remain binding for the rest of the session.
+You run immediately after context is compacted (PostCompact). Your only job is to reload the notebook's global protocol notes so they remain binding for the rest of the session.
 
 ## What to do
 
-1. Run `nn list --global --json` to find global protocol notes (protocols with no outgoing `governs` links — these apply universally).
-2. For each result, run `nn show <id>` and read the body.
-3. Output the following block so the content is visible in the new context window:
+1. Run `nn show --global` to load all global protocol notes in one command.
+2. Output the following block so the content is visible in the new context window:
 
 ```
 ## Standing instruction: research
@@ -26,13 +25,10 @@ the notebook.
 
 ## Active protocols (reloaded after compaction)
 
-### <title>
-<body>
-
----
+<output of nn show --global>
 ```
 
-If `nn list --global` returns nothing, still output the standing research instruction, then:
+If `nn show --global` returns nothing, still output the standing research instruction, then:
 ```
 ## Active protocols
 (none)

@@ -79,3 +79,52 @@ func TestShowProtocolJSONNoDerivation(t *testing.T) {
 		t.Errorf("expected no derivation block in JSON output; got:\n%s", out)
 	}
 }
+
+// Assertion: TestShowGlobalFlag — nn show --global prints all global protocol notes.
+func TestShowGlobalFlag(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	p1 := newTestNoteForCLI(note.GenerateID(), "Protocol One", note.TypeProtocol)
+	p2 := newTestNoteForCLI(note.GenerateID(), "Protocol Two", note.TypeProtocol)
+	writeNoteFile(t, nbDir, p1)
+	writeNoteFile(t, nbDir, p2)
+
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global: %v", err)
+	}
+	if !strings.Contains(out, "Protocol One") {
+		t.Errorf("expected 'Protocol One' in output; got:\n%s", out)
+	}
+	if !strings.Contains(out, "Protocol Two") {
+		t.Errorf("expected 'Protocol Two' in output; got:\n%s", out)
+	}
+}
+
+// Assertion: TestShowGlobalEmpty — nn show --global with no protocols exits cleanly with no output.
+func TestShowGlobalEmpty(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global with no protocols: %v", err)
+	}
+	if strings.TrimSpace(out) != "" {
+		t.Errorf("expected empty output with no protocols; got:\n%s", out)
+	}
+}
+
+// Assertion: TestShowGlobalSeparator — multiple protocols are separated by ---.
+func TestShowGlobalSeparator(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	p1 := newTestNoteForCLI(note.GenerateID(), "Protocol One", note.TypeProtocol)
+	p2 := newTestNoteForCLI(note.GenerateID(), "Protocol Two", note.TypeProtocol)
+	writeNoteFile(t, nbDir, p1)
+	writeNoteFile(t, nbDir, p2)
+
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global: %v", err)
+	}
+	if !strings.Contains(out, "\n---\n") {
+		t.Errorf("expected '---' separator between protocols; got:\n%s", out)
+	}
+}
