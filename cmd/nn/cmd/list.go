@@ -25,6 +25,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		limit        int
 		jsonOut      bool
 		rich         bool
+		verbose      bool
 		search       string
 		sortBy       string
 		since        string
@@ -180,13 +181,21 @@ func newListCmd(state *rootState) *cobra.Command {
 			}
 
 			if jsonOut {
-				if rich {
+				if rich || verbose {
 					return printNotesRichJSON(cmd, filtered)
 				}
 				return printNotesJSON(cmd, filtered)
 			}
 			for _, n := range filtered {
-				fmt.Fprintf(outWriter(cmd), "%s  %s\n", n.ID, n.Title)
+				if verbose {
+					tagsStr := ""
+					if len(n.Tags) > 0 {
+						tagsStr = " [" + strings.Join(n.Tags, ", ") + "]"
+					}
+					fmt.Fprintf(outWriter(cmd), "%s  %s (%s, %s)%s\n", n.ID, n.Title, n.Type, n.Status, tagsStr)
+				} else {
+					fmt.Fprintf(outWriter(cmd), "%s  %s\n", n.ID, n.Title)
+				}
 			}
 			return nil
 		},
@@ -202,6 +211,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&long, "long", false, "Filter to notes exceeding the atomicity threshold")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of results")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Machine-readable JSON output")
+	cmd.Flags().BoolVar(&verbose, "verbose", false, "Include type, status, tags, and timestamps in output")
 	cmd.Flags().StringVar(&search, "search", "", "Full-text search across title and body")
 	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by field: title, modified, created (default: created desc)")
 	cmd.Flags().StringVar(&since, "since", "", "Notes modified after this date (ISO 8601: 2006-01-02 or 2006-01-02T15:04:05Z)")
