@@ -22,7 +22,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
-		Short: "Update an existing note's title, tags, or body",
+		Short: "Update an existing note's title, type, tags, or body",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if content != "" && appendS != "" {
