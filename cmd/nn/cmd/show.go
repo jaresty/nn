@@ -10,6 +10,17 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+// protocolDerivationBlock is appended to every protocol note in plain-text display.
+// It instructs any LLM reading the note to derive how the protocol applies before responding.
+const protocolDerivationBlock = `
+## Protocols
+
+Before responding to any message this session, output a ` + "`## Protocols`" + ` block.
+For each active protocol, write one sentence stating how it applies to this specific
+request — or "not applicable" if it doesn't. Place this block before your substantive
+response.
+`
+
 func newShowCmd(state *rootState) *cobra.Command {
 	var linkedFrom string
 	var jsonOut bool
@@ -155,6 +166,9 @@ func newShowCmd(state *rootState) *cobra.Command {
 					return fmt.Errorf("show: marshal: %w", err)
 				}
 				fmt.Fprint(w, string(data))
+				if n.Type == note.TypeProtocol {
+					fmt.Fprint(w, protocolDerivationBlock)
+				}
 			}
 			return nil
 		},
