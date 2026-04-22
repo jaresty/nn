@@ -17,21 +17,26 @@ func newDeleteCmd(state *rootState) *cobra.Command {
 			if !confirm {
 				return fmt.Errorf("--confirm required to delete a note")
 			}
-			id := args[0]
+
+			n, err := resolveNote(state, args[0])
+			if err != nil {
+				return fmt.Errorf("delete: %w", err)
+			}
+			id := n.ID
 
 			// Check for inbound links and warn.
-			notes, err := state.backend.List()
-			if err != nil {
-				return fmt.Errorf("delete: list: %w", err)
+			notes, listErr := state.backend.List()
+			if listErr != nil {
+				return fmt.Errorf("delete: list: %w", listErr)
 			}
 			var linkers []string
-			for _, n := range notes {
-				if n.ID == id {
+			for _, candidate := range notes {
+				if candidate.ID == id {
 					continue
 				}
-				for _, lnk := range n.Links {
+				for _, lnk := range candidate.Links {
 					if lnk.TargetID == id {
-						linkers = append(linkers, n.ID)
+						linkers = append(linkers, candidate.ID)
 					}
 				}
 			}

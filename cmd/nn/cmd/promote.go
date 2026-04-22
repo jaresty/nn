@@ -23,11 +23,14 @@ func newPromoteCmd(state *rootState) *cobra.Command {
 			if !status.IsValid() {
 				return fmt.Errorf("invalid --to %q: must be reviewed|permanent", to)
 			}
-			id := args[0]
-			if err := state.backend.Promote(id, status); err != nil {
+			n, err := resolveNote(state, args[0])
+			if err != nil {
 				return fmt.Errorf("promote: %w", err)
 			}
-			fmt.Fprintf(outWriter(cmd), "promoted %s to %s\n", id, to)
+			if err := state.backend.Promote(n.ID, status); err != nil {
+				return fmt.Errorf("promote: %w", err)
+			}
+			fmt.Fprintf(outWriter(cmd), "promoted %s to %s\n", n.ID, to)
 			return nil
 		},
 	}

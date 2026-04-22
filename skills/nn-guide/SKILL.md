@@ -116,10 +116,12 @@ Update annotation, type, and/or status of existing links in place — no unlink/
 ## nn link / nn unlink / nn bulk-link
 
 ```
-nn link <from-id> <to-id> --annotation "relationship description" --type TYPE [--status draft|reviewed]
-nn unlink <from-id> <to-id>
+nn link <from-id-or-title> <to-id-or-title> --annotation "relationship description" --type TYPE [--status draft|reviewed]
+nn unlink <from-id-or-title> <to-id-or-title>
 nn bulk-link <from-id> --to <id> --annotation "..." --type TYPE [--status draft|reviewed] [--to <id> --annotation "..." --type TYPE]...
 ```
+
+`nn link` and `nn unlink` accept title substrings for both arguments. `nn bulk-link` requires IDs.
 
 Both `--annotation` and `--type` are required. A bare link is a schema violation.
 
@@ -224,33 +226,59 @@ nn ast src/backend/gitlocal.go --trace --root ./
 ## nn update
 
 ```
-nn update <id> [--title TEXT] [--tags TEXT] [--content TEXT] [--append TEXT] [--type TYPE] [--no-edit]
+nn update <id-or-title> [--title TEXT] [--tags TEXT] [--tags-add TAG] [--tags-remove TAG]
+         [--content TEXT] [--stdin] [--append TEXT] [--replace-section HEADING]
+         [--type TYPE] [--status STATUS] [--no-edit]
 ```
 
-At least one change flag is required. `--content` and `--append` are mutually exclusive.
+Accepts a note ID **or a title substring** — if the substring matches exactly one note it is used; multiple matches returns an error. At least one change flag is required. `--content`/`--stdin`/`--append` are mutually exclusive.
 
 | Flag | Effect |
 |---|---|
 | `--title TEXT` | Replace note title |
 | `--tags TEXT` | Replace all tags (comma-separated) |
+| `--tags-add TAG` | Add a tag without touching others (repeatable) |
+| `--tags-remove TAG` | Remove a tag without touching others (repeatable) |
 | `--content TEXT` | Replace note body entirely |
+| `--stdin` | Read replacement body from stdin (heredoc-safe, no shell escaping) |
+| `--replace-section HEADING` | Replace only the named `## Heading` section; requires `--content` or `--stdin`; errors if heading not found |
 | `--append TEXT` | Append text to note body (double-newline separator) |
+| `--status STATUS` | Set note status: `draft`, `reviewed`, or `permanent` |
 | `--no-edit` | Skip `$EDITOR` (always use in non-TTY/LLM context) |
 
-Direct file editing is also safe — the index is a cache rebuilt from files.
+**Preferred LLM patterns:**
+
+```bash
+# Update by title substring (no ID lookup needed)
+nn update "my note title" --content "new body" --no-edit
+
+# Multiline body without shell escaping
+nn update <id-or-title> --stdin --no-edit <<'EOF'
+Body with `backticks`, "quotes", and $pecial chars — no escaping needed.
+EOF
+
+# Replace a single section, preserve the rest
+nn update <id-or-title> --replace-section "Why" --content "New explanation." --no-edit
+
+# Additive tag operations
+nn update <id-or-title> --tags-add "zettelkasten" --tags-remove "inbox" --no-edit
+
+# Demote or reset status
+nn update <id-or-title> --status draft --no-edit
+```
 
 ## nn promote
 
 ```
-nn promote <id> --to reviewed|permanent
+nn promote <id-or-title> --to reviewed|permanent
 ```
 
-Status progression: `draft` → `reviewed` → `permanent`.
+Status progression: `draft` → `reviewed` → `permanent`. Accepts title substring. For direct status assignment (including demotion), prefer `nn update --status`.
 
 ## nn delete
 
 ```
-nn delete <id> --confirm
+nn delete <id-or-title> --confirm
 ```
 
 `--confirm` is required. Warns if other notes link to the deleted note.

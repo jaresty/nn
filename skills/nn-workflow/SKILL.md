@@ -103,9 +103,13 @@ Invoke it with `/nn-workflow`.
 | `nn ast <file> [--trace] [--root DIR] [--json]` | Structural outline of a source file; --trace finds references to all symbols |
 | `nn new --from-stdin` | Create note with body from stdin |
 | `nn new --from-file PATH` | Create note scaffolded from ast outline of a source file |
-| `nn update <id> --content "..." --no-edit` | Replace note body |
-| `nn update <id> --append "..." --no-edit` | Append to note body |
-| `nn update <id> --title "..." --no-edit` | Rename note |
-| `nn update <id> --type TYPE --no-edit` | Change note type |
-| `nn promote <id> --to reviewed` | Advance review status |
-| `nn delete <id> --confirm` | Delete a note |
+| `nn update <id-or-title> --content "..." --no-edit` | Replace note body (title substring accepted) |
+| `nn update <id-or-title> --stdin --no-edit` | Replace body from stdin (heredoc-safe) |
+| `nn update <id-or-title> --replace-section "Heading" --content "..." --no-edit` | Replace one `## Heading` section |
+| `nn update <id-or-title> --append "..." --no-edit` | Append to note body |
+| `nn update <id-or-title> --title "..." --no-edit` | Rename note |
+| `nn update <id-or-title> --type TYPE --no-edit` | Change note type |
+| `nn update <id-or-title> --status draft\|reviewed\|permanent --no-edit` | Set status directly (including demotion) |
+| `nn update <id-or-title> --tags-add TAG --tags-remove TAG --no-edit` | Additive/subtractive tag ops |
+| `nn promote <id-or-title> --to reviewed` | Advance review status (forward-only) |
+| `nn delete <id-or-title> --confirm` | Delete a note |

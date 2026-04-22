@@ -27,14 +27,21 @@ func newLinkCmd(state *rootState) *cobra.Command {
 			if linkStatus != "draft" && linkStatus != "reviewed" {
 				return fmt.Errorf("--status must be draft or reviewed")
 			}
-			fromID, toID := args[0], args[1]
+			fromNote, err := resolveNote(state, args[0])
+			if err != nil {
+				return fmt.Errorf("link: %w", err)
+			}
+			toNote, err := resolveNote(state, args[1])
+			if err != nil {
+				return fmt.Errorf("link: %w", err)
+			}
 			if !note.IsKnownLinkType(linkType) {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: unknown link type %q — known types: refines, contradicts, source-of, extends, supports, questions, governs\n", linkType)
 			}
-			if err := state.backend.AddLink(fromID, toID, annotation, linkType, linkStatus); err != nil {
+			if err := state.backend.AddLink(fromNote.ID, toNote.ID, annotation, linkType, linkStatus); err != nil {
 				return fmt.Errorf("link: %w", err)
 			}
-			fmt.Fprintf(outWriter(cmd), "linked %s → %s\n", fromID, toID)
+			fmt.Fprintf(outWriter(cmd), "linked %s → %s\n", fromNote.ID, toNote.ID)
 			return nil
 		},
 	}
@@ -46,15 +53,22 @@ func newLinkCmd(state *rootState) *cobra.Command {
 
 func newUnlinkCmd(state *rootState) *cobra.Command {
 	return &cobra.Command{
-		Use:   "unlink <from-id> <to-id>",
+		Use:   "unlink <from-id-or-title> <to-id-or-title>",
 		Short: "Remove a link between two notes",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fromID, toID := args[0], args[1]
-			if err := state.backend.RemoveLink(fromID, toID); err != nil {
+			fromNote, err := resolveNote(state, args[0])
+			if err != nil {
 				return fmt.Errorf("unlink: %w", err)
 			}
-			fmt.Fprintf(outWriter(cmd), "unlinked %s → %s\n", fromID, toID)
+			toNote, err := resolveNote(state, args[1])
+			if err != nil {
+				return fmt.Errorf("unlink: %w", err)
+			}
+			if err := state.backend.RemoveLink(fromNote.ID, toNote.ID); err != nil {
+				return fmt.Errorf("unlink: %w", err)
+			}
+			fmt.Fprintf(outWriter(cmd), "unlinked %s → %s\n", fromNote.ID, toNote.ID)
 			return nil
 		},
 	}
