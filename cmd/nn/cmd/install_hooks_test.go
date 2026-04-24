@@ -73,14 +73,15 @@ func TestInstallHooksWritesUserPromptSubmitToSettings(t *testing.T) {
 	if len(cmds) == 0 {
 		t.Fatal("hooks.UserPromptSubmit missing after install-hooks")
 	}
+	stableDir := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts")
 	found := false
 	for _, c := range cmds {
-		if strings.Contains(c, "protocols-reminder.sh") {
+		if strings.Contains(c, "protocols-reminder.sh") && strings.Contains(c, stableDir) {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("hooks.UserPromptSubmit command does not reference protocols-reminder.sh: %v", cmds)
+		t.Errorf("hooks.UserPromptSubmit command does not reference stable path %s/protocols-reminder.sh: %v", stableDir, cmds)
 	}
 }
 
@@ -102,18 +103,19 @@ func TestInstallHooksWritesSessionStartToSettings(t *testing.T) {
 	_ = err
 
 	hooks := readSettingsHooks(t, home)
+	stableDir := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts")
 	cmds := hookCommands(hooks, "SessionStart")
 	if len(cmds) == 0 {
 		t.Fatal("hooks.SessionStart missing after install-hooks")
 	}
 	found := false
 	for _, c := range cmds {
-		if strings.Contains(c, "load-protocols.sh") {
+		if strings.Contains(c, "load-protocols.sh") && strings.Contains(c, stableDir) {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("hooks.SessionStart command does not reference load-protocols.sh: %v", cmds)
+		t.Errorf("hooks.SessionStart command does not reference stable path %s/load-protocols.sh: %v", stableDir, cmds)
 	}
 }
 

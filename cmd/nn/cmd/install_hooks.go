@@ -111,7 +111,7 @@ func copyPlugins(destDir string) error {
 // nn hook entries for UserPromptSubmit and SessionStart, and writes it back.
 // The plugin cache path is derived from home.
 func mergeHooksIntoSettings(settingsPath, home string) error {
-	cacheScripts := filepath.Join(home, ".claude", "plugins", "cache", "nn-marketplace", "nn-hooks", "1.0.0", "scripts")
+	cacheScripts := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts")
 
 	// Read existing settings or start with empty object.
 	data, err := os.ReadFile(settingsPath)
