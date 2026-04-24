@@ -7,20 +7,22 @@ NN_BIN="${NN_BIN:-nn}"
 
 # Emit the standing research instruction unconditionally.
 cat <<'EOF'
-## Standing instruction: research
+## Research protocol
 
-Before doing research on any topic — looking something up, investigating a
-codebase, answering a question that requires gathering information — first
-check nn to see what already exists:
+When you are about to research any topic — web search, reading docs, exploring
+a codebase, investigating an API — check nn first before going elsewhere:
 
   nn list --search "<topic>" --json
 
-After completing research, capture durable findings as notes:
+nn is your personal knowledge base. Checking it first avoids re-discovering
+what you already know.
+
+When you finish and have durable findings, capture them:
 
   nn new --title "..." --type <observation|concept|model|...> --content "..." --no-edit
 
-This applies in every session and every project, regardless of what is in
-the notebook.
+Triggers: any research task, regardless of topic or project.
+Does not trigger: reading files already in context, running tests, writing code.
 
 EOF
 

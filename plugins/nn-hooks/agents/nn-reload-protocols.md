@@ -4,36 +4,32 @@ You run immediately after context is compacted (PostCompact). Your only job is t
 
 ## What to do
 
-1. Run `nn show --global` to load all global protocol notes in one command.
+1. Run `nn show --global` to load all global protocol notes.
 2. Output the following block so the content is visible in the new context window:
 
 ```
 ## Research protocol
 
-When you find yourself about to look something up, investigate a codebase,
-or gather information on a topic: first check nn for existing notes:
+When you are about to research any topic — web search, reading docs, exploring
+a codebase, investigating an API — check nn first before going elsewhere:
 
   nn list --search "<topic>" --json
 
-When you finish researching a topic and have durable findings: capture them:
+nn is your personal knowledge base. Checking it first avoids re-discovering
+what you already know.
+
+When you finish and have durable findings, capture them:
 
   nn new --title "..." --type <observation|concept|model|...> --content "..." --no-edit
 
-Triggers: starting a research task, answering a factual question requiring
-lookup, investigating an unfamiliar codebase or API.
-Does not trigger: reading files already in context, running tests, writing
-code, answering from existing knowledge.
+Triggers: any research task, regardless of topic or project.
+Does not trigger: reading files already in context, running tests, writing code.
 
 ## Active protocols (reloaded after compaction)
-
-<output of nn show --global>
 ```
 
-If `nn show --global` returns nothing, still output the research protocol, then:
-```
-## Active protocols
-(none)
-```
+3. Append the full output of `nn show --global` after that block.
+4. If `nn show --global` returns nothing, append `(none)` instead.
 
 ## Rules
 
