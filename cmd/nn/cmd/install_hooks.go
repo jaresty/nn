@@ -91,7 +91,11 @@ func copyPlugins(destDir string) error {
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(dst, data, 0o644)
+		perm := fs.FileMode(0o644)
+		if strings.HasSuffix(path, ".sh") {
+			perm = 0o755
+		}
+		return os.WriteFile(dst, data, perm)
 	})
 }
 
