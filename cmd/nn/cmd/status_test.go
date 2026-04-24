@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -39,6 +41,113 @@ func TestStatusOrphanNamesInline(t *testing.T) {
 	}
 	if !strings.Contains(out, orphan.Title) {
 		t.Errorf("status text output missing orphan title %q:\n%s", orphan.Title, out)
+	}
+}
+
+// Duplicate-ID lint checks.
+
+func TestStatusDuplicateIDs(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	sharedID := note.GenerateID()
+	a := newTestNoteForCLI(sharedID, "Note Alpha", note.TypeConcept)
+	b := newTestNoteForCLI(sharedID, "Note Beta", note.TypeArgument)
+	writeNoteFile(t, nbDir, a)
+	// Write b with a different filename so it isn't overwritten.
+	data, _ := b.Marshal()
+	os.WriteFile(filepath.Join(nbDir, sharedID+"-note-beta-dup.md"), data, 0o644)
+
+	out, err := execute("status")
+	if err != nil {
+		t.Fatalf("nn status: %v", err)
+	}
+	if !strings.Contains(out, "duplicate ids") || !strings.Contains(out, sharedID) {
+		t.Errorf("status missing duplicate-id report for %s:\n%s", sharedID, out)
+	}
+}
+
+func TestStatusDuplicateIDsJSON(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	sharedID := note.GenerateID()
+	a := newTestNoteForCLI(sharedID, "Note Alpha", note.TypeConcept)
+	b := newTestNoteForCLI(sharedID, "Note Beta", note.TypeArgument)
+	writeNoteFile(t, nbDir, a)
+	data, _ := b.Marshal()
+	os.WriteFile(filepath.Join(nbDir, sharedID+"-note-beta-dup.md"), data, 0o644)
+
+	out, err := execute("status", "--json")
+	if err != nil {
+		t.Fatalf("nn status --json: %v", err)
+	}
+	var result struct {
+		DuplicateIDs []struct {
+			ID    string `json:"id"`
+			Count int    `json:"count"`
+		} `json:"duplicate_ids"`
+	}
+	mustJSON(t, out, &result)
+	found := false
+	for _, d := range result.DuplicateIDs {
+		if d.ID == sharedID && d.Count >= 2 {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("duplicate_ids missing entry for %s:\n%s", sharedID, out)
+	}
+}
+
+// Duplicate-link lint checks.
+
+func TestStatusDuplicateLinks(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	from := newTestNoteForCLI(note.GenerateID(), "From Note", note.TypeConcept)
+	to := newTestNoteForCLI(note.GenerateID(), "To Note", note.TypeConcept)
+	// Inject two identical (to, type) edges directly.
+	from.Links = []note.Link{
+		{TargetID: to.ID, Type: "refines", Status: "draft", Annotation: "first"},
+		{TargetID: to.ID, Type: "refines", Status: "draft", Annotation: "duplicate"},
+	}
+	writeNoteFile(t, nbDir, from)
+	writeNoteFile(t, nbDir, to)
+
+	out, err := execute("status")
+	if err != nil {
+		t.Fatalf("nn status: %v", err)
+	}
+	if !strings.Contains(out, "duplicate links") || !strings.Contains(out, from.ID) {
+		t.Errorf("status missing duplicate-link report for %s:\n%s", from.ID, out)
+	}
+}
+
+func TestStatusDuplicateLinksJSON(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	from := newTestNoteForCLI(note.GenerateID(), "From Note", note.TypeConcept)
+	to := newTestNoteForCLI(note.GenerateID(), "To Note", note.TypeConcept)
+	from.Links = []note.Link{
+		{TargetID: to.ID, Type: "refines", Status: "draft", Annotation: "first"},
+		{TargetID: to.ID, Type: "refines", Status: "draft", Annotation: "duplicate"},
+	}
+	writeNoteFile(t, nbDir, from)
+	writeNoteFile(t, nbDir, to)
+
+	out, err := execute("status", "--json")
+	if err != nil {
+		t.Fatalf("nn status --json: %v", err)
+	}
+	var result struct {
+		DuplicateLinks []struct {
+			ID string `json:"id"`
+		} `json:"duplicate_links"`
+	}
+	mustJSON(t, out, &result)
+	found := false
+	for _, d := range result.DuplicateLinks {
+		if d.ID == from.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("duplicate_links missing entry for %s:\n%s", from.ID, out)
 	}
 }
 

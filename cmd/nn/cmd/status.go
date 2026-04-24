@@ -66,10 +66,32 @@ func newStatusCmd(state *rootState) *cobra.Command {
 				}
 			}
 
+			// Detect duplicate IDs: group files by frontmatter ID.
+			idCount := make(map[string]int, len(notes))
+			for _, n := range notes {
+				idCount[n.ID]++
+			}
+			var duplicateIDs []struct {
+				id    string
+				count int
+			}
+			for id, count := range idCount {
+				if count > 1 {
+					duplicateIDs = append(duplicateIDs, struct {
+						id    string
+						count int
+					}{id, count})
+				}
+			}
+
 			var drafts, broken, unknownTypes, draftLinks int
 			var orphanList, globalProtocolList, level1HeadingNotes []*note.Note
 			var brokenList []string
 			var longNotes []*note.Note
+			var duplicateLinkNotes []struct {
+				n     *note.Note
+				edges []struct{ to, typ string }
+			}
 
 			for _, n := range notes {
 				if globalProtocols[n.ID] {
@@ -86,6 +108,22 @@ func newStatusCmd(state *rootState) *cobra.Command {
 				}
 				if hasLevel1Heading(n.Body) {
 					level1HeadingNotes = append(level1HeadingNotes, n)
+				}
+				edgeCount := make(map[struct{ to, typ string }]int)
+				for _, lnk := range n.Links {
+					edgeCount[struct{ to, typ string }{lnk.TargetID, lnk.Type}]++
+				}
+				var dupEdges []struct{ to, typ string }
+				for edge, count := range edgeCount {
+					if count > 1 {
+						dupEdges = append(dupEdges, edge)
+					}
+				}
+				if len(dupEdges) > 0 {
+					duplicateLinkNotes = append(duplicateLinkNotes, struct {
+						n     *note.Note
+						edges []struct{ to, typ string }
+					}{n, dupEdges})
 				}
 				for _, lnk := range n.Links {
 					if !allIDs[lnk.TargetID] {
@@ -169,6 +207,31 @@ func newStatusCmd(state *rootState) *cobra.Command {
 				for i, n := range level1HeadingNotes {
 					level1s[i] = noteEntry{ID: n.ID, Title: n.Title}
 				}
+				type dupIDEntry struct {
+					ID    string `json:"id"`
+					Count int    `json:"count"`
+				}
+				type dupEdgeEntry struct {
+					To   string `json:"to"`
+					Type string `json:"type"`
+				}
+				type dupLinkEntry struct {
+					ID    string         `json:"id"`
+					Title string         `json:"title"`
+					Edges []dupEdgeEntry `json:"edges"`
+				}
+				dupIDJSON := make([]dupIDEntry, len(duplicateIDs))
+				for i, d := range duplicateIDs {
+					dupIDJSON[i] = dupIDEntry{ID: d.id, Count: d.count}
+				}
+				dupLinkJSON := make([]dupLinkEntry, len(duplicateLinkNotes))
+				for i, d := range duplicateLinkNotes {
+					edges := make([]dupEdgeEntry, len(d.edges))
+					for j, e := range d.edges {
+						edges[j] = dupEdgeEntry{To: e.to, Type: e.typ}
+					}
+					dupLinkJSON[i] = dupLinkEntry{ID: d.n.ID, Title: d.n.Title, Edges: edges}
+				}
 				out := struct {
 					Total              int           `json:"total"`
 					Orphans            []noteEntry   `json:"orphans"`
@@ -180,6 +243,8 @@ func newStatusCmd(state *rootState) *cobra.Command {
 					LongNotes          []longEntry   `json:"long_notes"`
 					HubNotes           []hubEntry    `json:"hub_notes"`
 					Level1HeadingNotes []noteEntry   `json:"level1_heading_notes"`
+					DuplicateIDs       []dupIDEntry  `json:"duplicate_ids"`
+					DuplicateLinks     []dupLinkEntry `json:"duplicate_links"`
 				}{
 					Total:              len(notes),
 					Orphans:            orphans,
@@ -191,6 +256,8 @@ func newStatusCmd(state *rootState) *cobra.Command {
 					LongNotes:          longs,
 					HubNotes:           hubs,
 					Level1HeadingNotes: level1s,
+					DuplicateIDs:       dupIDJSON,
+					DuplicateLinks:     dupLinkJSON,
 				}
 				enc := json.NewEncoder(w)
 				enc.SetIndent("", "  ")
@@ -229,6 +296,21 @@ func newStatusCmd(state *rootState) *cobra.Command {
 				fmt.Fprintf(w, "level-1 heading notes (%d) — use ## for sections; --replace-section requires ##:\n", len(level1HeadingNotes))
 				for _, n := range level1HeadingNotes {
 					fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+				}
+			}
+			if len(duplicateIDs) > 0 {
+				fmt.Fprintf(w, "duplicate ids (%d) — multiple files share the same frontmatter id:\n", len(duplicateIDs))
+				for _, d := range duplicateIDs {
+					fmt.Fprintf(w, "  %s  (%d files)\n", d.id, d.count)
+				}
+			}
+			if len(duplicateLinkNotes) > 0 {
+				fmt.Fprintf(w, "duplicate links (%d notes) — repeated (to, type) edges; run nn unlink --type to clean up:\n", len(duplicateLinkNotes))
+				for _, d := range duplicateLinkNotes {
+					fmt.Fprintf(w, "  %s  %s\n", d.n.ID, d.n.Title)
+					for _, e := range d.edges {
+						fmt.Fprintf(w, "    → %s [%s]\n", e.to, e.typ)
+					}
 				}
 			}
 			return nil

@@ -117,11 +117,15 @@ Update annotation, type, and/or status of existing links in place — no unlink/
 
 ```
 nn link <from-id-or-title> <to-id-or-title> --annotation "relationship description" --type TYPE [--status draft|reviewed]
-nn unlink <from-id-or-title> <to-id-or-title>
+nn unlink <from-id-or-title> <to-id-or-title> [--type TYPE]
 nn bulk-link <from-id> --to <id> --annotation "..." --type TYPE [--status draft|reviewed] [--to <id> --annotation "..." --type TYPE]...
 ```
 
 `nn link` and `nn unlink` accept title substrings for both arguments. `nn bulk-link` requires IDs.
+
+`nn unlink --type TYPE` removes only edges of that type between the pair; without `--type`, all edges between the pair are removed. Multiple typed edges between the same pair are allowed (uniqueness is `(from, to, type)`).
+
+> **`[[id]]` inline references are presentational only.** Writing `[[20260423-1234]]` in a note's prose body does not create a graph edge — it is not parsed by `nn graph`, `nn backlinks`, `nn path`, or `nn links`. Use `nn link` to create edges. This is intentional: the link graph is the authoritative record of relationships, not the prose.
 
 Both `--annotation` and `--type` are required. A bare link is a schema violation.
 
