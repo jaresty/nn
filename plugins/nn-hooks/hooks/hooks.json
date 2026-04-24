@@ -34,6 +34,17 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.local/share/nn/plugins/nn-hooks/scripts/protocols-reminder.sh",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

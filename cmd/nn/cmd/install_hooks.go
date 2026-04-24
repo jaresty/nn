@@ -21,16 +21,20 @@ func newInstallHooksCmd() *cobra.Command {
 		Short: "Install the nn Claude Code plugin (protocol reload + note capture hooks)",
 		Long: `Install the nn-hooks Claude Code plugin.
 
-The plugin installs three hooks:
+The plugin installs four hooks:
 
-  SessionStart  — reloads global protocol notes into context at the start of
-                  every session and after /clear, so protocols remain binding.
+  SessionStart      — reloads global protocol notes into context at the start
+                      of every session and after /clear, so protocols remain
+                      binding.
 
-  PreCompact    — before context is compacted, spawns an agent to review the
-                  session and capture durable knowledge as atomic notes.
+  UserPromptSubmit  — emits a per-turn system-reminder instructing the agent
+                      to output a ## Protocols block before each response.
 
-  PostCompact   — after compaction, reloads global protocol notes so they
-                  remain binding in the new context window.
+  PreCompact        — before context is compacted, spawns an agent to review
+                      the session and capture durable knowledge as atomic notes.
+
+  PostCompact       — after compaction, reloads global protocol notes so they
+                      remain binding in the new context window.
 
 Scopes:
   user     ~/.claude/settings.json (default, global)
