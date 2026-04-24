@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.local/share/nn/plugins/nn-hooks/scripts/load-protocols.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/load-protocols.sh\"",
             "timeout": 30
           }
         ]
@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.local/share/nn/plugins/nn-hooks/scripts/protocols-reminder.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/protocols-reminder.sh\"",
             "timeout": 5
           }
         ]

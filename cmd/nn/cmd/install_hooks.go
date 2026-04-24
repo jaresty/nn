@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -68,7 +69,14 @@ Scopes:
 				}
 			}
 
-			fmt.Fprintf(outWriter(cmd), "nn-hooks installed (scope: %s)\nRestart Claude Code to activate the hooks.\n", scope)
+			// Write hooks directly to ~/.claude/settings.json.
+			// Plugin hooks (hooks/hooks.json) are broken upstream and don't fire.
+			settingsPath := filepath.Join(home, ".claude", "settings.json")
+			if err := mergeHooksIntoSettings(settingsPath, home); err != nil {
+				return fmt.Errorf("install-hooks: write settings.json hooks: %w", err)
+			}
+
+			fmt.Fprintf(outWriter(cmd), "nn-hooks installed (scope: %s)\nHooks written to %s.\nRestart Claude Code to activate the hooks.\n", scope, settingsPath)
 			return nil
 		},
 	}
@@ -97,6 +105,66 @@ func copyPlugins(destDir string) error {
 		}
 		return os.WriteFile(dst, data, perm)
 	})
+}
+
+// mergeHooksIntoSettings reads settingsPath (creating it if absent), merges the
+// nn hook entries for UserPromptSubmit and SessionStart, and writes it back.
+// The plugin cache path is derived from home.
+func mergeHooksIntoSettings(settingsPath, home string) error {
+	cacheScripts := filepath.Join(home, ".claude", "plugins", "cache", "nn-marketplace", "nn-hooks", "1.0.0", "scripts")
+
+	// Read existing settings or start with empty object.
+	data, err := os.ReadFile(settingsPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("read %s: %w", settingsPath, err)
+	}
+	var settings map[string]interface{}
+	if len(data) > 0 {
+		if err := json.Unmarshal(data, &settings); err != nil {
+			return fmt.Errorf("parse %s: %w", settingsPath, err)
+		}
+	}
+	if settings == nil {
+		settings = map[string]interface{}{}
+	}
+
+	hooks, _ := settings["hooks"].(map[string]interface{})
+	if hooks == nil {
+		hooks = map[string]interface{}{}
+	}
+
+	hooks["UserPromptSubmit"] = []interface{}{
+		map[string]interface{}{
+			"hooks": []interface{}{
+				map[string]interface{}{
+					"type":    "command",
+					"command": "bash \"" + filepath.Join(cacheScripts, "protocols-reminder.sh") + "\"",
+					"timeout": 5,
+				},
+			},
+		},
+	}
+	hooks["SessionStart"] = []interface{}{
+		map[string]interface{}{
+			"hooks": []interface{}{
+				map[string]interface{}{
+					"type":    "command",
+					"command": "bash \"" + filepath.Join(cacheScripts, "load-protocols.sh") + "\"",
+					"timeout": 30,
+				},
+			},
+		},
+	}
+	settings["hooks"] = hooks
+
+	out, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal settings: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(settingsPath), err)
+	}
+	return os.WriteFile(settingsPath, out, 0o644)
 }
 
 func isAlreadyExists(out string) bool {
