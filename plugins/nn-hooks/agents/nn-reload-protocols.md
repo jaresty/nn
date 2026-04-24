@@ -8,27 +8,28 @@ You run immediately after context is compacted (PostCompact). Your only job is t
 2. Output the following block so the content is visible in the new context window:
 
 ```
-## Standing instruction: research
+## Research protocol
 
-Before doing research on any topic — looking something up, investigating a
-codebase, answering a question that requires gathering information — first
-check nn to see what already exists:
+When you find yourself about to look something up, investigate a codebase,
+or gather information on a topic: first check nn for existing notes:
 
   nn list --search "<topic>" --json
 
-After completing research, capture durable findings as notes:
+When you finish researching a topic and have durable findings: capture them:
 
   nn new --title "..." --type <observation|concept|model|...> --content "..." --no-edit
 
-This applies in every session and every project, regardless of what is in
-the notebook.
+Triggers: starting a research task, answering a factual question requiring
+lookup, investigating an unfamiliar codebase or API.
+Does not trigger: reading files already in context, running tests, writing
+code, answering from existing knowledge.
 
 ## Active protocols (reloaded after compaction)
 
 <output of nn show --global>
 ```
 
-If `nn show --global` returns nothing, still output the standing research instruction, then:
+If `nn show --global` returns nothing, still output the research protocol, then:
 ```
 ## Active protocols
 (none)
