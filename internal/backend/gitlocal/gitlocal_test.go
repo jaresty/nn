@@ -160,3 +160,26 @@ func TestListNotes(t *testing.T) {
 		t.Errorf("List() count = %d, want 2", len(notes))
 	}
 }
+
+func TestUpdateDeletesOldFileOnRename(t *testing.T) {
+	b, dir := newBackend(t)
+	n := newTestNote(t)
+	n.Title = "Old Title"
+	if err := b.Write(n); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	oldFilename := n.Filename()
+
+	n.Title = "New Title"
+	if err := b.Update(n); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, oldFilename)); !os.IsNotExist(err) {
+		t.Errorf("old file %q still exists after rename", oldFilename)
+	}
+	newFilename := n.Filename()
+	if _, err := os.Stat(filepath.Join(dir, newFilename)); err != nil {
+		t.Errorf("new file %q not found after rename: %v", newFilename, err)
+	}
+}

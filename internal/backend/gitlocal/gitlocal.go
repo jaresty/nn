@@ -171,8 +171,8 @@ func (b *Backend) AddLink(fromID, toID, annotation, linkType, linkStatus string)
 		return fmt.Errorf("gitlocal.AddLink: %w", err)
 	}
 	for _, lnk := range n.Links {
-		if lnk.TargetID == toID {
-			return fmt.Errorf("gitlocal.AddLink: link %s→%s already exists", fromID, toID)
+		if lnk.TargetID == toID && lnk.Type == linkType {
+			return fmt.Errorf("gitlocal.AddLink: link %s→%s [%s] already exists", fromID, toID, linkType)
 		}
 	}
 	n.Links = append(n.Links, note.Link{TargetID: toID, Annotation: annotation, Type: linkType, Status: linkStatus})
@@ -194,16 +194,18 @@ func (b *Backend) AddLinks(fromID string, targets []backend.LinkTarget) error {
 	if err != nil {
 		return fmt.Errorf("gitlocal.AddLinks: %w", err)
 	}
-	existing := make(map[string]bool, len(n.Links))
+	type edgeKey struct{ toID, linkType string }
+	existing := make(map[edgeKey]bool, len(n.Links))
 	for _, lnk := range n.Links {
-		existing[lnk.TargetID] = true
+		existing[edgeKey{lnk.TargetID, lnk.Type}] = true
 	}
 	for _, t := range targets {
-		if existing[t.ToID] {
-			return fmt.Errorf("gitlocal.AddLinks: link %s→%s already exists", fromID, t.ToID)
+		k := edgeKey{t.ToID, t.Type}
+		if existing[k] {
+			return fmt.Errorf("gitlocal.AddLinks: link %s→%s [%s] already exists", fromID, t.ToID, t.Type)
 		}
 		n.Links = append(n.Links, note.Link{TargetID: t.ToID, Annotation: t.Annotation, Type: t.Type, Status: t.Status})
-		existing[t.ToID] = true
+		existing[k] = true
 	}
 	data, err := n.Marshal()
 	if err != nil {
@@ -239,6 +241,31 @@ func (b *Backend) RemoveLink(fromID, toID string) error {
 		return fmt.Errorf("gitlocal.RemoveLink: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: unlink %s → %s", fromID, toID)
+	return b.commit(path, msg)
+}
+
+// RemoveLinkByType removes only edges from fromID to toID with the given type.
+func (b *Backend) RemoveLinkByType(fromID, toID, linkType string) error {
+	n, err := b.Read(fromID)
+	if err != nil {
+		return fmt.Errorf("gitlocal.RemoveLinkByType: %w", err)
+	}
+	filtered := n.Links[:0]
+	for _, lnk := range n.Links {
+		if !(lnk.TargetID == toID && lnk.Type == linkType) {
+			filtered = append(filtered, lnk)
+		}
+	}
+	n.Links = filtered
+	data, err := n.Marshal()
+	if err != nil {
+		return fmt.Errorf("gitlocal.RemoveLinkByType: marshal: %w", err)
+	}
+	path := filepath.Join(b.dir, n.Filename())
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return fmt.Errorf("gitlocal.RemoveLinkByType: write: %w", err)
+	}
+	msg := fmt.Sprintf("note: unlink %s → %s [%s]", fromID, toID, linkType)
 	return b.commit(path, msg)
 }
 
@@ -323,16 +350,27 @@ func (b *Backend) UpdateLink(fromID, toID string, annotation, linkType, linkStat
 
 // Update writes the modified note and commits with an "update" message.
 func (b *Backend) Update(n *note.Note) error {
+	oldPath, err := b.findByID(n.ID)
+	if err != nil {
+		return fmt.Errorf("gitlocal.Update: note not found: %w", err)
+	}
 	data, err := n.Marshal()
 	if err != nil {
 		return fmt.Errorf("gitlocal.Update: %w", err)
 	}
-	path := filepath.Join(b.dir, n.Filename())
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	newPath := filepath.Join(b.dir, n.Filename())
+	if err := os.WriteFile(newPath, data, 0o644); err != nil {
 		return fmt.Errorf("gitlocal.Update: %w", err)
 	}
+	if oldPath != newPath {
+		// Title changed slug — remove the old file and unstage it.
+		if err := os.Remove(oldPath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("gitlocal.Update: remove old file: %w", err)
+		}
+		_ = b.git("rm", "--cached", "--ignore-unmatch", oldPath)
+	}
 	msg := fmt.Sprintf("note: update %s — %s", n.ID, n.Title)
-	return b.commit(path, msg)
+	return b.commit(newPath, msg)
 }
 
 // Promote updates the status of the note with the given id and commits.

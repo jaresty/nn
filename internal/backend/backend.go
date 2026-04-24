@@ -29,6 +29,7 @@ type Backend interface {
 	AddLink(fromID, toID, annotation, linkType, linkStatus string) error
 	AddLinks(fromID string, targets []LinkTarget) error
 	RemoveLink(fromID, toID string) error
+	RemoveLinkByType(fromID, toID, linkType string) error
 	Promote(id string, to note.Status) error
 	Update(n *note.Note) error
 	UpdateLink(fromID, toID string, annotation, linkType, linkStatus *string) error

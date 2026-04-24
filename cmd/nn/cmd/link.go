@@ -52,7 +52,9 @@ func newLinkCmd(state *rootState) *cobra.Command {
 }
 
 func newUnlinkCmd(state *rootState) *cobra.Command {
-	return &cobra.Command{
+	var linkType string
+
+	cmd := &cobra.Command{
 		Use:   "unlink <from-id-or-title> <to-id-or-title>",
 		Short: "Remove a link between two notes",
 		Args:  cobra.ExactArgs(2),
@@ -65,11 +67,20 @@ func newUnlinkCmd(state *rootState) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("unlink: %w", err)
 			}
-			if err := state.backend.RemoveLink(fromNote.ID, toNote.ID); err != nil {
-				return fmt.Errorf("unlink: %w", err)
+			if linkType != "" {
+				if err := state.backend.RemoveLinkByType(fromNote.ID, toNote.ID, linkType); err != nil {
+					return fmt.Errorf("unlink: %w", err)
+				}
+				fmt.Fprintf(outWriter(cmd), "unlinked %s → %s [%s]\n", fromNote.ID, toNote.ID, linkType)
+			} else {
+				if err := state.backend.RemoveLink(fromNote.ID, toNote.ID); err != nil {
+					return fmt.Errorf("unlink: %w", err)
+				}
+				fmt.Fprintf(outWriter(cmd), "unlinked %s → %s\n", fromNote.ID, toNote.ID)
 			}
-			fmt.Fprintf(outWriter(cmd), "unlinked %s → %s\n", fromNote.ID, toNote.ID)
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&linkType, "type", "", "Remove only edges with this link type (e.g. refines, extends)")
+	return cmd
 }

@@ -92,6 +92,95 @@ func TestUnlinkByTitle(t *testing.T) {
 	}
 }
 
+// ── Bug fixes ────────────────────────────────────────────────────────────────
+
+func TestUpdateContentStripsLinksSection(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	from := newTestNoteForCLI(note.GenerateID(), "From Note", note.TypeConcept)
+	to := newTestNoteForCLI(note.GenerateID(), "To Note", note.TypeConcept)
+	writeNoteFile(t, nbDir, from)
+	writeNoteFile(t, nbDir, to)
+
+	// Establish one link via nn link.
+	_, err := execute("link", from.ID, to.ID, "--annotation", "original", "--type", "refines")
+	if err != nil {
+		t.Fatalf("nn link: %v", err)
+	}
+
+	// Update body with a ## Links section included — should not duplicate.
+	body := "Updated body.\n\n## Links\n\n- [[" + to.ID + "]] [refines] {draft} — original"
+	_, err = execute("update", from.ID, "--content", body, "--no-edit")
+	if err != nil {
+		t.Fatalf("nn update --content with Links section: %v", err)
+	}
+
+	// Update again — idempotent, still only one link.
+	_, err = execute("update", from.ID, "--content", body, "--no-edit")
+	if err != nil {
+		t.Fatalf("nn update --content second time: %v", err)
+	}
+
+	out, _ := execute("links", from.ID, "--json")
+	var links []struct {
+		ID string `json:"id"`
+	}
+	mustJSON(t, out, &links)
+	count := 0
+	for _, l := range links {
+		if l.ID == to.ID {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected 1 link to %s, got %d:\n%s", to.ID, count, out)
+	}
+}
+
+func TestUnlinkByType(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	from := newTestNoteForCLI(note.GenerateID(), "Unlink Type From", note.TypeConcept)
+	to := newTestNoteForCLI(note.GenerateID(), "Unlink Type To", note.TypeConcept)
+	writeNoteFile(t, nbDir, from)
+	writeNoteFile(t, nbDir, to)
+
+	// Create two edges with different types.
+	_, err := execute("link", from.ID, to.ID, "--annotation", "refines link", "--type", "refines")
+	if err != nil {
+		t.Fatalf("nn link refines: %v", err)
+	}
+	_, err = execute("link", from.ID, to.ID, "--annotation", "extends link", "--type", "extends")
+	if err != nil {
+		t.Fatalf("nn link extends: %v", err)
+	}
+
+	// Remove only the refines edge.
+	_, err = execute("unlink", from.ID, to.ID, "--type", "refines")
+	if err != nil {
+		t.Fatalf("nn unlink --type refines: %v", err)
+	}
+
+	out, _ := execute("links", from.ID, "--json")
+	var links []struct {
+		ID   string `json:"id"`
+		Type string `json:"type"`
+	}
+	mustJSON(t, out, &links)
+	for _, l := range links {
+		if l.ID == to.ID && l.Type == "refines" {
+			t.Errorf("refines edge still present after unlink --type refines:\n%s", out)
+		}
+	}
+	found := false
+	for _, l := range links {
+		if l.ID == to.ID && l.Type == "extends" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("extends edge was removed but should have been kept:\n%s", out)
+	}
+}
+
 // ── Phase 2: nn update --stdin ────────────────────────────────────────────────
 
 func TestUpdateStdin(t *testing.T) {

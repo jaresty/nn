@@ -56,7 +56,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 				if readErr != nil {
 					return fmt.Errorf("update: read stdin: %w", readErr)
 				}
-				content = string(data)
+				content = stripLinksSection(string(data))
 			}
 
 			if title != "" {
@@ -109,7 +109,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 				}
 				n.Body = replaced
 			} else if content != "" {
-				n.Body = content
+				n.Body = stripLinksSection(content)
 			} else if appendS != "" {
 				if n.Body == "" {
 					n.Body = appendS
@@ -139,6 +139,18 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&replaceSection, "replace-section", "", "Replace named level-2 section (case-insensitive)")
 	cmd.Flags().BoolVar(&noEdit, "no-edit", false, "Skip opening $EDITOR")
 	return cmd
+}
+
+// stripLinksSection removes any "## Links" section from user-provided body content.
+// The Links section is owned by the note graph (nn link/unlink); passing it
+// through --content or --stdin would cause Marshal to write it twice, creating
+// duplicate graph edges on the next parse.
+func stripLinksSection(body string) string {
+	const marker = "\n## Links\n"
+	if idx := strings.Index(body, marker); idx != -1 {
+		return strings.TrimRight(body[:idx], "\n")
+	}
+	return body
 }
 
 // replaceMarkdownSection replaces the content of a level-2 heading section
