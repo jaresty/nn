@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -66,7 +67,7 @@ func newStatusCmd(state *rootState) *cobra.Command {
 			}
 
 			var drafts, broken, unknownTypes, draftLinks int
-			var orphanList, globalProtocolList []*note.Note
+			var orphanList, globalProtocolList, level1HeadingNotes []*note.Note
 			var brokenList []string
 			var longNotes []*note.Note
 
@@ -82,6 +83,9 @@ func newStatusCmd(state *rootState) *cobra.Command {
 				}
 				if len(n.Body) > atomicityThreshold {
 					longNotes = append(longNotes, n)
+				}
+				if hasLevel1Heading(n.Body) {
+					level1HeadingNotes = append(level1HeadingNotes, n)
 				}
 				for _, lnk := range n.Links {
 					if !allIDs[lnk.TargetID] {
@@ -161,26 +165,32 @@ func newStatusCmd(state *rootState) *cobra.Command {
 				for i, h := range hubList {
 					hubs[i] = hubEntry{ID: h.ID, Title: h.Title, Degree: degree[h.ID]}
 				}
+				level1s := make([]noteEntry, len(level1HeadingNotes))
+				for i, n := range level1HeadingNotes {
+					level1s[i] = noteEntry{ID: n.ID, Title: n.Title}
+				}
 				out := struct {
-					Total            int         `json:"total"`
-					Orphans          []noteEntry `json:"orphans"`
-					GlobalProtocols  []noteEntry `json:"global_protocols"`
-					Drafts           int         `json:"drafts"`
-					BrokenLinks      []brokenEntry `json:"broken_links"`
-					UnknownLinkTypes int           `json:"unknown_link_types"`
-					DraftLinks       int           `json:"draft_links"`
-					LongNotes        []longEntry   `json:"long_notes"`
-					HubNotes         []hubEntry    `json:"hub_notes"`
+					Total              int           `json:"total"`
+					Orphans            []noteEntry   `json:"orphans"`
+					GlobalProtocols    []noteEntry   `json:"global_protocols"`
+					Drafts             int           `json:"drafts"`
+					BrokenLinks        []brokenEntry `json:"broken_links"`
+					UnknownLinkTypes   int           `json:"unknown_link_types"`
+					DraftLinks         int           `json:"draft_links"`
+					LongNotes          []longEntry   `json:"long_notes"`
+					HubNotes           []hubEntry    `json:"hub_notes"`
+					Level1HeadingNotes []noteEntry   `json:"level1_heading_notes"`
 				}{
-					Total:            len(notes),
-					Orphans:          orphans,
-					GlobalProtocols:  globals,
-					Drafts:           drafts,
-					BrokenLinks:      brokens,
-					UnknownLinkTypes: unknownTypes,
-					DraftLinks:       draftLinks,
-					LongNotes:        longs,
-					HubNotes:         hubs,
+					Total:              len(notes),
+					Orphans:            orphans,
+					GlobalProtocols:    globals,
+					Drafts:             drafts,
+					BrokenLinks:        brokens,
+					UnknownLinkTypes:   unknownTypes,
+					DraftLinks:         draftLinks,
+					LongNotes:          longs,
+					HubNotes:           hubs,
+					Level1HeadingNotes: level1s,
 				}
 				enc := json.NewEncoder(w)
 				enc.SetIndent("", "  ")
@@ -215,10 +225,28 @@ func newStatusCmd(state *rootState) *cobra.Command {
 					fmt.Fprintf(w, "  %s  %s  degree %d\n", h.ID, h.Title, degree[h.ID])
 				}
 			}
+			if len(level1HeadingNotes) > 0 {
+				fmt.Fprintf(w, "level-1 heading notes (%d) — use ## for sections; --replace-section requires ##:\n", len(level1HeadingNotes))
+				for _, n := range level1HeadingNotes {
+					fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+				}
+			}
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON")
 	cmd.Flags().IntVar(&hubsN, "hubs", defaultHubs, "Number of hub notes to show (default 5)")
 	return cmd
+}
+
+// hasLevel1Heading reports whether body contains any line starting with "# "
+// (a level-1 Markdown heading). These conflict with nn's section model where
+// ## headings are used for body sections and --replace-section only matches ##.
+func hasLevel1Heading(body string) bool {
+	for _, line := range strings.Split(body, "\n") {
+		if strings.HasPrefix(line, "# ") {
+			return true
+		}
+	}
+	return false
 }
