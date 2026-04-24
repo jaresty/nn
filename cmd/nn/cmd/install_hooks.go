@@ -52,28 +52,27 @@ Scopes:
 				return fmt.Errorf("install-hooks: copy plugin: %w", err)
 			}
 
-			// Register the marketplace.
-			addArgs := []string{"plugin", "marketplace", "add", pluginsDir}
-			if out, err := exec.Command("claude", addArgs...).CombinedOutput(); err != nil {
-				// Ignore "already exists" errors.
-				if !isAlreadyExists(string(out)) {
-					return fmt.Errorf("install-hooks: marketplace add: %s: %w", out, err)
-				}
-			}
-
-			// Install the plugin.
-			installArgs := []string{"plugin", "install", "nn-hooks@nn-marketplace", "--scope", scope}
-			if out, err := exec.Command("claude", installArgs...).CombinedOutput(); err != nil {
-				if !isAlreadyInstalled(string(out)) {
-					return fmt.Errorf("install-hooks: plugin install: %s: %w", out, err)
-				}
-			}
-
 			// Write hooks directly to ~/.claude/settings.json.
 			// Plugin hooks (hooks/hooks.json) are broken upstream and don't fire.
 			settingsPath := filepath.Join(home, ".claude", "settings.json")
 			if err := mergeHooksIntoSettings(settingsPath, home); err != nil {
 				return fmt.Errorf("install-hooks: write settings.json hooks: %w", err)
+			}
+
+			// Register the marketplace (best-effort; claude may not be installed).
+			addArgs := []string{"plugin", "marketplace", "add", pluginsDir}
+			if out, err := exec.Command("claude", addArgs...).CombinedOutput(); err != nil {
+				if !isAlreadyExists(string(out)) && !isCommandNotFound(err) {
+					return fmt.Errorf("install-hooks: marketplace add: %s: %w", out, err)
+				}
+			}
+
+			// Install the plugin (best-effort).
+			installArgs := []string{"plugin", "install", "nn-hooks@nn-marketplace", "--scope", scope}
+			if out, err := exec.Command("claude", installArgs...).CombinedOutput(); err != nil {
+				if !isAlreadyInstalled(string(out)) && !isCommandNotFound(err) {
+					return fmt.Errorf("install-hooks: plugin install: %s: %w", out, err)
+				}
 			}
 
 			fmt.Fprintf(outWriter(cmd), "nn-hooks installed (scope: %s)\nHooks written to %s.\nRestart Claude Code to activate the hooks.\n", scope, settingsPath)
@@ -175,4 +174,8 @@ func isAlreadyExists(out string) bool {
 
 func isAlreadyInstalled(out string) bool {
 	return strings.Contains(out, "already installed")
+}
+
+func isCommandNotFound(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "executable file not found")
 }
