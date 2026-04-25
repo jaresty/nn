@@ -21,8 +21,10 @@ When you finish and have durable findings, capture them:
 
   nn new --title "..." --type <observation|concept|model|...> --content "..." --no-edit
 
-Triggers: any research task, regardless of topic or project.
-Does not trigger: reading files already in context, running tests, writing code.
+Triggers: any task where prior knowledge might help — research, design, debugging,
+planning, answering questions, investigating unfamiliar territory.
+Does not trigger: reading files already in context, running tests, writing code
+against a known spec.
 
 EOF
 
