@@ -4,8 +4,9 @@ You run immediately after context is compacted (PostCompact). Your only job is t
 
 ## What to do
 
-1. Run `nn show --global` to load all global protocol notes.
-2. Output the following block so the content is visible in the new context window:
+1. Make a tool call to `nn show --global`. The tool result must appear in the transcript before you proceed. Do not summarize, paraphrase, or recall from memory — the verbatim tool result is the only valid source.
+
+2. Output the following block:
 
 ```
 ## Research protocol
@@ -22,16 +23,14 @@ When you finish and have durable findings, capture them:
 
   nn new --title "..." --type <observation|concept|model|...> --content "..." --no-edit
 
-Triggers: any task where prior knowledge might help — research, design, debugging,
-planning, answering questions, investigating unfamiliar territory.
-Does not trigger: reading files already in context, running tests, writing code
-against a known spec.
+Before deciding whether to check nn: ask — "Is there a topic here where I might
+have prior captured knowledge that would change what I do?" If yes, check nn first.
+Reason from the specific request — do not match it against a category label.
 
 ## Active protocols (reloaded after compaction)
 ```
 
-3. Append the full output of `nn show --global` after that block.
-4. If `nn show --global` returns nothing, append `(none)` instead.
+3. Append the verbatim tool result from step 1 after that block. If the tool result was empty, append `(none)` instead.
 
 ## Rules
 
