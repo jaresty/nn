@@ -96,7 +96,7 @@ func newListCmd(state *rootState) *cobra.Command {
 						continue
 					}
 				}
-				if search != "" && !containsFold(n.Title, search) && !containsFold(n.Body, search) {
+				if search != "" && note.BM25Scores([]*note.Note{n}, search)[n.ID] == 0 {
 					continue
 				}
 				if long && len(n.Body) <= atomicityThreshold {
@@ -143,15 +143,7 @@ func newListCmd(state *rootState) *cobra.Command {
 			}
 
 			if search != "" {
-				scores := make(map[string]int, len(filtered))
-				for _, n := range filtered {
-					if containsFold(n.Title, search) {
-						scores[n.ID] += 10
-					}
-					if containsFold(n.Body, search) {
-						scores[n.ID] += 1
-					}
-				}
+				scores := note.BM25Scores(filtered, search)
 				sort.SliceStable(filtered, func(i, j int) bool {
 					return scores[filtered[i].ID] > scores[filtered[j].ID]
 				})
@@ -221,9 +213,6 @@ func parseDateTime(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("cannot parse %q: use 2006-01-02 or 2006-01-02T15:04:05Z", s)
 }
 
-func containsFold(s, substr string) bool {
-	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
-}
 
 func hasTag(n *note.Note, tag string) bool {
 	for _, t := range n.Tags {
