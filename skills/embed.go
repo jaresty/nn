@@ -3,5 +3,5 @@ package skills
 
 import "embed"
 
-//go:embed nn-workflow nn-guide
+//go:embed nn-workflow nn-guide nn-capture-discipline nn-link-suggester nn-refine nn-session-debrief nn-refine-workflow
 var FS embed.FS

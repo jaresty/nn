@@ -68,6 +68,7 @@ Workflow guidance is embedded in the binary:
 		newGapCmd(state),
 		newIndexCmd(state),
 		newCaptureCmd(state),
+		newInstallCmd(),
 		newInstallSkillsCmd(),
 		newInstallHooksCmd(),
 		newGuideCmd(),
@@ -84,7 +85,7 @@ func NewRootCmdForTest(cfgFile string) *cobra.Command {
 // initState resolves the notebook directory and initialises the backend.
 func initState(cmd *cobra.Command, state *rootState, cfgFile string) error {
 	// These commands manage config/skills and don't need a notebook.
-	if cmd.Name() == "install-skills" || cmd.Name() == "install-hooks" || cmd.Name() == "init" {
+	if cmd.Name() == "install-skills" || cmd.Name() == "install-hooks" || cmd.Name() == "install" || cmd.Name() == "init" {
 		return nil
 	}
 

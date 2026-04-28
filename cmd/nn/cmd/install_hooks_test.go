@@ -153,6 +153,57 @@ func TestInstallHooksMergesExistingSettings(t *testing.T) {
 	}
 }
 
+// TestLoadProtocolsScriptReadsFromSkill verifies that the deployed load-protocols.sh
+// reads the nn-capture-discipline SKILL.md when available, rather than using hardcoded text.
+func TestLoadProtocolsScriptReadsFromSkill(t *testing.T) {
+	if _, err := os.LookupEnv("SKIP_HOOK_SCRIPT_TEST"); err == false {
+		// Only run when bash is available.
+		if _, err := os.Stat("/bin/bash"); err != nil {
+			t.Skip("bash not available")
+		}
+	}
+
+	_, execute := setupNotebook(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Install hooks so load-protocols.sh is deployed.
+	settingsDir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = execute("install-hooks")
+
+	// Plant a sentinel in the skill SKILL.md.
+	skillDir := filepath.Join(home, ".claude", "skills", "nn-capture-discipline")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sentinel := "SENTINEL_CAPTURE_DISCIPLINE_CONTENT"
+	skillContent := "---\nname: nn-capture-discipline\n---\n\n# nn-capture-discipline\n\n" + sentinel
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run the deployed script.
+	scriptPath := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts", "load-protocols.sh")
+	if _, err := os.Stat(scriptPath); err != nil {
+		t.Skipf("load-protocols.sh not deployed (install-hooks may have failed in test env): %v", err)
+	}
+
+	out, err := os.ReadFile(scriptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The script must reference the skill SKILL.md path, not hardcode the protocol inline.
+	if !strings.Contains(string(out), "nn-capture-discipline") {
+		t.Errorf("load-protocols.sh does not reference nn-capture-discipline skill: %q", string(out))
+	}
+}
+
 func TestInstallHooksSuccessMessageMentionsSettings(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()

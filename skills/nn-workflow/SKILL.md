@@ -1,3 +1,9 @@
+---
+name: nn-workflow
+description: Multi-step workflow for operating the nn Zettelkasten CLI as an LLM agent — capture, link, review, and maintain notes.
+when_to_use: When asked to organise, capture, or link notes in the user's Zettelkasten. Invoke with /nn-workflow.
+---
+
 # nn-workflow
 
 A multi-step workflow skill for operating the `nn` Zettelkasten CLI as an LLM agent.
