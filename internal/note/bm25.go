@@ -16,9 +16,14 @@ const (
 // Title tokens are weighted by repeating them titleWeight times in the document.
 const titleWeight = 5
 
+// inboundWeight is the fractional body-token weight applied to inbound annotation tokens.
+const inboundWeight = 0.5
+
 // BM25Scores returns BM25 scores for each note against the query terms.
+// inbound maps note ID to annotation strings from notes that link to it;
+// those tokens are included at inboundWeight relative to body tokens.
 // Only notes matching at least one query term are included.
-func BM25Scores(notes []*Note, query string) map[string]float64 {
+func BM25Scores(notes []*Note, query string, inbound map[string][]string) map[string]float64 {
 	terms := tokenize(query)
 	if len(terms) == 0 {
 		return nil
@@ -26,13 +31,13 @@ func BM25Scores(notes []*Note, query string) map[string]float64 {
 
 	// Build per-note token frequency maps (title weighted).
 	type docInfo struct {
-		tf  map[string]int
-		len int
+		tf  map[string]float64
+		len float64
 	}
 	docs := make([]docInfo, len(notes))
-	totalLen := 0
+	totalLen := 0.0
 	for i, n := range notes {
-		tf := make(map[string]int)
+		tf := make(map[string]float64)
 		titleTokens := tokenize(n.Title)
 		bodyTokens := tokenize(n.Body)
 		for _, t := range titleTokens {
@@ -41,13 +46,20 @@ func BM25Scores(notes []*Note, query string) map[string]float64 {
 		for _, t := range bodyTokens {
 			tf[t]++
 		}
-		dlen := len(titleTokens)*titleWeight + len(bodyTokens)
+		inboundLen := 0.0
+		for _, ann := range inbound[n.ID] {
+			for _, t := range tokenize(ann) {
+				tf[t] += inboundWeight
+				inboundLen += inboundWeight
+			}
+		}
+		dlen := float64(len(titleTokens)*titleWeight+len(bodyTokens)) + inboundLen
 		docs[i] = docInfo{tf: tf, len: dlen}
 		totalLen += dlen
 	}
 
 	N := float64(len(notes))
-	avgdl := float64(totalLen) / math.Max(N, 1)
+	avgdl := totalLen / math.Max(N, 1)
 
 	// IDF per term.
 	idf := make(map[string]float64, len(terms))
@@ -66,11 +78,11 @@ func BM25Scores(notes []*Note, query string) map[string]float64 {
 		d := docs[i]
 		score := 0.0
 		for _, term := range terms {
-			tf := float64(d.tf[term])
+			tf := d.tf[term]
 			if tf == 0 {
 				continue
 			}
-			dl := float64(d.len)
+			dl := d.len
 			score += idf[term] * (tf * (bm25K1 + 1)) /
 				(tf + bm25K1*(1-bm25B+bm25B*dl/avgdl))
 		}

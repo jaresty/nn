@@ -68,7 +68,7 @@ to create accepted suggestions.`,
 
 			// BM25 score candidates against focal note's content.
 			query := focal.Title + " " + focal.Body
-			scores := note.BM25Scores(others, query)
+			scores := note.BM25Scores(others, query, nil)
 
 			// Variant F: exclude zero-score notes, report excluded count.
 			var scored []*note.Note

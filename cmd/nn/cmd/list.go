@@ -53,9 +53,15 @@ func newListCmd(state *rootState) *cobra.Command {
 			}
 			// Build a set of IDs with outbound links.
 			hasOutbound := make(map[string]bool)
+			// Build inbound annotation map from all notes before filtering so
+			// the pre-filter and scorer both see inbound text.
+			allInbound := make(map[string][]string)
 			for _, n := range notes {
 				if len(n.Links) > 0 {
 					hasOutbound[n.ID] = true
+				}
+				for _, lnk := range n.Links {
+					allInbound[lnk.TargetID] = append(allInbound[lnk.TargetID], lnk.Annotation)
 				}
 			}
 
@@ -96,7 +102,7 @@ func newListCmd(state *rootState) *cobra.Command {
 						continue
 					}
 				}
-				if search != "" && note.BM25Scores([]*note.Note{n}, search)[n.ID] == 0 {
+				if search != "" && note.BM25Scores([]*note.Note{n}, search, allInbound)[n.ID] == 0 {
 					continue
 				}
 				if long && len(n.Body) <= atomicityThreshold {
@@ -136,14 +142,14 @@ func newListCmd(state *rootState) *cobra.Command {
 					}
 				}
 				filtered = withoutTarget
-				scores := note.BM25Scores(filtered, target.Title+" "+target.Body)
+				scores := note.BM25Scores(filtered, target.Title+" "+target.Body, allInbound)
 				sort.SliceStable(filtered, func(i, j int) bool {
 					return scores[filtered[i].ID] > scores[filtered[j].ID]
 				})
 			}
 
 			if search != "" {
-				scores := note.BM25Scores(filtered, search)
+				scores := note.BM25Scores(filtered, search, allInbound)
 				sort.SliceStable(filtered, func(i, j int) bool {
 					return scores[filtered[i].ID] > scores[filtered[j].ID]
 				})
