@@ -45,43 +45,25 @@ func hookCommands(hooks map[string]interface{}, event string) []string {
 	return cmds
 }
 
-func TestInstallHooksWritesUserPromptSubmitToSettings(t *testing.T) {
+func TestInstallHooksDoesNotWriteUserPromptSubmitToSettings(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	// pre-create settings.json with an unrelated key so we can verify merge
 	settingsDir := filepath.Join(home, ".claude")
 	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	existing := []byte(`{"model":"sonnet"}`)
-	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), existing, 0o644); err != nil {
+	// Pre-seed a stale UserPromptSubmit entry to verify it gets removed.
+	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{"hooks":{"UserPromptSubmit":[]}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	out, err := execute("install-hooks")
-	_ = out
-	// claude plugin commands will fail in test env — that's expected; we only care about settings.json
-	_ = err
+	_, _ = execute("install-hooks")
 
 	hooks := readSettingsHooks(t, home)
-	if hooks == nil {
-		t.Fatal("hooks key missing from settings.json after install-hooks")
-	}
-	cmds := hookCommands(hooks, "UserPromptSubmit")
-	if len(cmds) == 0 {
-		t.Fatal("hooks.UserPromptSubmit missing after install-hooks")
-	}
-	stableDir := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts")
-	found := false
-	for _, c := range cmds {
-		if strings.Contains(c, "protocols-reminder.sh") && strings.Contains(c, stableDir) {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("hooks.UserPromptSubmit command does not reference stable path %s/protocols-reminder.sh: %v", stableDir, cmds)
+	if _, ok := hooks["UserPromptSubmit"]; ok {
+		t.Error("hooks.UserPromptSubmit should be absent — managed by plugin hooks.json, not user settings")
 	}
 }
 

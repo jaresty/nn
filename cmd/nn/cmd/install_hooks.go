@@ -124,7 +124,7 @@ func readAgentPrompt(home, name string) string {
 }
 
 func mergeHooksIntoSettings(settingsPath, home string) error {
-	cacheScripts := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts")
+	// cacheScripts unused — SessionStart and UserPromptSubmit managed by plugin hooks.json
 
 	// Read existing settings or start with empty object.
 	data, err := os.ReadFile(settingsPath)
@@ -146,18 +146,8 @@ func mergeHooksIntoSettings(settingsPath, home string) error {
 		hooks = map[string]interface{}{}
 	}
 
-	hooks["UserPromptSubmit"] = []interface{}{
-		map[string]interface{}{
-			"hooks": []interface{}{
-				map[string]interface{}{
-					"type":    "command",
-					"command": "bash \"" + filepath.Join(cacheScripts, "protocols-reminder.sh") + "\"",
-					"timeout": 5,
-				},
-			},
-		},
-	}
-	// SessionStart is managed by the plugin's hooks.json — do not duplicate in user settings.
+	// UserPromptSubmit and SessionStart are managed by the plugin's hooks.json — do not duplicate in user settings.
+	delete(hooks, "UserPromptSubmit")
 	delete(hooks, "SessionStart")
 	// Remove PostCompact and PreCompact — not valid or no longer used; clean up stale entries.
 	delete(hooks, "PostCompact")
