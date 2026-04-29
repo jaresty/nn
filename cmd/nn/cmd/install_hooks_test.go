@@ -238,9 +238,9 @@ func TestInstallHooksWritesStopToSettings(t *testing.T) {
 			}
 		}
 	}
-	// Expect 2 agent hooks: nn-capture + nn-session-debrief.
-	if agentCount < 2 {
-		t.Errorf("hooks.Stop: expected ≥2 agent hooks with prompt, got %d", agentCount)
+	// Expect exactly 1 merged agent hook (nn-stop-agent).
+	if agentCount != 1 {
+		t.Errorf("hooks.Stop: expected exactly 1 agent hook with prompt, got %d", agentCount)
 	}
 }
 

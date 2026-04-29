@@ -177,14 +177,8 @@ func mergeHooksIntoSettings(settingsPath, home string) error {
 			"hooks": []interface{}{
 				map[string]interface{}{
 					"type":          "agent",
-					"prompt":        readAgentPrompt(home, "nn-capture"),
-					"statusMessage": "Reviewing session for notes worth capturing...",
-					"timeout":       120,
-				},
-				map[string]interface{}{
-					"type":          "agent",
-					"prompt":        readAgentPrompt(home, "nn-session-debrief"),
-					"statusMessage": "Running session debrief...",
+					"prompt":        readAgentPrompt(home, "nn-stop-agent"),
+					"statusMessage": "Capturing and debriefing session...",
 					"timeout":       120,
 				},
 			},
