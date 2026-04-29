@@ -1,29 +1,5 @@
 {
   "hooks": {
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "agent",
-            "agent": "nn-capture",
-            "statusMessage": "Reviewing session for notes worth capturing...",
-            "timeout": 120
-          }
-        ]
-      }
-    ],
-    "PostCompact": [
-      {
-        "hooks": [
-          {
-            "type": "agent",
-            "agent": "nn-reload-protocols",
-            "statusMessage": "Reloading global protocols after compaction...",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "hooks": [

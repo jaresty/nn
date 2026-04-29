@@ -52,12 +52,7 @@ Scopes:
 				return fmt.Errorf("install-hooks: copy plugin: %w", err)
 			}
 
-			// Write hooks directly to ~/.claude/settings.json.
-			// Plugin hooks (hooks/hooks.json) are broken upstream and don't fire.
 			settingsPath := filepath.Join(home, ".claude", "settings.json")
-			if err := mergeHooksIntoSettings(settingsPath, home); err != nil {
-				return fmt.Errorf("install-hooks: write settings.json hooks: %w", err)
-			}
 
 			// Register the marketplace (best-effort; claude may not be installed).
 			addArgs := []string{"plugin", "marketplace", "add", pluginsDir}
@@ -73,6 +68,14 @@ Scopes:
 				if !isAlreadyInstalled(string(out)) && !isCommandNotFound(err) {
 					return fmt.Errorf("install-hooks: plugin install: %s: %w", out, err)
 				}
+			}
+
+			// Write hooks directly to ~/.claude/settings.json after plugin install,
+			// so our prompt-based agent hooks win over any hooks.json merge done by
+			// the plugin installer. Plugin hooks (hooks/hooks.json) are broken upstream
+			// and don't fire; settings.json hooks with "prompt" field do.
+			if err := mergeHooksIntoSettings(settingsPath, home); err != nil {
+				return fmt.Errorf("install-hooks: write settings.json hooks: %w", err)
 			}
 
 			fmt.Fprintf(outWriter(cmd), "nn-hooks installed (scope: %s)\nHooks written to %s.\nRestart Claude Code to activate the hooks.\n", scope, settingsPath)
@@ -109,6 +112,17 @@ func copyPlugins(destDir string) error {
 // mergeHooksIntoSettings reads settingsPath (creating it if absent), merges the
 // nn hook entries for UserPromptSubmit and SessionStart, and writes it back.
 // The plugin cache path is derived from home.
+// readAgentPrompt reads an agent definition file from the deployed plugin directory.
+// Returns the file content, or a fallback string if the file cannot be read.
+func readAgentPrompt(home, name string) string {
+	path := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "agents", name+".md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "# " + name + "\n\nAgent definition not found. Run nn install to deploy."
+	}
+	return string(data)
+}
+
 func mergeHooksIntoSettings(settingsPath, home string) error {
 	cacheScripts := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts")
 
@@ -150,6 +164,24 @@ func mergeHooksIntoSettings(settingsPath, home string) error {
 					"type":    "command",
 					"command": "bash \"" + filepath.Join(cacheScripts, "load-protocols.sh") + "\"",
 					"timeout": 30,
+				},
+			},
+		},
+	}
+	hooks["PreCompact"] = []interface{}{
+		map[string]interface{}{
+			"hooks": []interface{}{
+				map[string]interface{}{
+					"type":          "agent",
+					"prompt":        readAgentPrompt(home, "nn-capture"),
+					"statusMessage": "Reviewing session for notes worth capturing...",
+					"timeout":       120,
+				},
+				map[string]interface{}{
+					"type":          "agent",
+					"prompt":        readAgentPrompt(home, "nn-session-debrief"),
+					"statusMessage": "Running session debrief...",
+					"timeout":       120,
 				},
 			},
 		},
