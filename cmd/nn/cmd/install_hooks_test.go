@@ -204,7 +204,7 @@ func TestLoadProtocolsScriptReadsFromSkill(t *testing.T) {
 	}
 }
 
-func TestInstallHooksWritesStopToSettings(t *testing.T) {
+func TestInstallHooksWritesStopCommandToSettings(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -225,22 +225,22 @@ func TestInstallHooksWritesStopToSettings(t *testing.T) {
 		t.Fatal("hooks.Stop missing after install-hooks")
 	}
 	entries, _ := stop.([]interface{})
-	var agentCount int
+	var cmdCount int
 	for _, e := range entries {
 		em, _ := e.(map[string]interface{})
 		inner, _ := em["hooks"].([]interface{})
 		for _, h := range inner {
 			hm, _ := h.(map[string]interface{})
-			if hm["type"] == "agent" {
-				if prompt, ok := hm["prompt"].(string); ok && prompt != "" {
-					agentCount++
+			if hm["type"] == "command" {
+				if cmd, ok := hm["command"].(string); ok && cmd != "" {
+					cmdCount++
 				}
 			}
 		}
 	}
-	// Expect exactly 1 merged agent hook (nn-stop-agent).
-	if agentCount != 1 {
-		t.Errorf("hooks.Stop: expected exactly 1 agent hook with prompt, got %d", agentCount)
+	// Expect exactly 1 command hook (throttled shell script).
+	if cmdCount != 1 {
+		t.Errorf("hooks.Stop: expected exactly 1 command hook, got %d", cmdCount)
 	}
 }
 

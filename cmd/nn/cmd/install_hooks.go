@@ -172,14 +172,15 @@ func mergeHooksIntoSettings(settingsPath, home string) error {
 	delete(hooks, "PostCompact")
 	delete(hooks, "PreCompact")
 
+	stopScript := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts", "nn-stop-hook.sh")
 	hooks["Stop"] = []interface{}{
 		map[string]interface{}{
 			"hooks": []interface{}{
 				map[string]interface{}{
-					"type":          "agent",
-					"prompt":        readAgentPrompt(home, "nn-stop-agent"),
+					"type":          "command",
+					"command":       stopScript,
 					"statusMessage": "Capturing and debriefing session...",
-					"timeout":       120,
+					"timeout":       180,
 				},
 			},
 		},
