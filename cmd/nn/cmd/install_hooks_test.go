@@ -85,7 +85,7 @@ func TestInstallHooksWritesUserPromptSubmitToSettings(t *testing.T) {
 	}
 }
 
-func TestInstallHooksWritesSessionStartToSettings(t *testing.T) {
+func TestInstallHooksDoesNotWriteSessionStartToSettings(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -94,28 +94,16 @@ func TestInstallHooksWritesSessionStartToSettings(t *testing.T) {
 	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{}`), 0o644); err != nil {
+	// Pre-seed a stale SessionStart entry to verify it gets removed.
+	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{"hooks":{"SessionStart":[]}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	out, err := execute("install-hooks")
-	_ = out
-	_ = err
+	_, _ = execute("install-hooks")
 
 	hooks := readSettingsHooks(t, home)
-	stableDir := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts")
-	cmds := hookCommands(hooks, "SessionStart")
-	if len(cmds) == 0 {
-		t.Fatal("hooks.SessionStart missing after install-hooks")
-	}
-	found := false
-	for _, c := range cmds {
-		if strings.Contains(c, "load-protocols.sh") && strings.Contains(c, stableDir) {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("hooks.SessionStart command does not reference stable path %s/load-protocols.sh: %v", stableDir, cmds)
+	if _, ok := hooks["SessionStart"]; ok {
+		t.Error("hooks.SessionStart should be absent — managed by plugin hooks.json, not user settings")
 	}
 }
 

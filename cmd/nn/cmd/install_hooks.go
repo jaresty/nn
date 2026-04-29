@@ -157,17 +157,8 @@ func mergeHooksIntoSettings(settingsPath, home string) error {
 			},
 		},
 	}
-	hooks["SessionStart"] = []interface{}{
-		map[string]interface{}{
-			"hooks": []interface{}{
-				map[string]interface{}{
-					"type":    "command",
-					"command": "bash \"" + filepath.Join(cacheScripts, "load-protocols.sh") + "\"",
-					"timeout": 30,
-				},
-			},
-		},
-	}
+	// SessionStart is managed by the plugin's hooks.json — do not duplicate in user settings.
+	delete(hooks, "SessionStart")
 	// Remove PostCompact and PreCompact — not valid or no longer used; clean up stale entries.
 	delete(hooks, "PostCompact")
 	delete(hooks, "PreCompact")
