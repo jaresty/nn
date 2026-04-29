@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -126,5 +128,28 @@ func TestShowGlobalSeparator(t *testing.T) {
 	}
 	if !strings.Contains(out, "\n---\n") {
 		t.Errorf("expected '---' separator between protocols; got:\n%s", out)
+	}
+}
+
+func TestShowAppendsToAccessLog(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+
+	n := newTestNoteForCLI(note.GenerateID(), "Access Me", note.TypeConcept)
+	writeNoteFile(t, nbDir, n)
+
+	_, err := execute("show", n.ID)
+	if err != nil {
+		t.Fatalf("nn show: %v", err)
+	}
+
+	logPath := filepath.Join(cfgDir, "access.log")
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("access.log not created: %v", err)
+	}
+	if !strings.Contains(string(data), n.ID) {
+		t.Errorf("access.log %q does not contain note ID %s", string(data), n.ID)
 	}
 }

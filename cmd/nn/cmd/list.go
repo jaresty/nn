@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -22,6 +26,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		orphan       bool
 		global       bool
 		long         bool
+		stale        bool
 		limit        int
 		jsonOut      bool
 		rich         bool
@@ -101,6 +106,9 @@ func newListCmd(state *rootState) *cobra.Command {
 					if hasGoverns {
 						continue
 					}
+				}
+				if stale && !isStaleNote(n, state.notebookDir) {
+					continue
 				}
 				if search != "" && note.BM25Scores([]*note.Note{n}, search, allInbound)[n.ID] == 0 {
 					continue
@@ -196,6 +204,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&linkedFrom, "linked-from", "", "Notes that link to this ID")
 	cmd.Flags().StringVar(&linkedTo, "linked-to", "", "Notes this ID links to")
 	cmd.Flags().BoolVar(&orphan, "orphan", false, "Notes with no links (inbound or outbound)")
+	cmd.Flags().BoolVar(&stale, "stale", false, "Notes accessed via nn show but not committed since (advisory; requires access.log)")
 	cmd.Flags().BoolVar(&global, "global", false, "Protocol notes with no outgoing governs links (applies universally)")
 	cmd.Flags().BoolVar(&long, "long", false, "Filter to notes exceeding the atomicity threshold")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of results")
@@ -324,3 +333,60 @@ func tagsString(tags []string) string {
 
 // suppress unused warning
 var _ = tagsString
+
+// isStaleNote returns true when a note appears in the access.log but has had
+// no git commit touching its file since the last access timestamp.
+// Returns false (not stale) on any error so failures are silent.
+func isStaleNote(n *note.Note, repoDir string) bool {
+	cfgDir := os.Getenv("NN_CONFIG_DIR")
+	if cfgDir == "" {
+		xdg := os.Getenv("XDG_CONFIG_HOME")
+		if xdg == "" {
+			home, _ := os.UserHomeDir()
+			xdg = filepath.Join(home, ".config")
+		}
+		cfgDir = filepath.Join(xdg, "nn")
+	}
+	logPath := filepath.Join(cfgDir, "access.log")
+	f, err := os.Open(logPath)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	// Find the most recent access timestamp for this note.
+	var lastAccess time.Time
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Fields(line)
+		if len(parts) != 3 || parts[1] != "show" || parts[2] != n.ID {
+			continue
+		}
+		t, err := time.Parse(time.RFC3339, parts[0])
+		if err != nil {
+			continue
+		}
+		if t.After(lastAccess) {
+			lastAccess = t
+		}
+	}
+	if lastAccess.IsZero() {
+		return false // not in access log
+	}
+
+	// Check git log for commits touching this note's file since lastAccess.
+	since := lastAccess.UTC().Format(time.RFC3339)
+	notePath := filepath.Join(repoDir, n.Filename())
+	out, err := exec.Command("git", "-C", repoDir, "log",
+		"--after="+since, "--format=%H", "--", notePath).Output()
+	if err != nil {
+		// Exit 128 = empty repo or no HEAD; no commits exist, so note is stale.
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 128 {
+			return true
+		}
+		return false
+	}
+	// If no commits since access, the note is stale.
+	return strings.TrimSpace(string(out)) == ""
+}

@@ -96,6 +96,19 @@ func newTestNoteForCLI(id, title string, typ note.Type) *note.Note {
 	}
 }
 
+func commitNoteFile(t *testing.T, nbDir string, n *note.Note) {
+	t.Helper()
+	run := func(args ...string) {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = nbDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	run("add", n.Filename())
+	run("commit", "-m", "test: commit note "+n.ID)
+}
+
 func mustJSON(t *testing.T, s string, v any) {
 	t.Helper()
 	if err := json.Unmarshal([]byte(s), v); err != nil {

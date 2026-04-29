@@ -48,13 +48,19 @@ If nothing is worth capturing, skip Phase 1 entirely and proceed to Phase 2.
 
 ## Phase 2 — Debrief
 
-Find recently modified draft notes:
+Find notes that were accessed but not acted on (stale candidates):
+
+```
+nn list --stale --json
+```
+
+Also find recently modified draft notes:
 
 ```
 nn list --status draft --sort modified --json
 ```
 
-Take the top 10 results. For each note that appears related to recent work:
+Combine both lists. Take the top 10 unique results. For each note that appears related to recent work:
 
 1. **Promotion check** — `nn show <id>`
    Eligible when all hold:

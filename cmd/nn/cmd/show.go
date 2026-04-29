@@ -3,7 +3,10 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -144,6 +147,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("show: %w", err)
 				}
+				appendAccessLog(n.ID)
 				protos := findGoverningProtocols(n.ID, all)
 
 				if jsonOut {
@@ -215,6 +219,27 @@ func newShowCmd(state *rootState) *cobra.Command {
 	cmd.Flags().IntVar(&depth, "depth", 0, "Traverse outgoing links to this depth and print all reachable notes")
 	cmd.Flags().BoolVar(&global, "global", false, "Show all global protocol notes (type:protocol with no outgoing governs links)")
 	return cmd
+}
+
+// appendAccessLog records a note retrieval to the advisory access log.
+// Failures are silently ignored — the log is advisory only.
+func appendAccessLog(id string) {
+	cfgDir := os.Getenv("NN_CONFIG_DIR")
+	if cfgDir == "" {
+		xdg := os.Getenv("XDG_CONFIG_HOME")
+		if xdg == "" {
+			home, _ := os.UserHomeDir()
+			xdg = filepath.Join(home, ".config")
+		}
+		cfgDir = filepath.Join(xdg, "nn")
+	}
+	_ = os.MkdirAll(cfgDir, 0o755)
+	f, err := os.OpenFile(filepath.Join(cfgDir, "access.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "%s show %s\n", time.Now().UTC().Format(time.RFC3339), id)
 }
 
 // findGoverningProtocols returns all notes that link to targetID with type "governs".
