@@ -204,7 +204,7 @@ func TestLoadProtocolsScriptReadsFromSkill(t *testing.T) {
 	}
 }
 
-func TestInstallHooksWritesPreCompactToSettings(t *testing.T) {
+func TestInstallHooksWritesStopToSettings(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -220,11 +220,11 @@ func TestInstallHooksWritesPreCompactToSettings(t *testing.T) {
 	_, _ = execute("install-hooks")
 
 	hooks := readSettingsHooks(t, home)
-	preCompact, ok := hooks["PreCompact"]
+	stop, ok := hooks["Stop"]
 	if !ok {
-		t.Fatal("hooks.PreCompact missing after install-hooks")
+		t.Fatal("hooks.Stop missing after install-hooks")
 	}
-	entries, _ := preCompact.([]interface{})
+	entries, _ := stop.([]interface{})
 	var agentCount int
 	for _, e := range entries {
 		em, _ := e.(map[string]interface{})
@@ -240,7 +240,28 @@ func TestInstallHooksWritesPreCompactToSettings(t *testing.T) {
 	}
 	// Expect 2 agent hooks: nn-capture + nn-session-debrief.
 	if agentCount < 2 {
-		t.Errorf("hooks.PreCompact: expected ≥2 agent hooks with prompt, got %d", agentCount)
+		t.Errorf("hooks.Stop: expected ≥2 agent hooks with prompt, got %d", agentCount)
+	}
+}
+
+func TestInstallHooksNoPreCompactInSettings(t *testing.T) {
+	_, execute := setupNotebook(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	settingsDir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{"hooks":{"PreCompact":[]}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, _ = execute("install-hooks")
+
+	hooks := readSettingsHooks(t, home)
+	if _, ok := hooks["PreCompact"]; ok {
+		t.Error("hooks.PreCompact should be absent after install-hooks (stale key cleanup)")
 	}
 }
 

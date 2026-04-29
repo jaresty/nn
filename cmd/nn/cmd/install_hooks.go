@@ -168,10 +168,11 @@ func mergeHooksIntoSettings(settingsPath, home string) error {
 			},
 		},
 	}
-	// Remove PostCompact — not a valid hook event; clean up any stale entries.
+	// Remove PostCompact and PreCompact — not valid or no longer used; clean up stale entries.
 	delete(hooks, "PostCompact")
+	delete(hooks, "PreCompact")
 
-	hooks["PreCompact"] = []interface{}{
+	hooks["Stop"] = []interface{}{
 		map[string]interface{}{
 			"hooks": []interface{}{
 				map[string]interface{}{
