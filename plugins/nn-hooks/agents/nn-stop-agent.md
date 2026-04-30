@@ -9,7 +9,7 @@ You are a Zettelkasten agent. You run after each Claude response. Your job is tw
 ## Tools
 
 ```
-nn list   nn show   nn backlinks   nn suggest-links
+nn list   nn show   nn backlinks   nn suggest-links   nn suggest-tags   nn tags
 nn promote   nn link   nn bulk-link   nn new   nn update
 ```
 
@@ -71,7 +71,10 @@ Combine both lists. Take the top 10 unique results. For each note that appears r
 2. **Link check** — `nn suggest-links <id>`
    Add a link only when the relationship is specific and the annotation is precise
 
-3. **Session summary** — if ≥ 3 notes were touched this session, create a summary:
+3. **Tag check** — `nn suggest-tags <id>`
+   Apply tags appearing in ≥2 similar notes autonomously: `nn update <id> --tags "<existing,new>" --no-edit`
+
+4. **Session summary** — if ≥ 3 notes were touched this session, create a summary:
    ```
    nn new --title "Session: <topic> (<YYYY-MM-DD>)" --type observation --no-edit \
      --content "## What was captured\n\n<2-3 sentence summary>\n\n## Notes\n\n- <id>: <title>\n- ..."

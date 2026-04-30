@@ -20,6 +20,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 		tags       string
 		content    string
 		noEdit     bool
+		noSuggest  bool
 		linkTo     string
 		annotation string
 		fromStdin  bool
@@ -109,7 +110,11 @@ func newNewCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("create note: %w", err)
 			}
 
-			fmt.Fprintf(outWriter(cmd), "created %s\n", n.ID)
+			w := outWriter(cmd)
+			fmt.Fprintf(w, "created %s\n", n.ID)
+			if !noSuggest {
+				printSuggestions(w, state, n)
+			}
 			return nil
 		},
 	}
@@ -119,6 +124,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tags")
 	cmd.Flags().StringVar(&content, "content", "", "Note body (use with --no-edit)")
 	cmd.Flags().BoolVar(&noEdit, "no-edit", false, "Skip opening $EDITOR")
+	cmd.Flags().BoolVar(&noSuggest, "no-suggest", false, "Suppress post-write link and tag suggestions")
 	cmd.Flags().StringVar(&linkTo, "link-to", "", "Immediately link to an existing note ID")
 	cmd.Flags().StringVar(&annotation, "annotation", "", "Link annotation when using --link-to")
 	cmd.Flags().BoolVar(&fromStdin, "from-stdin", false, "Read note body from stdin")
