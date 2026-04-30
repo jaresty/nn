@@ -310,6 +310,8 @@ Typical flow:
 nn capture --title "..." --content "..." # capture → get ID
 nn update <id> --content "..." --no-edit  # LLM refines
 nn suggest-links <id>                     # discover links
+nn suggest-tags <id>                      # discover tags
+nn tags                                   # enumerate tag vocabulary
 ```
 
 ## nn suggest-links
@@ -327,6 +329,26 @@ Output contains:
 - Zero-BM25-score notes are excluded; the count is reported in the header
 
 Default limit: 20. The LLM reads the output and calls `nn link` or `nn bulk-link` for accepted suggestions.
+
+## nn suggest-tags
+
+Returns tag suggestions for a note based on BM25-similar notes that share tags the target lacks.
+
+```
+nn suggest-tags <id> [--json] [--min-notes N]
+```
+
+Only tags appearing in ≥ `--min-notes` similar notes (default: 2) are returned. The LLM applies accepted tags via `nn update <id> --tags "..."`.
+
+## nn tags
+
+Lists all tags in the notebook with note counts.
+
+```
+nn tags [--json]
+```
+
+JSON output: `[{"tag": "...", "count": N, "notes": ["id1", ...]}]`. Use before tagging a new note to orient against the existing vocabulary.
 
 ## nn review
 

@@ -33,13 +33,20 @@ Invoke after `nn new` or `nn update` to discover notes that should be linked to 
 
 5. **Bidirectional check** — consider whether the target note should also link back. If so, add reverse links with appropriate types.
 
+6. **Tag suggestions** — run `nn suggest-tags <id>` and apply any tags appearing in ≥2 similar notes that the note lacks:
+   ```
+   nn update <id> --tags "existing-tag,new-tag" --no-edit
+   ```
+
 ## nn commands used
 
 ```
 nn suggest-links <id> [--limit N]
+nn suggest-tags <id> [--json]
 nn link <from> <to> --annotation "..." --type TYPE
 nn bulk-link <from> --to <id> --annotation "..." --type TYPE [--to <id> --annotation "..." --type TYPE]...
 nn update-link <from> <to> --annotation "..." --type TYPE [--status reviewed]
+nn update <id> --tags "..." --no-edit
 ```
 
 ## Canonical link types
