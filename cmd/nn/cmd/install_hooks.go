@@ -146,14 +146,36 @@ func mergeHooksIntoSettings(settingsPath, home string) error {
 		hooks = map[string]interface{}{}
 	}
 
-	// UserPromptSubmit and SessionStart are managed by the plugin's hooks.json — do not duplicate in user settings.
-	delete(hooks, "UserPromptSubmit")
-	delete(hooks, "SessionStart")
-	// Remove PostCompact and PreCompact — not valid or no longer used; clean up stale entries.
+	// Remove stale hook keys that are no longer used.
 	delete(hooks, "PostCompact")
 	delete(hooks, "PreCompact")
 
-	stopScript := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts", "nn-stop-hook.sh")
+	pluginScripts := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts")
+
+	hooks["SessionStart"] = []interface{}{
+		map[string]interface{}{
+			"hooks": []interface{}{
+				map[string]interface{}{
+					"type":    "command",
+					"command": `bash "` + filepath.Join(pluginScripts, "load-protocols.sh") + `"`,
+					"timeout": 30,
+				},
+			},
+		},
+	}
+	hooks["UserPromptSubmit"] = []interface{}{
+		map[string]interface{}{
+			"hooks": []interface{}{
+				map[string]interface{}{
+					"type":    "command",
+					"command": `bash "` + filepath.Join(pluginScripts, "protocols-reminder.sh") + `"`,
+					"timeout": 5,
+				},
+			},
+		},
+	}
+
+	stopScript := filepath.Join(pluginScripts, "nn-stop-hook.sh")
 	hooks["Stop"] = []interface{}{
 		map[string]interface{}{
 			"hooks": []interface{}{

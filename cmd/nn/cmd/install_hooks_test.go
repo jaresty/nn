@@ -45,7 +45,7 @@ func hookCommands(hooks map[string]interface{}, event string) []string {
 	return cmds
 }
 
-func TestInstallHooksDoesNotWriteUserPromptSubmitToSettings(t *testing.T) {
+func TestInstallHooksWritesUserPromptSubmitToSettings(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -54,20 +54,26 @@ func TestInstallHooksDoesNotWriteUserPromptSubmitToSettings(t *testing.T) {
 	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	// Pre-seed a stale UserPromptSubmit entry to verify it gets removed.
-	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{"hooks":{"UserPromptSubmit":[]}}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	_, _ = execute("install-hooks")
 
 	hooks := readSettingsHooks(t, home)
-	if _, ok := hooks["UserPromptSubmit"]; ok {
-		t.Error("hooks.UserPromptSubmit should be absent — managed by plugin hooks.json, not user settings")
+	if _, ok := hooks["UserPromptSubmit"]; !ok {
+		t.Error("hooks.UserPromptSubmit must be present in settings.json after install-hooks")
+	}
+	cmds := hookCommands(hooks, "UserPromptSubmit")
+	if len(cmds) == 0 {
+		t.Fatal("hooks.UserPromptSubmit must contain at least one command")
+	}
+	if !strings.Contains(cmds[0], "protocols-reminder.sh") {
+		t.Errorf("hooks.UserPromptSubmit command must reference protocols-reminder.sh, got %q", cmds[0])
 	}
 }
 
-func TestInstallHooksDoesNotWriteSessionStartToSettings(t *testing.T) {
+func TestInstallHooksWritesSessionStartToSettings(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -76,16 +82,22 @@ func TestInstallHooksDoesNotWriteSessionStartToSettings(t *testing.T) {
 	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	// Pre-seed a stale SessionStart entry to verify it gets removed.
-	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{"hooks":{"SessionStart":[]}}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	_, _ = execute("install-hooks")
 
 	hooks := readSettingsHooks(t, home)
-	if _, ok := hooks["SessionStart"]; ok {
-		t.Error("hooks.SessionStart should be absent — managed by plugin hooks.json, not user settings")
+	if _, ok := hooks["SessionStart"]; !ok {
+		t.Error("hooks.SessionStart must be present in settings.json after install-hooks")
+	}
+	cmds := hookCommands(hooks, "SessionStart")
+	if len(cmds) == 0 {
+		t.Fatal("hooks.SessionStart must contain at least one command")
+	}
+	if !strings.Contains(cmds[0], "load-protocols.sh") {
+		t.Errorf("hooks.SessionStart command must reference load-protocols.sh, got %q", cmds[0])
 	}
 }
 
