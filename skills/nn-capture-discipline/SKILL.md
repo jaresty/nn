@@ -8,7 +8,7 @@ when_to_use: Before any action that introduces new information not already prese
 
 The workflow below is not optional. Before consulting any source you did not author this session, Step 1 is required. The gate is the `nn list --search` tool result in the transcript, not a judgment that the search is unnecessary.
 
-**Gate applies (you did not author it):** web search, URL fetch, documentation, library source, third-party CLI output, spawning an agent to gather facts from external sources.
+**Gate applies (you did not author it):** web search, URL fetch, documentation, library source, third-party CLI output, spawning an agent to gather facts from external sources, reading memory files. nn is the canonical memory store — search it before reading memory files.
 
 **Gate does not apply (you authored it this session):** running your own tests, building your own code, reading files you wrote or edited this session.
 
