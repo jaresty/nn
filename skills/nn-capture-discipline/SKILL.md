@@ -6,27 +6,25 @@ when_to_use: Before any action that introduces new information not already prese
 
 # nn-capture-discipline
 
-Enforces the research protocol: search nn for duplicates before going external, do the external action, then capture or skip based on what was found.
-
-## When to use
-
-Invoke before any action that introduces new information not already present in the conversation: spawning an agent, fetching a URL, searching the web, or reading an unfamiliar file.
+The workflow below is not optional. Every external action — spawning an agent, fetching a URL, searching the web, reading an unfamiliar file — is gated by Step 1. The gate is the `nn list --search` tool result in the transcript, not a judgment that the search is unnecessary.
 
 ## Workflow
 
-**Step 1 — Search nn (separate message, before planning the external action)**
+**Step 1 — Search nn (required; blocks all external actions)**
 
-Run `nn list --search "<topic>" --json`. This call must be in its own message, completed and returned, before the external action is planned. Planning the search and the external action in the same message collapses the gating relationship — the search result cannot constrain a decision already made.
+Before planning any external action, run `nn list --search "<topic>" --json` in its own message. The external action is not permitted until this tool result exists in the transcript above it.
 
-After the search result is visible in the transcript, answer this question before proceeding:
-> "Given what the search returned, is there a meaningful gap that justifies the external action?"
+This step is not skippable by predicting the result. The only valid basis for proceeding to Step 2 or Step 3 is the actual tool result from this call. "I already know nn won't have this" is not a valid basis — the search must run and return.
 
-If yes: proceed to Step 2. If no: the external action is not warranted; state why and stop.
+After the tool result is visible, quote one specific result title or write "zero results returned." Then answer:
+> "What specific claim in the search results, if any, covers the question the external action would answer?"
+
+This question is only answerable by reading the actual results. If the answer requires no inspection of the results, the question has not been engaged with.
 
 **Step 2 — Inspect existing notes (only if results were returned)**
 
 Run `nn show <id>` on the most relevant results. Answer:
-> "Does any existing note already cover the specific question the external action would answer?"
+> "Does note `<id>` cover the specific question the external action would answer, and if so, which sentence covers it?"
 
 If yes: skip the external action and link or update the existing note instead. If no: proceed to Step 3.
 
@@ -65,7 +63,9 @@ nn link <from> <to> --annotation "..." --type <type>
 
 ## Success criteria
 
-- Step 1 search is in its own message, completed before the external action is planned
-- Step 3 external action result is visible in the transcript before any capture/skip decision
+- Every external action has a `nn list --search` tool result above it in the transcript
+- Step 1 answer names a specific result title or states "zero results returned" — not a prediction
+- Step 2 answer names the specific sentence in a note that covers the question — not a label
+- Step 3 external action result is visible before any capture/skip decision
 - Every `nn-capture-skip` names: the specific claim read, the source, and the durability reason
 - Every `nn new` / `nn update` / `nn link` is preceded by a `Capturing:` sentence
