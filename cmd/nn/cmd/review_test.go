@@ -106,6 +106,23 @@ func TestReviewDeadEndDetection(t *testing.T) {
 	}
 }
 
+// Assertion: TestReviewGlobalProtocolNotOrphan — global notes (type=protocol, status=permanent) are excluded from orphan list.
+func TestReviewGlobalProtocolNotOrphan(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	global := newTestNoteForCLI(note.GenerateID(), "My Protocol", note.TypeProtocol)
+	global.Status = note.StatusPermanent
+	// no links — would be an orphan if not filtered
+	writeNoteFile(t, nbDir, global)
+
+	out, err := execute("review")
+	if err != nil {
+		t.Fatalf("review: %v", err)
+	}
+	if strings.Contains(out, global.ID) {
+		t.Errorf("global protocol note %q must not appear in orphan list; got:\n%s", global.ID, out)
+	}
+}
+
 // Assertion: TestReviewRecentNotes — notes created in last 7 days are counted.
 func TestReviewRecentNotes(t *testing.T) {
 	nbDir, execute := setupNotebook(t)

@@ -68,9 +68,12 @@ interpretation and recommendations.`,
 			}
 
 			// Orphans: no links in either direction.
+			// Global notes (type=protocol, status=permanent) are excluded — their
+			// connectivity is by design; they are referenced at session start, not via links.
 			var orphans []*note.Note
 			for _, n := range notes {
-				if outbound[n.ID] == 0 && inbound[n.ID] == 0 {
+				if outbound[n.ID] == 0 && inbound[n.ID] == 0 &&
+					!(n.Type == note.TypeProtocol && n.Status == note.StatusPermanent) {
 					orphans = append(orphans, n)
 				}
 			}
