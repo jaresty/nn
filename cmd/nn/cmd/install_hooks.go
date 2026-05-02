@@ -7,12 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	nnPlugins "github.com/jaresty/nn/plugins"
 )
+
+var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]|\[[0-9;]+m\]?`)
 
 func newInstallHooksCmd() *cobra.Command {
 	var scope string
@@ -133,7 +136,8 @@ func mergeHooksIntoSettings(settingsPath, home string) error {
 	}
 	var settings map[string]interface{}
 	if len(data) > 0 {
-		if err := json.Unmarshal(data, &settings); err != nil {
+		clean := ansiEscape.ReplaceAll(data, nil)
+		if err := json.Unmarshal(clean, &settings); err != nil {
 			return fmt.Errorf("parse %s: %w", settingsPath, err)
 		}
 	}
