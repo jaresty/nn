@@ -247,7 +247,7 @@ func TestInstallHooksNoPreCompactInSettings(t *testing.T) {
 	}
 }
 
-func TestInstallHooksNoPostCompactInSettings(t *testing.T) {
+func TestInstallHooksWritesPostCompactToSettings(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -263,8 +263,15 @@ func TestInstallHooksNoPostCompactInSettings(t *testing.T) {
 	_, _ = execute("install-hooks")
 
 	hooks := readSettingsHooks(t, home)
-	if _, ok := hooks["PostCompact"]; ok {
-		t.Fatal("hooks.PostCompact must not be written to settings.json (not a valid event)")
+	if _, ok := hooks["PostCompact"]; !ok {
+		t.Fatal("hooks.PostCompact must be present in settings.json after install-hooks")
+	}
+	cmds := hookCommands(hooks, "PostCompact")
+	if len(cmds) == 0 {
+		t.Fatal("hooks.PostCompact must contain at least one command")
+	}
+	if !strings.Contains(cmds[0], "post-compact.sh") {
+		t.Errorf("hooks.PostCompact command must reference post-compact.sh, got %q", cmds[0])
 	}
 }
 

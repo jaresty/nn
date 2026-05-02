@@ -147,7 +147,6 @@ func mergeHooksIntoSettings(settingsPath, home string) error {
 	}
 
 	// Remove stale hook keys that are no longer used.
-	delete(hooks, "PostCompact")
 	delete(hooks, "PreCompact")
 
 	pluginScripts := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts")
@@ -170,6 +169,18 @@ func mergeHooksIntoSettings(settingsPath, home string) error {
 					"type":    "command",
 					"command": `bash "` + filepath.Join(pluginScripts, "protocols-reminder.sh") + `"`,
 					"timeout": 5,
+				},
+			},
+		},
+	}
+
+	hooks["PostCompact"] = []interface{}{
+		map[string]interface{}{
+			"hooks": []interface{}{
+				map[string]interface{}{
+					"type":    "command",
+					"command": `bash "` + filepath.Join(pluginScripts, "post-compact.sh") + `"`,
+					"timeout": 30,
 				},
 			},
 		},
