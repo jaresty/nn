@@ -14,6 +14,7 @@ func newSearchCmd(state *rootState) *cobra.Command {
 	var jsonOut bool
 	var sortBy string
 	var limit int
+	var filterStatus string
 
 	cmd := &cobra.Command{
 		Use:   "search <query>",
@@ -31,6 +32,9 @@ func newSearchCmd(state *rootState) *cobra.Command {
 			var filtered []*note.Note
 			for _, n := range notes {
 				if scores[n.ID] > 0 {
+					if filterStatus != "" && string(n.Status) != filterStatus {
+						continue
+					}
 					filtered = append(filtered, n)
 				}
 			}
@@ -71,5 +75,6 @@ func newSearchCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Machine-readable JSON output")
 	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by: title, modified, created")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of results")
+	cmd.Flags().StringVar(&filterStatus, "status", "", "Filter by note status")
 	return cmd
 }
