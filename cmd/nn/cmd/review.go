@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -11,6 +14,60 @@ import (
 
 	"github.com/jaresty/nn/internal/note"
 )
+
+// nnConfigDir returns the nn config directory, respecting NN_CONFIG_DIR and XDG_CONFIG_HOME.
+func nnConfigDir() string {
+	if d := os.Getenv("NN_CONFIG_DIR"); d != "" {
+		return d
+	}
+	xdg := os.Getenv("XDG_CONFIG_HOME")
+	if xdg == "" {
+		home, _ := os.UserHomeDir()
+		xdg = filepath.Join(home, ".config")
+	}
+	return filepath.Join(xdg, "nn")
+}
+
+// readProtocolPresenceCounts reads protocol-presence.log and returns a map of
+// protocol ID → session count (number of lines containing that ID).
+func readProtocolPresenceCounts() map[string]int {
+	counts := make(map[string]int)
+	path := filepath.Join(nnConfigDir(), "protocol-presence.log")
+	f, err := os.Open(path)
+	if err != nil {
+		return counts
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		fields := strings.Fields(scanner.Text())
+		// Format: <timestamp> <id1> <id2> ...
+		for _, id := range fields[1:] {
+			counts[id]++
+		}
+	}
+	return counts
+}
+
+// readNoteAccessCounts reads access.log and returns a map of note ID → show count.
+func readNoteAccessCounts() map[string]int {
+	counts := make(map[string]int)
+	path := filepath.Join(nnConfigDir(), "access.log")
+	f, err := os.Open(path)
+	if err != nil {
+		return counts
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		// Format: <timestamp> show <id>
+		fields := strings.Fields(scanner.Text())
+		if len(fields) == 3 && fields[1] == "show" {
+			counts[fields[2]]++
+		}
+	}
+	return counts
+}
 
 func newReviewCmd(state *rootState) *cobra.Command {
 	var format string
@@ -103,6 +160,8 @@ interpretation and recommendations.`,
 			sortByID(drafts)
 
 			w := outWriter(cmd)
+			protocolCounts := readProtocolPresenceCounts()
+			accessCounts := readNoteAccessCounts()
 
 			if format == "json" {
 				type noteRef struct {
@@ -131,9 +190,11 @@ interpretation and recommendations.`,
 					DeadEnds    []noteRef `json:"dead_ends"`
 				}
 				type reviewJSON struct {
-					Growth       growthJSON       `json:"growth"`
-					Connectivity connectivityJSON `json:"connectivity"`
-					Drafts       []noteRef        `json:"drafts"`
+					Growth            growthJSON       `json:"growth"`
+					Connectivity      connectivityJSON `json:"connectivity"`
+					Drafts            []noteRef        `json:"drafts"`
+					ProtocolTelemetry map[string]int   `json:"protocol_telemetry"`
+					NoteAccess        map[string]int   `json:"note_access"`
 				}
 				out := reviewJSON{
 					Growth: growthJSON{
@@ -150,10 +211,18 @@ interpretation and recommendations.`,
 						Orphans:      toRefs(orphans),
 						DeadEnds:     toRefs(deadEnds),
 					},
-					Drafts: toRefs(drafts),
+					Drafts:            toRefs(drafts),
+					ProtocolTelemetry: protocolCounts,
+					NoteAccess:        accessCounts,
 				}
 				if out.Drafts == nil {
 					out.Drafts = []noteRef{}
+				}
+				if out.ProtocolTelemetry == nil {
+					out.ProtocolTelemetry = map[string]int{}
+				}
+				if out.NoteAccess == nil {
+					out.NoteAccess = map[string]int{}
 				}
 				enc := json.NewEncoder(w)
 				enc.SetIndent("", "  ")
@@ -198,6 +267,54 @@ interpretation and recommendations.`,
 			fmt.Fprintf(w, "Draft notes: %d\n", len(drafts))
 			for _, n := range drafts {
 				fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+			}
+			fmt.Fprintf(w, "\n")
+
+			fmt.Fprintf(w, "## Protocol telemetry\n\n")
+			if len(protocolCounts) == 0 {
+				fmt.Fprintf(w, "No data yet (protocol-presence.log not found or empty).\n")
+			} else {
+				type protocolEntry struct {
+					ID    string
+					Count int
+				}
+				pentries := make([]protocolEntry, 0, len(protocolCounts))
+				for id, count := range protocolCounts {
+					pentries = append(pentries, protocolEntry{id, count})
+				}
+				sort.Slice(pentries, func(i, j int) bool {
+					if pentries[i].Count != pentries[j].Count {
+						return pentries[i].Count > pentries[j].Count
+					}
+					return pentries[i].ID < pentries[j].ID
+				})
+				for _, e := range pentries {
+					fmt.Fprintf(w, "  %s: %d sessions\n", e.ID, e.Count)
+				}
+			}
+			fmt.Fprintf(w, "\n")
+
+			fmt.Fprintf(w, "## Note access\n\n")
+			if len(accessCounts) == 0 {
+				fmt.Fprintf(w, "No data yet (access.log not found or empty).\n")
+			} else {
+				type accessEntry struct {
+					ID    string
+					Count int
+				}
+				aentries := make([]accessEntry, 0, len(accessCounts))
+				for id, count := range accessCounts {
+					aentries = append(aentries, accessEntry{id, count})
+				}
+				sort.Slice(aentries, func(i, j int) bool {
+					if aentries[i].Count != aentries[j].Count {
+						return aentries[i].Count > aentries[j].Count
+					}
+					return aentries[i].ID < aentries[j].ID
+				})
+				for _, e := range aentries {
+					fmt.Fprintf(w, "  %s: %d views\n", e.ID, e.Count)
+				}
 			}
 			fmt.Fprintf(w, "\n")
 

@@ -22,11 +22,12 @@ const virtualCaptureDisciplineNote = "---\n" +
 	"type: protocol\n" +
 	"status: permanent\n" +
 	"---\n\n" +
-	"Before any action that introduces new information not already present in the conversation — " +
-	"web search, URL fetch, documentation, library source, third-party CLI output, " +
-	"spawning an agent to gather external facts, reading source files not authored this session, reading memory files — run " +
-	"`nn list --search \"<topic>\" --json` first. " +
-	"The external action is not permitted until this tool result exists in the transcript above it. " +
+	"Before any of the following: web search, URL fetch, reading documentation or library source, " +
+	"running a third-party CLI to get its output, spawning an agent to gather external facts, " +
+	"reading source files not authored this session, reading memory files — " +
+	"run `nn list --search \"<topic>\" --json` where `<topic>` names what the action would answer. " +
+	"The action is not permitted until that search result is visible in the transcript immediately above it. " +
+	"A search result for a different topic does not satisfy this gate. " +
 	"After the action completes, either capture the finding with `nn new` / `nn update` / `nn link`, " +
 	"or skip with: the specific claim read, the source, and a durability reason stating why it " +
 	"would not change behavior in a future session.\n"
