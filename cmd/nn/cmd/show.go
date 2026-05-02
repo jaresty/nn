@@ -13,6 +13,28 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+// virtualCaptureDisciplineNote is the body of the nn-capture-discipline virtual protocol.
+// It is hardcoded here so it appears in nn show --global output regardless of notebook
+// contents, qualifying as a path (a) protocol (global injected context).
+const virtualCaptureDisciplineNote = "---\n" +
+	"id: virtual-nn-capture-discipline\n" +
+	"title: \"Protocol: nn-capture-discipline\"\n" +
+	"type: protocol\n" +
+	"status: permanent\n" +
+	"---\n\n" +
+	"Before any action that introduces new information not already present in the conversation — " +
+	"web search, URL fetch, documentation, library source, third-party CLI output, " +
+	"spawning an agent to gather external facts, reading source files not authored this session, reading memory files — run " +
+	"`nn list --search \"<topic>\" --json` first. " +
+	"The external action is not permitted until this tool result exists in the transcript above it. " +
+	"After the action completes, either capture the finding with `nn new` / `nn update` / `nn link`, " +
+	"or skip with: the specific claim read, the source, and a durability reason stating why it " +
+	"would not change behavior in a future session.\n"
+
+// virtualGlobalProtocols are hardcoded protocol note bodies always included in nn show --global
+// output. Add entries here to register additional tool-level meta-protocols.
+var virtualGlobalProtocols = []string{virtualCaptureDisciplineNote}
+
 // protocolDerivationBlock is appended to every protocol note in plain-text display.
 // It instructs any LLM reading the note to derive how the protocol applies before responding.
 const protocolDerivationBlock = `
@@ -45,6 +67,14 @@ func newShowCmd(state *rootState) *cobra.Command {
 					return fmt.Errorf("show --global: %w", err)
 				}
 				first := true
+				for _, vp := range virtualGlobalProtocols {
+					if !first {
+						fmt.Fprintln(w, "---")
+					}
+					first = false
+					fmt.Fprint(w, vp)
+					fmt.Fprint(w, protocolDerivationBlock)
+				}
 				for _, n := range all {
 					if n.Type != note.TypeProtocol {
 						continue

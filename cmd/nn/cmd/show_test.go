@@ -102,15 +102,15 @@ func TestShowGlobalFlag(t *testing.T) {
 	}
 }
 
-// Assertion: TestShowGlobalEmpty — nn show --global with no protocols exits cleanly with no output.
+// Assertion: TestShowGlobalEmpty — nn show --global with no notebook protocols still outputs virtual protocols.
 func TestShowGlobalEmpty(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "--global")
 	if err != nil {
 		t.Fatalf("nn show --global with no protocols: %v", err)
 	}
-	if strings.TrimSpace(out) != "" {
-		t.Errorf("expected empty output with no protocols; got:\n%s", out)
+	if !strings.Contains(out, "virtual-nn-capture-discipline") {
+		t.Errorf("expected virtual protocol in output even with empty notebook; got:\n%s", out)
 	}
 }
 
