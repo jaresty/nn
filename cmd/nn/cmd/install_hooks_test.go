@@ -73,7 +73,29 @@ func TestInstallHooksWritesUserPromptSubmitToSettings(t *testing.T) {
 	}
 }
 
-func TestInstallHooksWritesSessionStartToSettings(t *testing.T) {
+func TestInstallHooksNoSessionStartInSettings(t *testing.T) {
+	_, execute := setupNotebook(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	settingsDir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Pre-seed a stale SessionStart entry to verify it gets cleaned up.
+	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{"hooks":{"SessionStart":[]}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, _ = execute("install-hooks")
+
+	hooks := readSettingsHooks(t, home)
+	if _, ok := hooks["SessionStart"]; ok {
+		t.Error("hooks.SessionStart must be absent — protocol loading merged into UserPromptSubmit")
+	}
+}
+
+func TestProtocolsReminderScriptIncludesGlobalShowDirective(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -85,19 +107,15 @@ func TestInstallHooksWritesSessionStartToSettings(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-
 	_, _ = execute("install-hooks")
 
-	hooks := readSettingsHooks(t, home)
-	if _, ok := hooks["SessionStart"]; !ok {
-		t.Error("hooks.SessionStart must be present in settings.json after install-hooks")
+	scriptPath := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts", "protocols-reminder.sh")
+	data, err := os.ReadFile(scriptPath)
+	if err != nil {
+		t.Fatalf("protocols-reminder.sh not deployed: %v", err)
 	}
-	cmds := hookCommands(hooks, "SessionStart")
-	if len(cmds) == 0 {
-		t.Fatal("hooks.SessionStart must contain at least one command")
-	}
-	if !strings.Contains(cmds[0], "load-protocols.sh") {
-		t.Errorf("hooks.SessionStart command must reference load-protocols.sh, got %q", cmds[0])
+	if !strings.Contains(string(data), "nn show --global") {
+		t.Errorf("protocols-reminder.sh must contain 'nn show --global' conditional directive; got:\n%s", string(data))
 	}
 }
 

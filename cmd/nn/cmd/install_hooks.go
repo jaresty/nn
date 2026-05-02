@@ -149,20 +149,10 @@ func mergeHooksIntoSettings(settingsPath, home string) error {
 	// Remove stale hook keys that are no longer used.
 	delete(hooks, "PreCompact")
 	delete(hooks, "PostCompact") // Not valid in current Claude Code — causes entire settings.json to be skipped.
+	delete(hooks, "SessionStart") // Protocol loading merged into UserPromptSubmit conditional directive.
 
 	pluginScripts := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts")
 
-	hooks["SessionStart"] = []interface{}{
-		map[string]interface{}{
-			"hooks": []interface{}{
-				map[string]interface{}{
-					"type":    "command",
-					"command": `bash "` + filepath.Join(pluginScripts, "load-protocols.sh") + `"`,
-					"timeout": 30,
-				},
-			},
-		},
-	}
 	hooks["UserPromptSubmit"] = []interface{}{
 		map[string]interface{}{
 			"hooks": []interface{}{
