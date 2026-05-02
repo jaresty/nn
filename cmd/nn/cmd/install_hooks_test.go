@@ -247,7 +247,7 @@ func TestInstallHooksNoPreCompactInSettings(t *testing.T) {
 	}
 }
 
-func TestInstallHooksWritesPostCompactToSettings(t *testing.T) {
+func TestInstallHooksNoPostCompactInSettings(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -256,22 +256,16 @@ func TestInstallHooksWritesPostCompactToSettings(t *testing.T) {
 	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{}`), 0o644); err != nil {
+	// Pre-seed a stale PostCompact entry to verify it gets cleaned up.
+	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{"hooks":{"PostCompact":[]}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	_, _ = execute("install-hooks")
 
 	hooks := readSettingsHooks(t, home)
-	if _, ok := hooks["PostCompact"]; !ok {
-		t.Fatal("hooks.PostCompact must be present in settings.json after install-hooks")
-	}
-	cmds := hookCommands(hooks, "PostCompact")
-	if len(cmds) == 0 {
-		t.Fatal("hooks.PostCompact must contain at least one command")
-	}
-	if !strings.Contains(cmds[0], "post-compact.sh") {
-		t.Errorf("hooks.PostCompact command must reference post-compact.sh, got %q", cmds[0])
+	if _, ok := hooks["PostCompact"]; ok {
+		t.Fatal("hooks.PostCompact must not be present in settings.json — invalid in current Claude Code version")
 	}
 }
 
