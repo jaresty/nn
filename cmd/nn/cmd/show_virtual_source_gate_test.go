@@ -13,7 +13,7 @@ func TestShowGlobalVirtualIncludesSourceFileGate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}
-	if !strings.Contains(out, "reading source files not authored this session") {
-		t.Errorf("expected 'reading source files not authored this session' in virtual protocol output:\n%s", out)
+	if !strings.Contains(out, "reading any file not on the allow-list") {
+		t.Errorf("expected allow-list file gate in virtual protocol output:\n%s", out)
 	}
 }

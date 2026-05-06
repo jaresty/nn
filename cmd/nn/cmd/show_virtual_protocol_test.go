@@ -19,7 +19,7 @@ func TestShowGlobalVirtualAlwaysPresent(t *testing.T) {
 	if !strings.Contains(out, "virtual-nn-capture-discipline") {
 		t.Errorf("expected virtual-nn-capture-discipline id in output:\n%s", out)
 	}
-	if !strings.Contains(out, "Before any of the following:") {
+	if !strings.Contains(out, "Every action requires a preceding") {
 		t.Errorf("expected virtual protocol body text in output:\n%s", out)
 	}
 }

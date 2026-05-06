@@ -22,12 +22,15 @@ const virtualCaptureDisciplineNote = "---\n" +
 	"type: protocol\n" +
 	"status: permanent\n" +
 	"---\n\n" +
-	"Before any of the following: web search, URL fetch, reading documentation or library source, " +
-	"running a third-party CLI to get its output, spawning an agent to gather external facts, " +
-	"reading source files not authored this session, reading memory files — " +
-	"run `nn list --search \"<topic>\" --json` where `<topic>` names what the action would answer. " +
-	"The action is not permitted until that search result is visible in the transcript immediately above it. " +
-	"A search result for a different topic does not satisfy this gate. " +
+	"Every action requires a preceding `nn list --search \"<topic>\" --json` result in the transcript, " +
+	"except actions on the allow-list below. " +
+	"The search result must appear as the immediately preceding tool result before the action. " +
+	"A search result for a different topic does not satisfy this gate.\n\n" +
+	"**Allow-list (no gate required):**\n" +
+	"- Running, editing, or reading a file that appears in a prior Write, Edit, or Bash tool call in this session\n" +
+	"- Running a command whose output you are generating, not consuming (e.g. tests, builds)\n\n" +
+	"Everything else — web search, URL fetch, reading documentation, spawning an agent to gather facts, " +
+	"reading memory files, reading any file not on the allow-list — requires the gate.\n\n" +
 	"After the action completes, either capture the finding with `nn new` / `nn update` / `nn link`, " +
 	"or skip with: the specific claim read, the source, and a durability reason stating why it " +
 	"would not change behavior in a future session.\n"

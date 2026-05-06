@@ -24,7 +24,7 @@ func TestVirtualCaptureDisciplineRequiresProximateSearch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}
-	if !strings.Contains(out, "immediately above it") {
-		t.Errorf("expected 'immediately above it' in virtual protocol body; got:\n%s", out)
+	if !strings.Contains(out, "immediately preceding tool result before the action") {
+		t.Errorf("expected proximate search requirement in virtual protocol body; got:\n%s", out)
 	}
 }
