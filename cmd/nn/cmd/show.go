@@ -22,7 +22,7 @@ const virtualCaptureDisciplineNote = "---\n" +
 	"type: protocol\n" +
 	"status: permanent\n" +
 	"---\n\n" +
-	"Every action requires a preceding `nn list --search \"<topic>\" --json` result in the transcript, " +
+	"Every action requires a preceding `nn list --search \"<topic>\" --show-first --json` result in the transcript, " +
 	"except actions on the allow-list below. " +
 	"The search result must appear as the immediately preceding tool result before the action. " +
 	"A search result for a different topic does not satisfy this gate.\n\n" +

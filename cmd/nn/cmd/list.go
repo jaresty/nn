@@ -30,6 +30,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		limit        int
 		jsonOut      bool
 		rich         bool
+		showFirst    bool
 		search       string
 		sortBy       string
 		since        string
@@ -189,7 +190,14 @@ func newListCmd(state *rootState) *cobra.Command {
 				if rich {
 					return printNotesRichJSON(cmd, filtered)
 				}
-				return printNotesJSON(cmd, filtered)
+				if err := printNotesJSON(cmd, filtered); err != nil {
+					return err
+				}
+				if showFirst && len(filtered) > 0 {
+					fmt.Fprintf(outWriter(cmd), "\n---\n\n")
+					fmt.Fprint(outWriter(cmd), formatNoteBody(filtered[0]))
+				}
+				return nil
 			}
 			for _, n := range filtered {
 				fmt.Fprintf(outWriter(cmd), "%s  %s\n", n.ID, n.Title)
@@ -214,8 +222,18 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&since, "since", "", "Notes modified after this date (ISO 8601: 2006-01-02 or 2006-01-02T15:04:05Z)")
 	cmd.Flags().StringVar(&before, "before", "", "Notes modified before this date (ISO 8601)")
 	cmd.Flags().BoolVar(&rich, "rich", false, "Include modified, link_count, body_preview in JSON output (requires --json)")
+	cmd.Flags().BoolVar(&showFirst, "show-first", false, "Append full body of top search result after JSON output (requires --json)")
 	cmd.Flags().StringVar(&similarTo, "similar", "", "Rank notes by BM25 similarity to this note ID (excludes the note itself)")
 	return cmd
+}
+
+// formatNoteBody returns the full marshaled note content (frontmatter + body).
+func formatNoteBody(n *note.Note) string {
+	data, err := n.Marshal()
+	if err != nil {
+		return fmt.Sprintf("id: %s\ntitle: %s\n\n(marshal error: %v)\n", n.ID, n.Title, err)
+	}
+	return string(data)
 }
 
 // parseDateTime parses an ISO 8601 date or datetime string.
