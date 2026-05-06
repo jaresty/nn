@@ -28,7 +28,8 @@ const virtualCaptureDisciplineNote = "---\n" +
 	"A search result for a different topic does not satisfy this gate.\n\n" +
 	"**Allow-list (no gate required):**\n" +
 	"- Running, editing, or reading a file that appears in a prior Write, Edit, or Bash tool call in this session\n" +
-	"- Running a command whose output you are generating, not consuming (e.g. tests, builds)\n\n" +
+	"- Running a command that produces output solely from local code or state present in this session (e.g. tests, builds, linters)\n" +
+	"- Fetching output from an execution system you triggered or are operating in this session (e.g. CI run you initiated, container you started), where the result did not exist before this session\n\n" +
 	"Everything else — web search, URL fetch, reading documentation, spawning an agent to gather facts, " +
 	"reading memory files, reading any file not on the allow-list — requires the gate.\n\n" +
 	"After the action completes, either capture the finding with `nn new` / `nn update` / `nn link`, " +
