@@ -5,15 +5,15 @@ import (
 	"testing"
 )
 
-// Assertion: C3 uses structural word-overlap test, not undefined "non-trivial word".
+// Assertion: C3 uses word-overlap against stated search rationale (not tool call argument string).
 func TestVirtualCaptureDisciplineC3ArgumentString(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "--global")
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}
-	if !strings.Contains(out, "word that also appears in the gated action's tool call argument string") {
-		t.Errorf("expected structural word-overlap clause in C3; got:\n%s", out)
+	if !strings.Contains(out, "stated search rationale") {
+		t.Errorf("expected rationale-overlap clause in C3; got:\n%s", out)
 	}
 }
 
