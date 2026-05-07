@@ -22,11 +22,13 @@ const virtualCaptureDisciplineNote = "---\n" +
 	"type: protocol\n" +
 	"status: permanent\n" +
 	"---\n\n" +
+	"Before running the search, write: 'Search rationale: [action] requires knowing [X].' " +
+	"The search query must contain at least one word from X.\n\n" +
 	"Every action requires a preceding `nn list --search \"<topic>\" --show-first --json` result in the transcript, " +
 	"except actions on the allow-list below. " +
 	"The search result must appear as the immediately preceding tool result before the action. " +
-	"A search result satisfies the gate only if the search query contains at least one word that also appears in the gated action's tool call argument string — " +
-	"a search result whose query shares no word with the action's tool call argument string does not satisfy this gate.\n\n" +
+	"A search result satisfies the gate only if the search query contains at least one word from the stated search rationale — " +
+	"a search result whose query shares no word with the stated search rationale does not satisfy this gate.\n\n" +
 	"**Allow-list (no gate required):**\n" +
 	"- Running, editing, or reading a file that appears in a prior Write, Edit, or Bash tool call in this session\n" +
 	"- Running a command that produces output solely from local code or state present in this session (e.g. tests, builds, linters)\n" +
