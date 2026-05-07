@@ -25,7 +25,8 @@ const virtualCaptureDisciplineNote = "---\n" +
 	"Every action requires a preceding `nn list --search \"<topic>\" --show-first --json` result in the transcript, " +
 	"except actions on the allow-list below. " +
 	"The search result must appear as the immediately preceding tool result before the action. " +
-	"A search result for a different topic does not satisfy this gate.\n\n" +
+	"A search result satisfies the gate only if the search query contains at least one word that also appears in the gated action's tool call argument string — " +
+	"a search result whose query shares no word with the action's tool call argument string does not satisfy this gate.\n\n" +
 	"**Allow-list (no gate required):**\n" +
 	"- Running, editing, or reading a file that appears in a prior Write, Edit, or Bash tool call in this session\n" +
 	"- Running a command that produces output solely from local code or state present in this session (e.g. tests, builds, linters)\n" +
@@ -33,8 +34,8 @@ const virtualCaptureDisciplineNote = "---\n" +
 	"Everything else — web search, URL fetch, reading documentation, spawning an agent to gather facts, " +
 	"reading memory files, reading any file not on the allow-list — requires the gate.\n\n" +
 	"After the action completes, either capture the finding with `nn new` / `nn update` / `nn link`, " +
-	"or skip with: the specific claim read, the source, and a durability reason stating why it " +
-	"would not change behavior in a future session.\n"
+	"or skip with: a verbatim excerpt from the result (a string present in the result output), the source, " +
+	"and the statement \"result is a runtime value\" when the result is execution output with no reuse across sessions.\n"
 
 // virtualGlobalProtocols are hardcoded protocol note bodies always included in nn show --global
 // output. Add entries here to register additional tool-level meta-protocols.
