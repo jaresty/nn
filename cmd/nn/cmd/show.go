@@ -81,7 +81,6 @@ func newShowCmd(state *rootState) *cobra.Command {
 					}
 					first = false
 					fmt.Fprint(w, vp)
-					fmt.Fprint(w, protocolDerivationBlock)
 				}
 				for _, n := range all {
 					if n.Type != note.TypeProtocol {
@@ -106,8 +105,8 @@ func newShowCmd(state *rootState) *cobra.Command {
 						return fmt.Errorf("show --global: marshal: %w", err)
 					}
 					fmt.Fprint(w, string(data))
-					fmt.Fprint(w, protocolDerivationBlock)
 				}
+				fmt.Fprint(w, protocolDerivationBlock)
 				return nil
 			}
 
@@ -245,9 +244,6 @@ func newShowCmd(state *rootState) *cobra.Command {
 					return fmt.Errorf("show: marshal: %w", err)
 				}
 				fmt.Fprint(w, string(data))
-				if n.Type == note.TypeProtocol {
-					fmt.Fprint(w, protocolDerivationBlock)
-				}
 			}
 			return nil
 		},

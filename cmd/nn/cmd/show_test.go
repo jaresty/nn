@@ -31,8 +31,9 @@ func TestShowNoteNotFound(t *testing.T) {
 	}
 }
 
-// Assertion: TestShowProtocolAppendsDerivationInstruction — plain nn show on a protocol note includes ## Protocols block.
-func TestShowProtocolAppendsDerivationInstruction(t *testing.T) {
+// Assertion: TestShowProtocolNoDerivationBlock — plain nn show on a protocol note does NOT include ## Protocols block.
+// The derivation block is only appended once in nn show --global output.
+func TestShowProtocolNoDerivationBlock(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	n := newTestNoteForCLI(note.GenerateID(), "My Protocol", note.TypeProtocol)
 	n.Body = "Do the thing before acting."
@@ -42,8 +43,8 @@ func TestShowProtocolAppendsDerivationInstruction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show: %v", err)
 	}
-	if !strings.Contains(out, "## Protocols") {
-		t.Errorf("expected '## Protocols' derivation block in protocol note output; got:\n%s", out)
+	if strings.Contains(out, "## Protocols") {
+		t.Errorf("expected no '## Protocols' derivation block in individual protocol note output; got:\n%s", out)
 	}
 }
 
