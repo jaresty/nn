@@ -44,8 +44,12 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"- Fetching output from an execution system you triggered or are operating in this session (e.g. CI run you initiated, container you started), where the result did not exist before this session\n\n" +
 			"Everything else — web search, URL fetch, reading documentation, spawning an agent to gather facts, " +
 			"reading memory files, reading any file not on the allow-list — requires the gate.\n\n" +
-			"After the action completes, either capture the finding with `nn new` / `nn update` / `nn link`, " +
-			"or skip with: a verbatim excerpt from the result (a string present in the result output), the source, " +
+			"After the action completes, quote a verbatim excerpt from the result (a string literally present in the tool output). " +
+			"If the quoted excerpt is `[]`, write \"zero results returned\" and either capture or skip. " +
+			"Otherwise, cite at least one result title from the quoted excerpt: either the title that covers the question, " +
+			"or a title from the results and an explanation of why it does not cover the stated search rationale. " +
+			"Then either capture the finding with `nn new` / `nn update` / `nn link`, " +
+			"or skip with the verbatim excerpt, the source, " +
 			"and the statement \"result is a runtime value\" when the result is execution output with no reuse across sessions.\n",
 	},
 	{

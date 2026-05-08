@@ -46,3 +46,22 @@ func TestShowGlobalVirtualAppearsWithReal(t *testing.T) {
 		t.Errorf("expected virtual protocol in output alongside real:\n%s", out)
 	}
 }
+
+// Assertion: capture-discipline skip clause requires quoting a verbatim excerpt from the tool result,
+// with [] mapping to "zero results returned" and non-empty results requiring a title citation.
+func TestCaptureDisciplineSkipClauseRequiresVerbatimExcerpt(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if !strings.Contains(out, "verbatim excerpt") {
+		t.Errorf("expected skip clause to require 'verbatim excerpt' from tool result:\n%s", out)
+	}
+	if !strings.Contains(out, `[]`) {
+		t.Errorf("expected skip clause to name '[]' as the zero-results signal:\n%s", out)
+	}
+	if !strings.Contains(out, "zero results returned") {
+		t.Errorf("expected skip clause to name 'zero results returned' as the zero-results declaration:\n%s", out)
+	}
+}
