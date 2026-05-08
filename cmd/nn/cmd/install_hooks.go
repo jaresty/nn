@@ -127,69 +127,50 @@ func readAgentPrompt(home, name string) string {
 }
 
 func mergeHooksIntoSettings(settingsPath, home string) error {
-	// cacheScripts unused — SessionStart and UserPromptSubmit managed by plugin hooks.json
+	// Hooks are now defined in the plugin's hooks/hooks.json and loaded automatically
+	// by Claude Code. This function only removes stale nn hook entries that were
+	// previously written directly to settings.json by older versions of nn install.
 
-	// Read existing settings or start with empty object.
 	data, err := os.ReadFile(settingsPath)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil // nothing to clean up
+		}
 		return fmt.Errorf("read %s: %w", settingsPath, err)
 	}
 	var settings map[string]interface{}
-	if len(data) > 0 {
-		clean := ansiEscape.ReplaceAll(data, nil)
-		if err := json.Unmarshal(clean, &settings); err != nil {
-			return fmt.Errorf("parse %s: %w", settingsPath, err)
-		}
+	clean := ansiEscape.ReplaceAll(data, nil)
+	if err := json.Unmarshal(clean, &settings); err != nil {
+		return fmt.Errorf("parse %s: %w", settingsPath, err)
 	}
-	if settings == nil {
-		settings = map[string]interface{}{}
-	}
+
+	// Always rewrite if the file contained ANSI sequences (sanitise on the way through).
+	hadANSI := len(ansiEscape.Find(data)) > 0
 
 	hooks, _ := settings["hooks"].(map[string]interface{})
 	if hooks == nil {
-		hooks = map[string]interface{}{}
+		if !hadANSI {
+			return nil
+		}
+		settings["hooks"] = map[string]interface{}{}
 	}
 
-	// Remove stale hook keys that are no longer used.
-	delete(hooks, "PreCompact")
-	delete(hooks, "PostCompact") // Not valid in current Claude Code — causes entire settings.json to be skipped.
-	delete(hooks, "SessionStart") // Protocol loading merged into UserPromptSubmit conditional directive.
-
-	pluginScripts := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts")
-
-	hooks["UserPromptSubmit"] = []interface{}{
-		map[string]interface{}{
-			"hooks": []interface{}{
-				map[string]interface{}{
-					"type":    "command",
-					"command": `bash "` + filepath.Join(pluginScripts, "protocols-reminder.sh") + `"`,
-					"timeout": 5,
-				},
-			},
-		},
+	// Remove stale nn-written hook keys; hooks.json now owns these.
+	changed := hadANSI
+	for _, key := range []string{"PreCompact", "PostCompact", "SessionStart", "UserPromptSubmit", "Stop"} {
+		if _, ok := hooks[key]; ok {
+			delete(hooks, key)
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
 	}
 
-	stopScript := filepath.Join(pluginScripts, "nn-stop-hook.sh")
-	hooks["Stop"] = []interface{}{
-		map[string]interface{}{
-			"hooks": []interface{}{
-				map[string]interface{}{
-					"type":          "command",
-					"command":       stopScript,
-					"statusMessage": "Capturing and debriefing session...",
-					"timeout":       180,
-				},
-			},
-		},
-	}
 	settings["hooks"] = hooks
-
 	out, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal settings: %w", err)
-	}
-	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", filepath.Dir(settingsPath), err)
 	}
 	return os.WriteFile(settingsPath, out, 0o644)
 }

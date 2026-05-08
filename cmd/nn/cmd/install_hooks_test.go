@@ -45,7 +45,9 @@ func hookCommands(hooks map[string]interface{}, event string) []string {
 	return cmds
 }
 
-func TestInstallHooksWritesUserPromptSubmitToSettings(t *testing.T) {
+// Hooks are now defined in hooks/hooks.json (auto-loaded by Claude Code) rather than
+// written to settings.json. Assert UserPromptSubmit is absent from settings.json.
+func TestInstallHooksUserPromptSubmitNotInSettings(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -61,15 +63,33 @@ func TestInstallHooksWritesUserPromptSubmitToSettings(t *testing.T) {
 	_, _ = execute("install-hooks")
 
 	hooks := readSettingsHooks(t, home)
-	if _, ok := hooks["UserPromptSubmit"]; !ok {
-		t.Error("hooks.UserPromptSubmit must be present in settings.json after install-hooks")
+	if _, ok := hooks["UserPromptSubmit"]; ok {
+		t.Error("hooks.UserPromptSubmit must NOT be in settings.json — it is defined in hooks/hooks.json")
 	}
-	cmds := hookCommands(hooks, "UserPromptSubmit")
-	if len(cmds) == 0 {
-		t.Fatal("hooks.UserPromptSubmit must contain at least one command")
+}
+
+// Assert that hooks.json (deployed by install-hooks) contains the UserPromptSubmit hook.
+func TestInstallHooksJsonContainsUserPromptSubmit(t *testing.T) {
+	_, execute := setupNotebook(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	settingsDir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(cmds[0], "protocols-reminder.sh") {
-		t.Errorf("hooks.UserPromptSubmit command must reference protocols-reminder.sh, got %q", cmds[0])
+	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = execute("install-hooks")
+
+	hooksPath := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "hooks", "hooks.json")
+	data, err := os.ReadFile(hooksPath)
+	if err != nil {
+		t.Fatalf("hooks.json not deployed: %v", err)
+	}
+	if !strings.Contains(string(data), "protocols-reminder.sh") {
+		t.Errorf("hooks.json must reference protocols-reminder.sh; got:\n%s", string(data))
 	}
 }
 
@@ -119,6 +139,7 @@ func TestProtocolsReminderScriptIncludesGlobalShowDirective(t *testing.T) {
 	}
 }
 
+// install-hooks must not clobber existing settings.json keys unrelated to nn.
 func TestInstallHooksMergesExistingSettings(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
@@ -133,10 +154,9 @@ func TestInstallHooksMergesExistingSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out, err := execute("install-hooks")
-	_ = out
-	_ = err
+	_, _ = execute("install-hooks")
 
+	// settings.json with no stale nn keys is not rewritten — original content preserved.
 	data, err := os.ReadFile(filepath.Join(settingsDir, "settings.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -204,7 +224,8 @@ func TestLoadProtocolsScriptReadsFromSkill(t *testing.T) {
 	}
 }
 
-func TestInstallHooksWritesStopCommandToSettings(t *testing.T) {
+// Stop hook is now in hooks/hooks.json, not settings.json.
+func TestInstallHooksStopNotInSettings(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -220,27 +241,33 @@ func TestInstallHooksWritesStopCommandToSettings(t *testing.T) {
 	_, _ = execute("install-hooks")
 
 	hooks := readSettingsHooks(t, home)
-	stop, ok := hooks["Stop"]
-	if !ok {
-		t.Fatal("hooks.Stop missing after install-hooks")
+	if _, ok := hooks["Stop"]; ok {
+		t.Error("hooks.Stop must NOT be in settings.json — it is defined in hooks/hooks.json")
 	}
-	entries, _ := stop.([]interface{})
-	var cmdCount int
-	for _, e := range entries {
-		em, _ := e.(map[string]interface{})
-		inner, _ := em["hooks"].([]interface{})
-		for _, h := range inner {
-			hm, _ := h.(map[string]interface{})
-			if hm["type"] == "command" {
-				if cmd, ok := hm["command"].(string); ok && cmd != "" {
-					cmdCount++
-				}
-			}
-		}
+}
+
+// Assert that hooks.json (deployed by install-hooks) contains the Stop hook.
+func TestInstallHooksJsonContainsStop(t *testing.T) {
+	_, execute := setupNotebook(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	settingsDir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
+		t.Fatal(err)
 	}
-	// Expect exactly 1 command hook (throttled shell script).
-	if cmdCount != 1 {
-		t.Errorf("hooks.Stop: expected exactly 1 command hook, got %d", cmdCount)
+	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = execute("install-hooks")
+
+	hooksPath := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "hooks", "hooks.json")
+	data, err := os.ReadFile(hooksPath)
+	if err != nil {
+		t.Fatalf("hooks.json not deployed: %v", err)
+	}
+	if !strings.Contains(string(data), "nn-stop-hook.sh") {
+		t.Errorf("hooks.json must reference nn-stop-hook.sh; got:\n%s", string(data))
 	}
 }
 
