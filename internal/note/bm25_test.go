@@ -41,3 +41,29 @@ func TestBM25ScoresInboundAnnotationBoostsScore(t *testing.T) {
 			scores["strong"], scores["weak"])
 	}
 }
+
+// TestBM25TagWeightNonzero: a note matched only by tag term scores nonzero.
+func TestBM25TagWeightNonzero(t *testing.T) {
+	tagged := &Note{ID: "a", Title: "Some Note", Body: "unrelated content", Tags: []string{"caching"}}
+	untagged := &Note{ID: "b", Title: "Other Note", Body: "unrelated content", Tags: []string{}}
+	notes := []*Note{tagged, untagged}
+	scores := BM25Scores(notes, "caching", nil)
+	if scores["a"] == 0 {
+		t.Errorf("expected nonzero score for tag-matched note; got 0")
+	}
+	if scores["b"] != 0 {
+		t.Errorf("expected zero score for note with no tag match; got %f", scores["b"])
+	}
+}
+
+// TestBM25TagWeightExceedsTitleWeight: tag match at tagWeight boosts score meaningfully.
+// A tag-only match should score higher than a single body-token match.
+func TestBM25TagWeightBoostsOverBody(t *testing.T) {
+	tagOnly := &Note{ID: "tag", Title: "Note A", Body: "irrelevant", Tags: []string{"caching"}}
+	bodyOnce := &Note{ID: "body", Title: "Note B", Body: "caching is discussed here", Tags: []string{}}
+	notes := []*Note{tagOnly, bodyOnce}
+	scores := BM25Scores(notes, "caching", nil)
+	if scores["tag"] <= scores["body"] {
+		t.Errorf("expected tag-matched note to score higher than single body-token match; tag=%f body=%f", scores["tag"], scores["body"])
+	}
+}

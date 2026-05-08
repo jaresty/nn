@@ -14,7 +14,9 @@ const (
 // BM25Score computes BM25 relevance scores for a set of notes against a query.
 // Returns a map from note ID to score. Notes with score 0 are not included.
 // Title tokens are weighted by repeating them titleWeight times in the document.
+// Tag tokens are weighted by tagWeight — tags are curated intent signals.
 const titleWeight = 5
+const tagWeight = 3
 
 // inboundWeight is the fractional body-token weight applied to inbound annotation tokens.
 const inboundWeight = 0.5
@@ -46,6 +48,11 @@ func BM25Scores(notes []*Note, query string, inbound map[string][]string) map[st
 		for _, t := range bodyTokens {
 			tf[t]++
 		}
+		for _, tag := range n.Tags {
+			for _, t := range tokenize(tag) {
+				tf[t] += tagWeight
+			}
+		}
 		inboundLen := 0.0
 		for _, ann := range inbound[n.ID] {
 			for _, t := range tokenize(ann) {
@@ -53,7 +60,8 @@ func BM25Scores(notes []*Note, query string, inbound map[string][]string) map[st
 				inboundLen += inboundWeight
 			}
 		}
-		dlen := float64(len(titleTokens)*titleWeight+len(bodyTokens)) + inboundLen
+		tagLen := float64(len(n.Tags) * tagWeight)
+		dlen := float64(len(titleTokens)*titleWeight+len(bodyTokens)) + tagLen + inboundLen
 		docs[i] = docInfo{tf: tf, len: dlen}
 		totalLen += dlen
 	}
