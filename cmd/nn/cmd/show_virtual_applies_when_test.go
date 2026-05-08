@@ -18,14 +18,15 @@ func TestShowGlobalVirtualAppliesWhen(t *testing.T) {
 }
 
 // Assertion: nn show --global virtual protocol body is NOT in compact output.
-func TestShowGlobalVirtualNoFullBody(t *testing.T) {
+func TestShowGlobalVirtualFullBodyPresent(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "--global")
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}
-	// The full protocol body contains this sentence — it should not appear in compact output.
-	if strings.Contains(out, "Every action requires a preceding") {
-		t.Errorf("expected virtual protocol full body to be absent from --global output; got:\n%s", out)
+	// Virtual notes have no notebook file — their full body must appear in --global output
+	// so consumers don't need a follow-up nn show <id> to access the content.
+	if !strings.Contains(out, "Every action requires a preceding") {
+		t.Errorf("expected virtual protocol full body in --global output; got:\n%s", out)
 	}
 }

@@ -105,7 +105,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 						fmt.Fprintln(w, "---")
 					}
 					first = false
-					fmt.Fprintf(w, "id: %s\ntitle: %s\napplies_when: %s\n", vp.ID, vp.Title, vp.AppliesWhen)
+					fmt.Fprintf(w, "id: %s\ntitle: %s\ntype: protocol\nstatus: permanent\napplies_when: %s\n---\n\n%s", vp.ID, vp.Title, vp.AppliesWhen, vp.Body)
 				}
 				for _, n := range all {
 					if n.Type != note.TypeProtocol {
