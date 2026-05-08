@@ -48,6 +48,15 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"or skip with: a verbatim excerpt from the result (a string present in the result output), the source, " +
 			"and the statement \"result is a runtime value\" when the result is execution output with no reuse across sessions.\n",
 	},
+	{
+		ID:          "virtual-nn-unexpected-failure",
+		Title:       "Protocol: search nn before workarounding an unexpected command failure",
+		AppliesWhen: "when a Bash command, CLI tool, or test fails in an unexpected or non-obvious way",
+		Body: "When a command fails in a surprising way — non-obvious error message, tool behaves differently than expected, " +
+			"test fails for unknown reasons — run `nn list --search \"<topic>\"` before attempting a workaround or fix. " +
+			"Prior sessions may have captured the root cause, a known workaround, or a relevant constraint. " +
+			"Acting without searching risks repeating a diagnosed problem.\n",
+	},
 }
 
 // protocolDerivationBlock is appended to every protocol note in plain-text display.
