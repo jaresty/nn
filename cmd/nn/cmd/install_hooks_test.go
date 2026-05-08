@@ -332,3 +332,57 @@ func TestInstallHooksSuccessMessageMentionsSettings(t *testing.T) {
 		t.Errorf("success message does not mention settings.json: %q", out)
 	}
 }
+
+// Assert that hooks.json (deployed by install-hooks) contains the PostToolUseFailure hook
+// pointing to nn-tool-failure-hook.sh.
+func TestInstallHooksJsonContainsPostToolUseFailure(t *testing.T) {
+	_, execute := setupNotebook(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	settingsDir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = execute("install-hooks")
+
+	hooksPath := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "hooks", "hooks.json")
+	data, err := os.ReadFile(hooksPath)
+	if err != nil {
+		t.Fatalf("hooks.json not deployed: %v", err)
+	}
+	if !strings.Contains(string(data), "PostToolUseFailure") {
+		t.Errorf("hooks.json must contain PostToolUseFailure; got:\n%s", string(data))
+	}
+	if !strings.Contains(string(data), "nn-tool-failure-hook.sh") {
+		t.Errorf("hooks.json must reference nn-tool-failure-hook.sh; got:\n%s", string(data))
+	}
+}
+
+// Assert that nn-tool-failure-hook.sh is deployed and contains the nn list --search instruction.
+func TestInstallHooksToolFailureScriptDeployed(t *testing.T) {
+	_, execute := setupNotebook(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	settingsDir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(settingsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(settingsDir, "settings.json"), []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = execute("install-hooks")
+
+	scriptPath := filepath.Join(home, ".local", "share", "nn", "plugins", "nn-hooks", "scripts", "nn-tool-failure-hook.sh")
+	data, err := os.ReadFile(scriptPath)
+	if err != nil {
+		t.Fatalf("nn-tool-failure-hook.sh not deployed: %v", err)
+	}
+	if !strings.Contains(string(data), "nn list --search") {
+		t.Errorf("nn-tool-failure-hook.sh must instruct nn list --search; got:\n%s", string(data))
+	}
+}

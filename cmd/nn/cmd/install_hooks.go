@@ -34,6 +34,10 @@ The plugin installs four hooks:
   UserPromptSubmit  — emits a per-turn system-reminder instructing the agent
                       to output a ## Protocols block before each response.
 
+  PostToolUseFailure — after any tool call fails, injects a reminder to search
+                      nn before attempting a workaround — prior sessions may
+                      have captured the root cause or a known fix.
+
   PreCompact        — before context is compacted, spawns an agent to review
                       the session and capture durable knowledge as atomic notes.
 
