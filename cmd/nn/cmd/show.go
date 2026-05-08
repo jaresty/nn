@@ -13,35 +13,41 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
-// virtualCaptureDisciplineNote is the body of the nn-capture-discipline virtual protocol.
-// It is hardcoded here so it appears in nn show --global output regardless of notebook
-// contents, qualifying as a path (a) protocol (global injected context).
-const virtualCaptureDisciplineNote = "---\n" +
-	"id: virtual-nn-capture-discipline\n" +
-	"title: \"Protocol: nn-capture-discipline\"\n" +
-	"type: protocol\n" +
-	"status: permanent\n" +
-	"---\n\n" +
-	"Before running the search, write: 'Search rationale: [action] requires knowing [X].' " +
-	"The search query must contain at least one word from X.\n\n" +
-	"Every action requires a preceding `nn list --search \"<topic>\" --show-first --json` result in the transcript, " +
-	"except actions on the allow-list below. " +
-	"The search result must appear as the immediately preceding tool result before the action. " +
-	"A search result satisfies the gate only if the search query contains at least one word from the stated search rationale — " +
-	"a search result whose query shares no word with the stated search rationale does not satisfy this gate.\n\n" +
-	"**Allow-list (no gate required):**\n" +
-	"- Running, editing, or reading a file that appears in a prior Write, Edit, or Bash tool call in this session\n" +
-	"- Running a command that produces output solely from local code or state present in this session (e.g. tests, builds, linters)\n" +
-	"- Fetching output from an execution system you triggered or are operating in this session (e.g. CI run you initiated, container you started), where the result did not exist before this session\n\n" +
-	"Everything else — web search, URL fetch, reading documentation, spawning an agent to gather facts, " +
-	"reading memory files, reading any file not on the allow-list — requires the gate.\n\n" +
-	"After the action completes, either capture the finding with `nn new` / `nn update` / `nn link`, " +
-	"or skip with: a verbatim excerpt from the result (a string present in the result output), the source, " +
-	"and the statement \"result is a runtime value\" when the result is execution output with no reuse across sessions.\n"
+// virtualProtocol is a hardcoded protocol always included in nn show --global output.
+// Body contains the full constraint text; AppliesWhen is a one-line application rule
+// shown in compact --global output so the LLM can decide whether to fetch the full body.
+type virtualProtocol struct {
+	ID          string
+	Title       string
+	AppliesWhen string
+	Body        string
+}
 
-// virtualGlobalProtocols are hardcoded protocol note bodies always included in nn show --global
-// output. Add entries here to register additional tool-level meta-protocols.
-var virtualGlobalProtocols = []string{virtualCaptureDisciplineNote}
+// virtualGlobalProtocols are hardcoded protocols always included in nn show --global output.
+// Add entries here to register additional tool-level meta-protocols.
+var virtualGlobalProtocols = []virtualProtocol{
+	{
+		ID:          "virtual-nn-capture-discipline",
+		Title:       "Protocol: nn-capture-discipline",
+		AppliesWhen: "before any action that reads from a source not authored this session",
+		Body: "Before running the search, write: 'Search rationale: [action] requires knowing [X].' " +
+			"The search query must contain at least one word from X.\n\n" +
+			"Every action requires a preceding `nn list --search \"<topic>\" --show-first --json` result in the transcript, " +
+			"except actions on the allow-list below. " +
+			"The search result must appear as the immediately preceding tool result before the action. " +
+			"A search result satisfies the gate only if the search query contains at least one word from the stated search rationale — " +
+			"a search result whose query shares no word with the stated search rationale does not satisfy this gate.\n\n" +
+			"**Allow-list (no gate required):**\n" +
+			"- Running, editing, or reading a file that appears in a prior Write, Edit, or Bash tool call in this session\n" +
+			"- Running a command that produces output solely from local code or state present in this session (e.g. tests, builds, linters)\n" +
+			"- Fetching output from an execution system you triggered or are operating in this session (e.g. CI run you initiated, container you started), where the result did not exist before this session\n\n" +
+			"Everything else — web search, URL fetch, reading documentation, spawning an agent to gather facts, " +
+			"reading memory files, reading any file not on the allow-list — requires the gate.\n\n" +
+			"After the action completes, either capture the finding with `nn new` / `nn update` / `nn link`, " +
+			"or skip with: a verbatim excerpt from the result (a string present in the result output), the source, " +
+			"and the statement \"result is a runtime value\" when the result is execution output with no reuse across sessions.\n",
+	},
+}
 
 // protocolDerivationBlock is appended to every protocol note in plain-text display.
 // It instructs any LLM reading the note to derive how the protocol applies before responding.
@@ -49,6 +55,11 @@ const protocolDerivationBlock = `
 <!-- nn:display-only — the following block is injected by nn show and is NOT part of the note body. Do not include it in nn update --content or any note edit. -->
 
 ## Protocols
+
+For each protocol listed above:
+1. Evaluate its applies_when condition against the current request.
+2. If it holds: run ` + "`nn show <id>`" + ` to load the full body, then treat it as a binding constraint.
+3. If a protocol has no applies_when field: add an applies_when value via ` + "`nn update <id> --field applies_when --value \"...\"`" + ` before proceeding.
 
 Before responding to any message this session, output a ` + "`## Protocols`" + ` block.
 For each active protocol, write one sentence stating how it applies to this specific
@@ -80,7 +91,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 						fmt.Fprintln(w, "---")
 					}
 					first = false
-					fmt.Fprint(w, vp)
+					fmt.Fprintf(w, "id: %s\ntitle: %s\napplies_when: %s\n", vp.ID, vp.Title, vp.AppliesWhen)
 				}
 				for _, n := range all {
 					if n.Type != note.TypeProtocol {
@@ -100,11 +111,10 @@ func newShowCmd(state *rootState) *cobra.Command {
 						fmt.Fprintln(w, "---")
 					}
 					first = false
-					data, err := n.Marshal()
-					if err != nil {
-						return fmt.Errorf("show --global: marshal: %w", err)
+					fmt.Fprintf(w, "id: %s\ntitle: %s\n", n.ID, n.Title)
+					if n.AppliesWhen != "" {
+						fmt.Fprintf(w, "applies_when: %s\n", n.AppliesWhen)
 					}
-					fmt.Fprint(w, string(data))
 				}
 				fmt.Fprint(w, protocolDerivationBlock)
 				return nil
@@ -179,6 +189,10 @@ func newShowCmd(state *rootState) *cobra.Command {
 			for i, query := range args {
 				if i > 0 {
 					fmt.Fprintln(w, "---")
+				}
+				if vp := findVirtualProtocol(query); vp != nil {
+					fmt.Fprintf(w, "---\nid: %s\ntitle: %s\napplies_when: %s\ntype: protocol\nstatus: permanent\n---\n\n%s", vp.ID, vp.Title, vp.AppliesWhen, vp.Body)
+					continue
 				}
 				n, err := resolveNote(state, query)
 				if err != nil {
@@ -315,4 +329,15 @@ func resolveNote(state *rootState, query string) (*note.Note, error) {
 	default:
 		return nil, fmt.Errorf("ambiguous query %q — %d matches; use full ID", query, len(matches))
 	}
+}
+
+// findVirtualProtocol returns the virtualProtocol whose ID matches query exactly,
+// or nil if no virtual protocol matches.
+func findVirtualProtocol(query string) *virtualProtocol {
+	for i, vp := range virtualGlobalProtocols {
+		if vp.ID == query {
+			return &virtualGlobalProtocols[i]
+		}
+	}
+	return nil
 }

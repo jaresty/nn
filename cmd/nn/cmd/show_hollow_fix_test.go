@@ -8,7 +8,7 @@ import (
 // Assertion: C3 uses word-overlap against stated search rationale (not tool call argument string).
 func TestVirtualCaptureDisciplineC3ArgumentString(t *testing.T) {
 	_, execute := setupNotebook(t)
-	out, err := execute("show", "--global")
+	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}
@@ -20,7 +20,7 @@ func TestVirtualCaptureDisciplineC3ArgumentString(t *testing.T) {
 // Assertion: C8 skip uses verbatim excerpt + runtime-value path only (no intent-assessed durability reason).
 func TestVirtualCaptureDisciplineC8SkipStructural(t *testing.T) {
 	_, execute := setupNotebook(t)
-	out, err := execute("show", "--global")
+	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}

@@ -8,7 +8,7 @@ import (
 // Assertion: bullet 2 uses 'solely from local code or state present in this session'.
 func TestVirtualCaptureDisciplineBullet2LocalOnly(t *testing.T) {
 	_, execute := setupNotebook(t)
-	out, err := execute("show", "--global")
+	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}
@@ -20,7 +20,7 @@ func TestVirtualCaptureDisciplineBullet2LocalOnly(t *testing.T) {
 // Assertion: bullet 3 covers fetching output from execution systems triggered this session.
 func TestVirtualCaptureDisciplineBullet3RemoteExecution(t *testing.T) {
 	_, execute := setupNotebook(t)
-	out, err := execute("show", "--global")
+	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}

@@ -8,7 +8,7 @@ import (
 // Assertion: protocol requires Search rationale sentence with structural search query constraint.
 func TestVirtualCaptureDisciplineSearchRationale(t *testing.T) {
 	_, execute := setupNotebook(t)
-	out, err := execute("show", "--global")
+	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}
@@ -26,7 +26,7 @@ func TestVirtualCaptureDisciplineSearchRationale(t *testing.T) {
 // Assertion: C3 word-overlap check references stated search rationale, not tool call argument string.
 func TestVirtualCaptureDisciplineC3RationaleOverlap(t *testing.T) {
 	_, execute := setupNotebook(t)
-	out, err := execute("show", "--global")
+	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}

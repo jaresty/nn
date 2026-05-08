@@ -95,9 +95,10 @@ type Note struct {
 	Title    string
 	Type     Type
 	Status   Status
-	Tags     []string
-	Created  time.Time
-	Modified time.Time
+	Tags        []string
+	AppliesWhen string
+	Created     time.Time
+	Modified    time.Time
 
 	// Body is the Markdown content between the frontmatter and the ## Links section.
 	Body string
@@ -164,9 +165,10 @@ type frontmatterYAML struct {
 	Title    string    `yaml:"title"`
 	Type     string    `yaml:"type"`
 	Status   string    `yaml:"status"`
-	Tags     []string  `yaml:"tags"`
-	Created  time.Time `yaml:"created"`
-	Modified time.Time `yaml:"modified"`
+	Tags        []string  `yaml:"tags"`
+	AppliesWhen string    `yaml:"applies_when,omitempty"`
+	Created     time.Time `yaml:"created"`
+	Modified    time.Time `yaml:"modified"`
 }
 
 var (
@@ -215,9 +217,10 @@ func Parse(data []byte) (*Note, error) {
 		Title:    raw.Title,
 		Type:     noteType,
 		Status:   noteStatus,
-		Tags:     raw.Tags,
-		Created:  raw.Created,
-		Modified: raw.Modified,
+		Tags:        raw.Tags,
+		AppliesWhen: raw.AppliesWhen,
+		Created:     raw.Created,
+		Modified:    raw.Modified,
 		Body:     noteBody,
 		Links:    links,
 	}, nil
@@ -283,13 +286,14 @@ func parseBody(data []byte) (body string, links []Link, err error) {
 // Marshal serialises the note back to Markdown with YAML frontmatter.
 func (n *Note) Marshal() ([]byte, error) {
 	raw := frontmatterYAML{
-		ID:       n.ID,
-		Title:    n.Title,
-		Type:     string(n.Type),
-		Status:   string(n.Status),
-		Tags:     n.Tags,
-		Created:  n.Created,
-		Modified: n.Modified,
+		ID:          n.ID,
+		Title:       n.Title,
+		Type:        string(n.Type),
+		Status:      string(n.Status),
+		Tags:        n.Tags,
+		AppliesWhen: n.AppliesWhen,
+		Created:     n.Created,
+		Modified:    n.Modified,
 	}
 
 	fmBytes, err := yaml.Marshal(raw)

@@ -8,7 +8,7 @@ import (
 // Assertion: virtual capture discipline body uses explicit allow-list, not self-assessed trigger.
 func TestVirtualCaptureDisciplineNoSelfAssessedTrigger(t *testing.T) {
 	_, execute := setupNotebook(t)
-	out, err := execute("show", "--global")
+	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}
@@ -20,7 +20,7 @@ func TestVirtualCaptureDisciplineNoSelfAssessedTrigger(t *testing.T) {
 // Assertion: virtual capture discipline requires search result immediately above the action.
 func TestVirtualCaptureDisciplineRequiresProximateSearch(t *testing.T) {
 	_, execute := setupNotebook(t)
-	out, err := execute("show", "--global")
+	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}
