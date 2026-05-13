@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 	"sort"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -64,10 +66,14 @@ func newSearchCmd(state *rootState) *cobra.Command {
 			}
 
 			if jsonOut {
-				return printNotesJSON(cmd, filtered)
+				return printSearchJSON(cmd, filtered, query)
 			}
+			w := outWriter(cmd)
 			for _, n := range filtered {
-				fmt.Fprintf(outWriter(cmd), "%s  %s\n", n.ID, n.Title)
+				fmt.Fprintf(w, "%s  %s\n", n.ID, n.Title)
+				if ex := extractExcerpt(n.Body, query); ex != "" {
+					fmt.Fprintf(w, "  %s\n", ex)
+				}
 			}
 			return nil
 		},
@@ -77,4 +83,42 @@ func newSearchCmd(state *rootState) *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of results")
 	cmd.Flags().StringVar(&filterStatus, "status", "", "Filter by note status")
 	return cmd
+}
+
+const excerptLen = 120
+
+// extractExcerpt returns a ≤120-char snippet from body containing the first
+// query term found, with leading "..." when the snippet is not from the start.
+func extractExcerpt(body, query string) string {
+	if body == "" || query == "" {
+		return ""
+	}
+	lower := strings.ToLower(body)
+	for _, term := range strings.Fields(strings.ToLower(query)) {
+		idx := strings.Index(lower, term)
+		if idx < 0 {
+			continue
+		}
+		start := idx - 40
+		if start < 0 {
+			start = 0
+		}
+		end := start + excerptLen
+		if end > len(body) {
+			end = len(body)
+		}
+		// trim to valid UTF-8 rune boundaries
+		for start > 0 && !utf8.RuneStart(body[start]) {
+			start--
+		}
+		for end < len(body) && !utf8.RuneStart(body[end]) {
+			end++
+		}
+		snippet := body[start:end]
+		if start > 0 {
+			snippet = "..." + snippet
+		}
+		return snippet
+	}
+	return ""
 }

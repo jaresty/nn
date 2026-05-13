@@ -15,16 +15,17 @@ import (
 
 func newNewCmd(state *rootState) *cobra.Command {
 	var (
-		title      string
-		typ        string
-		tags       string
-		content    string
-		noEdit     bool
-		noSuggest  bool
-		linkTo     string
-		annotation string
-		fromStdin  bool
-		fromFile   string
+		title       string
+		typ         string
+		tags        string
+		content     string
+		appliesWhen string
+		noEdit      bool
+		noSuggest   bool
+		linkTo      string
+		annotation  string
+		fromStdin   bool
+		fromFile    string
 	)
 
 	cmd := &cobra.Command{
@@ -87,14 +88,15 @@ func newNewCmd(state *rootState) *cobra.Command {
 
 			now := time.Now().UTC()
 			n := &note.Note{
-				ID:       note.GenerateID(),
-				Title:    title,
-				Type:     noteType,
-				Status:   note.StatusDraft,
-				Tags:     parsedTags,
-				Created:  now,
-				Modified: now,
-				Body:     content,
+				ID:          note.GenerateID(),
+				Title:       title,
+				Type:        noteType,
+				Status:      note.StatusDraft,
+				Tags:        parsedTags,
+				AppliesWhen: appliesWhen,
+				Created:     now,
+				Modified:    now,
+				Body:        content,
 			}
 
 			if linkTo != "" {
@@ -127,6 +129,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&noSuggest, "no-suggest", false, "Suppress post-write link and tag suggestions")
 	cmd.Flags().StringVar(&linkTo, "link-to", "", "Immediately link to an existing note ID")
 	cmd.Flags().StringVar(&annotation, "annotation", "", "Link annotation when using --link-to")
+	cmd.Flags().StringVar(&appliesWhen, "applies-when", "", "Set applies_when field (protocol notes)")
 	cmd.Flags().BoolVar(&fromStdin, "from-stdin", false, "Read note body from stdin")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Scaffold note body from ast outline of a source file")
 	return cmd

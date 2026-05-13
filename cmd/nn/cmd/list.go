@@ -190,8 +190,14 @@ func newListCmd(state *rootState) *cobra.Command {
 				if rich {
 					return printNotesRichJSON(cmd, filtered)
 				}
-				if err := printNotesJSON(cmd, filtered); err != nil {
-					return err
+				if search != "" {
+					if err := printSearchJSON(cmd, filtered, search); err != nil {
+						return err
+					}
+				} else {
+					if err := printNotesJSON(cmd, filtered); err != nil {
+						return err
+					}
 				}
 				if showFirst && len(filtered) > 0 {
 					fmt.Fprintf(outWriter(cmd), "\n---\n\n")
@@ -199,8 +205,14 @@ func newListCmd(state *rootState) *cobra.Command {
 				}
 				return nil
 			}
+			w := outWriter(cmd)
 			for _, n := range filtered {
-				fmt.Fprintf(outWriter(cmd), "%s  %s\n", n.ID, n.Title)
+				fmt.Fprintf(w, "%s  %s\n", n.ID, n.Title)
+				if search != "" {
+					if ex := extractExcerpt(n.Body, search); ex != "" {
+						fmt.Fprintf(w, "  %s\n", ex)
+					}
+				}
 			}
 			return nil
 		},
@@ -280,6 +292,36 @@ type noteJSON struct {
 	Type   string   `json:"type"`
 	Status string   `json:"status"`
 	Tags   []string `json:"tags"`
+}
+
+type noteSearchJSON struct {
+	ID      string   `json:"id"`
+	Title   string   `json:"title"`
+	Type    string   `json:"type"`
+	Status  string   `json:"status"`
+	Tags    []string `json:"tags"`
+	Excerpt string   `json:"excerpt"`
+}
+
+func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string) error {
+	out := make([]noteSearchJSON, len(notes))
+	for i, n := range notes {
+		tags := n.Tags
+		if tags == nil {
+			tags = []string{}
+		}
+		out[i] = noteSearchJSON{
+			ID:      n.ID,
+			Title:   n.Title,
+			Type:    string(n.Type),
+			Status:  string(n.Status),
+			Tags:    tags,
+			Excerpt: extractExcerpt(n.Body, query),
+		}
+	}
+	enc := json.NewEncoder(outWriter(cmd))
+	enc.SetIndent("", "  ")
+	return enc.Encode(out)
 }
 
 func printNotesJSON(cmd *cobra.Command, notes []*note.Note) error {

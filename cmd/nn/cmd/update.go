@@ -21,6 +21,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 		appendS        string
 		typ            string
 		status         string
+		appliesWhen    string
 		fromStdin      bool
 		replaceSection string
 		noEdit         bool
@@ -41,9 +42,9 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("--replace-section requires --content or --stdin")
 			}
 			if title == "" && tags == "" && content == "" && appendS == "" &&
-				typ == "" && status == "" && !fromStdin && replaceSection == "" &&
+				typ == "" && status == "" && appliesWhen == "" && !fromStdin && replaceSection == "" &&
 				len(tagsAdd) == 0 && len(tagsRemove) == 0 {
-				return fmt.Errorf("at least one of --title, --tags, --tags-add, --tags-remove, --content, --stdin, --append, --type, --status, --replace-section is required")
+				return fmt.Errorf("at least one of --title, --tags, --tags-add, --tags-remove, --content, --stdin, --append, --type, --status, --applies-when, --replace-section is required")
 			}
 
 			n, err := resolveNote(state, args[0])
@@ -102,6 +103,9 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 				}
 				n.Status = s
 			}
+			if appliesWhen != "" {
+				n.AppliesWhen = appliesWhen
+			}
 			if replaceSection != "" {
 				replaced, replErr := replaceMarkdownSection(n.Body, replaceSection, content)
 				if replErr != nil {
@@ -135,6 +139,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&appendS, "append", "", "Append text to note body")
 	cmd.Flags().StringVar(&typ, "type", "", "Change note type")
 	cmd.Flags().StringVar(&status, "status", "", "Set note status (draft|reviewed|permanent)")
+	cmd.Flags().StringVar(&appliesWhen, "applies-when", "", "Set applies_when field (protocol notes)")
 	cmd.Flags().BoolVar(&fromStdin, "stdin", false, "Read note body from stdin")
 	cmd.Flags().StringVar(&replaceSection, "replace-section", "", "Replace named level-2 section (case-insensitive)")
 	cmd.Flags().BoolVar(&noEdit, "no-edit", false, "Skip opening $EDITOR")
