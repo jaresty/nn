@@ -41,7 +41,8 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**Allow-list (no gate required):**\n" +
 			"- Running, editing, or reading a file that appears in a prior Write, Edit, or Bash tool call in this session\n" +
 			"- Running a command that produces output solely from local code or state present in this session (e.g. tests, builds, linters)\n" +
-			"- Fetching output from an execution system you triggered or are operating in this session (e.g. CI run you initiated, container you started), where the result did not exist before this session\n\n" +
+			"- Fetching output from an execution system you triggered or are operating in this session (e.g. CI run you initiated, container you started), where the result did not exist before this session\n" +
+			"- Fetching live operational state from a system where: (a) a specific resource identifier (branch, PR number, host, job ID) for that system appears in the conversation above this action, and (b) the fetched result is machine-generated output (JSON, status code, log line) rather than human-authored content\n\n" +
 			"Everything else — web search, URL fetch, reading documentation, spawning an agent to gather facts, " +
 			"reading memory files, reading any file not on the allow-list — requires the gate.\n\n" +
 			"After the action completes, quote a verbatim excerpt from the result (a string literally present in the tool output). " +
