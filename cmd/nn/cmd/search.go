@@ -66,7 +66,7 @@ func newSearchCmd(state *rootState) *cobra.Command {
 			}
 
 			if jsonOut {
-				return printSearchJSON(cmd, filtered, query, scores)
+				return printSearchJSON(cmd, filtered, query, scores, nil)
 			}
 			w := outWriter(cmd)
 			for _, n := range filtered {

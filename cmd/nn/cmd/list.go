@@ -36,6 +36,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		since        string
 		before       string
 		similarTo    string
+		envelope     bool
 	)
 
 	cmd := &cobra.Command{
@@ -183,6 +184,7 @@ func newListCmd(state *rootState) *cobra.Command {
 				}
 			}
 
+			totalMatching := len(filtered)
 			if limit > 0 && len(filtered) > limit {
 				filtered = filtered[:limit]
 			}
@@ -192,7 +194,10 @@ func newListCmd(state *rootState) *cobra.Command {
 					return printNotesRichJSON(cmd, filtered)
 				}
 				if search != "" {
-					if err := printSearchJSON(cmd, filtered, search, searchScores); err != nil {
+					if envelope {
+						return printSearchEnvelopeJSON(cmd, filtered, search, searchScores, allInbound, totalMatching)
+					}
+					if err := printSearchJSON(cmd, filtered, search, searchScores, allInbound); err != nil {
 						return err
 					}
 				} else {
@@ -237,6 +242,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&rich, "rich", false, "Include modified, link_count, body_preview in JSON output (requires --json)")
 	cmd.Flags().BoolVar(&showFirst, "show-first", false, "Append full body of top search result after JSON output (requires --json)")
 	cmd.Flags().StringVar(&similarTo, "similar", "", "Rank notes by BM25 similarity to this note ID (excludes the note itself)")
+	cmd.Flags().BoolVar(&envelope, "envelope", false, "Wrap search JSON in envelope with query, result_count, total_matching (requires --json --search)")
 	return cmd
 }
 
@@ -305,9 +311,12 @@ type noteSearchJSON struct {
 	Score       float64  `json:"score"`
 	Modified    string   `json:"modified"`
 	MatchReason string   `json:"match_reason"`
+	IsProtocol    bool     `json:"is_protocol"`
+	LinkCount     int      `json:"link_count"`
+	BacklinkCount int      `json:"backlink_count"`
 }
 
-func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, scores map[string]float64) error {
+func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, scores map[string]float64, inbound map[string][]string) error {
 	maxScore := 0.0
 	for _, s := range scores {
 		if s > maxScore {
@@ -324,6 +333,15 @@ func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, score
 		if maxScore > 0 {
 			normalizedScore = scores[n.ID] / maxScore
 		}
+		isProtocol := n.Type == note.TypeProtocol
+		if !isProtocol {
+			for _, lnk := range n.Links {
+				if lnk.Type == "governs" {
+					isProtocol = true
+					break
+				}
+			}
+		}
 		out[i] = noteSearchJSON{
 			ID:          n.ID,
 			Title:       n.Title,
@@ -334,11 +352,73 @@ func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, score
 			Score:       normalizedScore,
 			Modified:    n.Modified.UTC().Format(time.RFC3339),
 			MatchReason: computeMatchReason(n, query),
+			IsProtocol:    isProtocol,
+			LinkCount:     len(n.Links),
+			BacklinkCount: len(inbound[n.ID]),
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
 	enc.SetIndent("", "  ")
 	return enc.Encode(out)
+}
+
+type searchEnvelope struct {
+	Query         string           `json:"query"`
+	ResultCount   int              `json:"result_count"`
+	TotalMatching int              `json:"total_matching"`
+	Results       []noteSearchJSON `json:"results"`
+}
+
+func printSearchEnvelopeJSON(cmd *cobra.Command, notes []*note.Note, query string, scores map[string]float64, inbound map[string][]string, totalMatching int) error {
+	maxScore := 0.0
+	for _, s := range scores {
+		if s > maxScore {
+			maxScore = s
+		}
+	}
+	results := make([]noteSearchJSON, len(notes))
+	for i, n := range notes {
+		tags := n.Tags
+		if tags == nil {
+			tags = []string{}
+		}
+		normalizedScore := 0.0
+		if maxScore > 0 {
+			normalizedScore = scores[n.ID] / maxScore
+		}
+		isProtocol := n.Type == note.TypeProtocol
+		if !isProtocol {
+			for _, lnk := range n.Links {
+				if lnk.Type == "governs" {
+					isProtocol = true
+					break
+				}
+			}
+		}
+		results[i] = noteSearchJSON{
+			ID:            n.ID,
+			Title:         n.Title,
+			Type:          string(n.Type),
+			Status:        string(n.Status),
+			Tags:          tags,
+			Excerpt:       extractExcerpt(n.Body, query),
+			Score:         normalizedScore,
+			Modified:      n.Modified.UTC().Format(time.RFC3339),
+			MatchReason:   computeMatchReason(n, query),
+			IsProtocol:    isProtocol,
+			LinkCount:     len(n.Links),
+			BacklinkCount: len(inbound[n.ID]),
+		}
+	}
+	env := searchEnvelope{
+		Query:         query,
+		ResultCount:   len(notes),
+		TotalMatching: totalMatching,
+		Results:       results,
+	}
+	enc := json.NewEncoder(outWriter(cmd))
+	enc.SetIndent("", "  ")
+	return enc.Encode(env)
 }
 
 func computeMatchReason(n *note.Note, query string) string {
