@@ -157,10 +157,11 @@ func newListCmd(state *rootState) *cobra.Command {
 				})
 			}
 
+			var searchScores map[string]float64
 			if search != "" {
-				scores := note.BM25Scores(filtered, search, allInbound)
+				searchScores = note.BM25Scores(filtered, search, allInbound)
 				sort.SliceStable(filtered, func(i, j int) bool {
-					return scores[filtered[i].ID] > scores[filtered[j].ID]
+					return searchScores[filtered[i].ID] > searchScores[filtered[j].ID]
 				})
 			}
 
@@ -191,7 +192,7 @@ func newListCmd(state *rootState) *cobra.Command {
 					return printNotesRichJSON(cmd, filtered)
 				}
 				if search != "" {
-					if err := printSearchJSON(cmd, filtered, search); err != nil {
+					if err := printSearchJSON(cmd, filtered, search, searchScores); err != nil {
 						return err
 					}
 				} else {
@@ -295,33 +296,91 @@ type noteJSON struct {
 }
 
 type noteSearchJSON struct {
-	ID      string   `json:"id"`
-	Title   string   `json:"title"`
-	Type    string   `json:"type"`
-	Status  string   `json:"status"`
-	Tags    []string `json:"tags"`
-	Excerpt string   `json:"excerpt"`
+	ID          string   `json:"id"`
+	Title       string   `json:"title"`
+	Type        string   `json:"type"`
+	Status      string   `json:"status"`
+	Tags        []string `json:"tags"`
+	Excerpt     string   `json:"excerpt"`
+	Score       float64  `json:"score"`
+	Modified    string   `json:"modified"`
+	MatchReason string   `json:"match_reason"`
 }
 
-func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string) error {
+func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, scores map[string]float64) error {
+	maxScore := 0.0
+	for _, s := range scores {
+		if s > maxScore {
+			maxScore = s
+		}
+	}
 	out := make([]noteSearchJSON, len(notes))
 	for i, n := range notes {
 		tags := n.Tags
 		if tags == nil {
 			tags = []string{}
 		}
+		normalizedScore := 0.0
+		if maxScore > 0 {
+			normalizedScore = scores[n.ID] / maxScore
+		}
 		out[i] = noteSearchJSON{
-			ID:      n.ID,
-			Title:   n.Title,
-			Type:    string(n.Type),
-			Status:  string(n.Status),
-			Tags:    tags,
-			Excerpt: extractExcerpt(n.Body, query),
+			ID:          n.ID,
+			Title:       n.Title,
+			Type:        string(n.Type),
+			Status:      string(n.Status),
+			Tags:        tags,
+			Excerpt:     extractExcerpt(n.Body, query),
+			Score:       normalizedScore,
+			Modified:    n.Modified.UTC().Format(time.RFC3339),
+			MatchReason: computeMatchReason(n, query),
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
 	enc.SetIndent("", "  ")
 	return enc.Encode(out)
+}
+
+func computeMatchReason(n *note.Note, query string) string {
+	terms := note.Tokenize(query)
+	titleTokens := note.Tokenize(n.Title)
+	bodyTokens := note.Tokenize(n.Body)
+
+	titleSet := make(map[string]bool, len(titleTokens))
+	for _, t := range titleTokens {
+		titleSet[t] = true
+	}
+	bodySet := make(map[string]bool, len(bodyTokens))
+	for _, t := range bodyTokens {
+		bodySet[t] = true
+	}
+	tagSet := make(map[string]bool)
+	for _, tag := range n.Tags {
+		for _, t := range note.Tokenize(tag) {
+			tagSet[t] = true
+		}
+	}
+
+	var fields []string
+	seenTitle, seenBody, seenTag := false, false, false
+	for _, term := range terms {
+		if !seenTitle && titleSet[term] {
+			fields = append(fields, "title")
+			seenTitle = true
+		}
+		if !seenBody && bodySet[term] {
+			fields = append(fields, "body")
+			seenBody = true
+		}
+		if !seenTag && tagSet[term] {
+			fields = append(fields, "tag")
+			seenTag = true
+		}
+	}
+	if len(fields) == 0 {
+		return "inbound"
+	}
+	return strings.Join(fields, ", ")
 }
 
 func printNotesJSON(cmd *cobra.Command, notes []*note.Note) error {

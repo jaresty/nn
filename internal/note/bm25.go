@@ -95,10 +95,28 @@ func BM25Scores(notes []*Note, query string, inbound map[string][]string) map[st
 				(tf + bm25K1*(1-bm25B+bm25B*dl/avgdl))
 		}
 		if score > 0 {
-			scores[n.ID] = score
+			scores[n.ID] = score * statusMultiplier(n.Status)
 		}
 	}
 	return scores
+}
+
+// statusMultiplier returns a score multiplier based on note status.
+// Settled notes (permanent, reviewed) rank above drafts for the same BM25 content score.
+func statusMultiplier(s Status) float64 {
+	switch s {
+	case StatusPermanent:
+		return 1.3
+	case StatusReviewed:
+		return 1.15
+	default:
+		return 1.0
+	}
+}
+
+// Tokenize splits text into lowercase tokens. Exported for use in match-reason computation.
+func Tokenize(s string) []string {
+	return tokenize(s)
 }
 
 // tokenize splits text into lowercase tokens.
