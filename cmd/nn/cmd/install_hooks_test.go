@@ -362,7 +362,8 @@ func TestInstallHooksJsonContainsPostToolUseFailure(t *testing.T) {
 	}
 }
 
-// Assert that nn-tool-failure-hook.sh is deployed and contains the nn list --search instruction.
+// Assert that nn-tool-failure-hook.sh is deployed and references virtual-nn-error-handling.
+// The inline behavior was moved to the virtual protocol in load-protocols.sh (ADR-0015).
 func TestInstallHooksToolFailureScriptDeployed(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
@@ -382,7 +383,7 @@ func TestInstallHooksToolFailureScriptDeployed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn-tool-failure-hook.sh not deployed: %v", err)
 	}
-	if !strings.Contains(string(data), "nn list --search") {
-		t.Errorf("nn-tool-failure-hook.sh must instruct nn list --search; got:\n%s", string(data))
+	if !strings.Contains(string(data), "virtual-nn-error-handling") {
+		t.Errorf("nn-tool-failure-hook.sh must reference virtual-nn-error-handling; got:\n%s", string(data))
 	}
 }

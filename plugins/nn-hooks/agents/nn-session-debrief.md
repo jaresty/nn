@@ -73,6 +73,26 @@ nn bulk-link <summary-id> \
   --to <id2> --annotation "captured this session" --type source-of
 ```
 
+### Friction Review
+
+After processing the target note set, scan the transcript for friction moments — times when the session had to course-correct:
+
+- Tool retries after unexpected failures
+- User corrections ("no, don't do that", "wrong approach", "stop doing X")
+- The same mistake appearing more than once
+- A command failing in a surprising or non-obvious way
+
+For each friction moment, ask: **was there a systemic gap that recurred or could recur in a future session?**
+
+If yes, write an observation note tagged `friction-candidate`:
+
+```
+nn new --title "Friction: <brief description>" --type observation --tags friction-candidate --no-edit \
+  --content "## What happened\n\n<description of the friction moment>\n\n## Context\n\n<relevant transcript excerpt or summary>\n\n## Possible gap\n\n<what systemic issue this might indicate>"
+```
+
+Write at most 3 friction observations per session. If no clear friction moments occurred, skip this step entirely — do not write an observation just to fill the quota.
+
 ### Termination conditions
 
 - **Success**: all notes in target set processed (promoted, linked, or explicitly skipped with reason)

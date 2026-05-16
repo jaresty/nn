@@ -62,6 +62,19 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"Prior sessions may have captured the root cause, a known workaround, or a relevant constraint. " +
 			"Acting without searching risks repeating a diagnosed problem.\n",
 	},
+	{
+		ID:          "virtual-nn-error-handling",
+		Title:       "Protocol: error handling",
+		AppliesWhen: "when any tool call, command, or test fails unexpectedly",
+		Body: "When a command fails in a surprising way — non-obvious error message, tool behaves differently than expected, " +
+			"test fails for unknown reasons — run `nn list --search \"<topic>\" --json` before attempting a workaround or fix. " +
+			"Prior sessions may have captured the root cause, a known workaround, or a relevant constraint. " +
+			"Acting without searching risks repeating a diagnosed problem.\n\n" +
+			"**Skip condition**: if the immediately preceding assistant turn contains a line beginning with " +
+			"`Expected FAIL: <reason>` (case-insensitive), the lookup is not required. " +
+			"To skip, write: `Skipping lookup: cited \"Expected FAIL: <reason>\"` — quoting the exact declaration verbatim. " +
+			"Absence of that verbatim quote means the skip condition is not met and the lookup is required.\n",
+	},
 }
 
 // protocolDerivationBlock is appended to every protocol note in plain-text display.

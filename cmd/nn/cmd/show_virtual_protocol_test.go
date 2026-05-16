@@ -47,6 +47,48 @@ func TestShowGlobalVirtualAppearsWithReal(t *testing.T) {
 	}
 }
 
+// Assertion: virtual-nn-error-handling appears in nn show --global output.
+func TestShowVirtualErrorHandlingGlobal(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global: %v", err)
+	}
+	if !strings.Contains(out, "virtual-nn-error-handling") {
+		t.Errorf("expected virtual-nn-error-handling id in output:\n%s", out)
+	}
+}
+
+// Assertion: nn show virtual-nn-error-handling returns body text.
+func TestShowVirtualErrorHandlingBody(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-error-handling")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-error-handling: %v", err)
+	}
+	if !strings.Contains(out, "non-obvious error message") {
+		t.Errorf("expected virtual error-handling body text in output:\n%s", out)
+	}
+}
+
+// Assertion: error-handling skip clause is present and requires verbatim citation.
+func TestShowVirtualErrorHandlingSkipClause(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-error-handling")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-error-handling: %v", err)
+	}
+	if !strings.Contains(out, "Expected FAIL:") {
+		t.Errorf("expected skip condition referencing 'Expected FAIL:' in output:\n%s", out)
+	}
+	if !strings.Contains(out, "verbatim") {
+		t.Errorf("expected skip condition to require verbatim citation:\n%s", out)
+	}
+}
+
 // Assertion: capture-discipline skip clause requires quoting a verbatim excerpt from the tool result,
 // with [] mapping to "zero results returned" and non-empty results requiring a title citation.
 func TestCaptureDisciplineSkipClauseRequiresVerbatimExcerpt(t *testing.T) {

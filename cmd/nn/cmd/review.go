@@ -159,6 +159,27 @@ interpretation and recommendations.`,
 			sortByID(deadEnds)
 			sortByID(drafts)
 
+			// Friction candidates: observation notes tagged friction-candidate but not reviewed.
+			var frictionCandidates []*note.Note
+			for _, n := range notes {
+				if n.Type != note.TypeObservation {
+					continue
+				}
+				hasFriction, hasReviewed := false, false
+				for _, tag := range n.Tags {
+					if tag == "friction-candidate" {
+						hasFriction = true
+					}
+					if tag == "reviewed" {
+						hasReviewed = true
+					}
+				}
+				if hasFriction && !hasReviewed {
+					frictionCandidates = append(frictionCandidates, n)
+				}
+			}
+			sortByID(frictionCandidates)
+
 			w := outWriter(cmd)
 			protocolCounts := readProtocolPresenceCounts()
 			accessCounts := readNoteAccessCounts()
@@ -190,11 +211,12 @@ interpretation and recommendations.`,
 					DeadEnds    []noteRef `json:"dead_ends"`
 				}
 				type reviewJSON struct {
-					Growth            growthJSON       `json:"growth"`
-					Connectivity      connectivityJSON `json:"connectivity"`
-					Drafts            []noteRef        `json:"drafts"`
-					ProtocolTelemetry map[string]int   `json:"protocol_telemetry"`
-					NoteAccess        map[string]int   `json:"note_access"`
+					Growth              growthJSON       `json:"growth"`
+					Connectivity        connectivityJSON `json:"connectivity"`
+					Drafts              []noteRef        `json:"drafts"`
+					FrictionCandidates  []noteRef        `json:"friction_candidates"`
+					ProtocolTelemetry   map[string]int   `json:"protocol_telemetry"`
+					NoteAccess          map[string]int   `json:"note_access"`
 				}
 				out := reviewJSON{
 					Growth: growthJSON{
@@ -211,12 +233,16 @@ interpretation and recommendations.`,
 						Orphans:      toRefs(orphans),
 						DeadEnds:     toRefs(deadEnds),
 					},
-					Drafts:            toRefs(drafts),
-					ProtocolTelemetry: protocolCounts,
-					NoteAccess:        accessCounts,
+					Drafts:             toRefs(drafts),
+					FrictionCandidates: toRefs(frictionCandidates),
+					ProtocolTelemetry:  protocolCounts,
+					NoteAccess:         accessCounts,
 				}
 				if out.Drafts == nil {
 					out.Drafts = []noteRef{}
+				}
+				if out.FrictionCandidates == nil {
+					out.FrictionCandidates = []noteRef{}
 				}
 				if out.ProtocolTelemetry == nil {
 					out.ProtocolTelemetry = map[string]int{}
@@ -267,6 +293,16 @@ interpretation and recommendations.`,
 			fmt.Fprintf(w, "Draft notes: %d\n", len(drafts))
 			for _, n := range drafts {
 				fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+			}
+			fmt.Fprintf(w, "\n")
+
+			fmt.Fprintf(w, "## Friction candidates\n\n")
+			fmt.Fprintf(w, "Unreviewed friction observations: %d\n", len(frictionCandidates))
+			for _, n := range frictionCandidates {
+				fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+			}
+			if len(frictionCandidates) > 0 {
+				fmt.Fprintf(w, "\nFor each: promote to protocol (nn new --type protocol), discard (nn update <id> --tags reviewed), or link as evidence (nn link <id> <protocol-id> --type supports && nn update <id> --tags reviewed).\n")
 			}
 			fmt.Fprintf(w, "\n")
 
