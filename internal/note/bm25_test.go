@@ -56,6 +56,21 @@ func TestBM25TagWeightNonzero(t *testing.T) {
 	}
 }
 
+// TestBM25StemmedQueryMatchesStemmedDocument: querying "atomicity" should match a note containing "atomic".
+func TestBM25StemmedQueryMatchesStemmedDocument(t *testing.T) {
+	notes := []*Note{
+		makeNote("a", "atomic token design", "The atomic constraint governs one change per step."),
+		makeNote("b", "unrelated note", "Something about potatoes."),
+	}
+	scores := BM25Scores(notes, "atomicity", nil)
+	if scores["a"] == 0 {
+		t.Errorf("expected nonzero score for note with stem 'atomic' when querying 'atomicity'; got 0")
+	}
+	if scores["b"] != 0 {
+		t.Errorf("expected zero score for unrelated note; got %f", scores["b"])
+	}
+}
+
 // TestBM25TagWeightExceedsTitleWeight: tag match at tagWeight boosts score meaningfully.
 // A tag-only match should score higher than a single body-token match.
 func TestBM25TagWeightBoostsOverBody(t *testing.T) {

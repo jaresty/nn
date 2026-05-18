@@ -3,6 +3,8 @@ package note
 import (
 	"math"
 	"strings"
+
+	"github.com/kljensen/snowball/english"
 )
 
 // BM25 parameters.
@@ -127,7 +129,7 @@ func tokenize(s string) []string {
 		return !('a' <= r && r <= 'z') && !('0' <= r && r <= '9')
 	}) {
 		if len(word) > 1 {
-			tokens = append(tokens, word)
+			tokens = append(tokens, english.Stem(word, false))
 		}
 	}
 	return tokens
