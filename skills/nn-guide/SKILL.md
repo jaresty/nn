@@ -85,6 +85,7 @@ List and filter notes.
 ```
 nn list [--tag TEXT] [--type TYPE] [--status STATUS]
         [--linked-from ID] [--linked-to ID] [--orphan] [--global] [--long]
+        [--has-url] [--url-contains STRING]
         [--search TEXT] [--similar ID] [--sort FIELD] [--limit N] [--json]
 ```
 
@@ -103,6 +104,16 @@ nn list --similar <id> --status permanent --json
 `--global` returns protocol notes with no outgoing `governs` links — protocols that apply universally to the entire notebook rather than governing specific notes. Distinct from `--orphan`: a global protocol is intentionally universal, not forgotten.
 
 `--long` filters to notes whose body exceeds the atomicity threshold (2000 chars). Use to find notes that have grown too large to split.
+
+`--has-url` filters to notes containing at least one `http://` or `https://` URL. Use to find notes with external references.
+
+`--url-contains STRING` filters to notes containing a URL that includes the given string. Only matches within actual URLs (requires `http://` or `https://` prefix) — bare text occurrences are ignored.
+
+```
+nn list --has-url                          # all notes with any URL
+nn list --url-contains "github.com"        # notes linking to GitHub
+nn list --has-url --search "auth"          # URL-containing notes matching "auth"
+```
 
 Filters compose: `nn list --search "implicit" --type concept --sort modified` works as expected.
 
@@ -361,11 +372,13 @@ nn review [--format json]
 Sections:
 - **Growth**: total notes, by type, created in last 7/30 days
 - **Connectivity**: total links, avg links per note, orphan count + IDs, dead-end count + IDs
-- **Structural gaps**: draft note count + IDs
+- **Structural gaps**: draft note count + IDs, long note count + IDs (body > 2000 bytes)
 
 A "dead-end" note has outbound links but no inbound links — it contributes to others but nothing points back to it.
 
-`--format json` keys: `growth`, `connectivity`, `drafts`
+**Long notes** (body exceeds 2000 bytes) are listed under Structural gaps — candidates for splitting into atomic notes.
+
+`--format json` keys: `growth`, `connectivity`, `drafts`, `long_notes`
 
 ## nn gap
 

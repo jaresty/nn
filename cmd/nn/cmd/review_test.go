@@ -141,3 +141,49 @@ func TestReviewRecentNotes(t *testing.T) {
 		t.Errorf("expected 'last 7 days' in growth section; got:\n%s", out)
 	}
 }
+
+// Assertion: TestReviewLongNotesMarkdown — note with body > atomicityThreshold appears in Long notes section.
+func TestReviewLongNotesMarkdown(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	longBody := strings.Repeat("x", atomicityThreshold+1)
+	n := newTestNoteForCLI(note.GenerateID(), "HugeNote", note.TypeConcept)
+	n.Body = longBody
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("review")
+	if err != nil {
+		t.Fatalf("review: %v", err)
+	}
+	if !strings.Contains(out, "Long notes:") {
+		t.Errorf("expected 'Long notes:' section; got:\n%s", out)
+	}
+	if !strings.Contains(out, "HugeNote") {
+		t.Errorf("expected 'HugeNote' in long notes list; got:\n%s", out)
+	}
+}
+
+// Assertion: TestReviewLongNotesJSON — note with body > atomicityThreshold appears in JSON long_notes field.
+func TestReviewLongNotesJSON(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	longBody := strings.Repeat("x", atomicityThreshold+1)
+	n := newTestNoteForCLI(note.GenerateID(), "HugeNote", note.TypeConcept)
+	n.Body = longBody
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("review", "--format", "json")
+	if err != nil {
+		t.Fatalf("review --format json: %v", err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	longNotes, ok := result["long_notes"]
+	if !ok {
+		t.Fatalf("expected 'long_notes' key in JSON; got keys from: %s", out)
+	}
+	items, ok := longNotes.([]any)
+	if !ok || len(items) == 0 {
+		t.Errorf("expected non-empty long_notes; got: %v", longNotes)
+	}
+}

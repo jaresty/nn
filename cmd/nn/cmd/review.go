@@ -159,6 +159,15 @@ interpretation and recommendations.`,
 			sortByID(deadEnds)
 			sortByID(drafts)
 
+			// Long notes: body exceeds atomicityThreshold bytes.
+			var longNotes []*note.Note
+			for _, n := range notes {
+				if len(n.Body) > atomicityThreshold {
+					longNotes = append(longNotes, n)
+				}
+			}
+			sortByID(longNotes)
+
 			// Friction candidates: observation notes tagged friction-candidate but not reviewed.
 			var frictionCandidates []*note.Note
 			for _, n := range notes {
@@ -214,6 +223,7 @@ interpretation and recommendations.`,
 					Growth              growthJSON       `json:"growth"`
 					Connectivity        connectivityJSON `json:"connectivity"`
 					Drafts              []noteRef        `json:"drafts"`
+					LongNotes           []noteRef        `json:"long_notes"`
 					FrictionCandidates  []noteRef        `json:"friction_candidates"`
 					ProtocolTelemetry   map[string]int   `json:"protocol_telemetry"`
 					NoteAccess          map[string]int   `json:"note_access"`
@@ -234,12 +244,16 @@ interpretation and recommendations.`,
 						DeadEnds:     toRefs(deadEnds),
 					},
 					Drafts:             toRefs(drafts),
+					LongNotes:          toRefs(longNotes),
 					FrictionCandidates: toRefs(frictionCandidates),
 					ProtocolTelemetry:  protocolCounts,
 					NoteAccess:         accessCounts,
 				}
 				if out.Drafts == nil {
 					out.Drafts = []noteRef{}
+				}
+				if out.LongNotes == nil {
+					out.LongNotes = []noteRef{}
 				}
 				if out.FrictionCandidates == nil {
 					out.FrictionCandidates = []noteRef{}
@@ -292,6 +306,10 @@ interpretation and recommendations.`,
 			fmt.Fprintf(w, "## Structural gaps\n\n")
 			fmt.Fprintf(w, "Draft notes: %d\n", len(drafts))
 			for _, n := range drafts {
+				fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+			}
+			fmt.Fprintf(w, "Long notes: %d (body > %d bytes — consider splitting)\n", len(longNotes), atomicityThreshold)
+			for _, n := range longNotes {
 				fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
 			}
 			fmt.Fprintf(w, "\n")
