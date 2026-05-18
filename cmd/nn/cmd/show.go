@@ -281,11 +281,16 @@ func newShowCmd(state *rootState) *cobra.Command {
 					}
 					fmt.Fprintln(w)
 				}
+				byID := make(map[string]*note.Note, len(all))
+				for _, a := range all {
+					byID[a.ID] = a
+				}
 				data, err := n.Marshal()
 				if err != nil {
 					return fmt.Errorf("show: marshal: %w", err)
 				}
-				fmt.Fprint(w, string(data))
+				backlinkers := findBacklinkers(n.ID, all)
+				fmt.Fprint(w, renderWithResolvedLinks(string(data), n, byID, backlinkers))
 			}
 			return nil
 		},
@@ -368,4 +373,69 @@ func findVirtualProtocol(query string) *virtualProtocol {
 		}
 	}
 	return nil
+}
+
+// findBacklinkers returns all notes in all that link to targetID (any link type).
+func findBacklinkers(targetID string, all []*note.Note) []*note.Note {
+	var result []*note.Note
+	for _, n := range all {
+		for _, lnk := range n.Links {
+			if lnk.TargetID == targetID {
+				result = append(result, n)
+				break
+			}
+		}
+	}
+	return result
+}
+
+// renderWithResolvedLinks replaces the raw ## Links section in marshaled note output
+// with title-resolved link lines, and appends a ## Backlinks section.
+// Target IDs are resolved via byID; unresolved IDs fall back to the bare ID.
+func renderWithResolvedLinks(raw string, n *note.Note, byID map[string]*note.Note, backlinkers []*note.Note) string {
+	var buf strings.Builder
+	if len(n.Links) > 0 {
+		const linkSection = "\n## Links\n\n"
+		cut := strings.Index(raw, linkSection)
+		if cut >= 0 {
+			buf.WriteString(raw[:cut])
+			buf.WriteString(linkSection)
+			for _, lnk := range n.Links {
+				title := lnk.TargetID
+				if t, ok := byID[lnk.TargetID]; ok {
+					title = t.Title
+				}
+				switch {
+				case lnk.Type != "" && lnk.Status != "":
+					fmt.Fprintf(&buf, "- [[%s|%s]] [%s] {%s} — %s\n", lnk.TargetID, title, lnk.Type, lnk.Status, lnk.Annotation)
+				case lnk.Type != "":
+					fmt.Fprintf(&buf, "- [[%s|%s]] [%s] — %s\n", lnk.TargetID, title, lnk.Type, lnk.Annotation)
+				case lnk.Status != "":
+					fmt.Fprintf(&buf, "- [[%s|%s]] {%s} — %s\n", lnk.TargetID, title, lnk.Status, lnk.Annotation)
+				default:
+					fmt.Fprintf(&buf, "- [[%s|%s]] — %s\n", lnk.TargetID, title, lnk.Annotation)
+				}
+			}
+		} else {
+			buf.WriteString(raw)
+		}
+	} else {
+		buf.WriteString(raw)
+	}
+	if len(backlinkers) > 0 {
+		fmt.Fprintf(&buf, "\n## Backlinks (%d)\n\n", len(backlinkers))
+		for _, b := range backlinkers {
+			for _, lnk := range b.Links {
+				if lnk.TargetID == n.ID {
+					if lnk.Annotation != "" {
+						fmt.Fprintf(&buf, "- [[%s|%s]] — %s\n", b.ID, b.Title, lnk.Annotation)
+					} else {
+						fmt.Fprintf(&buf, "- [[%s|%s]]\n", b.ID, b.Title)
+					}
+					break
+				}
+			}
+		}
+	}
+	return buf.String()
 }

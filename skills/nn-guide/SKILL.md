@@ -66,6 +66,13 @@ If the query doesn't match an ID exactly, `nn` searches note titles case-insensi
 If multiple titles match, the command lists the candidates and exits with an error — use
 the full ID to disambiguate.
 
+**Graph neighborhood in plain-text output:** `nn show <id>` now includes two navigation aids in its plain-text output:
+
+- **Resolved link titles:** the `## Links` section renders each outgoing link as `[[ID|Title]]` instead of bare `[[ID]]`, so target note titles are immediately readable without a separate lookup.
+- **Backlinks section:** a `## Backlinks (N)` block is appended listing all notes that link to the shown note, each with its annotation. This replaces the need for a separate `nn backlinks <id>` call when exploring the local graph.
+
+These additions appear only in plain-text output (`--json` is unaffected).
+
 `--depth N` traverses outgoing links from the given note up to N hops, collecting all
 reachable notes and printing them as a single concatenated Markdown document separated by
 `---`. Useful for loading a coherent subgraph as context for an LLM.
@@ -89,7 +96,7 @@ nn list [--tag TEXT] [--type TYPE] [--status STATUS]
         [--search TEXT] [--similar ID] [--sort FIELD] [--limit N] [--json]
 ```
 
-`--search TEXT` performs a ranked case-insensitive search across note title and body. Title matches rank above body matches.
+`--search TEXT` performs a ranked case-insensitive search across note title and body. Title matches rank above body matches. Notes with more inbound backlinks receive a log-scale centrality boost on top of BM25, so well-linked notes surface above equal-content orphans. The `score` field in `--json` output reflects both BM25 relevance and centrality.
 
 `--similar ID` ranks all notes by BM25 similarity to the given note's title and body, excluding the note itself. Use for serendipitous discovery — find notes that share vocabulary with a given note but have no explicit link. Composes with `--status`, `--tag`, `--type`, `--limit`, `--json`. When `--similar` is active, `--sort` is ignored (similarity ranking takes precedence).
 
@@ -477,7 +484,7 @@ Body text.
 - [[20260411090000-1234]] [extends] {draft} — provides the foundational philosophy this principle implements
 ```
 
-Link format: `- [[target-id]] [type] {status} — annotation`
+Link format in plain-text `show` output: `- [[target-id|Target Title]] [type] {status} — annotation` (titles resolved at render time). In the raw file on disk, the format remains `- [[target-id]] [type] {status} — annotation`.
 - `[type]` optional: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `questions`, `governs`
 - `{status}` optional: `draft` (default for new links), `reviewed` (human-endorsed). Absent = `reviewed` (legacy compat).
 
@@ -514,6 +521,11 @@ nn list --similar <id> --limit 10
 **Load a topic cluster as LLM context:**
 ```
 nn show <id> --depth 2
+```
+
+**Explore a note's immediate graph neighborhood (single round-trip):**
+```
+nn show <id>     # shows body + resolved outgoing links + backlinks in one call
 ```
 
 **Serendipitous re-encounter:**

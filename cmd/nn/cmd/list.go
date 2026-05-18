@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -339,6 +340,13 @@ type noteSearchJSON struct {
 	BacklinkCount int      `json:"backlink_count"`
 }
 
+// centralityMultiplier returns a score boost based on backlink count.
+// A note with more inbound links (notebook consensus) ranks above an
+// otherwise equal note with fewer, without overwhelming content relevance.
+func centralityMultiplier(backlinkCount int) float64 {
+	return 1.0 + 0.2*math.Log1p(float64(backlinkCount))
+}
+
 func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, scores map[string]float64, inbound map[string][]string) error {
 	maxScore := 0.0
 	for _, s := range scores {
@@ -352,9 +360,10 @@ func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, score
 		if tags == nil {
 			tags = []string{}
 		}
+		backlinkCount := len(inbound[n.ID])
 		normalizedScore := 0.0
 		if maxScore > 0 {
-			normalizedScore = scores[n.ID] / maxScore
+			normalizedScore = scores[n.ID] / maxScore * centralityMultiplier(backlinkCount)
 		}
 		isProtocol := n.Type == note.TypeProtocol
 		if !isProtocol {
@@ -377,7 +386,7 @@ func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, score
 			MatchReason: computeMatchReason(n, query),
 			IsProtocol:    isProtocol,
 			LinkCount:     len(n.Links),
-			BacklinkCount: len(inbound[n.ID]),
+			BacklinkCount: backlinkCount,
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
@@ -405,9 +414,10 @@ func printSearchEnvelopeJSON(cmd *cobra.Command, notes []*note.Note, query strin
 		if tags == nil {
 			tags = []string{}
 		}
+		backlinkCount := len(inbound[n.ID])
 		normalizedScore := 0.0
 		if maxScore > 0 {
-			normalizedScore = scores[n.ID] / maxScore
+			normalizedScore = scores[n.ID] / maxScore * centralityMultiplier(backlinkCount)
 		}
 		isProtocol := n.Type == note.TypeProtocol
 		if !isProtocol {
@@ -430,7 +440,7 @@ func printSearchEnvelopeJSON(cmd *cobra.Command, notes []*note.Note, query strin
 			MatchReason:   computeMatchReason(n, query),
 			IsProtocol:    isProtocol,
 			LinkCount:     len(n.Links),
-			BacklinkCount: len(inbound[n.ID]),
+			BacklinkCount: backlinkCount,
 		}
 	}
 	env := searchEnvelope{
