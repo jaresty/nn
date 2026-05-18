@@ -41,6 +41,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		before       string
 		similarTo    string
 		envelope     bool
+		boostRecent  bool
 	)
 
 	cmd := &cobra.Command{
@@ -171,6 +172,14 @@ func newListCmd(state *rootState) *cobra.Command {
 			var searchScores map[string]float64
 			if search != "" {
 				searchScores = note.BM25Scores(filtered, search, allInbound)
+				if boostRecent {
+					now := time.Now()
+					for _, n := range filtered {
+						ageDays := now.Sub(n.Modified).Hours() / 24
+						// half-life ~30 days; multiplier in (1.0, 1.5]
+						searchScores[n.ID] *= 1.0 + 0.5*math.Exp(-ageDays/30.0)
+					}
+				}
 				sort.SliceStable(filtered, func(i, j int) bool {
 					return searchScores[filtered[i].ID] > searchScores[filtered[j].ID]
 				})
@@ -251,6 +260,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&sortBy, "sort", "", "Sort by field: title, modified, created (default: created desc)")
 	cmd.Flags().StringVar(&since, "since", "", "Notes modified after this date (ISO 8601: 2006-01-02 or 2006-01-02T15:04:05Z)")
 	cmd.Flags().StringVar(&before, "before", "", "Notes modified before this date (ISO 8601)")
+	cmd.Flags().BoolVar(&boostRecent, "boost-recent", false, "Boost recently-modified notes in search results (requires --search)")
 	cmd.Flags().BoolVar(&rich, "rich", false, "Include modified, link_count, body_preview in JSON output (requires --json)")
 	cmd.Flags().BoolVar(&showFirst, "show-first", false, "Append full body of top search result after JSON output (requires --json)")
 	cmd.Flags().StringVar(&similarTo, "similar", "", "Rank notes by BM25 similarity to this note ID (excludes the note itself)")

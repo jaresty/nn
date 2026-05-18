@@ -98,6 +98,8 @@ nn list [--tag TEXT] [--type TYPE] [--status STATUS]
 
 `--search TEXT` performs a ranked case-insensitive search across note title and body. Title matches rank above body matches. Notes with more inbound backlinks receive a log-scale centrality boost on top of BM25, so well-linked notes surface above equal-content orphans. The `score` field in `--json` output reflects both BM25 relevance and centrality.
 
+`--boost-recent` (requires `--search`) applies an exponential decay multiplier to BM25 scores based on each note's last-modified timestamp. Recently-modified notes receive up to a 1.5× score multiplier (half-life ≈ 30 days), so notes touched in the last few weeks surface above equally-relevant older notes. Use when you want to bias search toward active work-in-progress.
+
 `--similar ID` ranks all notes by BM25 similarity to the given note's title and body, excluding the note itself. Use for serendipitous discovery — find notes that share vocabulary with a given note but have no explicit link. Composes with `--status`, `--tag`, `--type`, `--limit`, `--json`. When `--similar` is active, `--sort` is ignored (similarity ranking takes precedence).
 
 ```
