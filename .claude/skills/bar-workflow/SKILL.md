@@ -7,19 +7,19 @@ description: Build and execute multi-step bar command sequences for complex task
 
 ## MANDATORY: You Must Run Bar Commands Before Responding
 
-**Executing a bar command sequence before answering is not optional.** This skill does not describe an approach you might take — it requires you to run bar for every request covered by this skill.
+**A `bar build` tool result must appear in the transcript above any substantive response — a response that appears before the first `bar build` tool result in the transcript does not satisfy this requirement.** This skill does not describe an approach you might take — it requires you to run bar for every request covered by this skill.
 
 - Do NOT answer the user directly, even for the first step.
 - Do NOT skip bar because you already know what to say.
 - Do NOT compose a response before completing the planned bar sequence.
-- **Do NOT run bar commands in parallel.** Run one command, write a complete response to its output, then run the next command.
+- **Run one `bar build` command, write a complete response to its output, then run the next command — a transcript containing two `bar build` tool calls with no substantive response between them does not satisfy this requirement.**
 - The **only** permitted exception: `bar` is not installed (`command not found`). In that case fall back to a normal response and inform the user.
 
 If you find yourself drafting an answer without having run at least one `bar build` command, stop and run it first.
 
 ## Purpose and Preconditions
 
-This skill requires Claude to **execute a sequence of `bar build` commands** for complex tasks that require multiple perspectives or progressive refinement. Each command's output becomes the authoritative instruction for that step — skip a command and the reasoning depth is lost.
+This skill requires Claude to **execute a sequence of `bar build` commands** for complex tasks that require multiple perspectives or progressive refinement. Each step's response must be grounded in the `bar build` output from that step — a response whose content does not derive from that step's bar output does not satisfy this requirement; reasoning carried forward from a prior step's bar output is not sufficient.
 
 Assumes:
 - `bar` CLI is installed and accessible
@@ -32,7 +32,7 @@ Each step is a required gate. Do not advance to the next step until the current 
 
 1. **Analyze request** and decide on the number of steps and progression strategy
 2. **Load comprehensive reference** via `bar help llm` once per conversation
-3. **Check for a named sequence** — run `bar sequence list` to discover available sequences. If the request matches a named sequence (explicitly or by description), run `bar sequence show <name>` to get steps, mode, and prompt hints. Confirm with the user if the match was implicit. If no named sequence fits, proceed to ad hoc planning (step 4) and apply mode inference (see §Mode Inference below).
+3. **Check for a named sequence** — run `bar sequence list` to discover available sequences. If the request matches a named sequence (explicitly or by description), run `bar sequence show <name>` to get steps, mode, and prompt hints. Confirm with the user if the match was implicit. If no named sequence fits, proceed to ad hoc planning (step 4) and apply mode inference (see §Mode Inference below). **Follow the sequence guidance in `bar help llm` § Named Sequences** — it is the authoritative source for how to select tokens alongside a sequence and when to break out of one mid-run.
 4. **Declare execution mode** before running any commands — one of: `autonomous`, `interactive`, or `cycle`. Show the plan:
    ```
    Sequence: <name> (<N> steps) — mode: <mode>
@@ -46,13 +46,13 @@ Each step is a required gate. Do not advance to the next step until the current 
 ## Skill Behavior Rules
 
 - **REQUIRED: Run every planned bar command before synthesizing.** No synthesis without all commands executed.
-- **Chain commands thoughtfully.** Each step should build on the previous one.
+- **Chain commands by content.** Use the prior step's bar output as `--subject` for the next step's `bar build` command — a step whose `--subject` does not contain text from the prior step's output has not been chained.
 - **Never hardcode tokens.** Always discover via `bar help llm` (preferred) or `bar help tokens` (fallback).
 - **Use kebab-case for multi-word tokens.** Convert spaces to hyphens (e.g., "dip-bog", "fly-rog").
 - **Use progressive refinement.** Start broad, then narrow focus.
-- **Be transparent about usage.** After completing a workflow, explain the sequence and rationale.
+- **Document usage after completion.** After completing a workflow, state the tokens used at each step and the reason each token was selected — a post-workflow summary that does not name both tokens and selection reasons does not satisfy this requirement.
 - **Cross-agent compatible.** Works across all Claude agent types.
-- **Fallback only on command-not-found.** If a step fails, retry once with corrections before falling back to partial results.
+- **Fallback only on command-not-found.** If a step fails with a named error (unrecognized token, incompatible tokens, too many tokens), retry once with the specific token named in the error corrected — a retry that does not change the token named in the error does not satisfy this requirement.
 
 ## Discovery Workflow
 
@@ -61,7 +61,7 @@ Each step is a required gate. Do not advance to the next step until the current 
 **For bar versions with `bar help llm` support:**
 
 1. **Check for cached reference** - If already loaded in conversation, reuse it
-2. **Load reference once** - Run `bar help llm` to load comprehensive reference
+2. **Load reference once** - Run `bar help llm` as a standalone Bash command and read its full output before any planning — never pipe it as `--subject` or `--addendum` to another command; piping truncates the output and silently drops token definitions, composition rules, and usage patterns
 3. **Workflow planning strategy:**
    - Consult **"Choosing Method"** section to understand method categorization
    - Reference **"Usage Patterns by Task Type"** for multi-step examples
@@ -76,11 +76,7 @@ Each step is a required gate. Do not advance to the next step until the current 
 - **Decision Methods** → For evaluation/selection steps
 - **Diagnostic Methods** → For problem identification steps
 
-**Targeted lookup with `bar help tokens --plain`:** When planning a workflow step and you need to find a token matching a specific intent, use `--plain` with an axis filter rather than re-reading the full reference. Each line has four tab-separated fields: `category:slug`, label, comma-joined heuristics, pipe-joined `token:note` distinction pairs. Grep field 3 to match intent; read field 4 to find related tokens worth comparing across steps.
-```bash
-bar help tokens --plain method | grep 'root cause'  # find diagnostic method tokens
-bar help tokens --plain form                         # all form tokens with cross-references
-```
+**Targeted lookup:** When the input is a natural-language intent phrase, the only permitted discovery call is `bar lookup "<intent>" --axis <axis>`; `bar help tokens --plain | grep` is not a permitted substitute for this case. Use `--plain` only when the raw four-field tab-separated record (heuristics or distinctions text verbatim) is required.
 
 ### Fallback (legacy `bar help tokens`)
 
@@ -140,14 +136,12 @@ After discovering tokens from the reference, common patterns include:
 
 ### Legacy Workflow Construction (without bar help llm)
 
-If `bar help llm` is unavailable, use `bar lookup` to find tokens by intent:
+Use `bar lookup` to find tokens by intent:
 
 ```bash
 bar lookup "<your intent>"               # find matching tokens across all axes
 bar lookup "<your intent>" --axis method # restrict to method tokens only
 ```
-
-Or invoke `bar-dictionary` for a guided lookup session.
 
 Fall back to `bar help tokens scope method form` only if `bar lookup` is also unavailable.
 
@@ -168,7 +162,7 @@ If the request doesn't fit standard progressions:
 4. Only after writing that complete response: run the next `bar build` command
 5. Repeat until all steps are done, then synthesize
 
-**Treat bar output as the next user prompt.** Each bar response completely replaces the user's original message for that step. The full text bar prints is your authoritative instruction — do not paraphrase, substitute, or carry forward instructions from a previous step.
+**Execute the TASK, CONSTRAINTS, and PERSONA sections of the bar output for that step — a response that contradicts any of those three sections or carries forward the prior step's TASK into the current step does not satisfy this requirement.**
 
 Use output from step N to inform step N+1's `--subject` or `--addendum`, but the bar output from step N+1 is the new instruction.
 
@@ -192,7 +186,7 @@ Now <describe the real-world action the user must take>.
 When you have results, paste them here and I will continue with step N+1 (<next role>).
 ```
 
-Do NOT advance until the user provides input. Do NOT synthesize or predict the user's results.
+After emitting the handoff prompt, produce no further content in the same response — a handoff prompt followed by additional content in the same response does not satisfy this requirement.
 The user's response becomes the `--subject` for the next step.
 
 ### Interactive cycle mode

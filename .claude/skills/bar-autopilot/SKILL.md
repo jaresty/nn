@@ -9,6 +9,7 @@ description: Automatically detect and apply bar structuring to responses for bet
 
 **Running `bar build` before answering is not optional.** This skill does not provide suggestions for when bar might help — it requires you to invoke bar for every request.
 
+- **A `bar build` tool result must appear in the transcript above any substantive response — a response that appears before the first `bar build` tool result in the transcript does not satisfy this requirement.**
 - Do NOT answer the user directly, even if you already know the answer.
 - Do NOT skip bar because the request seems simple or the answer feels obvious.
 - Do NOT compose a response before completing steps 1–5 of the High-level Workflow below.
@@ -43,7 +44,7 @@ Each step is a required gate. Do not advance to the next step until the current 
 - **Never hardcode tokens.** Always discover them via `bar help llm` (preferred) or `bar help tokens` (fallback).
 - **Be version-agnostic.** Tokens evolve; discover them dynamically from the current bar version.
 - **Use kebab-case for multi-word tokens.** When tokens contain spaces (e.g., "as kent beck"), convert to kebab-case: "as-kent-beck".
-- **Be transparent about usage.** After using bar, briefly explain which command you used and why it fits the request type.
+- **Be transparent about usage.** After running bar build, state the command used and the reason each token was selected — a response that does not name both the command and the token selection reasons does not satisfy this requirement.
 - **Fallback only on command-not-found.** If bar is unavailable, fall back to normal response and tell the user. A failed bar command is not a reason to skip; retry once with corrections.
 - **Cross-agent compatible.** Must work across all Claude agent types (general-purpose, Explore, Plan, etc.).
 - **Use Bash tool.** Execute bar commands via the Bash tool.
@@ -56,7 +57,7 @@ Each step is a required gate. Do not advance to the next step until the current 
 **For bar versions with `bar help llm` support:**
 
 1. **Check for cached reference** - If `bar help llm` was already run in this conversation, reuse it
-2. **Load reference once** - If not cached, run `bar help llm` to load comprehensive reference (~500 lines)
+2. **Load reference once** - If not cached, run `bar help llm` as a standalone Bash command and read its full output before any planning — never pipe it as `--subject` or `--addendum` to another command; piping truncates output and silently drops token definitions
 3. **Token selection strategy:**
    - Consult **"Usage Patterns by Task Type"** section for similar use case examples
    - Reference **"Token Selection Heuristics"** section for scope/method/form guidance
@@ -75,11 +76,7 @@ Each step is a required gate. Do not advance to the next step until the current 
 - Token Selection Heuristics (categorized by thinking style)
 - Advanced Features (shuffle, skip sentinels, `--plain` format)
 
-**Targeted lookup with `bar help tokens --plain`:** When you need to find a token matching a specific intent phrase without re-reading the full reference, use `--plain` with an axis filter. Each line has four tab-separated fields: `category:slug`, label, comma-joined heuristics, pipe-joined `token:note` distinction pairs. Grep field 3 (heuristics) to match intent; read field 4 (distinctions) to find related tokens worth comparing.
-```bash
-bar help tokens --plain method | grep 'debug'   # find method tokens for a debugging intent
-bar help tokens --plain task                     # all task tokens with heuristics and cross-references
-```
+**Targeted lookup:** When the input is a natural-language intent phrase, the only permitted discovery call is `bar lookup "<intent>" --axis <axis>`; `bar help tokens --plain | grep` is not a permitted substitute for this case. Use `--plain` only when the raw four-field tab-separated record (heuristics or distinctions text verbatim) is required.
 
 ### Fallback (legacy `bar help tokens`)
 
@@ -130,15 +127,13 @@ bar help tokens --plain task                     # all task tokens with heuristi
 
 ### Legacy Token Selection (without bar help llm)
 
-If `bar help llm` is unavailable, use `bar lookup` to find tokens by intent:
+Use `bar lookup` to find tokens by intent:
 
 ```bash
 bar lookup "<your intent>"               # find matching tokens across all axes
 bar lookup "<your intent>" --axis method # restrict to method tokens only
 bar lookup "<your intent>" --axis scope  # restrict to scope tokens only
 ```
-
-Or invoke `bar-dictionary` for a guided lookup session.
 
 Fall back to `bar help tokens scope method form` only if `bar lookup` is also unavailable.
 
@@ -226,7 +221,7 @@ When `bar build` fails, follow this retry logic:
    - Reorder tokens according to grammar (persona → static → completeness → scope → method → form → channel → directional)
    - Remove incompatible combinations (consult reference § "Composition Rules")
    - Reduce token count if over capacity
-   - Retry the command once with corrections
+   - Retry the command once with the specific token named in the error corrected — a retry that does not change the token named in the error does not satisfy this requirement
 
 3. **Fall back after retry failure** - Only fall back to normal response if:
    - The retry also fails
