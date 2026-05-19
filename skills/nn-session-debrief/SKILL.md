@@ -1,7 +1,7 @@
 ---
 name: nn-session-debrief
-description: End-of-session review — surface what was captured, flag un-promoted drafts with new links, and propose a session summary note.
-when_to_use: At the end of a working session to consolidate captures, assess promotion eligibility, and record what was learned. Invoke with /nn-session-debrief.
+description: End-of-session review — surface what was captured, flag un-promoted drafts with new links, and propose a session summary note. Also supports weekly review mode (/nn-session-debrief --weekly).
+when_to_use: At the end of a working session to consolidate captures, assess promotion eligibility, and record what was learned. Invoke with /nn-session-debrief. For a weekly review pass (wider time window, stale draft sweep, promotion focus), invoke with /nn-session-debrief --weekly.
 ---
 
 # nn-session-debrief
@@ -14,6 +14,12 @@ Invoke at the end of a working session to:
 - Review what was captured
 - Identify draft notes that now have enough inbound links to be promoted
 - Propose a session summary note linking the session's captures
+
+Invoke with `--weekly` for a broader review pass:
+- Sweep drafts modified in the past 7 days
+- Surface stale drafts (modified >7 days ago, still draft)
+- Focus on promotion eligibility across the full recent period
+- Skip session summary (weekly pass is not session-scoped)
 
 ## Workflow
 
@@ -52,9 +58,32 @@ nn promote <id> --to reviewed
 
 For each significant capture from this session, invoke the `nn-refine` workflow to check atomicity, links, and title quality.
 
-### 4. Propose session summary note
+### 4. (Weekly mode only) Notebook health review
+
+When invoked with `--weekly`, run the full health report first:
+
+```
+nn review
+```
+
+Use its output to drive the rest of the pass:
+- **Orphans section** → surface each orphaned draft for linking or deletion
+- **Long notes section** → flag notes exceeding the atomicity threshold for splitting
+- **Structural gaps** → act on any pattern `nn review` identifies
+
+Then sweep stale drafts:
+
+```
+nn list --status draft --sort modified --json
+```
+
+For each draft not touched in the past 7 days: check body accuracy, inbound links (`nn backlinks <id> --json`), and orphan status. Orphaned stale drafts with no inbound links are candidates for deletion — surface them for the user to decide.
+
+### 5. Propose session summary note
 
 Create a session summary note linking the key captures:
+
+In weekly mode, skip this step.
 
 ```
 nn new --title "Session: <date> — <topic>" --type observation --content "## What was captured\n\n..." --no-edit
@@ -72,7 +101,8 @@ nn backlinks <id> --json
 nn promote <id> --to reviewed|permanent
 nn new --title "..." --type observation --content "..." --no-edit
 nn bulk-link <from> --to <id> --annotation "..." --type TYPE [--to <id> ...]
-nn review [--format json]
+nn review                                    # weekly mode: full health report
+nn review --format json
 ```
 
 ## Success criteria

@@ -89,6 +89,38 @@ func TestShowVirtualErrorHandlingSkipClause(t *testing.T) {
 	}
 }
 
+// Assertion: virtual-nn-cli-reference appears in nn show --global output.
+func TestShowVirtualCLIReferenceGlobal(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global: %v", err)
+	}
+	if !strings.Contains(out, "virtual-nn-cli-reference") {
+		t.Errorf("expected virtual-nn-cli-reference id in output:\n%s", out)
+	}
+}
+
+// Assertion: nn show virtual-nn-cli-reference returns body covering valid types and statuses.
+func TestShowVirtualCLIReferenceBody(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-cli-reference: %v", err)
+	}
+	if !strings.Contains(out, "concept|argument|model|hypothesis|observation|question|protocol") {
+		t.Errorf("expected valid type values in body:\n%s", out)
+	}
+	if !strings.Contains(out, "draft|reviewed|permanent") {
+		t.Errorf("expected valid status values in body:\n%s", out)
+	}
+	if !strings.Contains(out, "refines|contradicts|source-of|extends|supports|questions|governs") {
+		t.Errorf("expected valid link type values in body:\n%s", out)
+	}
+}
+
 // Assertion: capture-discipline skip clause requires quoting a verbatim excerpt from the tool result,
 // with [] mapping to "zero results returned" and non-empty results requiring a title citation.
 func TestCaptureDisciplineSkipClauseRequiresVerbatimExcerpt(t *testing.T) {

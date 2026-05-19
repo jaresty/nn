@@ -63,6 +63,20 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"Acting without searching risks repeating a diagnosed problem.\n",
 	},
 	{
+		ID:          "virtual-nn-cli-reference",
+		Title:       "Protocol: nn CLI reference",
+		AppliesWhen: "always — reference for valid nn command flags, types, and statuses",
+		Body: "**nn new** `--title \"...\" --type <type> --content \"...\" --no-edit [--tags \"t1,t2\"] [--link-to <id> --annotation \"...\"] [--applies-when \"...\"]`\n" +
+			"Valid --type: concept|argument|model|hypothesis|observation|question|protocol\n" +
+			"New notes are always created as draft. Promote with: `nn update <id> --status reviewed`\n\n" +
+			"**nn update** `<id> --status <status>` | `--title \"...\"` | `--applies-when \"...\"` | `--content \"...\" --no-edit`\n" +
+			"Valid --status: draft|reviewed|permanent\n\n" +
+			"**nn list** `--search \"<q>\" --show-first --json` | `--type <type>` | `--status <status>` | `--orphan` | `--since <ISO>`\n\n" +
+			"**nn show** `<id>` | `--global`\n\n" +
+			"**nn link** `<from> <to> --type <type> --annotation \"...\"`\n" +
+			"Valid --type: refines|contradicts|source-of|extends|supports|questions|governs\n",
+	},
+	{
 		ID:          "virtual-nn-error-handling",
 		Title:       "Protocol: error handling",
 		AppliesWhen: "when any tool call, command, or test fails unexpectedly",

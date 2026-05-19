@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	nnSkills "github.com/jaresty/nn/skills"
 )
 
 func TestInstallSkillsList(t *testing.T) {
@@ -62,6 +64,47 @@ func TestInstallSkillsForCursor(t *testing.T) {
 	}
 	if !strings.Contains(out, "nn-workflow") {
 		t.Errorf("--for cursor --list missing skill names: %q", out)
+	}
+}
+
+// TestInstallSkillsMatchInstalled asserts that each embedded skill's SKILL.md
+// matches the installed version at ~/.claude/skills/<skill>/SKILL.md.
+// Skips individual skills that are not yet installed; skips entirely if HOME is not set.
+func TestInstallSkillsMatchInstalled(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no HOME directory available")
+	}
+	installedBase := filepath.Join(home, ".claude", "skills")
+
+	entries, err := nnSkills.FS.ReadDir(".")
+	if err != nil {
+		t.Fatalf("read embedded skills: %v", err)
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		installedPath := filepath.Join(installedBase, name, "SKILL.md")
+		installedData, err := os.ReadFile(installedPath)
+		if os.IsNotExist(err) {
+			t.Logf("skill %s: not installed, skipping", name)
+			continue
+		}
+		if err != nil {
+			t.Errorf("skill %s: read installed: %v", name, err)
+			continue
+		}
+		embeddedData, err := nnSkills.FS.ReadFile(filepath.Join(name, "SKILL.md"))
+		if err != nil {
+			t.Errorf("skill %s: read embedded: %v", name, err)
+			continue
+		}
+		if string(embeddedData) != string(installedData) {
+			t.Errorf("skill %s: embedded SKILL.md does not match installed at %s\n--- embedded ---\n%s\n--- installed ---\n%s",
+				name, installedPath, embeddedData, installedData)
+		}
 	}
 }
 
