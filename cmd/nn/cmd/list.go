@@ -400,7 +400,7 @@ func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, score
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
-	enc.SetIndent("", "  ")
+
 	return enc.Encode(out)
 }
 
@@ -460,7 +460,7 @@ func printSearchEnvelopeJSON(cmd *cobra.Command, notes []*note.Note, query strin
 		Results:       results,
 	}
 	enc := json.NewEncoder(outWriter(cmd))
-	enc.SetIndent("", "  ")
+
 	return enc.Encode(env)
 }
 
@@ -522,7 +522,7 @@ func printNotesJSON(cmd *cobra.Command, notes []*note.Note) error {
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
-	enc.SetIndent("", "  ")
+
 	return enc.Encode(out)
 }
 
@@ -564,7 +564,7 @@ func printNotesRichJSON(cmd *cobra.Command, notes []*note.Note) error {
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
-	enc.SetIndent("", "  ")
+
 	return enc.Encode(out)
 }
 

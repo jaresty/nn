@@ -179,3 +179,27 @@ func TestListGlobalWithNonProtocolTypeErrors(t *testing.T) {
 		t.Fatal("nn list --global --type concept: want error, got nil")
 	}
 }
+
+func assertCompactJSON(t *testing.T, out, label string) {
+	t.Helper()
+	if strings.Contains(out, "  \"") || strings.Contains(out, "{\n") {
+		t.Errorf("%s: JSON output is not compact: found pretty-print markers", label)
+	}
+}
+
+func TestListJSONCompact(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	writeNoteFile(t, nbDir, newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept))
+
+	out, err := execute("list", "--json")
+	if err != nil {
+		t.Fatalf("nn list --json: %v", err)
+	}
+	assertCompactJSON(t, out, "nn list --json")
+
+	out, err = execute("list", "--search", "Alpha", "--json")
+	if err != nil {
+		t.Fatalf("nn list --search --json: %v", err)
+	}
+	assertCompactJSON(t, out, "nn list --search --json")
+}

@@ -139,3 +139,21 @@ func TestCaptureDisciplineSkipClauseRequiresVerbatimExcerpt(t *testing.T) {
 		t.Errorf("expected skip clause to name 'zero results returned' as the zero-results declaration:\n%s", out)
 	}
 }
+
+// Assertion: virtual-nn-capture-discipline gate instruction does not tell agents to use --show-first.
+func TestShowCaptureDisciplineNoShowFirst(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if strings.Contains(out, "requires a preceding `nn list --search") && strings.Contains(out, "--show-first") {
+		// Check that the gate instruction sentence itself doesn't contain --show-first.
+		for _, line := range strings.Split(out, "\n") {
+			if strings.Contains(line, "requires a preceding") && strings.Contains(line, "--show-first") {
+				t.Errorf("gate instruction must not tell agents to use --show-first: %q", line)
+			}
+		}
+	}
+}
