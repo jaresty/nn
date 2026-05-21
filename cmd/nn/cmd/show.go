@@ -37,7 +37,8 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"The search result must appear as the immediately preceding tool result before the action. " +
 			"A search result satisfies the gate only if the search query contains at least one word from the stated search rationale — " +
 			"a search result whose query shares no word with the stated search rationale does not satisfy this gate. " +
-			"After reviewing the results, cite at least one result title: either the title that covers the question, or a title from the results and explain why it does not cover the stated search rationale.\n\n" +
+			"After reviewing the results, cite at least one result title: either the title that covers the question, or a title from the results and explain why it does not cover the stated search rationale. " +
+			"If any result title shares a word with the search rationale, run `nn show <id>` on the highest-scoring such result before acting.\n\n" +
 			"**Allow-list (no gate required):**\n" +
 			"- Running, editing, or reading a file that appears in a prior Write, Edit, or Bash tool call in this session\n" +
 			"- Running a command that produces output solely from local code or state present in this session (e.g. tests, builds, linters)\n" +

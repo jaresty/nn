@@ -157,3 +157,19 @@ func TestShowCaptureDisciplineNoShowFirst(t *testing.T) {
 		}
 	}
 }
+
+// Assertion: virtual-nn-capture-discipline requires nn show on results that share a word with the search rationale.
+func TestShowCaptureDisciplineRequiresShowOnWordMatch(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if !strings.Contains(out, "shares a word with the search rationale") {
+		t.Errorf("expected clause requiring nn show when result title shares a word with search rationale:\n%s", out)
+	}
+	if !strings.Contains(out, "nn show") {
+		t.Errorf("expected nn show command in capture-discipline body:\n%s", out)
+	}
+}
