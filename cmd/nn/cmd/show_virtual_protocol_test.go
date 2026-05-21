@@ -158,6 +158,24 @@ func TestShowCaptureDisciplineNoShowFirst(t *testing.T) {
 	}
 }
 
+// Assertion: allow-list clause names specific write-indicating strings rather than broad "Bash tool call".
+func TestShowCaptureDisciplineAllowListWriteStrings(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if strings.Contains(out, "appears in a prior Write, Edit, or Bash tool call") {
+		t.Errorf("allow-list clause must not use broad 'Bash tool call' — found hollow clause in output:\n%s", out)
+	}
+	for _, s := range []string{"tee", "`>`", "`>>`"} {
+		if !strings.Contains(out, s) {
+			t.Errorf("allow-list clause must name write-indicating string %q — not found in output:\n%s", s, out)
+		}
+	}
+}
+
 // Assertion: virtual-nn-capture-discipline prohibits piping nn list --search and directs use of --limit N.
 func TestShowCaptureDisciplineNoPipeDirective(t *testing.T) {
 	_, execute := setupNotebook(t)

@@ -41,7 +41,9 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"After reviewing the results, cite at least one result title: either the title that covers the question, or a title from the results and explain why it does not cover the stated search rationale. " +
 			"If any result title shares a word with the search rationale, run `nn show <id>` on the highest-scoring such result before acting.\n\n" +
 			"**Allow-list (no gate required):**\n" +
-			"- Running, editing, or reading a file that appears in a prior Write, Edit, or Bash tool call in this session\n" +
+			"- Running, editing, or reading a file that is the target path of a prior Write or Edit tool call in this session — " +
+			"a Bash tool call satisfies this only if its text contains `>`, `>>`, `tee`, `cp`, `mv`, or `install` targeting that path; " +
+			"a Bash call that only reads or lists the file (e.g. `find`, `ls`, `grep`, `cat`) does not satisfy this condition\n" +
 			"- Running a command that produces output solely from local code or state present in this session (e.g. tests, builds, linters)\n" +
 			"- Fetching output from an execution system you triggered or are operating in this session (e.g. CI run you initiated, container you started), where the result did not exist before this session\n" +
 			"- Fetching live operational state from a system where: (a) a specific resource identifier (branch, PR number, host, job ID) for that system appears in the conversation above this action, and (b) the fetched result is machine-generated output (JSON, status code, log line) rather than human-authored content\n\n" +
