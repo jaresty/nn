@@ -158,6 +158,22 @@ func TestShowCaptureDisciplineNoShowFirst(t *testing.T) {
 	}
 }
 
+// Assertion: virtual-nn-capture-discipline prohibits piping nn list --search and directs use of --limit N.
+func TestShowCaptureDisciplineNoPipeDirective(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if !strings.Contains(out, "--limit N") {
+		t.Errorf("expected '--limit N' in capture-discipline body:\n%s", out)
+	}
+	if !strings.Contains(out, "non-compliant") {
+		t.Errorf("expected 'non-compliant' labeling the pipe pattern in capture-discipline body:\n%s", out)
+	}
+}
+
 // Assertion: virtual-nn-capture-discipline requires nn show on results that share a word with the search rationale.
 func TestShowCaptureDisciplineRequiresShowOnWordMatch(t *testing.T) {
 	_, execute := setupNotebook(t)

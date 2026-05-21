@@ -32,7 +32,8 @@ var virtualGlobalProtocols = []virtualProtocol{
 		AppliesWhen: "before any action that reads from a source not authored this session",
 		Body: "Before running the search, write: 'Search rationale: [action] requires knowing [X].' " +
 			"The search query must contain at least one word from X.\n\n" +
-			"Every action requires a preceding `nn list --search \"<topic>\" --json` result in the transcript, " +
+			"Every action requires a preceding `nn list --search \"<topic>\" --json` result in the transcript " +
+			"(no `|` in the same tool call — a tool call containing `nn list --search` followed by `|` is non-compliant; use `--limit N` to restrict result count instead), " +
 			"except actions on the allow-list below. " +
 			"The search result must appear as the immediately preceding tool result before the action. " +
 			"A search result satisfies the gate only if the search query contains at least one word from the stated search rationale — " +
