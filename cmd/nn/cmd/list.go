@@ -185,8 +185,8 @@ func newListCmd(state *rootState) *cobra.Command {
 				})
 			}
 
-			// Only apply sort-by when not using --similar (similarity ranking takes precedence).
-			if similarTo == "" {
+			// Only apply sort-by when not using --similar or --search (relevance ranking takes precedence).
+			if similarTo == "" && (search == "" || sortBy != "") {
 				switch sortBy {
 				case "modified":
 					sort.Slice(filtered, func(i, j int) bool {

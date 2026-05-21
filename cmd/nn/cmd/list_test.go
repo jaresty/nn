@@ -3,6 +3,7 @@ package cmd
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jaresty/nn/internal/note"
 )
@@ -202,4 +203,39 @@ func TestListJSONCompact(t *testing.T) {
 		t.Fatalf("nn list --search --json: %v", err)
 	}
 	assertCompactJSON(t, out, "nn list --search --json")
+}
+
+func TestListSearchRelevanceOrder(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	now := time.Now().UTC().Truncate(time.Second)
+
+	// low: newer created time (so created-desc sort puts it FIRST), but low BM25 relevance.
+	low := newTestNoteForCLI(note.GenerateID(), "Unrelated Title Two", note.TypeConcept)
+	low.Body = "zygote and many other words that dilute the term considerably here"
+	low.Created = now
+	low.Modified = now
+
+	// high: older created time (so created-desc sort puts it SECOND), but high BM25 relevance.
+	high := newTestNoteForCLI(note.GenerateID(), "Unrelated Title One", note.TypeConcept)
+	high.Body = "zygote zygote zygote zygote zygote zygote zygote zygote zygote zygote"
+	high.Created = now.Add(-time.Hour)
+	high.Modified = now.Add(-time.Hour)
+
+	writeNoteFile(t, nbDir, low)
+	writeNoteFile(t, nbDir, high)
+
+	out, err := execute("list", "--search", "zygote", "--json")
+	if err != nil {
+		t.Fatalf("nn list --search zygote --json: %v", err)
+	}
+
+	highIdx := strings.Index(out, high.ID)
+	lowIdx := strings.Index(out, low.ID)
+	if highIdx == -1 || lowIdx == -1 {
+		t.Fatalf("expected both notes in output; high=%d low=%d\nout: %s", highIdx, lowIdx, out)
+	}
+	if highIdx > lowIdx {
+		t.Errorf("search results not ordered by relevance: high-relevance note (id=%s) appeared after low-relevance note (id=%s)", high.ID, low.ID)
+	}
 }
