@@ -328,8 +328,8 @@ func TestInstallHooksSuccessMessageMentionsSettings(t *testing.T) {
 	}
 
 	out, _ := execute("install-hooks")
-	if !strings.Contains(out, "settings.json") {
-		t.Errorf("success message does not mention settings.json: %q", out)
+	if !strings.Contains(out, "hooks/hooks.json") {
+		t.Errorf("success message does not mention hooks/hooks.json: %q", out)
 	}
 }
 

@@ -85,7 +85,7 @@ Scopes:
 				return fmt.Errorf("install-hooks: write settings.json hooks: %w", err)
 			}
 
-			fmt.Fprintf(outWriter(cmd), "nn-hooks installed (scope: %s)\nHooks written to %s.\nRestart Claude Code to activate the hooks.\n", scope, settingsPath)
+			fmt.Fprintf(outWriter(cmd), "nn-hooks installed (scope: %s)\nPlugin deployed to ~/.local/share/nn — hooks loaded from plugin hooks/hooks.json.\nRestart Claude Code to activate the hooks.\n", scope)
 			return nil
 		},
 	}
