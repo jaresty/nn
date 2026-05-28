@@ -1,0 +1,81 @@
+package cmd
+
+import (
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/jaresty/nn/internal/note"
+)
+
+func newRemindCmd(state *rootState) *cobra.Command {
+	var (
+		forDays    int
+		expiresStr string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "remind <content>",
+		Short: "Create a temporary reminder note surfaced at session start",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			content := args[0]
+
+			title := content
+			if len(title) > 60 {
+				title = title[:60]
+			}
+
+			now := time.Now().UTC()
+			var expires time.Time
+			switch {
+			case expiresStr != "":
+				t, err := time.Parse("2006-01-02", expiresStr)
+				if err != nil {
+					return fmt.Errorf("--expires: invalid date %q, want YYYY-MM-DD", expiresStr)
+				}
+				expires = t
+			case forDays > 0:
+				expires = now.Add(time.Duration(forDays) * 24 * time.Hour)
+			default:
+				expires = now.Add(24 * time.Hour)
+			}
+
+			n := &note.Note{
+				ID:       note.GenerateID(),
+				Title:    title,
+				Type:     note.TypeObservation,
+				Status:   note.StatusPermanent,
+				Tags:     []string{"reminder"},
+				Expires:  &expires,
+				Created:  now,
+				Modified: now,
+				Body:     content,
+			}
+
+			if err := state.backend.Write(n); err != nil {
+				return fmt.Errorf("remind: %w", err)
+			}
+			fmt.Fprintf(outWriter(cmd), "created %s\n", n.ID)
+			return nil
+		},
+	}
+
+	cmd.Flags().IntVar(&forDays, "for", 0, "Expire after N days (e.g. --for 2); default 1")
+	cmd.Flags().StringVar(&expiresStr, "expires", "", "Explicit expiry date (YYYY-MM-DD)")
+	return cmd
+}
+
+// parseForFlag parses strings like "2d", "7d" into a day count.
+// Returns 0 if the string is empty or unparseable.
+func parseForFlag(s string) int {
+	s = strings.TrimSuffix(strings.TrimSpace(s), "d")
+	n, err := strconv.Atoi(s)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return n
+}

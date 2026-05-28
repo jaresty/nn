@@ -162,6 +162,28 @@ func newShowCmd(state *rootState) *cobra.Command {
 						fmt.Fprintf(w, "applies_when: %s\n", n.AppliesWhen)
 					}
 				}
+				now := time.Now().UTC()
+				var activeReminders []*note.Note
+				for _, n := range all {
+					hasReminder := false
+					for _, tag := range n.Tags {
+						if tag == "reminder" {
+							hasReminder = true
+							break
+						}
+					}
+					if hasReminder && (n.Expires == nil || !n.Expires.Before(now)) {
+						activeReminders = append(activeReminders, n)
+					}
+				}
+				if len(activeReminders) > 0 {
+					fmt.Fprintln(w, "---")
+					fmt.Fprintln(w, "## Reminders")
+					fmt.Fprintln(w)
+					for _, n := range activeReminders {
+						fmt.Fprintf(w, "### %s\n\n%s\n\n", n.Title, n.Body)
+					}
+				}
 				fmt.Fprint(w, protocolDerivationBlock)
 				return nil
 			}

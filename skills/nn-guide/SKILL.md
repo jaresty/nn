@@ -26,6 +26,7 @@ nn new --title TEXT --type TYPE [--tags TEXT] [--content TEXT] [--no-edit]
        [--link-to ID --annotation TEXT]
        [--from-stdin]
        [--from-file PATH]
+       [--expires YYYY-MM-DD]
 ```
 
 - `--type` is required: `concept | argument | model | hypothesis | observation | question | protocol`
@@ -60,7 +61,7 @@ nn show --linked-from <id>
 nn show --global
 ```
 
-`--global` shows all global protocol notes (type:protocol with no outgoing `governs` links) in one command, each with the derivation instruction appended. Replaces the two-step `nn list --global --json` + `nn show <id>` pattern.
+`--global` shows all global protocol notes (type:protocol with no outgoing `governs` links) in one command, each with the derivation instruction appended. Replaces the two-step `nn list --global --json` + `nn show <id>` pattern. Also appends a `## Reminders` block listing the body of any non-expired notes tagged `reminder`.
 
 If the query doesn't match an ID exactly, `nn` searches note titles case-insensitively.
 If multiple titles match, the command lists the candidates and exits with an error — use
@@ -128,6 +129,16 @@ nn list --has-url --search "auth"          # URL-containing notes matching "auth
 nn list --older-than 14            # notes not touched in 14+ days (stale tier)
 nn list --older-than 3             # notes not touched in 3+ days (aging + stale)
 nn list --older-than 14 --type concept --json
+```
+
+`--expired` filters to notes with an `expires` date set and in the past. Use to find notes marked for deletion.
+
+`--has-expires` filters to notes with an `expires` date set (any date, past or future). Use to see all time-bounded notes.
+
+```
+nn list --expired                  # notes past their expiration date
+nn list --has-expires              # all notes with an expiration date
+nn list --has-expires --json       # machine-readable expiring notes
 ```
 
 `--no-inbound` filters to notes with zero inbound links. Stricter than `--orphan` (zero links in either direction) — use to find notes nothing references that still have outbound links.
@@ -284,6 +295,7 @@ Accepts a note ID **or a title substring** — if the substring matches exactly 
 | `--replace-section HEADING` | Replace only the named `## Heading` section; requires `--content` or `--stdin`; errors if heading not found |
 | `--append TEXT` | Append text to note body (double-newline separator) |
 | `--status STATUS` | Set note status: `draft`, `reviewed`, or `permanent` |
+| `--expires YYYY-MM-DD` | Set expiration date; note appears in `nn list --expired` after this date |
 | `--no-edit` | Skip `$EDITOR` (always use in non-TTY/LLM context) |
 
 **Preferred LLM patterns:**
@@ -305,6 +317,26 @@ nn update <id-or-title> --tags-add "zettelkasten" --tags-remove "inbox" --no-edi
 
 # Demote or reset status
 nn update <id-or-title> --status draft --no-edit
+```
+
+## nn remind
+
+Create a temporary reminder note that surfaces in `nn show --global` until its expiration date.
+
+```
+nn remind "TEXT" [--for N] [--expires YYYY-MM-DD]
+```
+
+- Creates an `observation` note tagged `reminder` with `permanent` status
+- Title = first 60 characters of TEXT; body = full TEXT
+- Default expiry: today + 1 day (use `--for N` for N days, or `--expires DATE` for a specific date)
+- Appears in the `## Reminders` block of `nn show --global` until expired
+- Expired reminders are silently omitted from `--global` output
+
+```bash
+nn remind "Don't merge the auth PR until legal signs off"        # expires tomorrow
+nn remind "Check in with mobile team" --for 3                    # expires in 3 days
+nn remind "Hold off on deploys" --expires 2026-06-01             # expires on date
 ```
 
 ## nn promote
