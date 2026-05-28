@@ -122,6 +122,16 @@ nn list --url-contains "github.com"        # notes linking to GitHub
 nn list --has-url --search "auth"          # URL-containing notes matching "auth"
 ```
 
+`--older-than N` filters to notes not modified in the last N days (age-based staleness). Uses the same thresholds as `nn show` freshness: 3 days = aging boundary, 14 days = stale boundary.
+
+```
+nn list --older-than 14            # notes not touched in 14+ days (stale tier)
+nn list --older-than 3             # notes not touched in 3+ days (aging + stale)
+nn list --older-than 14 --type concept --json
+```
+
+`--unactioned` filters to notes that were accessed via `nn show` but have had no git commit touching their file since the last access. Advisory — requires `access.log`. Use to surface notes the LLM read but never updated. (Previously named `--stale`.)
+
 Filters compose: `nn list --search "implicit" --type concept --sort modified` works as expected.
 
 ## nn update-link / nn bulk-update-link
@@ -380,12 +390,18 @@ Sections:
 - **Growth**: total notes, by type, created in last 7/30 days
 - **Connectivity**: total links, avg links per note, orphan count + IDs, dead-end count + IDs
 - **Structural gaps**: draft note count + IDs, long note count + IDs (body > 2000 bytes)
+- **Aging notes**: notes not modified recently, split into two buckets using the same thresholds as `nn show` freshness — `aging (3–14 days)` and `stale (>14 days)`, sorted oldest-first within each bucket
+- **Friction candidates**: unreviewed observation notes tagged `friction-candidate`
+- **Protocol telemetry**: protocol session-presence counts from `protocol-presence.log`
+- **Note access**: note view counts from `access.log`
 
 A "dead-end" note has outbound links but no inbound links — it contributes to others but nothing points back to it.
 
 **Long notes** (body exceeds 2000 bytes) are listed under Structural gaps — candidates for splitting into atomic notes.
 
-`--format json` keys: `growth`, `connectivity`, `drafts`, `long_notes`
+**Aging notes** surface content that may be stale. Notes in the `stale (>14 days)` bucket should be verified before relying on them; notes in `aging (3–14 days)` may need a recheck. This mirrors the `freshness:` line injected by `nn show`.
+
+`--format json` keys: `growth`, `connectivity`, `drafts`, `long_notes`, `aging_notes`, `stale_notes`, `friction_candidates`, `protocol_telemetry`, `note_access`
 
 ## nn gap
 

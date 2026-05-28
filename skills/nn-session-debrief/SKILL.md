@@ -69,15 +69,18 @@ nn review
 Use its output to drive the rest of the pass:
 - **Orphans section** → surface each orphaned draft for linking or deletion
 - **Long notes section** → flag notes exceeding the atomicity threshold for splitting
-- **Structural gaps** → act on any pattern `nn review` identifies
+- **Aging notes section** → two buckets using the same thresholds as `nn show` freshness:
+  - `aging (3–14 days)`: surface for recheck — propose `nn show <id>` and update if content is stale
+  - `stale (>14 days)`: content may be outdated — verify before relying on it; propose update or deletion if superseded
+- **Structural gaps** → act on any other pattern `nn review` identifies
 
-Then sweep stale drafts:
+Then sweep unactioned drafts:
 
 ```
-nn list --status draft --sort modified --json
+nn list --older-than 14 --status draft --json
 ```
 
-For each draft not touched in the past 7 days: check body accuracy, inbound links (`nn backlinks <id> --json`), and orphan status. Orphaned stale drafts with no inbound links are candidates for deletion — surface them for the user to decide.
+For each draft not touched in 14+ days: check body accuracy, inbound links (`nn backlinks <id> --json`), and orphan status. Orphaned drafts with no inbound links are candidates for deletion — surface them for the user to decide.
 
 ### 5. Propose session summary note
 
