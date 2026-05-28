@@ -77,10 +77,19 @@ Use its output to drive the rest of the pass:
 Then sweep unactioned drafts:
 
 ```
-nn list --older-than 14 --status draft --json
+nn list --older-than 14 --status draft --rich --json
 ```
 
+`--rich` includes `created` and `modified` timestamps in JSON output. `--older-than 14` filters to notes not modified in 14+ days (same threshold as the stale tier). `--sort modified` sorts by last-modified date. These flags compose freely.
+
 For each draft not touched in 14+ days: check body accuracy, inbound links (`nn backlinks <id> --json`), and orphan status. Orphaned drafts with no inbound links are candidates for deletion — surface them for the user to decide.
+
+**Available flags on `nn list` — use these before reaching for workarounds:**
+- `--sort modified` — sort by last-modified date (most-recent first)
+- `--older-than N` — notes not modified in the last N days
+- `--rich --json` — includes `created` and `modified` timestamps in JSON output
+- `--no-inbound` — notes with no backlinks (deletion candidates; stricter than `--orphan`)
+- `--orphan` — notes with zero links in either direction
 
 ### 5. Propose session summary note
 

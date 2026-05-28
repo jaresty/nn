@@ -30,6 +30,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		long         bool
 		unactioned   bool
 		olderThan    int
+		noInbound    bool
 		hasURL       bool
 		urlContains  string
 		limit        int
@@ -114,6 +115,9 @@ func newListCmd(state *rootState) *cobra.Command {
 					if hasGoverns {
 						continue
 					}
+				}
+				if noInbound && len(allInbound[n.ID]) > 0 {
+					continue
 				}
 				if unactioned && !isUnactionedNote(n, state.notebookDir) {
 					continue
@@ -256,6 +260,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&linkedFrom, "linked-from", "", "Notes that link to this ID")
 	cmd.Flags().StringVar(&linkedTo, "linked-to", "", "Notes this ID links to")
 	cmd.Flags().BoolVar(&orphan, "orphan", false, "Notes with no links (inbound or outbound)")
+	cmd.Flags().BoolVar(&noInbound, "no-inbound", false, "Notes with no inbound links (may have outbound); stricter than --orphan")
 	cmd.Flags().BoolVar(&unactioned, "unactioned", false, "Notes accessed via nn show but not committed since (advisory; requires access.log)")
 	cmd.Flags().IntVar(&olderThan, "older-than", 0, "Notes not modified in the last N days (age-based; 3=aging, 14=stale)")
 	cmd.Flags().BoolVar(&global, "global", false, "Protocol notes with no outgoing governs links (applies universally)")

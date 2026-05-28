@@ -104,3 +104,43 @@ func TestListOlderThan(t *testing.T) {
 		t.Errorf("fresh note %s should be excluded from --older-than output", fresh.ID)
 	}
 }
+
+// Assertion: TestListNoInboundIncludesDeadEnd — note with outbound but no inbound links appears
+func TestListNoInboundIncludesDeadEnd(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	target := newTestNoteForCLI(note.GenerateID(), "Target Note", note.TypeConcept)
+	writeNoteFile(t, nbDir, target)
+
+	src := newTestNoteForCLI(note.GenerateID(), "Source Note", note.TypeConcept)
+	src.Links = []note.Link{{TargetID: target.ID, Type: "extends", Annotation: "extends target"}}
+	writeNoteFile(t, nbDir, src)
+
+	out, err := execute("list", "--no-inbound")
+	if err != nil {
+		t.Fatalf("nn list --no-inbound: %v", err)
+	}
+	if !strings.Contains(out, src.ID) {
+		t.Errorf("want dead-end note %s in --no-inbound output, got:\n%s", src.ID, out)
+	}
+}
+
+// Assertion: TestListNoInboundExcludesLinkedTarget — note with inbound links excluded
+func TestListNoInboundExcludesLinkedTarget(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	target := newTestNoteForCLI(note.GenerateID(), "Target Note", note.TypeConcept)
+	writeNoteFile(t, nbDir, target)
+
+	src := newTestNoteForCLI(note.GenerateID(), "Source Note", note.TypeConcept)
+	src.Links = []note.Link{{TargetID: target.ID, Type: "extends", Annotation: "extends target"}}
+	writeNoteFile(t, nbDir, src)
+
+	out, err := execute("list", "--no-inbound")
+	if err != nil {
+		t.Fatalf("nn list --no-inbound: %v", err)
+	}
+	if strings.Contains(out, target.ID) {
+		t.Errorf("target note %s has inbound links and should be excluded from --no-inbound output", target.ID)
+	}
+}

@@ -130,6 +130,8 @@ nn list --older-than 3             # notes not touched in 3+ days (aging + stale
 nn list --older-than 14 --type concept --json
 ```
 
+`--no-inbound` filters to notes with zero inbound links. Stricter than `--orphan` (zero links in either direction) — use to find notes nothing references that still have outbound links.
+
 `--unactioned` filters to notes that were accessed via `nn show` but have had no git commit touching their file since the last access. Advisory — requires `access.log`. Use to surface notes the LLM read but never updated. (Previously named `--stale`.)
 
 Filters compose: `nn list --search "implicit" --type concept --sort modified` works as expected.
@@ -317,9 +319,16 @@ Status progression: `draft` → `reviewed` → `permanent`. Accepts title substr
 
 ```
 nn delete <id-or-title> --confirm
+nn delete --from-stdin --confirm
 ```
 
 `--confirm` is required. Warns if other notes link to the deleted note.
+
+`--from-stdin` reads note IDs line-by-line from stdin and deletes each. Compose with `nn list` for batch deletion:
+
+```
+nn list --no-inbound --status draft --json | jq -r '.[].id' | nn delete --from-stdin --confirm
+```
 
 ## nn capture
 

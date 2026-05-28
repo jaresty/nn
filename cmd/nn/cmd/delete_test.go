@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,6 +34,31 @@ func TestDeleteRequiresConfirm(t *testing.T) {
 	_, err := execute("delete", n.ID)
 	if err == nil {
 		t.Fatal("nn delete without --confirm: want error, got nil")
+	}
+}
+
+// Assertion: TestDeleteFromStdin — --from-stdin deletes each ID read from stdin
+func TestDeleteFromStdin(t *testing.T) {
+	nbDir, cfgFile := setupNotebookWithCfg(t)
+	n1 := newTestNoteForCLI(note.GenerateID(), "Batch Delete 1", note.TypeConcept)
+	n2 := newTestNoteForCLI(note.GenerateID(), "Batch Delete 2", note.TypeConcept)
+	writeNoteFile(t, nbDir, n1)
+	writeNoteFile(t, nbDir, n2)
+
+	stdin := bytes.NewBufferString(fmt.Sprintf("%s\n%s\n", n1.ID, n2.ID))
+	var stdout bytes.Buffer
+	root := NewRootCmdForTest(cfgFile)
+	root.SetIn(stdin)
+	root.SetOut(&stdout)
+	root.SetArgs([]string{"delete", "--from-stdin", "--confirm"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("nn delete --from-stdin: %v", err)
+	}
+
+	for _, n := range []*note.Note{n1, n2} {
+		if _, err := os.Stat(filepath.Join(nbDir, n.Filename())); !os.IsNotExist(err) {
+			t.Errorf("file %s still exists after batch delete", n.Filename())
+		}
 	}
 }
 
