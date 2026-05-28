@@ -35,20 +35,22 @@ For each captured note, run `nn show <id>` to verify the content is accurate and
 
 ### 2. Find promotion candidates
 
-Find draft notes that have acquired inbound links (suggesting others have referenced them):
+Find draft notes that may be ready for promotion:
 
 ```
 nn list --type observation --status draft --json
 nn list --type concept --status draft --json
 ```
 
-For each, check inbound links:
+**Promotion threshold** — promote a draft if it meets any of:
+- Has reviewed inbound links and a focused body
+- Has 2+ outbound links and a focused body (well-connected even if not yet referenced)
+
+For each candidate, check link counts:
 
 ```
 nn backlinks <id> --json
 ```
-
-If a draft has reviewed inbound links and a focused body, propose:
 
 ```
 nn promote <id> --to reviewed
@@ -82,7 +84,10 @@ nn list --older-than 14 --status draft --rich --json
 
 `--rich` includes `created` and `modified` timestamps in JSON output. `--older-than 14` filters to notes not modified in 14+ days (same threshold as the stale tier). `--sort modified` sorts by last-modified date. These flags compose freely.
 
-For each draft not touched in 14+ days: check body accuracy, inbound links (`nn backlinks <id> --json`), and orphan status. Orphaned drafts with no inbound links are candidates for deletion — surface them for the user to decide.
+For each draft not touched in 14+ days: check outbound link count first.
+- **Has outbound links + coherent body** → promotion candidate, not a deletion candidate; propose `nn promote`
+- **Zero links in either direction** → true orphan, candidate for deletion; surface for user to decide
+- **No inbound, but has outbound** → dead-end note that hasn't been linked to yet; link it rather than delete it
 
 **Available flags on `nn list` — use these before reaching for workarounds:**
 - `--sort modified` — sort by last-modified date (most-recent first)
