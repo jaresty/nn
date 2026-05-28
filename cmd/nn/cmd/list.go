@@ -32,6 +32,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		olderThan    int
 		noInbound    bool
 		expired      bool
+		hasExpires   bool
 		hasURL       bool
 		urlContains  string
 		limit        int
@@ -130,6 +131,9 @@ func newListCmd(state *rootState) *cobra.Command {
 					}
 				}
 				if expired && (n.Expires == nil || !n.Expires.Before(time.Now().UTC())) {
+					continue
+				}
+				if hasExpires && n.Expires == nil {
 					continue
 				}
 				if search != "" && note.BM25Scores([]*note.Note{n}, search, allInbound)[n.ID] == 0 {
@@ -268,6 +272,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&unactioned, "unactioned", false, "Notes accessed via nn show but not committed since (advisory; requires access.log)")
 	cmd.Flags().IntVar(&olderThan, "older-than", 0, "Notes not modified in the last N days (age-based; 3=aging, 14=stale)")
 	cmd.Flags().BoolVar(&expired, "expired", false, "Notes with an expires date in the past")
+	cmd.Flags().BoolVar(&hasExpires, "has-expires", false, "Notes with an expires date set (any date)")
 	cmd.Flags().BoolVar(&global, "global", false, "Protocol notes with no outgoing governs links (applies universally)")
 	cmd.Flags().BoolVar(&long, "long", false, "Filter to notes exceeding the atomicity threshold")
 	cmd.Flags().BoolVar(&hasURL, "has-url", false, "Filter to notes containing an http/https URL")

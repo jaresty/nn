@@ -66,6 +66,40 @@ func TestListExpiredExcludesFutureNotes(t *testing.T) {
 	}
 }
 
+// Assertion: TestListHasExpiresIncludesSet — --has-expires returns notes with Expires set
+func TestListHasExpiresIncludesSet(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	exp := time.Now().UTC().Add(30 * 24 * time.Hour).Truncate(time.Second)
+	n := newTestNoteForCLI(note.GenerateID(), "Future Expires Note", note.TypeConcept)
+	n.Expires = &exp
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("list", "--has-expires")
+	if err != nil {
+		t.Fatalf("nn list --has-expires: %v", err)
+	}
+	if !strings.Contains(out, n.ID) {
+		t.Errorf("want note with expires %s in --has-expires output, got:\n%s", n.ID, out)
+	}
+}
+
+// Assertion: TestListHasExpiresExcludesUnset — --has-expires excludes notes with no Expires field
+func TestListHasExpiresExcludesUnset(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	n := newTestNoteForCLI(note.GenerateID(), "No Expires Note", note.TypeConcept)
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("list", "--has-expires")
+	if err != nil {
+		t.Fatalf("nn list --has-expires: %v", err)
+	}
+	if strings.Contains(out, n.ID) {
+		t.Errorf("note without expires %s should be excluded from --has-expires output, got:\n%s", n.ID, out)
+	}
+}
+
 // Assertion: TestReviewExpiredNotesSection — review output contains expiring notes section
 func TestReviewExpiredNotesSection(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
