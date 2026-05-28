@@ -59,7 +59,7 @@ func newRemindCmd(state *rootState) *cobra.Command {
 			if err := state.backend.Write(n); err != nil {
 				return fmt.Errorf("remind: %w", err)
 			}
-			fmt.Fprintf(outWriter(cmd), "created %s\n", n.ID)
+			fmt.Fprintf(outWriter(cmd), "created %s (expires %s)\n", n.ID, expires.Format("2006-01-02"))
 			return nil
 		},
 	}

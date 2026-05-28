@@ -42,9 +42,9 @@ func TestRemindCreatesTaggedPermanentObservation(t *testing.T) {
 		t.Fatalf("nn remind: %v", err)
 	}
 
-	id := strings.TrimPrefix(strings.TrimSpace(out), "created ")
+	id := strings.TrimPrefix(strings.TrimSpace(strings.Split(out, " (expires")[0]), "created ")
 	if id == "" || id == out {
-		t.Fatalf("nn remind: expected 'created <id>' output, got %q", out)
+		t.Fatalf("nn remind: expected 'created <id> (expires ...)' output, got %q", out)
 	}
 
 	n := readNoteByID(t, nbDir, id)
@@ -65,6 +65,19 @@ func TestRemindCreatesTaggedPermanentObservation(t *testing.T) {
 	}
 }
 
+// Assertion: TestRemindOutputIncludesExpiry — nn remind output includes expiry date
+func TestRemindOutputIncludesExpiry(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("remind", "Check the deploy")
+	if err != nil {
+		t.Fatalf("nn remind: %v", err)
+	}
+	if !strings.Contains(out, "(expires ") {
+		t.Errorf("want expiry date in output, got %q", out)
+	}
+}
+
 // Assertion: TestRemindExpiresDefaultOneDay — nn remind without --for or --expires sets expires to tomorrow
 func TestRemindExpiresDefaultOneDay(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
@@ -73,7 +86,7 @@ func TestRemindExpiresDefaultOneDay(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn remind: %v", err)
 	}
-	id := strings.TrimPrefix(strings.TrimSpace(out), "created ")
+	id := strings.TrimPrefix(strings.TrimSpace(strings.Split(out, " (expires")[0]), "created ")
 
 	n := readNoteByID(t, nbDir, id)
 	if n.Expires == nil {
@@ -95,7 +108,7 @@ func TestRemindTitleTruncated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn remind: %v", err)
 	}
-	id := strings.TrimPrefix(strings.TrimSpace(out), "created ")
+	id := strings.TrimPrefix(strings.TrimSpace(strings.Split(out, " (expires")[0]), "created ")
 
 	n := readNoteByID(t, nbDir, id)
 	want := content[:60]
