@@ -308,7 +308,9 @@ func newShowCmd(state *rootState) *cobra.Command {
 					return fmt.Errorf("show: marshal: %w", err)
 				}
 				backlinkers := findBacklinkers(n.ID, all)
-				fmt.Fprint(w, renderWithResolvedLinks(string(data), n, byID, backlinkers))
+				rendered := renderWithResolvedLinks(string(data), n, byID, backlinkers)
+				rendered = injectFreshness(rendered, n.Modified)
+				fmt.Fprint(w, rendered)
 			}
 			return nil
 		},
@@ -405,6 +407,63 @@ func findBacklinkers(targetID string, all []*note.Note) []*note.Note {
 		}
 	}
 	return result
+}
+
+// injectFreshness inserts a "freshness: <tier>" line after the closing "---" of the
+// YAML frontmatter in a marshaled note string.
+func injectFreshness(raw string, modified time.Time) string {
+	const sep = "---\n"
+	// Find the second "---\n" which closes the frontmatter.
+	first := strings.Index(raw, sep)
+	if first < 0 {
+		return raw
+	}
+	second := strings.Index(raw[first+len(sep):], sep)
+	if second < 0 {
+		return raw
+	}
+	insertAt := first + len(sep) + second + len(sep)
+	label := freshnessLabel(modified)
+	return raw[:insertAt] + "freshness: " + label + "\n" + raw[insertAt:]
+}
+
+// freshnessLabel returns a full staleness description including tier, human-readable age, and action hint.
+// Tiers: fresh (< 3 days), aging (3–14 days), stale (> 14 days).
+func freshnessLabel(modified time.Time) string {
+	age := time.Since(modified)
+	ageStr := humanAge(age)
+	switch {
+	case age < 3*24*time.Hour:
+		return "fresh (" + ageStr + " — likely current)"
+	case age < 14*24*time.Hour:
+		return "aging (" + ageStr + " — may need recheck)"
+	default:
+		return "stale (" + ageStr + " — content may be outdated, verify before use)"
+	}
+}
+
+// humanAge formats a duration as a short human-readable age string like "2 days ago" or "5 hours ago".
+func humanAge(d time.Duration) string {
+	switch {
+	case d < time.Hour:
+		m := int(d.Minutes())
+		if m <= 1 {
+			return "1 minute ago"
+		}
+		return fmt.Sprintf("%d minutes ago", m)
+	case d < 24*time.Hour:
+		h := int(d.Hours())
+		if h == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", h)
+	default:
+		days := int(d.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	}
 }
 
 // renderWithResolvedLinks replaces the raw ## Links section in marshaled note output

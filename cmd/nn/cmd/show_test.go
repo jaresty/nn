@@ -5,9 +5,76 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jaresty/nn/internal/note"
 )
+
+// Assertion: TestShowFreshnessFresh — note modified 1 day ago shows freshness: fresh with age and hint
+func TestShowFreshnessFresh(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "Fresh Note", note.TypeConcept)
+	n.Modified = time.Now().UTC().Add(-24 * time.Hour)
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("show", n.ID)
+	if err != nil {
+		t.Fatalf("nn show: %v", err)
+	}
+	if !strings.Contains(out, "freshness: fresh") {
+		t.Errorf("want freshness: fresh in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "likely current") {
+		t.Errorf("want 'likely current' hint in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "ago") {
+		t.Errorf("want age 'ago' in output, got:\n%s", out)
+	}
+}
+
+// Assertion: TestShowFreshnessAging — note modified 7 days ago shows freshness: aging with age and hint
+func TestShowFreshnessAging(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "Aging Note", note.TypeConcept)
+	n.Modified = time.Now().UTC().Add(-7 * 24 * time.Hour)
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("show", n.ID)
+	if err != nil {
+		t.Fatalf("nn show: %v", err)
+	}
+	if !strings.Contains(out, "freshness: aging") {
+		t.Errorf("want freshness: aging in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "may need recheck") {
+		t.Errorf("want 'may need recheck' hint in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "ago") {
+		t.Errorf("want age 'ago' in output, got:\n%s", out)
+	}
+}
+
+// Assertion: TestShowFreshnessStale — note modified 30 days ago shows freshness: stale with age and hint
+func TestShowFreshnessStale(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "Stale Note", note.TypeConcept)
+	n.Modified = time.Now().UTC().Add(-30 * 24 * time.Hour)
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("show", n.ID)
+	if err != nil {
+		t.Fatalf("nn show: %v", err)
+	}
+	if !strings.Contains(out, "freshness: stale") {
+		t.Errorf("want freshness: stale in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "content may be outdated") {
+		t.Errorf("want 'content may be outdated' hint in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "ago") {
+		t.Errorf("want age 'ago' in output, got:\n%s", out)
+	}
+}
 
 func TestShowNote(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
