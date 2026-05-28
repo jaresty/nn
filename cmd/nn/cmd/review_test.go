@@ -187,3 +187,33 @@ func TestReviewLongNotesJSON(t *testing.T) {
 		t.Errorf("expected non-empty long_notes; got: %v", longNotes)
 	}
 }
+
+// Assertion: TestReviewAgingNotesSection — review output contains aging and stale buckets
+func TestReviewAgingNotesSection(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	aging := newTestNoteForCLI(note.GenerateID(), "Aging Note", note.TypeConcept)
+	aging.Modified = time.Now().UTC().Add(-7 * 24 * time.Hour)
+	writeNoteFile(t, nbDir, aging)
+
+	stale := newTestNoteForCLI(note.GenerateID(), "Stale Note", note.TypeConcept)
+	stale.Modified = time.Now().UTC().Add(-30 * 24 * time.Hour)
+	writeNoteFile(t, nbDir, stale)
+
+	out, err := execute("review")
+	if err != nil {
+		t.Fatalf("review: %v", err)
+	}
+	if !strings.Contains(out, "aging (3–14 days)") {
+		t.Errorf("want 'aging (3–14 days)' bucket in review output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "stale (>14 days)") {
+		t.Errorf("want 'stale (>14 days)' bucket in review output, got:\n%s", out)
+	}
+	if !strings.Contains(out, aging.ID) {
+		t.Errorf("want aging note %s in review output", aging.ID)
+	}
+	if !strings.Contains(out, stale.ID) {
+		t.Errorf("want stale note %s in review output", stale.ID)
+	}
+}

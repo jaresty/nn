@@ -27,7 +27,7 @@ func TestListStaleReturnsAccessedUnactedNotes(t *testing.T) {
 	}
 
 	// Note has not been committed since access — no git commits in repo at all.
-	out, err := execute("list", "--stale")
+	out, err := execute("list", "--unactioned")
 	if err != nil {
 		t.Fatalf("nn list --stale: %v", err)
 	}
@@ -54,11 +54,53 @@ func TestListStaleExcludesRecentlyCommittedNotes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out, err := execute("list", "--stale")
+	out, err := execute("list", "--unactioned")
 	if err != nil {
 		t.Fatalf("nn list --stale: %v", err)
 	}
 	if strings.Contains(out, n.ID) {
 		t.Errorf("nn list --stale: note %s should be excluded (committed after access), got %q", n.ID, out)
+	}
+}
+
+// Assertion: TestListUnactionedAccepted — --unactioned accepted after rename
+func TestListUnactionedAccepted(t *testing.T) {
+	_, execute := setupNotebook(t)
+	_, err := execute("list", "--unactioned")
+	if err != nil {
+		t.Errorf("nn list --unactioned should be accepted, got: %v", err)
+	}
+}
+
+// Assertion: TestListStaleRejected — --stale rejected after rename to --unactioned
+func TestListStaleRejected(t *testing.T) {
+	_, execute := setupNotebook(t)
+	_, err := execute("list", "--stale")
+	if err == nil {
+		t.Errorf("nn list --stale should be rejected after rename to --unactioned")
+	}
+}
+
+// Assertion: TestListOlderThan — --older-than <days> filters notes not modified in N+ days
+func TestListOlderThan(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	old := newTestNoteForCLI(note.GenerateID(), "Old Note", note.TypeConcept)
+	old.Modified = time.Now().UTC().Add(-20 * 24 * time.Hour)
+	writeNoteFile(t, nbDir, old)
+
+	fresh := newTestNoteForCLI(note.GenerateID(), "Fresh Note", note.TypeConcept)
+	fresh.Modified = time.Now().UTC().Add(-1 * time.Hour)
+	writeNoteFile(t, nbDir, fresh)
+
+	out, err := execute("list", "--older-than", "14")
+	if err != nil {
+		t.Fatalf("nn list --older-than: %v", err)
+	}
+	if !strings.Contains(out, old.ID) {
+		t.Errorf("want old note %s in --older-than output, got:\n%s", old.ID, out)
+	}
+	if strings.Contains(out, fresh.ID) {
+		t.Errorf("fresh note %s should be excluded from --older-than output", fresh.ID)
 	}
 }

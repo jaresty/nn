@@ -168,6 +168,24 @@ interpretation and recommendations.`,
 			}
 			sortByID(longNotes)
 
+			// Aging notes: split into aging (3–14 days) and stale (>14 days) by modified time.
+			var agingNotes, staleNotes []*note.Note
+			for _, n := range notes {
+				age := now.Sub(n.Modified)
+				switch {
+				case age >= 14*24*time.Hour:
+					staleNotes = append(staleNotes, n)
+				case age >= 3*24*time.Hour:
+					agingNotes = append(agingNotes, n)
+				}
+			}
+			// Sort oldest-first within each bucket.
+			sortOldestFirst := func(ns []*note.Note) {
+				sort.Slice(ns, func(i, j int) bool { return ns[i].Modified.Before(ns[j].Modified) })
+			}
+			sortOldestFirst(agingNotes)
+			sortOldestFirst(staleNotes)
+
 			// Friction candidates: observation notes tagged friction-candidate but not reviewed.
 			var frictionCandidates []*note.Note
 			for _, n := range notes {
@@ -224,6 +242,8 @@ interpretation and recommendations.`,
 					Connectivity        connectivityJSON `json:"connectivity"`
 					Drafts              []noteRef        `json:"drafts"`
 					LongNotes           []noteRef        `json:"long_notes"`
+					AgingNotes          []noteRef        `json:"aging_notes"`
+					StaleNotes          []noteRef        `json:"stale_notes"`
 					FrictionCandidates  []noteRef        `json:"friction_candidates"`
 					ProtocolTelemetry   map[string]int   `json:"protocol_telemetry"`
 					NoteAccess          map[string]int   `json:"note_access"`
@@ -245,6 +265,8 @@ interpretation and recommendations.`,
 					},
 					Drafts:             toRefs(drafts),
 					LongNotes:          toRefs(longNotes),
+					AgingNotes:         toRefs(agingNotes),
+					StaleNotes:         toRefs(staleNotes),
 					FrictionCandidates: toRefs(frictionCandidates),
 					ProtocolTelemetry:  protocolCounts,
 					NoteAccess:         accessCounts,
@@ -254,6 +276,12 @@ interpretation and recommendations.`,
 				}
 				if out.LongNotes == nil {
 					out.LongNotes = []noteRef{}
+				}
+				if out.AgingNotes == nil {
+					out.AgingNotes = []noteRef{}
+				}
+				if out.StaleNotes == nil {
+					out.StaleNotes = []noteRef{}
 				}
 				if out.FrictionCandidates == nil {
 					out.FrictionCandidates = []noteRef{}
@@ -310,6 +338,17 @@ interpretation and recommendations.`,
 			}
 			fmt.Fprintf(w, "Long notes: %d (body > %d bytes — consider splitting)\n", len(longNotes), atomicityThreshold)
 			for _, n := range longNotes {
+				fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+			}
+			fmt.Fprintf(w, "\n")
+
+			fmt.Fprintf(w, "## Aging notes\n\n")
+			fmt.Fprintf(w, "aging (3–14 days): %d\n", len(agingNotes))
+			for _, n := range agingNotes {
+				fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+			}
+			fmt.Fprintf(w, "stale (>14 days): %d\n", len(staleNotes))
+			for _, n := range staleNotes {
 				fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
 			}
 			fmt.Fprintf(w, "\n")

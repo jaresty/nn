@@ -28,7 +28,8 @@ func newListCmd(state *rootState) *cobra.Command {
 		orphan       bool
 		global       bool
 		long         bool
-		stale        bool
+		unactioned   bool
+		olderThan    int
 		hasURL       bool
 		urlContains  string
 		limit        int
@@ -114,8 +115,14 @@ func newListCmd(state *rootState) *cobra.Command {
 						continue
 					}
 				}
-				if stale && !isStaleNote(n, state.notebookDir) {
+				if unactioned && !isUnactionedNote(n, state.notebookDir) {
 					continue
+				}
+				if olderThan > 0 {
+					cutoff := time.Now().UTC().Add(-time.Duration(olderThan) * 24 * time.Hour)
+					if !n.Modified.Before(cutoff) {
+						continue
+					}
 				}
 				if search != "" && note.BM25Scores([]*note.Note{n}, search, allInbound)[n.ID] == 0 {
 					continue
@@ -249,7 +256,8 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&linkedFrom, "linked-from", "", "Notes that link to this ID")
 	cmd.Flags().StringVar(&linkedTo, "linked-to", "", "Notes this ID links to")
 	cmd.Flags().BoolVar(&orphan, "orphan", false, "Notes with no links (inbound or outbound)")
-	cmd.Flags().BoolVar(&stale, "stale", false, "Notes accessed via nn show but not committed since (advisory; requires access.log)")
+	cmd.Flags().BoolVar(&unactioned, "unactioned", false, "Notes accessed via nn show but not committed since (advisory; requires access.log)")
+	cmd.Flags().IntVar(&olderThan, "older-than", 0, "Notes not modified in the last N days (age-based; 3=aging, 14=stale)")
 	cmd.Flags().BoolVar(&global, "global", false, "Protocol notes with no outgoing governs links (applies universally)")
 	cmd.Flags().BoolVar(&long, "long", false, "Filter to notes exceeding the atomicity threshold")
 	cmd.Flags().BoolVar(&hasURL, "has-url", false, "Filter to notes containing an http/https URL")
@@ -576,10 +584,10 @@ func tagsString(tags []string) string {
 // suppress unused warning
 var _ = tagsString
 
-// isStaleNote returns true when a note appears in the access.log but has had
+// isUnactionedNote returns true when a note appears in the access.log but has had
 // no git commit touching its file since the last access timestamp.
-// Returns false (not stale) on any error so failures are silent.
-func isStaleNote(n *note.Note, repoDir string) bool {
+// Returns false (not unactioned) on any error so failures are silent.
+func isUnactionedNote(n *note.Note, repoDir string) bool {
 	cfgDir := os.Getenv("NN_CONFIG_DIR")
 	if cfgDir == "" {
 		xdg := os.Getenv("XDG_CONFIG_HOME")
