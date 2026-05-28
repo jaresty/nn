@@ -182,7 +182,14 @@ func newShowCmd(state *rootState) *cobra.Command {
 					fmt.Fprintln(w, "## Reminders")
 					fmt.Fprintln(w)
 					for _, n := range activeReminders {
-						fmt.Fprintf(w, "### %s\n\n%s\n\n", n.Title, n.Body)
+						fmt.Fprintf(w, "### %s\n\n", n.Title)
+						if n.Expires != nil {
+							fmt.Fprintf(w, "expires: %s\n", n.Expires.Format("2006-01-02"))
+						}
+						if n.ExpiresWhen != "" {
+							fmt.Fprintf(w, "expires_when: %s\n", n.ExpiresWhen)
+						}
+						fmt.Fprintf(w, "\n%s\n\n", n.Body)
 					}
 				}
 				fmt.Fprint(w, protocolDerivationBlock)

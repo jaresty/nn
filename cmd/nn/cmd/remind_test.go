@@ -117,7 +117,7 @@ func TestRemindTitleTruncated(t *testing.T) {
 	}
 }
 
-// Assertion: TestGlobalShowRemindersBlock — nn show --global appends ## Reminders block with non-expired reminder bodies
+// Assertion: TestGlobalShowRemindersBlock — nn show --global appends ## Reminders block with non-expired reminder bodies and expiry date
 func TestGlobalShowRemindersBlock(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 
@@ -138,6 +138,31 @@ func TestGlobalShowRemindersBlock(t *testing.T) {
 	}
 	if !strings.Contains(out, "Remember to check the deploy pipeline.") {
 		t.Errorf("want reminder body in --global output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "expires: "+exp.Format("2006-01-02")) {
+		t.Errorf("want 'expires: YYYY-MM-DD' in --global reminders output, got:\n%s", out)
+	}
+}
+
+// Assertion: TestGlobalShowRemindersExpiresWhen — nn show --global shows expires_when in reminders block
+func TestGlobalShowRemindersExpiresWhen(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	exp := time.Now().UTC().Add(24 * time.Hour).Truncate(time.Second)
+	n := newTestNoteForCLI(note.GenerateID(), "Conditional Reminder", note.TypeObservation)
+	n.Status = note.StatusPermanent
+	n.Tags = []string{"reminder"}
+	n.Expires = &exp
+	n.ExpiresWhen = "when the PR is merged"
+	n.Body = "Hold off on deploys."
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global: %v", err)
+	}
+	if !strings.Contains(out, "expires_when: when the PR is merged") {
+		t.Errorf("want 'expires_when: ...' in --global reminders output, got:\n%s", out)
 	}
 }
 
