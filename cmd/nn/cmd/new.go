@@ -20,6 +20,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 		tags        string
 		content     string
 		appliesWhen string
+		expiresWhen string
 		expiresStr  string
 		noEdit      bool
 		noSuggest   bool
@@ -103,6 +104,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 				Status:      note.StatusDraft,
 				Tags:        parsedTags,
 				AppliesWhen: appliesWhen,
+				ExpiresWhen: expiresWhen,
 				Expires:     expires,
 				Created:     now,
 				Modified:    now,
@@ -140,6 +142,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&linkTo, "link-to", "", "Immediately link to an existing note ID")
 	cmd.Flags().StringVar(&annotation, "annotation", "", "Link annotation when using --link-to")
 	cmd.Flags().StringVar(&appliesWhen, "applies-when", "", "Set applies_when field (protocol notes)")
+	cmd.Flags().StringVar(&expiresWhen, "expires-when", "", "Set conditional expiration (plain text condition, e.g. 'when the PR is merged')")
 	cmd.Flags().StringVar(&expiresStr, "expires", "", "Set expiration date (YYYY-MM-DD); note appears in nn list --expired after this date")
 	cmd.Flags().BoolVar(&fromStdin, "from-stdin", false, "Read note body from stdin")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Scaffold note body from ast outline of a source file")

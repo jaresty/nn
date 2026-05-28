@@ -22,6 +22,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 		typ            string
 		status         string
 		appliesWhen    string
+		expiresWhen    string
 		expiresStr     string
 		fromStdin      bool
 		replaceSection string
@@ -43,9 +44,9 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("--replace-section requires --content or --stdin")
 			}
 			if title == "" && tags == "" && content == "" && appendS == "" &&
-				typ == "" && status == "" && appliesWhen == "" && expiresStr == "" && !fromStdin && replaceSection == "" &&
+				typ == "" && status == "" && appliesWhen == "" && expiresWhen == "" && expiresStr == "" && !fromStdin && replaceSection == "" &&
 				len(tagsAdd) == 0 && len(tagsRemove) == 0 {
-				return fmt.Errorf("at least one of --title, --tags, --tags-add, --tags-remove, --content, --stdin, --append, --type, --status, --applies-when, --expires, --replace-section is required")
+				return fmt.Errorf("at least one of --title, --tags, --tags-add, --tags-remove, --content, --stdin, --append, --type, --status, --applies-when, --expires-when, --expires, --replace-section is required")
 			}
 
 			n, err := resolveNote(state, args[0])
@@ -107,6 +108,9 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 			if appliesWhen != "" {
 				n.AppliesWhen = appliesWhen
 			}
+			if expiresWhen != "" {
+				n.ExpiresWhen = expiresWhen
+			}
 			if expiresStr != "" {
 				t, err := time.Parse("2006-01-02", expiresStr)
 				if err != nil {
@@ -148,6 +152,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&typ, "type", "", "Change note type")
 	cmd.Flags().StringVar(&status, "status", "", "Set note status (draft|reviewed|permanent)")
 	cmd.Flags().StringVar(&appliesWhen, "applies-when", "", "Set applies_when field (protocol notes)")
+	cmd.Flags().StringVar(&expiresWhen, "expires-when", "", "Set conditional expiration (plain text condition)")
 	cmd.Flags().StringVar(&expiresStr, "expires", "", "Set expiration date (YYYY-MM-DD)")
 	cmd.Flags().BoolVar(&fromStdin, "stdin", false, "Read note body from stdin")
 	cmd.Flags().StringVar(&replaceSection, "replace-section", "", "Replace named level-2 section (case-insensitive)")

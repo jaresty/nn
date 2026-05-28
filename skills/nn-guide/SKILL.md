@@ -27,6 +27,7 @@ nn new --title TEXT --type TYPE [--tags TEXT] [--content TEXT] [--no-edit]
        [--from-stdin]
        [--from-file PATH]
        [--expires YYYY-MM-DD]
+       [--expires-when "condition text"]
 ```
 
 - `--type` is required: `concept | argument | model | hypothesis | observation | question | protocol`
@@ -134,6 +135,13 @@ nn list --older-than 14 --type concept --json
 `--expired` filters to notes with an `expires` date set and in the past. Use to find notes marked for deletion.
 
 `--has-expires` filters to notes with an `expires` date set (any date, past or future). Use to see all time-bounded notes.
+
+**Expiration fields:** Notes support two complementary expiry mechanisms:
+
+- `expires: YYYY-MM-DD` — date-based; automated by `--expired` filter and review
+- `expires_when: "condition"` — semantic condition (e.g. "when the auth PR is merged"); surfaces in `nn review` under **Pending conditions** as a checklist for the reviewer to evaluate
+
+`nn review` also surfaces **Expiry candidates**: observation notes older than 30 days with no expiry set and not permanent — use to identify notes that should have been time-bounded.
 
 ```
 nn list --expired                  # notes past their expiration date
@@ -296,6 +304,7 @@ Accepts a note ID **or a title substring** — if the substring matches exactly 
 | `--append TEXT` | Append text to note body (double-newline separator) |
 | `--status STATUS` | Set note status: `draft`, `reviewed`, or `permanent` |
 | `--expires YYYY-MM-DD` | Set expiration date; note appears in `nn list --expired` after this date |
+| `--expires-when TEXT` | Set conditional expiration (plain text condition, e.g. "when the PR is merged") |
 | `--no-edit` | Skip `$EDITOR` (always use in non-TTY/LLM context) |
 
 **Preferred LLM patterns:**

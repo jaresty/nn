@@ -97,6 +97,7 @@ type Note struct {
 	Status   Status
 	Tags        []string
 	AppliesWhen string
+	ExpiresWhen string
 	Expires     *time.Time
 	Created     time.Time
 	Modified    time.Time
@@ -168,6 +169,7 @@ type frontmatterYAML struct {
 	Status   string    `yaml:"status"`
 	Tags        []string  `yaml:"tags"`
 	AppliesWhen string     `yaml:"applies_when,omitempty"`
+	ExpiresWhen string     `yaml:"expires_when,omitempty"`
 	Expires     *time.Time `yaml:"expires,omitempty"`
 	Created     time.Time  `yaml:"created"`
 	Modified    time.Time  `yaml:"modified"`
@@ -221,6 +223,7 @@ func Parse(data []byte) (*Note, error) {
 		Status:   noteStatus,
 		Tags:        raw.Tags,
 		AppliesWhen: raw.AppliesWhen,
+		ExpiresWhen: raw.ExpiresWhen,
 		Expires:     raw.Expires,
 		Created:     raw.Created,
 		Modified:    raw.Modified,
@@ -295,6 +298,7 @@ func (n *Note) Marshal() ([]byte, error) {
 		Status:      string(n.Status),
 		Tags:        n.Tags,
 		AppliesWhen: n.AppliesWhen,
+		ExpiresWhen: n.ExpiresWhen,
 		Expires:     n.Expires,
 		Created:     n.Created,
 		Modified:    n.Modified,

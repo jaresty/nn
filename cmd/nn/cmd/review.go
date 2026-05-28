@@ -195,6 +195,33 @@ interpretation and recommendations.`,
 			}
 			sortByID(expiredNotes)
 
+			// Pending conditions: notes with expires_when set.
+			var pendingConditions []*note.Note
+			for _, n := range notes {
+				if n.ExpiresWhen != "" {
+					pendingConditions = append(pendingConditions, n)
+				}
+			}
+			sortByID(pendingConditions)
+
+			// Expiry candidates: observation notes, age >30 days, no expires/expires_when, not permanent.
+			var expiryCandidates []*note.Note
+			for _, n := range notes {
+				if n.Type != note.TypeObservation {
+					continue
+				}
+				if n.Status == note.StatusPermanent {
+					continue
+				}
+				if n.Expires != nil || n.ExpiresWhen != "" {
+					continue
+				}
+				if now.Sub(n.Modified) > 30*24*time.Hour {
+					expiryCandidates = append(expiryCandidates, n)
+				}
+			}
+			sortOldestFirst(expiryCandidates)
+
 			// Friction candidates: observation notes tagged friction-candidate but not reviewed.
 			var frictionCandidates []*note.Note
 			for _, n := range notes {
@@ -254,6 +281,8 @@ interpretation and recommendations.`,
 					AgingNotes          []noteRef        `json:"aging_notes"`
 					StaleNotes          []noteRef        `json:"stale_notes"`
 					ExpiredNotes        []noteRef        `json:"expired_notes"`
+					PendingConditions   []noteRef        `json:"pending_conditions"`
+					ExpiryCandidates    []noteRef        `json:"expiry_candidates"`
 					FrictionCandidates  []noteRef        `json:"friction_candidates"`
 					ProtocolTelemetry   map[string]int   `json:"protocol_telemetry"`
 					NoteAccess          map[string]int   `json:"note_access"`
@@ -278,6 +307,8 @@ interpretation and recommendations.`,
 					AgingNotes:         toRefs(agingNotes),
 					StaleNotes:         toRefs(staleNotes),
 					ExpiredNotes:       toRefs(expiredNotes),
+					PendingConditions:  toRefs(pendingConditions),
+					ExpiryCandidates:   toRefs(expiryCandidates),
 					FrictionCandidates: toRefs(frictionCandidates),
 					ProtocolTelemetry:  protocolCounts,
 					NoteAccess:         accessCounts,
@@ -296,6 +327,12 @@ interpretation and recommendations.`,
 				}
 				if out.ExpiredNotes == nil {
 					out.ExpiredNotes = []noteRef{}
+				}
+				if out.PendingConditions == nil {
+					out.PendingConditions = []noteRef{}
+				}
+				if out.ExpiryCandidates == nil {
+					out.ExpiryCandidates = []noteRef{}
 				}
 				if out.FrictionCandidates == nil {
 					out.FrictionCandidates = []noteRef{}
@@ -371,6 +408,23 @@ interpretation and recommendations.`,
 			fmt.Fprintf(w, "expired: %d\n", len(expiredNotes))
 			for _, n := range expiredNotes {
 				fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+			}
+			fmt.Fprintf(w, "\n")
+
+			fmt.Fprintf(w, "## Pending conditions\n\n")
+			fmt.Fprintf(w, "notes with expires_when: %d\n", len(pendingConditions))
+			for _, n := range pendingConditions {
+				fmt.Fprintf(w, "  %s  %s — %s\n", n.ID, n.Title, n.ExpiresWhen)
+			}
+			fmt.Fprintf(w, "\n")
+
+			fmt.Fprintf(w, "## Expiry candidates\n\n")
+			fmt.Fprintf(w, "observations >30 days old with no expiry set: %d\n", len(expiryCandidates))
+			for _, n := range expiryCandidates {
+				fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+			}
+			if len(expiryCandidates) > 0 {
+				fmt.Fprintf(w, "\nFor each: set nn update <id> --expires DATE or --expires-when \"condition\", or promote to permanent if still relevant.\n")
 			}
 			fmt.Fprintf(w, "\n")
 
