@@ -186,6 +186,15 @@ interpretation and recommendations.`,
 			sortOldestFirst(agingNotes)
 			sortOldestFirst(staleNotes)
 
+			// Expired notes: notes with an expires date in the past.
+			var expiredNotes []*note.Note
+			for _, n := range notes {
+				if n.Expires != nil && n.Expires.Before(now) {
+					expiredNotes = append(expiredNotes, n)
+				}
+			}
+			sortByID(expiredNotes)
+
 			// Friction candidates: observation notes tagged friction-candidate but not reviewed.
 			var frictionCandidates []*note.Note
 			for _, n := range notes {
@@ -244,6 +253,7 @@ interpretation and recommendations.`,
 					LongNotes           []noteRef        `json:"long_notes"`
 					AgingNotes          []noteRef        `json:"aging_notes"`
 					StaleNotes          []noteRef        `json:"stale_notes"`
+					ExpiredNotes        []noteRef        `json:"expired_notes"`
 					FrictionCandidates  []noteRef        `json:"friction_candidates"`
 					ProtocolTelemetry   map[string]int   `json:"protocol_telemetry"`
 					NoteAccess          map[string]int   `json:"note_access"`
@@ -267,6 +277,7 @@ interpretation and recommendations.`,
 					LongNotes:          toRefs(longNotes),
 					AgingNotes:         toRefs(agingNotes),
 					StaleNotes:         toRefs(staleNotes),
+					ExpiredNotes:       toRefs(expiredNotes),
 					FrictionCandidates: toRefs(frictionCandidates),
 					ProtocolTelemetry:  protocolCounts,
 					NoteAccess:         accessCounts,
@@ -282,6 +293,9 @@ interpretation and recommendations.`,
 				}
 				if out.StaleNotes == nil {
 					out.StaleNotes = []noteRef{}
+				}
+				if out.ExpiredNotes == nil {
+					out.ExpiredNotes = []noteRef{}
 				}
 				if out.FrictionCandidates == nil {
 					out.FrictionCandidates = []noteRef{}
@@ -349,6 +363,13 @@ interpretation and recommendations.`,
 			}
 			fmt.Fprintf(w, "stale (>14 days): %d\n", len(staleNotes))
 			for _, n := range staleNotes {
+				fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+			}
+			fmt.Fprintf(w, "\n")
+
+			fmt.Fprintf(w, "## Expiring notes\n\n")
+			fmt.Fprintf(w, "expired: %d\n", len(expiredNotes))
+			for _, n := range expiredNotes {
 				fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
 			}
 			fmt.Fprintf(w, "\n")

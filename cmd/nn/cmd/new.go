@@ -20,6 +20,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 		tags        string
 		content     string
 		appliesWhen string
+		expiresStr  string
 		noEdit      bool
 		noSuggest   bool
 		linkTo      string
@@ -87,6 +88,14 @@ func newNewCmd(state *rootState) *cobra.Command {
 			}
 
 			now := time.Now().UTC()
+			var expires *time.Time
+			if expiresStr != "" {
+				t, err := time.Parse("2006-01-02", expiresStr)
+				if err != nil {
+					return fmt.Errorf("--expires: invalid date %q, want YYYY-MM-DD", expiresStr)
+				}
+				expires = &t
+			}
 			n := &note.Note{
 				ID:          note.GenerateID(),
 				Title:       title,
@@ -94,6 +103,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 				Status:      note.StatusDraft,
 				Tags:        parsedTags,
 				AppliesWhen: appliesWhen,
+				Expires:     expires,
 				Created:     now,
 				Modified:    now,
 				Body:        content,
@@ -130,6 +140,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&linkTo, "link-to", "", "Immediately link to an existing note ID")
 	cmd.Flags().StringVar(&annotation, "annotation", "", "Link annotation when using --link-to")
 	cmd.Flags().StringVar(&appliesWhen, "applies-when", "", "Set applies_when field (protocol notes)")
+	cmd.Flags().StringVar(&expiresStr, "expires", "", "Set expiration date (YYYY-MM-DD); note appears in nn list --expired after this date")
 	cmd.Flags().BoolVar(&fromStdin, "from-stdin", false, "Read note body from stdin")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Scaffold note body from ast outline of a source file")
 	return cmd
