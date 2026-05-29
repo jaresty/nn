@@ -7,6 +7,13 @@ set -euo pipefail
 
 NN_BIN="${NN_BIN:-nn}"
 
+# Read session_id from hook input (stdin JSON) and write sentinel so
+# UserPromptSubmit knows --global has already run this session.
+HOOK_INPUT=$(cat)
+SESSION_ID=$(printf '%s' "$HOOK_INPUT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('session_id','unknown'))" 2>/dev/null || echo "unknown")
+mkdir -p "${HOME}/.cache/nn"
+touch "${HOME}/.cache/nn/global-loaded-${SESSION_ID}"
+
 # Load the research/capture protocol from the installed nn-capture-discipline skill.
 # Strips YAML frontmatter (everything between the first two --- lines).
 SKILL_FILE="${HOME}/.claude/skills/nn-capture-discipline/SKILL.md"
