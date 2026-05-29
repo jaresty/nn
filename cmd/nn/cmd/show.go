@@ -58,15 +58,6 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"and the statement \"result is a runtime value\" when the result is execution output with no reuse across sessions.\n",
 	},
 	{
-		ID:          "virtual-nn-unexpected-failure",
-		Title:       "Protocol: search nn before workarounding an unexpected command failure",
-		AppliesWhen: "when a Bash command, CLI tool, or test fails in an unexpected or non-obvious way",
-		Body: "When a command fails in a surprising way — non-obvious error message, tool behaves differently than expected, " +
-			"test fails for unknown reasons — run `nn list --search \"<topic>\"` before attempting a workaround or fix. " +
-			"Prior sessions may have captured the root cause, a known workaround, or a relevant constraint. " +
-			"Acting without searching risks repeating a diagnosed problem.\n",
-	},
-	{
 		ID:          "virtual-nn-cli-reference",
 		Title:       "Protocol: nn CLI reference",
 		AppliesWhen: "always — reference for valid nn command flags, types, and statuses",
@@ -83,16 +74,19 @@ var virtualGlobalProtocols = []virtualProtocol{
 	},
 	{
 		ID:          "virtual-nn-error-handling",
-		Title:       "Protocol: error handling",
-		AppliesWhen: "when any tool call, command, or test fails unexpectedly",
-		Body: "When a command fails in a surprising way — non-obvious error message, tool behaves differently than expected, " +
-			"test fails for unknown reasons — run `nn list --search \"<topic>\" --json` before attempting a workaround or fix. " +
+		Title:       "Protocol: search nn before workarounding an unexpected command failure",
+		AppliesWhen: "when a Bash command, CLI tool, or test fails",
+		Body: "When a command fails, run `nn list --search \"<topic>\" --json` before attempting a workaround or fix. " +
 			"Prior sessions may have captured the root cause, a known workaround, or a relevant constraint. " +
 			"Acting without searching risks repeating a diagnosed problem.\n\n" +
-			"**Skip condition**: if the immediately preceding assistant turn contains a line beginning with " +
+			"**Skip condition A — pre-declared:** if the immediately preceding assistant turn contains a line beginning " +
 			"`Expected FAIL: <reason>` (case-insensitive), the lookup is not required. " +
-			"To skip, write: `Skipping lookup: cited \"Expected FAIL: <reason>\"` — quoting the exact declaration verbatim. " +
-			"Absence of that verbatim quote means the skip condition is not met and the lookup is required.\n",
+			"Write: `Skipping lookup: cited \"Expected FAIL: <reason>\"` quoting the declaration verbatim.\n\n" +
+			"**Skip condition B — self-evident:** if the error output contains a substring that names the cause without ambiguity " +
+			"— such as \"No such file\", \"command not found\", \"unrecognized token\", or \"exit status 1\" from a grep/find/cat invocation — " +
+			"the lookup is not required. " +
+			"Write: `Skipping lookup: self-evident — \"<quoted error substring>\"` quoting the exact substring from the tool output verbatim. " +
+			"Absence of either skip declaration means the lookup is required.\n",
 	},
 }
 
