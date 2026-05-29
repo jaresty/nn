@@ -68,7 +68,7 @@ func TestShowVirtualErrorHandlingBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-error-handling: %v", err)
 	}
-	if !strings.Contains(out, "non-obvious error message") {
+	if !strings.Contains(out, "Skip condition B") {
 		t.Errorf("expected virtual error-handling body text in output:\n%s", out)
 	}
 }
