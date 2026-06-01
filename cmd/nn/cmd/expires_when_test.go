@@ -51,7 +51,7 @@ func TestUpdateExpiresWhenFlag(t *testing.T) {
 	n := newTestNoteForCLI(note.GenerateID(), "Update Target", note.TypeConcept)
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--expires-when", "when v2 ships", "--no-edit")
+	_, err := execute("update", n.ID, "--expires-when", "when v2 ships", "--since", sinceFor(n), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --expires-when: %v", err)
 	}

@@ -96,6 +96,11 @@ func newTestNoteForCLI(id, title string, typ note.Type) *note.Note {
 	}
 }
 
+// sinceFor returns the --since flag value for a note, formatted as RFC3339.
+func sinceFor(n *note.Note) string {
+	return n.Modified.Format(time.RFC3339)
+}
+
 func commitNoteFile(t *testing.T, nbDir string, n *note.Note) {
 	t.Helper()
 	run := func(args ...string) {

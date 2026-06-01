@@ -12,7 +12,7 @@ func TestUpdateTitle(t *testing.T) {
 	n := newTestNoteForCLI(note.GenerateID(), "Old Title", note.TypeConcept)
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--title", "New Title", "--no-edit")
+	_, err := execute("update", n.ID, "--title", "New Title", "--since", sinceFor(n), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --title: %v", err)
 	}
@@ -28,7 +28,7 @@ func TestUpdateContent(t *testing.T) {
 	n.Body = "original body"
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--content", "replaced body", "--no-edit")
+	_, err := execute("update", n.ID, "--content", "replaced body", "--since", sinceFor(n), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --content: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestUpdateAppend(t *testing.T) {
 	n.Body = "original body"
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--append", "appended text", "--no-edit")
+	_, err := execute("update", n.ID, "--append", "appended text", "--since", sinceFor(n), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --append: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestUpdateTags(t *testing.T) {
 	n := newTestNoteForCLI(note.GenerateID(), "My Note", note.TypeConcept)
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--tags", "foo,bar", "--no-edit")
+	_, err := execute("update", n.ID, "--tags", "foo,bar", "--since", sinceFor(n), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --tags: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestUpdateContentAndAppendMutuallyExclusive(t *testing.T) {
 	n := newTestNoteForCLI(note.GenerateID(), "My Note", note.TypeConcept)
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--content", "new", "--append", "more", "--no-edit")
+	_, err := execute("update", n.ID, "--content", "new", "--append", "more", "--since", sinceFor(n), "--no-edit")
 	if err == nil {
 		t.Fatal("nn update --content --append: want error, got nil")
 	}
@@ -91,7 +91,7 @@ func TestUpdateRequiresFlag(t *testing.T) {
 	n := newTestNoteForCLI(note.GenerateID(), "My Note", note.TypeConcept)
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--no-edit")
+	_, err := execute("update", n.ID, "--since", sinceFor(n), "--no-edit")
 	if err == nil {
 		t.Fatal("nn update with no change flags: want error, got nil")
 	}

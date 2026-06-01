@@ -56,7 +56,7 @@ func TestAtomicityWarnOnUpdate(t *testing.T) {
 	writeNoteFile(t, nbDir, n)
 
 	largeBody := strings.Repeat("x", 2001)
-	_, stderr, err := executeWithStderr(t, cfgFile, "update", n.ID, "--content", largeBody, "--no-edit")
+	_, stderr, err := executeWithStderr(t, cfgFile, "update", n.ID, "--content", largeBody, "--since", sinceFor(n), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update large body: %v", err)
 	}

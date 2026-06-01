@@ -306,7 +306,7 @@ Accepts a note ID **or a title substring** — if the substring matches exactly 
 | `--expires YYYY-MM-DD` | Set expiration date; note appears in `nn list --expired` after this date |
 | `--expires-when TEXT` | Set conditional expiration (plain text condition, e.g. "when the PR is merged") |
 | `--no-edit` | Skip `$EDITOR` (always use in non-TTY/LLM context) |
-| `--since RFC3339` | Reject update if note was modified after this timestamp (optimistic concurrency); read `modified:` from `nn show` output and pass it here to prevent overwriting concurrent changes |
+| `--since RFC3339` | **Required.** Reject update if note was modified after this timestamp; read `modified:` from `nn show` output. Omitting returns an error. |
 
 **Preferred LLM patterns:**
 

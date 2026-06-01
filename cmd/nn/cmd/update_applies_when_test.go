@@ -12,7 +12,7 @@ func TestUpdateAppliesWhen(t *testing.T) {
 	n := newTestNoteForCLI(note.GenerateID(), "My Protocol", note.TypeProtocol)
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--applies-when", "before any external action", "--no-edit")
+	_, err := execute("update", n.ID, "--applies-when", "before any external action", "--since", sinceFor(n), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --applies-when: %v", err)
 	}

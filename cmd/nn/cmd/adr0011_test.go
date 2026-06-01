@@ -17,7 +17,7 @@ func TestUpdateByTitle(t *testing.T) {
 	n.Body = "original body"
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", "Ergonomic Update", "--content", "replaced via title", "--no-edit")
+	_, err := execute("update", "Ergonomic Update", "--content", "replaced via title", "--since", sinceFor(n), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update by title: %v", err)
 	}
@@ -109,13 +109,13 @@ func TestUpdateContentStripsLinksSection(t *testing.T) {
 
 	// Update body with a ## Links section included — should not duplicate.
 	body := "Updated body.\n\n## Links\n\n- [[" + to.ID + "]] [refines] {draft} — original"
-	_, err = execute("update", from.ID, "--content", body, "--no-edit")
+	_, err = execute("update", from.ID, "--content", body, "--since", sinceFor(from), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --content with Links section: %v", err)
 	}
 
 	// Update again — idempotent, still only one link.
-	_, err = execute("update", from.ID, "--content", body, "--no-edit")
+	_, err = execute("update", from.ID, "--content", body, "--since", sinceFor(from), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --content second time: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestUpdateStdin(t *testing.T) {
 	os.WriteFile(filepath.Join(nbDir, n.Filename()), data, 0o644)
 
 	root := NewRootCmdForTest(cfgFile)
-	root.SetArgs([]string{"update", n.ID, "--stdin", "--no-edit"})
+	root.SetArgs([]string{"update", n.ID, "--stdin", "--since", sinceFor(n), "--no-edit"})
 	root.SetIn(strings.NewReader("body from stdin"))
 	var stdout strings.Builder
 	root.SetOut(&stdout)
@@ -238,7 +238,7 @@ func TestUpdateReplaceSection(t *testing.T) {
 	writeNoteFile(t, nbDir, n)
 
 	_, err := execute("update", n.ID, "--replace-section", "Why",
-		"--content", "New explanation.", "--no-edit")
+		"--content", "New explanation.", "--since", sinceFor(n), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --replace-section: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestUpdateReplaceSectionNotFound(t *testing.T) {
 	writeNoteFile(t, nbDir, n)
 
 	_, err := execute("update", n.ID, "--replace-section", "Nonexistent",
-		"--content", "New content.", "--no-edit")
+		"--content", "New content.", "--since", sinceFor(n), "--no-edit")
 	if err == nil {
 		t.Fatal("nn update --replace-section with missing heading: want error, got nil")
 	}
@@ -275,7 +275,7 @@ func TestUpdateStatus(t *testing.T) {
 	n.Status = note.StatusReviewed
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--status", "draft", "--no-edit")
+	_, err := execute("update", n.ID, "--status", "draft", "--since", sinceFor(n), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --status: %v", err)
 	}
@@ -290,7 +290,7 @@ func TestUpdateStatusInvalid(t *testing.T) {
 	n := newTestNoteForCLI(note.GenerateID(), "Status Note", note.TypeConcept)
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--status", "invalid-status", "--no-edit")
+	_, err := execute("update", n.ID, "--status", "invalid-status", "--since", sinceFor(n), "--no-edit")
 	if err == nil {
 		t.Fatal("nn update --status invalid: want error, got nil")
 	}
@@ -304,7 +304,7 @@ func TestUpdateTagsAdd(t *testing.T) {
 	n.Tags = []string{"existing"}
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--tags-add", "new-tag", "--no-edit")
+	_, err := execute("update", n.ID, "--tags-add", "new-tag", "--since", sinceFor(n), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --tags-add: %v", err)
 	}
@@ -324,7 +324,7 @@ func TestUpdateTagsRemove(t *testing.T) {
 	n.Tags = []string{"keep", "remove-me"}
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--tags-remove", "remove-me", "--no-edit")
+	_, err := execute("update", n.ID, "--tags-remove", "remove-me", "--since", sinceFor(n), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --tags-remove: %v", err)
 	}
@@ -347,6 +347,7 @@ func TestUpdateTagsAddAndRemoveCompose(t *testing.T) {
 	_, err := execute("update", n.ID,
 		"--tags-add", "zettelkasten",
 		"--tags-remove", "inbox",
+		"--since", sinceFor(n),
 		"--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --tags-add --tags-remove: %v", err)

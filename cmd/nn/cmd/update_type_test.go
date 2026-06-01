@@ -13,7 +13,7 @@ func TestUpdateType(t *testing.T) {
 	n := newTestNoteForCLI(note.GenerateID(), "Type Changer", note.TypeConcept)
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--type", "argument", "--no-edit")
+	_, err := execute("update", n.ID, "--type", "argument", "--since", sinceFor(n), "--no-edit")
 	if err != nil {
 		t.Fatalf("nn update --type: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestUpdateTypeInvalid(t *testing.T) {
 	n := newTestNoteForCLI(note.GenerateID(), "Type Changer", note.TypeConcept)
 	writeNoteFile(t, nbDir, n)
 
-	_, err := execute("update", n.ID, "--type", "bogus", "--no-edit")
+	_, err := execute("update", n.ID, "--type", "bogus", "--since", sinceFor(n), "--no-edit")
 	if err == nil {
 		t.Errorf("expected error for invalid type, got nil")
 	}

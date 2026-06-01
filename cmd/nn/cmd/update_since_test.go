@@ -51,13 +51,31 @@ func TestUpdateSinceParseFail(t *testing.T) {
 	}
 }
 
-func TestUpdateSinceOptional(t *testing.T) {
+// TestUpdateSinceRequired asserts that omitting --since is an error.
+func TestUpdateSinceRequired(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	n := newTestNoteForCLI(note.GenerateID(), "Concurrent Note", note.TypeConcept)
 	writeNoteFile(t, nbDir, n)
 
 	_, err := execute("update", n.ID, "--title", "New Title", "--no-edit")
+	if err == nil {
+		t.Fatal("expected error when --since is omitted, got nil")
+	}
+	if !strings.Contains(err.Error(), "--since is required") {
+		t.Errorf("expected '--since is required' in error, got: %v", err)
+	}
+}
+
+// TestUpdateSinceStillWorks asserts that providing --since allows the update.
+func TestUpdateSinceStillWorks(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "Concurrent Note", note.TypeConcept)
+	n.Modified = time.Now().UTC().Truncate(time.Second)
+	writeNoteFile(t, nbDir, n)
+
+	since := n.Modified.Format(time.RFC3339)
+	_, err := execute("update", n.ID, "--title", "New Title", "--since", since, "--no-edit")
 	if err != nil {
-		t.Fatalf("expected success without --since, got: %v", err)
+		t.Fatalf("expected success with valid --since, got: %v", err)
 	}
 }

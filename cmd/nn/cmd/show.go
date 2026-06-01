@@ -64,9 +64,9 @@ var virtualGlobalProtocols = []virtualProtocol{
 		Body: "**nn new** `--title \"...\" --type <type> --content \"...\" --no-edit [--tags \"t1,t2\"] [--link-to <id> --annotation \"...\"] [--applies-when \"...\"] [--expires YYYY-MM-DD] [--expires-when \"condition\"]`\n" +
 			"Valid --type: concept|argument|model|hypothesis|observation|question|protocol\n" +
 			"New notes are always created as draft. Promote with: `nn update <id> --status reviewed`\n\n" +
-			"**nn update** `<id> --status <status>` | `--title \"...\"` | `--applies-when \"...\"` | `--expires YYYY-MM-DD` | `--expires-when \"condition\"` | `--content \"...\" --no-edit` | `--since <RFC3339>`\n" +
+			"**nn update** `<id> --since <RFC3339> --status <status>` | `--title \"...\"` | `--applies-when \"...\"` | `--expires YYYY-MM-DD` | `--expires-when \"condition\"` | `--content \"...\" --no-edit`\n" +
 			"Valid --status: draft|reviewed|permanent\n" +
-			"--since: reject update if note modified after this timestamp (optimistic concurrency); omit to skip check\n\n" +
+			"--since is required: read 'modified:' from nn show output; update is rejected if the note was changed after that timestamp\n\n" +
 			"**nn remind** `\"content\" [--for N] [--expires YYYY-MM-DD]` — creates observation tagged 'reminder', permanent, expires today+1d by default; surfaces in nn show --global\n\n" +
 			"**nn list** `--search \"<q>\" --show-first --json` | `--type <type>` | `--status <status>` | `--orphan` | `--since <ISO>` | `--expired` | `--has-expires`\n\n" +
 			"**nn show** `<id>` | `--global`\n\n" +
