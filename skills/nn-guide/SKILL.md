@@ -306,6 +306,7 @@ Accepts a note ID **or a title substring** — if the substring matches exactly 
 | `--expires YYYY-MM-DD` | Set expiration date; note appears in `nn list --expired` after this date |
 | `--expires-when TEXT` | Set conditional expiration (plain text condition, e.g. "when the PR is merged") |
 | `--no-edit` | Skip `$EDITOR` (always use in non-TTY/LLM context) |
+| `--since RFC3339` | Reject update if note was modified after this timestamp (optimistic concurrency); read `modified:` from `nn show` output and pass it here to prevent overwriting concurrent changes |
 
 **Preferred LLM patterns:**
 
@@ -355,6 +356,25 @@ nn promote <id-or-title> --to reviewed|permanent
 ```
 
 Status progression: `draft` → `reviewed` → `permanent`. Accepts title substring. For direct status assignment (including demotion), prefer `nn update --status`.
+
+## nn log
+
+Show the git diff history for a single note — all commits that touched its file, with full patch output.
+
+```
+nn log <id-or-title> [--since DATE]
+```
+
+| Flag | Effect |
+|---|---|
+| `--since DATE` | Limit history to commits after this date (e.g. `2025-01-01`); passed directly to `git log --since=` |
+
+Output is raw `git log -p --follow` for the note's filename. Use to audit what changed and when.
+
+```bash
+nn log <id>                         # full diff history
+nn log <id> --since 2026-01-01      # only changes since Jan 2026
+```
 
 ## nn delete
 
