@@ -74,6 +74,7 @@ Workflow guidance is embedded in the binary:
 		newInstallSkillsCmd(),
 		newInstallHooksCmd(),
 		newGuideCmd(),
+		newLogCmd(state),
 	)
 	return root
 }
