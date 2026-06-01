@@ -56,11 +56,42 @@ nn backlinks <id> --json
 nn promote <id> --to reviewed
 ```
 
-### 3. Run nn-refine on key captures
+### 3. Capture friction points
+
+Ask: **"What slowed you down this session? Any theories about why?"**
+
+For each friction point identified, capture it as a note:
+
+```bash
+nn new --title "Friction: <short description>" \
+  --type hypothesis \
+  --tags "friction" \
+  --expires-when "resolved or disproved" \
+  --content "## Observed\n<what happened>\n\n## Theory\n<why this might be happening>" \
+  --no-edit
+```
+
+Use `hypothesis` type when there is a theory to test; use `observation` when the friction is documented but the cause is unclear. Always tag `friction` so weekly review can surface the full backlog with `nn list --search friction`.
+
+Link friction notes to relevant protocol or concept notes they implicate:
+
+```bash
+nn link <friction-id> <related-id> --type questions --annotation "this friction challenges whether the approach works"
+```
+
+In weekly mode, sweep existing friction notes for resolution:
+
+```bash
+nn list --search "friction" --status draft --json
+```
+
+For each: is it resolved? Promote to `reviewed` with a note on what changed, or update the body with new evidence.
+
+### 4. Run nn-refine on key captures
 
 For each significant capture from this session, invoke the `nn-refine` workflow to check atomicity, links, and title quality.
 
-### 4. (Weekly mode only) Notebook health review
+### 5. (Weekly mode only) Notebook health review
 
 When invoked with `--weekly`, run the full health report first:
 
@@ -96,7 +127,7 @@ For each draft not touched in 14+ days: check outbound link count first.
 - `--no-inbound` — notes with no backlinks (deletion candidates; stricter than `--orphan`)
 - `--orphan` — notes with zero links in either direction
 
-### 5. Propose session summary note
+### 6. Propose session summary note
 
 Create a session summary note linking the key captures:
 
@@ -120,10 +151,12 @@ nn new --title "..." --type observation --content "..." --no-edit
 nn bulk-link <from> --to <id> --annotation "..." --type TYPE [--to <id> ...]
 nn review                                    # weekly mode: full health report
 nn review --format json
+nn list --search "friction" --status draft --json   # weekly: sweep open friction notes
 ```
 
 ## Success criteria
 
 - All captures from the session have been reviewed for accuracy
 - Promotion-eligible drafts have been promoted or a reason given for deferral
+- Friction points from the session have been captured as `hypothesis` or `observation` notes tagged `friction`
 - A session summary note exists linking the key captures, or a reason given for skipping it
