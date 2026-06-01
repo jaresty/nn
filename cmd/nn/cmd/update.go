@@ -24,6 +24,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 		appliesWhen    string
 		expiresWhen    string
 		expiresStr     string
+		sinceStr       string
 		fromStdin      bool
 		replaceSection string
 		noEdit         bool
@@ -52,6 +53,16 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 			n, err := resolveNote(state, args[0])
 			if err != nil {
 				return fmt.Errorf("update: %w", err)
+			}
+
+			if sinceStr != "" {
+				since, parseErr := time.Parse(time.RFC3339, sinceStr)
+				if parseErr != nil {
+					return fmt.Errorf("--since: invalid timestamp %q, want RFC3339", sinceStr)
+				}
+				if n.Modified.Sub(since).Abs() > time.Second {
+					return fmt.Errorf("note was modified since %s; re-read and retry", sinceStr)
+				}
 			}
 
 			if fromStdin {
@@ -157,6 +168,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&fromStdin, "stdin", false, "Read note body from stdin")
 	cmd.Flags().StringVar(&replaceSection, "replace-section", "", "Replace named level-2 section (case-insensitive)")
 	cmd.Flags().BoolVar(&noEdit, "no-edit", false, "Skip opening $EDITOR")
+	cmd.Flags().StringVar(&sinceStr, "since", "", "Reject update if note was modified after this RFC3339 timestamp")
 	return cmd
 }
 
