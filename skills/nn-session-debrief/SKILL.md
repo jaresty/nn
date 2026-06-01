@@ -1,7 +1,7 @@
 ---
 name: nn-session-debrief
-description: End-of-session review — surface what was captured, flag un-promoted drafts with new links, and propose a session summary note. Also supports weekly review mode (/nn-session-debrief --weekly).
-when_to_use: At the end of a working session to consolidate captures, assess promotion eligibility, and record what was learned. Invoke with /nn-session-debrief. For a weekly review pass (wider time window, stale draft sweep, promotion focus), invoke with /nn-session-debrief --weekly.
+description: End-of-session review — surface what was captured, flag un-promoted drafts with new links, propose a session summary note, and update the daily page. Also supports weekly review mode (/nn-session-debrief --weekly) and on-demand daily page update (/nn-session-debrief --daily).
+when_to_use: At the end of a working session to consolidate captures, assess promotion eligibility, and record what was learned. Invoke with /nn-session-debrief. For a weekly review pass (wider time window, stale draft sweep, promotion focus), invoke with /nn-session-debrief --weekly. To update only the daily page mid-session or on demand, invoke with /nn-session-debrief --daily.
 ---
 
 # nn-session-debrief
@@ -14,6 +14,8 @@ Invoke at the end of a working session to:
 - Review what was captured
 - Identify draft notes that now have enough inbound links to be promoted
 - Propose a session summary note linking the session's captures
+
+Invoke with `--daily` to update only the daily page — skips all other steps. Use mid-session or any time the user asks to update the daily page.
 
 Invoke with `--weekly` for a broader review pass:
 - Sweep drafts modified in the past 7 days
@@ -127,7 +129,72 @@ For each draft not touched in 14+ days: check outbound link count first.
 - `--no-inbound` — notes with no backlinks (deletion candidates; stricter than `--orphan`)
 - `--orphan` — notes with zero links in either direction
 
-### 6. Propose session summary note
+### 6. Update daily page
+
+Maintain a running daily log note for today. This step runs in all modes including `--daily` (where it is the only step).
+
+**Check if today's page exists:**
+
+```bash
+nn list --search "Daily: <YYYY-MM-DD>" --tag daily --json
+```
+
+**If it does not exist**, create it:
+
+```bash
+nn new \
+  --title "Daily: <YYYY-MM-DD>" \
+  --type observation \
+  --tags "daily" \
+  --no-edit \
+  --content "## Done
+
+## Decided
+
+## Open
+
+## Relay
+In progress: —
+Next: —
+Blocked: —"
+```
+
+**If it exists**, update it — append to Done, replace Open and Relay with current state:
+
+```bash
+# Append completed work to Done section
+nn update <daily-id> --replace-section "Done" \
+  --content "<existing Done entries>\n- <new entry 1>\n- <new entry 2>" \
+  --since <modified> --no-edit
+
+# Replace Open with current unresolved items
+nn update <daily-id> --replace-section "Open" \
+  --content "<current open items>" \
+  --since <modified> --no-edit
+
+# Replace Relay with current handoff state
+nn update <daily-id> --replace-section "Relay" \
+  --content "In progress: <what is in flight>\nNext: <immediate next action>\nBlocked: <blockers or —>" \
+  --since <modified> --no-edit
+```
+
+**Section semantics — ledger discipline:**
+Each section is a categorized ledger entry. Write only content that belongs to the category — no narrative, no filler, no reasoning traces. Every entry must be self-contained: a reader with no prior context must be able to understand it without reading the conversation that produced it.
+
+- **Done** — append-only factual record of completed work. Each entry names what changed and where (e.g. "Added `--since` flag to `nn update` — `cmd/nn/cmd/update.go`"). Never overwrite; only append.
+- **Decided** — decisions with enough context to reconstruct why. Name the decision, the alternative considered, and the reason chosen (e.g. "`--since` hard-required, not optional — all callers must prove they read the note before writing"). Append new decisions.
+- **Open** — replace each session. Forward-looking: unresolved questions, next actions, things that need follow-up. Must be specific enough to act on without re-reading the session.
+- **Relay** — replace each session. Explicit handoff state written so the next session can resume without re-reading anything: what is in flight (named artifact or task), what the immediate next action is, and what is blocked. This is relay-topology writing: schemas, invariants, and dependency relationships must be named explicitly — "the thing we discussed" is not relay-compliant.
+
+**Link the daily page to notes created this session:**
+
+```bash
+nn bulk-link <daily-id> \
+  --to <id1> --annotation "worked on this today" --type source-of \
+  --to <id2> --annotation "worked on this today" --type source-of
+```
+
+### 7. Propose session summary note
 
 Create a session summary note linking the key captures:
 
@@ -152,6 +219,11 @@ nn bulk-link <from> --to <id> --annotation "..." --type TYPE [--to <id> ...]
 nn review                                    # weekly mode: full health report
 nn review --format json
 nn list --search "friction" --status draft --json   # weekly: sweep open friction notes
+nn list --search "Daily: <YYYY-MM-DD>" --tag daily --json   # daily page lookup
+nn new --title "Daily: <YYYY-MM-DD>" --type observation --tags "daily" --content "..." --no-edit
+nn update <daily-id> --replace-section "Done" --content "..." --since <modified> --no-edit
+nn update <daily-id> --replace-section "Open" --content "..." --since <modified> --no-edit
+nn update <daily-id> --replace-section "Relay" --content "..." --since <modified> --no-edit
 ```
 
 ## Success criteria
@@ -159,4 +231,5 @@ nn list --search "friction" --status draft --json   # weekly: sweep open frictio
 - All captures from the session have been reviewed for accuracy
 - Promotion-eligible drafts have been promoted or a reason given for deferral
 - Friction points from the session have been captured as `hypothesis` or `observation` notes tagged `friction`
+- Today's daily page exists and has been updated with Done/Open/Relay reflecting the current session
 - A session summary note exists linking the key captures, or a reason given for skipping it
