@@ -15,7 +15,7 @@ func TestVirtualCaptureDisciplineSearchRationale(t *testing.T) {
 	if !strings.Contains(out, "Search rationale:") {
 		t.Errorf("expected 'Search rationale:' derivation step in virtual protocol; got:\n%s", out)
 	}
-	if !strings.Contains(out, "The search query must contain at least one word from X") {
+	if !strings.Contains(out, "The search query must contain at least one word from the topic named after") {
 		t.Errorf("expected structural search query constraint in derivation sentence; got:\n%s", out)
 	}
 	if strings.Contains(out, "Use X as the search topic, not the action") {

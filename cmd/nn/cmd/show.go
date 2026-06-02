@@ -30,16 +30,27 @@ var virtualGlobalProtocols = []virtualProtocol{
 		ID:          "virtual-nn-capture-discipline",
 		Title:       "Protocol: nn-capture-discipline",
 		AppliesWhen: "before any action that reads from a source not authored this session",
-		Body: "Before running the search, write: 'Search rationale: [action] requires knowing [X].' " +
-			"The search query must contain at least one word from X.\n\n" +
+		Body: "The assistant text block that immediately precedes the `nn list --search` tool call — and no other block — must contain the string `Search rationale:`. " +
+			"An evaluator determines compliance by locating the `nn list --search` tool call in the transcript, reading backward to the first assistant text block, " +
+			"and checking for the literal string `Search rationale:` within that block. " +
+			"A rationale present in any earlier assistant text block, in any later block, or embedded within the tool call itself does not satisfy this clause. " +
+			"The search query must contain at least one word from the topic named after `Search rationale:`.\n\n" +
 			"Every action requires a preceding `nn list --search \"<topic>\" --json` result in the transcript " +
 			"(no `|` in the same tool call — a tool call containing `nn list --search` followed by `|` is non-compliant; use `--limit N` to restrict result count instead), " +
 			"except actions on the allow-list below. " +
-			"The search result must appear as the immediately preceding tool result before the action. " +
+			"The `nn list --search` tool call must be the tool call whose result block occupies the position immediately before the gated tool call in the ordered sequence of tool call result blocks. " +
+			"A tool call result block is defined as one complete response returned by a single tool invocation, delimited by the tool invocation boundary in the transcript. " +
+			"Zero tool call result blocks of any kind may intervene between the `nn list --search` result block and the gated tool call. " +
+			"An evaluator determines compliance by counting backward from the gated tool call: the first tool call result block encountered must be the `nn list --search` result. " +
 			"A search result satisfies the gate only if the search query contains at least one word from the stated search rationale — " +
 			"a search result whose query shares no word with the stated search rationale does not satisfy this gate. " +
-			"After reviewing the results, cite at least one result title: either the title that covers the question, or a title from the results and explain why it does not cover the stated search rationale. " +
-			"If any result title shares a word with the search rationale, run `nn show <id>` on the highest-scoring such result before acting.\n\n" +
+			"The assistant text block immediately following the `nn list --search` result block must contain a verbatim substring that exactly matches the value of at least one `title` field in the returned JSON array — " +
+			"an evaluator determines compliance by parsing the result as JSON, extracting all `title` field values, and checking whether any appears verbatim in the subsequent assistant text block. " +
+			"If the returned array is `[]`, the assistant text block must contain the literal string `zero results returned`. " +
+			"If the JSON array contains any object whose `title` field value shares at least one word with the `Search rationale:` string, " +
+			"the assistant must issue an `nn show <id>` tool call where `<id>` is the `id` field value of the first object in the array (array index 0) whose `title` field satisfies the word-sharing condition — " +
+			"an evaluator determines compliance by identifying the lowest-index matching object, extracting its `id`, " +
+			"and checking whether a subsequent `nn show <id>` tool call containing that exact `id` appears in the transcript before the gated action.\n\n" +
 			"**Allow-list (no gate required):**\n" +
 			"- Running, editing, or reading a file that is the target path of a prior Write or Edit tool call in this session — " +
 			"a Bash tool call satisfies this only if its text contains `>`, `>>`, `tee`, `cp`, `mv`, or `install` targeting that path; " +

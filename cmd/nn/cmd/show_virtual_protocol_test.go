@@ -200,7 +200,7 @@ func TestShowCaptureDisciplineRequiresShowOnWordMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out, "shares a word with the search rationale") {
+	if !strings.Contains(out, "shares at least one word with the") {
 		t.Errorf("expected clause requiring nn show when result title shares a word with search rationale:\n%s", out)
 	}
 	if !strings.Contains(out, "nn show") {
