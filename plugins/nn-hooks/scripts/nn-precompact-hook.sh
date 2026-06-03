@@ -14,14 +14,31 @@ if [ -f "$LAST_RUN" ]; then
   fi
 fi
 
-AGENT_PROMPT_FILE="$HOME/.local/share/nn/plugins/nn-hooks/agents/nn-stop-agent.md"
+AGENT_PROMPT_FILE="$HOME/.local/share/nn/plugins/nn-hooks/agents/nn-session-debrief.md"
 if [ ! -f "$AGENT_PROMPT_FILE" ]; then
   exit 0
 fi
 
+# Extract transcript_path from stdin JSON
+HOOK_INPUT=$(cat)
+TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | grep -o '"transcript_path":"[^"]*"' | sed 's/"transcript_path":"//;s/"//')
+TRANSCRIPT=""
+if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
+  TRANSCRIPT=$(cat "$TRANSCRIPT_PATH")
+fi
+
 echo "$NOW" > "$LAST_RUN"
 
-claude --print "$(cat "$AGENT_PROMPT_FILE")" \
+PROMPT="$(cat "$AGENT_PROMPT_FILE")"
+if [ -n "$TRANSCRIPT" ]; then
+  PROMPT="$PROMPT
+
+## Session transcript
+
+$TRANSCRIPT"
+fi
+
+claude --print "$PROMPT" \
   --allowedTools "Bash" \
   --output-format text \
   2>/dev/null || true

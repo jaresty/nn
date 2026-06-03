@@ -73,6 +73,52 @@ nn bulk-link <summary-id> \
   --to <id2> --annotation "captured this session" --type source-of
 ```
 
+### Search gap analysis
+
+If a session transcript was provided, scan it for `nn list --search` calls. For each:
+- If the result was `[]`: the topic was searched but returned nothing — capture candidate. Propose a note only if the topic is substantive enough to be reusable.
+- If the result was non-empty but no `nn new` or `nn update` followed for those IDs: flag the gap as a capture opportunity in the session summary (do not create a note autonomously — this requires judgment).
+
+### Staleness check
+
+If a session transcript was provided, scan it for `nn show <id>` calls (skip virtual notes — IDs starting with `virtual-`). For each real note shown, check its `modified:` timestamp via `nn show <id>`. If the note was last modified more than 14 days ago, add it to the session summary as a staleness flag:
+
+```
+Stale: <id> — <title> (last modified: <date>) — session content may extend or contradict this note
+```
+
+Do not update the note autonomously — surface it for human review.
+
+### Daily page
+
+Check if today's daily page exists:
+
+```bash
+nn list --search "Daily: $(date +%Y-%m-%d)" --tag daily --json
+```
+
+If it does not exist, create it:
+
+```bash
+nn new \
+  --title "Daily: $(date +%Y-%m-%d)" \
+  --type observation \
+  --tags "daily" \
+  --no-edit \
+  --content "## Done
+
+## Decided
+
+## Open
+
+## Relay
+In progress: —
+Next: —
+Blocked: —"
+```
+
+If it exists, append to Done with a brief summary of what was captured this session. Use `nn show <id>` to get the current modified timestamp, then `nn update <id> --replace-section "Done" --content "<existing entries>\n- <session summary>" --since <modified> --no-edit`.
+
 ### Friction Review
 
 After processing the target note set, scan the transcript for friction moments — times when the session had to course-correct:
