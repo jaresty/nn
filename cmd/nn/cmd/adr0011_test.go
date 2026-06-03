@@ -378,3 +378,18 @@ func TestUpdateTagsAddAndRemoveCompose(t *testing.T) {
 		t.Errorf("kept tag was removed:\n%s", outKept)
 	}
 }
+
+// Assertion: nn update prints modified: <RFC3339> on success so callers can use it as --since.
+func TestUpdateOutputsModifiedTimestamp(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "Timestamp Output Test", note.TypeConcept)
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("update", n.ID, "--content", "updated body", "--since", sinceFor(n), "--no-edit")
+	if err != nil {
+		t.Fatalf("nn update: %v", err)
+	}
+	if !strings.Contains(out, "modified:") {
+		t.Errorf("expected 'modified:' in nn update output; got:\n%s", out)
+	}
+}

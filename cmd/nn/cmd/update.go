@@ -153,7 +153,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 			if err := state.backend.Update(n); err != nil {
 				return fmt.Errorf("update: %w", err)
 			}
-			fmt.Fprintf(outWriter(cmd), "updated %s\n", n.ID)
+			fmt.Fprintf(outWriter(cmd), "updated %s\nmodified: %s\n", n.ID, n.Modified.Format(time.RFC3339))
 			return nil
 		},
 	}
