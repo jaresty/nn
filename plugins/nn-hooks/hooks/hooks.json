@@ -56,17 +56,6 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/nn-stop-hook.sh\"",
-            "statusMessage": "Capturing and debriefing session...",
-            "timeout": 180
-          }
-        ]
-      }
-    ]
+    "Stop": []
   }
 }
