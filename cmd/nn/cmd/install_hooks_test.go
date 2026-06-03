@@ -246,8 +246,8 @@ func TestInstallHooksStopNotInSettings(t *testing.T) {
 	}
 }
 
-// Assert that hooks.json (deployed by install-hooks) contains the Stop hook.
-func TestInstallHooksJsonContainsStop(t *testing.T) {
+// Assert that hooks.json (deployed by install-hooks) contains the PreCompact hook.
+func TestInstallHooksJsonContainsPreCompact(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -266,8 +266,8 @@ func TestInstallHooksJsonContainsStop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("hooks.json not deployed: %v", err)
 	}
-	if !strings.Contains(string(data), "nn-stop-hook.sh") {
-		t.Errorf("hooks.json must reference nn-stop-hook.sh; got:\n%s", string(data))
+	if !strings.Contains(string(data), "nn-precompact-hook.sh") {
+		t.Errorf("hooks.json must reference nn-precompact-hook.sh; got:\n%s", string(data))
 	}
 }
 
