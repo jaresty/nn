@@ -114,6 +114,19 @@ func TestUpdateContentStripsLinksSection(t *testing.T) {
 		t.Fatalf("nn update --content with Links section: %v", err)
 	}
 
+	// Re-read from disk so sinceFor reflects the post-update modified timestamp.
+	{
+		data, readErr := os.ReadFile(filepath.Join(nbDir, from.Filename()))
+		if readErr != nil {
+			t.Fatalf("re-read note after first update: %v", readErr)
+		}
+		updated, parseErr := note.Parse(data)
+		if parseErr != nil {
+			t.Fatalf("parse note after first update: %v", parseErr)
+		}
+		from = updated
+	}
+
 	// Update again — idempotent, still only one link.
 	_, err = execute("update", from.ID, "--content", body, "--since", sinceFor(from), "--no-edit")
 	if err != nil {
