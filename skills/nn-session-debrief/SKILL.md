@@ -35,6 +35,20 @@ nn list --sort created --status draft --json | head -20
 
 For each captured note, run `nn show <id>` to verify the content is accurate and the title is precise.
 
+### 1b. Surface capture opportunities from session searches
+
+Scan the conversation transcript for `nn list --search` calls made this session. For each:
+- If the result was `[]`: the topic was searched but returned nothing — it is a capture candidate.
+- If the result was non-empty but no subsequent `nn new` or `nn update` followed for those IDs: the search may have surfaced relevant notes that were read but not captured or linked.
+
+For each zero-result search, propose a new note:
+
+```bash
+nn new --title "<topic>" --type <concept|observation|question> --content "..." --no-edit
+```
+
+For each non-empty search where relevant results were found but nothing was captured, flag the gap: "Searched for X, found Y — no capture or link recorded."
+
 ### 2. Find promotion candidates
 
 Find draft notes that may be ready for promotion:
@@ -88,6 +102,23 @@ nn list --search "friction" --status draft --json
 ```
 
 For each: is it resolved? Promote to `reviewed` with a note on what changed, or update the body with new evidence.
+
+### 3b. Flag retrieved notes as potentially stale
+
+Scan the conversation transcript for `nn show <id>` calls made this session (excluding virtual notes). For each real note that was shown, run:
+
+```bash
+nn show <id>
+```
+
+Check the `modified:` timestamp. If the note was last modified more than 14 days ago and content from the session contradicts or extends what the note says, flag it:
+
+```
+Stale candidate: <id> — <title> (modified: <date>)
+Reason: session discovered [X] which is not reflected in the note body.
+```
+
+Propose an update for each flagged note. If the note content is still accurate, note "content verified — no update needed."
 
 ### 4. Run nn-refine on key captures
 
