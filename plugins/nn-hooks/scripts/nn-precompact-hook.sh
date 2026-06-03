@@ -29,16 +29,17 @@ fi
 
 echo "$NOW" > "$LAST_RUN"
 
-PROMPT="$(cat "$AGENT_PROMPT_FILE")"
-if [ -n "$TRANSCRIPT" ]; then
-  PROMPT="$PROMPT
-
-## Session transcript
-
-$TRANSCRIPT"
+PROMPT_FILE=$(mktemp)
+cat "$AGENT_PROMPT_FILE" > "$PROMPT_FILE"
+if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
+  printf '\n\n## Session transcript\n\n' >> "$PROMPT_FILE"
+  cat "$TRANSCRIPT_PATH" >> "$PROMPT_FILE"
 fi
 
-claude --print "$PROMPT" \
+claude --print - \
   --allowedTools "Bash" \
   --output-format text \
+  < "$PROMPT_FILE" \
   2>/dev/null || true
+
+rm -f "$PROMPT_FILE"
