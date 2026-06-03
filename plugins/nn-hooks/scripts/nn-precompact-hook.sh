@@ -32,8 +32,8 @@ echo "$NOW" > "$LAST_RUN"
 PROMPT_FILE=$(mktemp)
 cat "$AGENT_PROMPT_FILE" > "$PROMPT_FILE"
 if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
-  printf '\n\n## Session transcript (last 500 lines)\n\n' >> "$PROMPT_FILE"
-  tail -500 "$TRANSCRIPT_PATH" >> "$PROMPT_FILE"
+  printf '\n\n## Session transcript (last 50 lines)\n\n' >> "$PROMPT_FILE"
+  tail -50 "$TRANSCRIPT_PATH" >> "$PROMPT_FILE"
 fi
 
 claude --print - \
