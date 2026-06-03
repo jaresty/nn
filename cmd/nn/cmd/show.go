@@ -29,13 +29,17 @@ var virtualGlobalProtocols = []virtualProtocol{
 	{
 		ID:          "virtual-nn-capture-discipline",
 		Title:       "Protocol: nn-capture-discipline",
-		AppliesWhen: "before any action that reads from a source not authored this session",
-		Body: "The assistant text block that immediately precedes the `nn list --search` tool call — and no other block — must contain the string `Search rationale:`. " +
-			"An evaluator determines compliance by locating the `nn list --search` tool call in the transcript, reading backward to the first assistant text block, " +
-			"and checking for the literal string `Search rationale:` within that block. " +
-			"A rationale present in any earlier assistant text block, in any later block, or embedded within the tool call itself does not satisfy this clause. " +
+		AppliesWhen: "before any Read tool call or file-reading Bash tool call",
+		Body: "Prior knowledge of a topic is not an exemption from this gate — it is the reason the search is most likely to return a relevant note. " +
+			"Skip resistance is a signal the search is especially needed.\n\n" +
+			"Before every Read tool call or file-reading Bash tool call, the immediately preceding assistant text block must contain exactly one of: " +
+			"`Gate: allow-listed — [specific allow-list item]` if the action qualifies for an allow-list exemption, " +
+			"or `Gate: Search rationale: [action] requires knowing [X]` if the gate applies. " +
+			"An evaluator determines compliance by locating the tool call in the transcript, reading backward to the first assistant text block, " +
+			"and checking for the literal string `Gate:` within that block. " +
+			"A `Gate:` line present in any earlier assistant text block, in any later block, or embedded within the tool call itself does not satisfy this clause. " +
 			"The search query must contain at least one word from the topic named after `Search rationale:`.\n\n" +
-			"Every action requires a preceding `nn list --search \"<topic>\" --json` result in the transcript " +
+			"Every Read tool call or file-reading Bash tool call requires a preceding `nn list --search \"<topic>\" --json` result in the transcript " +
 			"(no `|` in the same tool call — a tool call containing `nn list --search` followed by `|` is non-compliant; use `--limit N` to restrict result count instead), " +
 			"except actions on the allow-list below. " +
 			"The `nn list --search` tool call must be the tool call whose result block occupies the position immediately before the gated tool call in the ordered sequence of tool call result blocks. " +
@@ -46,7 +50,8 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"a search result whose query shares no word with the stated search rationale does not satisfy this gate. " +
 			"The assistant text block immediately following the `nn list --search` result block must contain a verbatim substring that exactly matches the value of at least one `title` field in the returned JSON array — " +
 			"an evaluator determines compliance by parsing the result as JSON, extracting all `title` field values, and checking whether any appears verbatim in the subsequent assistant text block. " +
-			"If the returned array is `[]`, the assistant text block must contain the literal string `zero results returned`. " +
+			"If the returned array is `[]`, the assistant must issue a second `nn list --search` tool call with a rephrased query before proceeding — a single zero-result search does not satisfy the gate. " +
+			"The assistant text block after the second search must contain the literal string `zero results returned` if the second search also returns `[]`. " +
 			"If the JSON array contains any object whose `title` field value shares at least one word with the `Search rationale:` string, " +
 			"the assistant must issue an `nn show <id>` tool call where `<id>` is the `id` field value of the first object in the array (array index 0) whose `title` field satisfies the word-sharing condition — " +
 			"an evaluator determines compliance by identifying the lowest-index matching object, extracting its `id`, " +

@@ -24,7 +24,7 @@ func TestShowGlobalVirtualAlwaysPresent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out2, "Every action requires a preceding") {
+	if !strings.Contains(out2, "Every Read tool call or file-reading Bash tool call requires a preceding") {
 		t.Errorf("expected virtual protocol body text in nn show output:\n%s", out2)
 	}
 }
