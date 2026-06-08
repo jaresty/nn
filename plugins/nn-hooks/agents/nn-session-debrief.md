@@ -139,6 +139,25 @@ nn new --title "Friction: <brief description>" --type observation --tags frictio
 
 Write at most 3 friction observations per session. If no clear friction moments occurred, skip this step entirely — do not write an observation just to fill the quota.
 
+### Knowledge Transmission Review
+
+After the friction review, scan the transcript for moments where the user learned something new or worked through unfamiliar territory — these are candidates for quiz notes that support active recall later.
+
+Look for:
+- Questions the user asked that Claude answered at length
+- Concepts the user encountered for the first time
+- Errors or misunderstandings that were corrected — the corrected understanding is the learnable unit
+- Non-obvious decisions where the reasoning is worth internalizing
+
+For each candidate, write a `question` note tagged `quiz` as a draft:
+
+```
+nn new --title "Quiz: <concise question>" --type question --tags quiz --no-edit \
+  --content "## Question\n\n<the question>\n\n## Answer\n\n<the answer>\n\n## Why it matters\n\n<consequence of not knowing this>"
+```
+
+Write at most 3 quiz notes per session. If no clear knowledge-transfer moments occurred, skip entirely.
+
 ### Termination conditions
 
 - **Success**: all notes in target set processed (promoted, linked, or explicitly skipped with reason)

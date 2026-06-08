@@ -120,6 +120,29 @@ Reason: session discovered [X] which is not reflected in the note body.
 
 Propose an update for each flagged note. If the note content is still accurate, note "content verified — no update needed."
 
+### 3c. Capture knowledge transmission opportunities
+
+Scan the conversation transcript for moments where the user learned something new, asked for an explanation, or worked through unfamiliar territory. These are candidates for quiz notes — active recall reinforces durable knowledge.
+
+Look for:
+- Questions the user asked that Claude answered at length
+- Concepts the user encountered for the first time (signaled by phrases like "I didn't know", "interesting", "makes sense now", "ah")
+- Decisions where the reasoning was non-obvious and worth internalizing
+- Errors or misunderstandings that were corrected — the delta is often the most learnable unit
+
+For each candidate, propose a `question` note tagged `quiz`:
+
+```bash
+nn new \
+  --title "Quiz: <concise question>" \
+  --type question \
+  --tags "quiz" \
+  --content "## Question\n<the question>\n\n## Answer\n<the answer, in the user's context>\n\n## Why it matters\n<the consequence of not knowing this>" \
+  --no-edit
+```
+
+Present candidates to the user before creating — quiz notes are only worth capturing if the user confirms they want active recall on the topic. Ask: **"These moments looked like new knowledge — worth a quiz note?"**
+
 ### 4. Run nn-refine on key captures
 
 For each significant capture from this session, invoke the `nn-refine` workflow to check atomicity, links, and title quality.
@@ -262,5 +285,6 @@ nn update <daily-id> --replace-section "Relay" --content "..." --since <modified
 - All captures from the session have been reviewed for accuracy
 - Promotion-eligible drafts have been promoted or a reason given for deferral
 - Friction points from the session have been captured as `hypothesis` or `observation` notes tagged `friction`
+- Knowledge transmission opportunities have been proposed to the user; accepted ones captured as `question` notes tagged `quiz`
 - Today's daily page exists and has been updated with Done/Open/Relay reflecting the current session
 - A session summary note exists linking the key captures, or a reason given for skipping it
