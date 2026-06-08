@@ -84,6 +84,31 @@ func TestBulkLinkRequiresType(t *testing.T) {
 	}
 }
 
+// Assertion E: single --type broadcasts to all --to entries.
+func TestBulkLinkSingleTypeBroadcasts(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	src := newTestNoteForCLI(note.GenerateID(), "Source", note.TypeConcept)
+	dst1 := newTestNoteForCLI(note.GenerateID(), "Target One", note.TypeConcept)
+	dst2 := newTestNoteForCLI(note.GenerateID(), "Target Two", note.TypeConcept)
+	writeNoteFile(t, nbDir, src)
+	writeNoteFile(t, nbDir, dst1)
+	writeNoteFile(t, nbDir, dst2)
+
+	_, err := execute("bulk-link", src.ID,
+		"--type", "supports",
+		"--to", dst1.ID, "--annotation", "first target",
+		"--to", dst2.ID, "--annotation", "second target",
+	)
+	if err != nil {
+		t.Fatalf("nn bulk-link single --type broadcast: %v", err)
+	}
+
+	out, _ := execute("show", src.ID)
+	if !strings.Contains(out, "[supports]") {
+		t.Errorf("bulk-link single --type broadcast: expected [supports] for both links:\n%s", out)
+	}
+}
+
 // Assertion D: bulk-link errors on mismatched --to/--annotation counts.
 func TestBulkLinkMismatchedCountsErrors(t *testing.T) {
 	nbDir, execute := setupNotebook(t)

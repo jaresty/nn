@@ -32,7 +32,7 @@ func newBulkLinkCmd(state *rootState) *cobra.Command {
 			if len(types) == 0 {
 				return fmt.Errorf("bulk-link: --type is required for each --to")
 			}
-			if len(types) != len(toIDs) {
+			if len(types) != 1 && len(types) != len(toIDs) {
 				return fmt.Errorf("bulk-link: %d --to flags but %d --type flags; counts must match", len(toIDs), len(types))
 			}
 			if linkStatus != "draft" && linkStatus != "reviewed" {
@@ -40,11 +40,8 @@ func newBulkLinkCmd(state *rootState) *cobra.Command {
 			}
 			targets := make([]backend.LinkTarget, len(toIDs))
 			for i, id := range toIDs {
-				t := backend.LinkTarget{ToID: id, Annotation: annotations[i], Status: linkStatus}
-				if len(types) > 0 {
-					t.Type = types[i]
-				}
-				targets[i] = t
+				linkType := types[i%len(types)]
+				targets[i] = backend.LinkTarget{ToID: id, Annotation: annotations[i], Status: linkStatus, Type: linkType}
 			}
 			if err := state.backend.AddLinks(fromID, targets); err != nil {
 				return fmt.Errorf("bulk-link: %w", err)
@@ -55,7 +52,7 @@ func newBulkLinkCmd(state *rootState) *cobra.Command {
 	}
 	cmd.Flags().StringArrayVar(&toIDs, "to", nil, "Target note ID (repeatable)")
 	cmd.Flags().StringArrayVar(&annotations, "annotation", nil, "Link annotation (repeatable, paired with --to)")
-	cmd.Flags().StringArrayVar(&types, "type", nil, "Link type (repeatable, optional, paired with --to)")
+	cmd.Flags().StringArrayVar(&types, "type", nil, "Link type: one value broadcasts to all --to entries, or one per --to")
 	cmd.Flags().StringVar(&linkStatus, "status", "draft", "Link status for all links: draft or reviewed")
 	return cmd
 }
