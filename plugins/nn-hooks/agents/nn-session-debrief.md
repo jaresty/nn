@@ -149,11 +149,13 @@ Look for:
 - Errors or misunderstandings that were corrected — the corrected understanding is the learnable unit
 - Non-obvious decisions where the reasoning is worth internalizing
 
+For each candidate, generalize before writing: strip the session-specific context and extract the transferable principle. The question should test understanding of a concept or invariant, not recall of what happened in this session. Ask: "would this question make sense to someone who didn't see this session?" If no, abstract up one level.
+
 For each candidate, write a `question` note tagged `quiz` as a draft:
 
 ```
 nn new --title "Quiz: <concise question>" --type question --tags quiz --no-edit \
-  --content "## Question\n\n<the question>\n\n## Answer\n\n<the answer>\n\n## Why it matters\n\n<consequence of not knowing this>"
+  --content "## Question\n\n<the question — generalized, no session-specific details>\n\n## Answer\n\n<the answer as a transferable principle>\n\n## Why it matters\n\n<consequence of not knowing this>"
 ```
 
 Write at most 3 quiz notes per session. If no clear knowledge-transfer moments occurred, skip entirely.

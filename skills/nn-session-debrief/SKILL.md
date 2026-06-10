@@ -130,6 +130,8 @@ Look for:
 - Decisions where the reasoning was non-obvious and worth internalizing
 - Errors or misunderstandings that were corrected — the delta is often the most learnable unit
 
+Before proposing, generalize each candidate: strip the session-specific context and extract the transferable principle. The question should test understanding of a concept or invariant, not recall of what happened in this session. Ask: "would this question make sense to someone who didn't see this session?" If no, abstract up one level.
+
 For each candidate, propose a `question` note tagged `quiz`:
 
 ```bash
@@ -137,7 +139,7 @@ nn new \
   --title "Quiz: <concise question>" \
   --type question \
   --tags "quiz" \
-  --content "## Question\n<the question>\n\n## Answer\n<the answer, in the user's context>\n\n## Why it matters\n<the consequence of not knowing this>" \
+  --content "## Question\n<the question — generalized, no session-specific details>\n\n## Answer\n<the answer as a transferable principle>\n\n## Why it matters\n<the consequence of not knowing this>" \
   --no-edit
 ```
 
