@@ -10,6 +10,108 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+// Assertion: TestShowDailyCreationEmbedsYesterday — when resolveDailyNote creates today's note, it embeds yesterday's body as ### Yesterday section.
+func TestShowDailyCreationEmbedsYesterday(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
+	yesterdayTitle := "Daily: " + yesterday
+	yNote := newTestNoteForCLI(note.GenerateID(), yesterdayTitle, note.TypeObservation)
+	yNote.Tags = []string{"daily"}
+	yNote.Body = "## Done\n- fixed the thing"
+	writeNoteFile(t, nbDir, yNote)
+
+	out, err := execute("show", "daily")
+	if err != nil {
+		t.Fatalf("nn show daily: %v", err)
+	}
+	if !strings.Contains(out, "### Yesterday") {
+		t.Errorf("nn show daily: want '### Yesterday' section in new note, got:\n%s", out)
+	}
+	if !strings.Contains(out, "fixed the thing") {
+		t.Errorf("nn show daily: want yesterday body embedded, got:\n%s", out)
+	}
+}
+
+// Assertion: TestShowGlobalIncludesYesterdayWhenNoToday — nn show --global includes yesterday's daily note when no today note exists.
+func TestShowGlobalIncludesYesterdayWhenNoToday(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
+	yesterdayTitle := "Daily: " + yesterday
+	yNote := newTestNoteForCLI(note.GenerateID(), yesterdayTitle, note.TypeObservation)
+	yNote.Tags = []string{"daily"}
+	yNote.Status = note.StatusPermanent
+	yNote.Body = "## Done\n- session work"
+	writeNoteFile(t, nbDir, yNote)
+
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global: %v", err)
+	}
+	if !strings.Contains(out, yesterdayTitle) {
+		t.Errorf("nn show --global: want %q when no today note exists, got:\n%s", yesterdayTitle, out)
+	}
+}
+
+// Assertion: TestShowDailyResolvesToToday — nn show daily resolves to today's Daily: YYYY-MM-DD note, not a stale one.
+func TestShowDailyResolvesToToday(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	today := time.Now().UTC().Format("2006-01-02")
+	todayTitle := "Daily: " + today
+	n := newTestNoteForCLI(note.GenerateID(), todayTitle, note.TypeObservation)
+	n.Tags = []string{"daily"}
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("show", "daily")
+	if err != nil {
+		t.Fatalf("nn show daily: %v", err)
+	}
+	if !strings.Contains(out, todayTitle) {
+		t.Errorf("nn show daily: want output containing %q, got:\n%s", todayTitle, out)
+	}
+}
+
+// Assertion: TestShowDailyCreatesNoteWhenAbsent — nn show daily creates a new Daily: YYYY-MM-DD note if none exists today.
+func TestShowDailyCreatesNoteWhenAbsent(t *testing.T) {
+	_, execute := setupNotebook(t)
+	today := time.Now().UTC().Format("2006-01-02")
+	todayTitle := "Daily: " + today
+
+	out, err := execute("show", "daily")
+	if err != nil {
+		t.Fatalf("nn show daily (absent): %v", err)
+	}
+	if !strings.Contains(out, todayTitle) {
+		t.Errorf("nn show daily: want created note with title %q, got:\n%s", todayTitle, out)
+	}
+}
+
+// Assertion: TestShowDailyCreatedNoteHasDailyTag — note created by nn show daily has tag daily.
+func TestShowDailyCreatedNoteHasDailyTag(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "daily")
+	if err != nil {
+		t.Fatalf("nn show daily: %v", err)
+	}
+	if !strings.Contains(out, "daily") {
+		t.Errorf("nn show daily: want 'daily' tag in output, got:\n%s", out)
+	}
+}
+
+// Assertion: TestShowDailyCreatedNoteHasSevenDayExpiry — note created by nn show daily expires in 7 days.
+func TestShowDailyCreatedNoteHasSevenDayExpiry(t *testing.T) {
+	_, execute := setupNotebook(t)
+	sevenDaysFromNow := time.Now().UTC().AddDate(0, 0, 7).Format("2006-01-02")
+
+	out, err := execute("show", "daily")
+	if err != nil {
+		t.Fatalf("nn show daily: %v", err)
+	}
+	if !strings.Contains(out, sevenDaysFromNow) {
+		t.Errorf("nn show daily: want expiry %q in output, got:\n%s", sevenDaysFromNow, out)
+	}
+}
+
 // Assertion: TestShowFreshnessFresh — note modified 1 day ago shows freshness: fresh with age and hint
 func TestShowFreshnessFresh(t *testing.T) {
 	nbDir, execute := setupNotebook(t)

@@ -203,6 +203,29 @@ func newShowCmd(state *rootState) *cobra.Command {
 						fmt.Fprintf(w, "\n%s\n\n", n.Body)
 					}
 				}
+				today := time.Now().UTC().Format("2006-01-02")
+				yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
+				hasTodayDaily := false
+				var yesterdayDaily *note.Note
+				for _, n := range all {
+					for _, tag := range n.Tags {
+						if tag == "daily" {
+							if n.Title == "Daily: "+today {
+								hasTodayDaily = true
+							} else if n.Title == "Daily: "+yesterday {
+								yesterdayDaily = n
+							}
+						}
+					}
+				}
+				if !hasTodayDaily && yesterdayDaily != nil {
+					yn, readErr := state.backend.Read(yesterdayDaily.ID)
+					if readErr == nil {
+						fmt.Fprintln(w, "---")
+						fmt.Fprintf(w, "id: %s\ntitle: %s\ntype: observation\nstatus: %s\ntags: daily\n---\n\n%s\n", yn.ID, yn.Title, yn.Status, yn.Body)
+					}
+				}
+
 				fmt.Fprint(w, protocolDerivationBlock)
 				return nil
 			}
@@ -399,7 +422,11 @@ func findGoverningProtocols(targetID string, all []*note.Note) []*note.Note {
 }
 
 // resolveNote finds a note by exact ID or case-insensitive title substring.
+// The special query "daily" resolves to today's Daily: YYYY-MM-DD note, creating it if absent.
 func resolveNote(state *rootState, query string) (*note.Note, error) {
+	if strings.ToLower(query) == "daily" {
+		return resolveDailyNote(state)
+	}
 	n, err := state.backend.Read(query)
 	if err == nil {
 		return n, nil
@@ -423,6 +450,54 @@ func resolveNote(state *rootState, query string) (*note.Note, error) {
 	default:
 		return nil, fmt.Errorf("ambiguous query %q — %d matches; use full ID", query, len(matches))
 	}
+}
+
+// resolveDailyNote finds or creates today's Daily: YYYY-MM-DD note.
+// Created notes are tagged "daily" and expire in 7 days.
+func resolveDailyNote(state *rootState) (*note.Note, error) {
+	today := time.Now().UTC().Format("2006-01-02")
+	todayTitle := "Daily: " + today
+
+	all, err := state.backend.List()
+	if err != nil {
+		return nil, fmt.Errorf("daily: list: %w", err)
+	}
+	for _, candidate := range all {
+		if candidate.Title == todayTitle {
+			return state.backend.Read(candidate.ID)
+		}
+	}
+
+	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
+	yesterdayTitle := "Daily: " + yesterday
+	var body string
+	for _, candidate := range all {
+		if candidate.Title == yesterdayTitle {
+			yn, readErr := state.backend.Read(candidate.ID)
+			if readErr == nil && yn.Body != "" {
+				body = "### Yesterday\n\n" + yn.Body
+			}
+			break
+		}
+	}
+
+	expires := time.Now().UTC().AddDate(0, 0, 7)
+	now := time.Now().UTC()
+	n := &note.Note{
+		ID:       note.GenerateID(),
+		Title:    todayTitle,
+		Type:     note.TypeObservation,
+		Status:   note.StatusDraft,
+		Tags:     []string{"daily"},
+		Expires:  &expires,
+		Created:  now,
+		Modified: now,
+		Body:     body,
+	}
+	if err := state.backend.Write(n); err != nil {
+		return nil, fmt.Errorf("daily: create: %w", err)
+	}
+	return n, nil
 }
 
 // findVirtualProtocol returns the virtualProtocol whose ID matches query exactly,

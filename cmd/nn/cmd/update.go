@@ -49,7 +49,8 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 				len(tagsAdd) == 0 && len(tagsRemove) == 0 {
 				return fmt.Errorf("at least one of --title, --tags, --tags-add, --tags-remove, --content, --stdin, --append, --type, --status, --applies-when, --expires-when, --expires, --replace-section is required")
 			}
-			if sinceStr == "" {
+			isDailyAlias := strings.ToLower(args[0]) == "daily"
+			if sinceStr == "" && !isDailyAlias {
 				return fmt.Errorf("--since is required: read 'modified:' from nn show output and pass it to prevent overwriting concurrent changes")
 			}
 

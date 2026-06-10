@@ -3,6 +3,7 @@ package cmd
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jaresty/nn/internal/note"
 )
@@ -94,5 +95,27 @@ func TestUpdateRequiresFlag(t *testing.T) {
 	_, err := execute("update", n.ID, "--since", sinceFor(n), "--no-edit")
 	if err == nil {
 		t.Fatal("nn update with no change flags: want error, got nil")
+	}
+}
+
+// Assertion: TestUpdateDailyUpserts — nn update daily --content replaces body of today's daily note (upsert: creates if absent).
+func TestUpdateDailyUpserts(t *testing.T) {
+	_, execute := setupNotebook(t)
+	today := time.Now().UTC().Format("2006-01-02")
+	todayTitle := "Daily: " + today
+
+	_, err := execute("update", "daily", "--content", "session work today", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn update daily (upsert): %v", err)
+	}
+	out, err := execute("show", "daily")
+	if err != nil {
+		t.Fatalf("nn show daily after update: %v", err)
+	}
+	if !strings.Contains(out, todayTitle) {
+		t.Errorf("nn update daily: want note titled %q, got:\n%s", todayTitle, out)
+	}
+	if !strings.Contains(out, "session work today") {
+		t.Errorf("nn update daily: want body 'session work today', got:\n%s", out)
 	}
 }

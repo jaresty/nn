@@ -189,49 +189,49 @@ For each draft not touched in 14+ days: check outbound link count first.
 
 Maintain a running daily log note for today. This step runs in all modes including `--daily` (where it is the only step).
 
-**Check if today's page exists:**
+**Show (or create) today's daily note:**
 
 ```bash
-nn list --search "Daily: <YYYY-MM-DD>" --tag daily --json
+nn show daily
 ```
 
-**If it does not exist**, create it:
+This creates today's `Daily: YYYY-MM-DD` note if it does not yet exist (tagged `daily`, expires in 7 days). Read the output to get the current note ID and body before updating.
 
-```bash
-nn new \
-  --title "Daily: <YYYY-MM-DD>" \
-  --type observation \
-  --tags "daily" \
-  --no-edit \
-  --content "## Done
-
-## Decided
-
-## Open
-
-## Relay
-In progress: —
-Next: —
-Blocked: —"
-```
-
-**If it exists**, update it — append to Done, replace Open and Relay with current state:
+**Update sections — `nn update daily` bypasses `--since` and upserts automatically:**
 
 ```bash
 # Append completed work to Done section
-nn update <daily-id> --replace-section "Done" \
+nn update daily --replace-section "Done" \
   --content "<existing Done entries>\n- <new entry 1>\n- <new entry 2>" \
-  --since <modified> --no-edit
+  --no-edit
 
 # Replace Open with current unresolved items
-nn update <daily-id> --replace-section "Open" \
+nn update daily --replace-section "Open" \
   --content "<current open items>" \
-  --since <modified> --no-edit
+  --no-edit
 
 # Replace Relay with current handoff state
-nn update <daily-id> --replace-section "Relay" \
+nn update daily --replace-section "Relay" \
   --content "In progress: <what is in flight>\nNext: <immediate next action>\nBlocked: <blockers or —>" \
-  --since <modified> --no-edit
+  --no-edit
+```
+
+If the note body has no existing sections yet, use `--content` with the full structured body instead of `--replace-section`:
+
+```bash
+nn update daily --content "## Done
+- <entry>
+
+## Decided
+- <decision>
+
+## Open
+<open items>
+
+## Relay
+In progress: <what is in flight>
+Next: <immediate next action>
+Blocked: <blockers or —>" --no-edit
 ```
 
 **Section semantics — ledger discipline:**
