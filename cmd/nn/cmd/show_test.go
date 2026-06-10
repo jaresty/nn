@@ -32,8 +32,8 @@ func TestShowDailyCreationEmbedsYesterday(t *testing.T) {
 	}
 }
 
-// Assertion: TestShowGlobalIncludesYesterdayWhenNoToday — nn show --global includes yesterday's daily note when no today note exists.
-func TestShowGlobalIncludesYesterdayWhenNoToday(t *testing.T) {
+// Assertion: TestShowGlobalCreatesTodayWhenAbsent — nn show --global creates and shows today's daily note when none exists.
+func TestShowGlobalCreatesTodayWhenAbsent(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
 	yesterdayTitle := "Daily: " + yesterday
@@ -43,12 +43,15 @@ func TestShowGlobalIncludesYesterdayWhenNoToday(t *testing.T) {
 	yNote.Body = "## Done\n- session work"
 	writeNoteFile(t, nbDir, yNote)
 
+	today := time.Now().UTC().Format("2006-01-02")
+	todayTitle := "Daily: " + today
+
 	out, err := execute("show", "--global")
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}
-	if !strings.Contains(out, yesterdayTitle) {
-		t.Errorf("nn show --global: want %q when no today note exists, got:\n%s", yesterdayTitle, out)
+	if !strings.Contains(out, todayTitle) {
+		t.Errorf("nn show --global: want today note %q created and shown, got:\n%s", todayTitle, out)
 	}
 }
 

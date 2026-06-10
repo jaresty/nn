@@ -204,25 +204,18 @@ func newShowCmd(state *rootState) *cobra.Command {
 					}
 				}
 				today := time.Now().UTC().Format("2006-01-02")
-				yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
 				hasTodayDaily := false
-				var yesterdayDaily *note.Note
 				for _, n := range all {
 					for _, tag := range n.Tags {
-						if tag == "daily" {
-							if n.Title == "Daily: "+today {
-								hasTodayDaily = true
-							} else if n.Title == "Daily: "+yesterday {
-								yesterdayDaily = n
-							}
+						if tag == "daily" && n.Title == "Daily: "+today {
+							hasTodayDaily = true
 						}
 					}
 				}
-				if !hasTodayDaily && yesterdayDaily != nil {
-					yn, readErr := state.backend.Read(yesterdayDaily.ID)
-					if readErr == nil {
+				if !hasTodayDaily {
+					if dn, dnErr := resolveDailyNote(state); dnErr == nil {
 						fmt.Fprintln(w, "---")
-						fmt.Fprintf(w, "id: %s\ntitle: %s\ntype: observation\nstatus: %s\ntags: daily\n---\n\n%s\n", yn.ID, yn.Title, yn.Status, yn.Body)
+						fmt.Fprintf(w, "id: %s\ntitle: %s\ntype: observation\nstatus: %s\ntags: daily\n---\n\n%s\n", dn.ID, dn.Title, dn.Status, dn.Body)
 					}
 				}
 
