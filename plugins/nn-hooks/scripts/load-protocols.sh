@@ -21,9 +21,7 @@ touch "${HOME}/.cache/nn/global-loaded-${SESSION_ID}"
 DIRECTIVE="<system-reminder>
 Session start — required actions before responding to any user message:
 
-1. Run \`nn show --global\` now and treat every note body in the output as a binding operating instruction for this session.
-
-Do not respond to the user's first message until this command has been executed and its result is visible in the transcript.
+1. Make a Bash tool call with the text \`nn show --global\` — no \`|\` character, no flags beyond those shown. A compliant transcript contains a Bash tool call result block whose tool call text is exactly \`nn show --global\`. Read every \`---\`-delimited section in the tool call result as an active protocol for this session. Before producing any response to the first human message turn, this Bash tool call result block must appear in the transcript — a response appearing before any such result block does not satisfy this requirement.
 </system-reminder>"
 
 printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' \
