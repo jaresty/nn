@@ -206,20 +206,9 @@ func newShowCmd(state *rootState) *cobra.Command {
 						fmt.Fprintf(w, "\n%s\n\n", n.Body)
 					}
 				}
-				today := nowFn().Format("2006-01-02")
-				hasTodayDaily := false
-				for _, n := range all {
-					for _, tag := range n.Tags {
-						if tag == "daily" && n.Title == "Daily: "+today {
-							hasTodayDaily = true
-						}
-					}
-				}
-				if !hasTodayDaily {
-					if dn, dnErr := resolveDailyNote(state); dnErr == nil {
-						fmt.Fprintln(w, "---")
-						fmt.Fprintf(w, "id: %s\ntitle: %s\ntype: observation\nstatus: %s\ntags: daily\n---\n\n%s\n", dn.ID, dn.Title, dn.Status, dn.Body)
-					}
+				if dn, dnErr := resolveDailyNote(state); dnErr == nil {
+					fmt.Fprintln(w, "---")
+					fmt.Fprintf(w, "id: %s\ntitle: %s\ntype: observation\nstatus: %s\ntags: daily\n---\n\n%s\n", dn.ID, dn.Title, dn.Status, dn.Body)
 				}
 
 				fmt.Fprint(w, protocolDerivationBlock)

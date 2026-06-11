@@ -385,3 +385,23 @@ func TestShowAppendsToAccessLog(t *testing.T) {
 		t.Errorf("access.log %q does not contain note ID %s", string(data), n.ID)
 	}
 }
+
+// Assertion: TestShowGlobalShowsTodayWhenPresent — nn show --global shows today's daily note even when it already exists.
+func TestShowGlobalShowsTodayWhenPresent(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	today := time.Now().Format("2006-01-02")
+	todayTitle := "Daily: " + today
+	n := newTestNoteForCLI(note.GenerateID(), todayTitle, note.TypeObservation)
+	n.Tags = []string{"daily"}
+	n.Status = note.StatusPermanent
+	n.Body = "## Done\n- existing work"
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global: %v", err)
+	}
+	if !strings.Contains(out, todayTitle) {
+		t.Errorf("nn show --global: want today note %q shown even when already present, got:\n%s", todayTitle, out)
+	}
+}
