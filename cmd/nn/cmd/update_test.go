@@ -101,7 +101,7 @@ func TestUpdateRequiresFlag(t *testing.T) {
 // Assertion: TestUpdateDailyUpserts — nn update daily --content replaces body of today's daily note (upsert: creates if absent).
 func TestUpdateDailyUpserts(t *testing.T) {
 	_, execute := setupNotebook(t)
-	today := time.Now().UTC().Format("2006-01-02")
+	today := time.Now().Format("2006-01-02")
 	todayTitle := "Daily: " + today
 
 	_, err := execute("update", "daily", "--content", "session work today", "--no-edit")

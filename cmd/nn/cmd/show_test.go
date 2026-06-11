@@ -13,7 +13,7 @@ import (
 // Assertion: TestShowDailyCreationEmbedsYesterday — when resolveDailyNote creates today's note, it embeds yesterday's body as ### Yesterday section.
 func TestShowDailyCreationEmbedsYesterday(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
-	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 	yesterdayTitle := "Daily: " + yesterday
 	yNote := newTestNoteForCLI(note.GenerateID(), yesterdayTitle, note.TypeObservation)
 	yNote.Tags = []string{"daily"}
@@ -35,7 +35,7 @@ func TestShowDailyCreationEmbedsYesterday(t *testing.T) {
 // Assertion: TestShowGlobalCreatesTodayWhenAbsent — nn show --global creates and shows today's daily note when none exists.
 func TestShowGlobalCreatesTodayWhenAbsent(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
-	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 	yesterdayTitle := "Daily: " + yesterday
 	yNote := newTestNoteForCLI(note.GenerateID(), yesterdayTitle, note.TypeObservation)
 	yNote.Tags = []string{"daily"}
@@ -43,7 +43,7 @@ func TestShowGlobalCreatesTodayWhenAbsent(t *testing.T) {
 	yNote.Body = "## Done\n- session work"
 	writeNoteFile(t, nbDir, yNote)
 
-	today := time.Now().UTC().Format("2006-01-02")
+	today := time.Now().Format("2006-01-02")
 	todayTitle := "Daily: " + today
 
 	out, err := execute("show", "--global")
@@ -58,7 +58,7 @@ func TestShowGlobalCreatesTodayWhenAbsent(t *testing.T) {
 // Assertion: TestShowDailyResolvesToToday — nn show daily resolves to today's Daily: YYYY-MM-DD note, not a stale one.
 func TestShowDailyResolvesToToday(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
-	today := time.Now().UTC().Format("2006-01-02")
+	today := time.Now().Format("2006-01-02")
 	todayTitle := "Daily: " + today
 	n := newTestNoteForCLI(note.GenerateID(), todayTitle, note.TypeObservation)
 	n.Tags = []string{"daily"}
@@ -76,7 +76,7 @@ func TestShowDailyResolvesToToday(t *testing.T) {
 // Assertion: TestShowDailyCreatesNoteWhenAbsent — nn show daily creates a new Daily: YYYY-MM-DD note if none exists today.
 func TestShowDailyCreatesNoteWhenAbsent(t *testing.T) {
 	_, execute := setupNotebook(t)
-	today := time.Now().UTC().Format("2006-01-02")
+	today := time.Now().Format("2006-01-02")
 	todayTitle := "Daily: " + today
 
 	out, err := execute("show", "daily")
@@ -85,6 +85,65 @@ func TestShowDailyCreatesNoteWhenAbsent(t *testing.T) {
 	}
 	if !strings.Contains(out, todayTitle) {
 		t.Errorf("nn show daily: want created note with title %q, got:\n%s", todayTitle, out)
+	}
+}
+
+// Assertion: TestDailyNoteTitleUsesLocalTime — daily note titles use local time, not UTC.
+// Simulates a moment that is one date in UTC but the prior date locally (UTC-7 / PDT).
+func TestDailyNoteTitleUsesLocalTime(t *testing.T) {
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Skip("timezone data unavailable")
+	}
+	// 2026-06-11T00:30:00Z = 2026-06-10 17:30 PDT — UTC date is 11th, local date is 10th.
+	fixedUTC := time.Date(2026, 6, 11, 0, 30, 0, 0, time.UTC)
+	fixedLocal := fixedUTC.In(loc)
+	orig := nowFn
+	nowFn = func() time.Time { return fixedLocal }
+	t.Cleanup(func() { nowFn = orig })
+
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "daily")
+	if err != nil {
+		t.Fatalf("nn show daily: %v", err)
+	}
+	localTitle := "Daily: " + fixedLocal.Format("2006-01-02") // "Daily: 2026-06-10"
+	utcTitle := "Daily: " + fixedUTC.Format("2006-01-02")     // "Daily: 2026-06-11"
+	if strings.Contains(out, utcTitle) {
+		t.Errorf("daily note title used UTC date %q; want local date %q", utcTitle, localTitle)
+	}
+	if !strings.Contains(out, localTitle) {
+		t.Errorf("daily note title missing local date %q, got:\n%s", localTitle, out)
+	}
+}
+
+// Assertion: TestDailyYesterdayEmbedUsesLocalTime — yesterday's body is embedded using local date, not UTC.
+func TestDailyYesterdayEmbedUsesLocalTime(t *testing.T) {
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Skip("timezone data unavailable")
+	}
+	// fixedLocal = 2026-06-10 17:30 PDT. Local yesterday = 2026-06-09. UTC yesterday = 2026-06-10.
+	fixedUTC := time.Date(2026, 6, 11, 0, 30, 0, 0, time.UTC)
+	fixedLocal := fixedUTC.In(loc)
+	orig := nowFn
+	nowFn = func() time.Time { return fixedLocal }
+	t.Cleanup(func() { nowFn = orig })
+
+	nbDir, execute := setupNotebook(t)
+	// Write a note titled "Daily: 2026-06-09" (local yesterday).
+	localYesterdayTitle := "Daily: " + fixedLocal.AddDate(0, 0, -1).Format("2006-01-02")
+	yNote := newTestNoteForCLI(note.GenerateID(), localYesterdayTitle, note.TypeObservation)
+	yNote.Tags = []string{"daily"}
+	yNote.Body = "## Done\n- local yesterday content"
+	writeNoteFile(t, nbDir, yNote)
+
+	out, err := execute("show", "daily")
+	if err != nil {
+		t.Fatalf("nn show daily: %v", err)
+	}
+	if !strings.Contains(out, "local yesterday content") {
+		t.Errorf("daily note did not embed local yesterday body; got:\n%s", out)
 	}
 }
 

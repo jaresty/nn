@@ -13,6 +13,9 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+// nowFn is the time source for daily note date labels. Tests override it to simulate timezone offsets.
+var nowFn = time.Now
+
 // virtualProtocol is a hardcoded protocol always included in nn show --global output.
 // Body contains the full constraint text; AppliesWhen is a one-line application rule
 // shown in compact --global output so the LLM can decide whether to fetch the full body.
@@ -203,7 +206,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 						fmt.Fprintf(w, "\n%s\n\n", n.Body)
 					}
 				}
-				today := time.Now().UTC().Format("2006-01-02")
+				today := nowFn().Format("2006-01-02")
 				hasTodayDaily := false
 				for _, n := range all {
 					for _, tag := range n.Tags {
@@ -448,7 +451,7 @@ func resolveNote(state *rootState, query string) (*note.Note, error) {
 // resolveDailyNote finds or creates today's Daily: YYYY-MM-DD note.
 // Created notes are tagged "daily" and expire in 7 days.
 func resolveDailyNote(state *rootState) (*note.Note, error) {
-	today := time.Now().UTC().Format("2006-01-02")
+	today := nowFn().Format("2006-01-02")
 	todayTitle := "Daily: " + today
 
 	all, err := state.backend.List()
@@ -461,7 +464,7 @@ func resolveDailyNote(state *rootState) (*note.Note, error) {
 		}
 	}
 
-	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
+	yesterday := nowFn().AddDate(0, 0, -1).Format("2006-01-02")
 	yesterdayTitle := "Daily: " + yesterday
 	var body string
 	for _, candidate := range all {
