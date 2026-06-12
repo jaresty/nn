@@ -66,6 +66,35 @@ func TestUpdateSinceRequired(t *testing.T) {
 	}
 }
 
+// Assertion: TestUpdateModifiedUsesLocalTimezone — after nn update, the modified: field in nn show output uses local timezone, not UTC (no trailing Z).
+func TestUpdateModifiedUsesLocalTimezone(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "TZ Test Note", note.TypeConcept)
+	n.Modified = time.Now().UTC().Truncate(time.Second)
+	writeNoteFile(t, nbDir, n)
+
+	since := n.Modified.Format(time.RFC3339)
+	_, err := execute("update", n.ID, "--title", "TZ Test Note Updated", "--since", since, "--no-edit")
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+
+	out, err := execute("show", n.ID)
+	if err != nil {
+		t.Fatalf("show failed: %v", err)
+	}
+
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "modified:") {
+			if strings.HasSuffix(strings.TrimSpace(line), "Z") {
+				t.Errorf("modified: field ends with Z (UTC), want local timezone; got: %s", line)
+			}
+			return
+		}
+	}
+	t.Error("modified: field not found in nn show output")
+}
+
 // TestUpdateSinceStillWorks asserts that providing --since allows the update.
 func TestUpdateSinceStillWorks(t *testing.T) {
 	nbDir, execute := setupNotebook(t)

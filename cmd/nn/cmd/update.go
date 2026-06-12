@@ -148,7 +148,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 					n.Body = n.Body + "\n\n" + appendS
 				}
 			}
-			n.Modified = time.Now().UTC()
+			n.Modified = time.Now().In(time.Local)
 			warnIfLarge(cmd, n.Body)
 
 			if err := state.backend.Update(n); err != nil {
