@@ -90,7 +90,13 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn list** `--search \"<q>\" --show-first --json` | `--type <type>` | `--status <status>` | `--orphan` | `--since <ISO>` | `--expired` | `--has-expires`\n\n" +
 			"**nn show** `<id>` | `--global`\n\n" +
 			"**nn link** `<from> <to> --type <type> --annotation \"...\"`\n" +
-			"Valid --type: refines|contradicts|source-of|extends|supports|questions|governs\n",
+			"Valid --type: refines|contradicts|source-of|extends|supports|questions|governs\n\n" +
+			"**nn show** `<id> --depth N` — traverse N hops of outgoing links from a note\n\n" +
+			"**nn path** `<id-a> <id-b>` — shortest path between two notes\n\n" +
+			"**nn clusters** — topological clusters via label propagation\n\n" +
+			"**nn list** `--similar <id>` — BM25 similarity (notes sharing vocabulary but not linked)\n\n" +
+			"**nn graph** `[--json]` — export full graph as JSON `{ \"nodes\": [...], \"edges\": [...] }`\n\n" +
+			"For the full command reference, invoke `/nn-guide`.\n",
 	},
 	{
 		ID:          "virtual-nn-error-handling",

@@ -121,6 +121,34 @@ func TestShowVirtualCLIReferenceBody(t *testing.T) {
 	}
 }
 
+// Assertion: virtual-nn-cli-reference body covers graph exploration commands and points to /nn-guide.
+func TestShowVirtualCLIReferenceGraphCommands(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-cli-reference: %v", err)
+	}
+	if !strings.Contains(out, "nn graph") {
+		t.Errorf("expected nn graph command in body:\n%s", out)
+	}
+	if !strings.Contains(out, "nn path") {
+		t.Errorf("expected nn path command in body:\n%s", out)
+	}
+	if !strings.Contains(out, "nn clusters") {
+		t.Errorf("expected nn clusters command in body:\n%s", out)
+	}
+	if !strings.Contains(out, "--similar") {
+		t.Errorf("expected nn list --similar in body:\n%s", out)
+	}
+	if !strings.Contains(out, "--depth") {
+		t.Errorf("expected nn show --depth in body:\n%s", out)
+	}
+	if !strings.Contains(out, "/nn-guide") {
+		t.Errorf("expected /nn-guide pointer in body:\n%s", out)
+	}
+}
+
 // Assertion: capture-discipline skip clause requires quoting a verbatim excerpt from the tool result,
 // with [] mapping to "zero results returned" and non-empty results requiring a title citation.
 func TestCaptureDisciplineSkipClauseRequiresVerbatimExcerpt(t *testing.T) {
