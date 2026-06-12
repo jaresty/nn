@@ -215,7 +215,17 @@ func newShowCmd(state *rootState) *cobra.Command {
 				}
 				if dn, dnErr := resolveDailyNote(state); dnErr == nil {
 					fmt.Fprintln(w, "---")
-					fmt.Fprintf(w, "id: %s\ntitle: %s\ntype: observation\nstatus: %s\ntags: daily\n---\n\n%s\n", dn.ID, dn.Title, dn.Status, dn.Body)
+					byID := make(map[string]*note.Note, len(all))
+					for _, a := range all {
+						byID[a.ID] = a
+					}
+					backlinkers := findBacklinkers(dn.ID, all)
+					if data, merr := dn.Marshal(); merr == nil {
+						rendered := renderWithResolvedLinks(string(data), dn, byID, backlinkers)
+						fmt.Fprint(w, rendered)
+					} else {
+						fmt.Fprintf(w, "id: %s\ntitle: %s\ntype: observation\nstatus: %s\ntags: daily\n---\n\n%s\n", dn.ID, dn.Title, dn.Status, dn.Body)
+					}
 				}
 
 				fmt.Fprint(w, protocolDerivationBlock)
@@ -616,35 +626,6 @@ func renderWithResolvedLinks(raw string, n *note.Note, byID map[string]*note.Not
 						fmt.Fprintf(&buf, "- [[%s|%s]] — %s\n", b.ID, b.Title, lnk.Annotation)
 					} else {
 						fmt.Fprintf(&buf, "- [[%s|%s]]\n", b.ID, b.Title)
-					}
-					break
-				}
-			}
-		}
-	}
-	// Neighborhood section: compact map of outgoing and incoming links (titles + types only).
-	hasOutgoing := len(n.Links) > 0
-	hasIncoming := len(backlinkers) > 0
-	if hasOutgoing || hasIncoming {
-		fmt.Fprintf(&buf, "\n## Neighborhood\n\n")
-		for _, lnk := range n.Links {
-			title := lnk.TargetID
-			if t, ok := byID[lnk.TargetID]; ok {
-				title = t.Title
-			}
-			if lnk.Type != "" {
-				fmt.Fprintf(&buf, "→ %s [%s]\n", title, lnk.Type)
-			} else {
-				fmt.Fprintf(&buf, "→ %s\n", title)
-			}
-		}
-		for _, b := range backlinkers {
-			for _, lnk := range b.Links {
-				if lnk.TargetID == n.ID {
-					if lnk.Type != "" {
-						fmt.Fprintf(&buf, "← %s [%s]\n", b.Title, lnk.Type)
-					} else {
-						fmt.Fprintf(&buf, "← %s\n", b.Title)
 					}
 					break
 				}

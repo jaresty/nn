@@ -386,6 +386,48 @@ func TestShowAppendsToAccessLog(t *testing.T) {
 	}
 }
 
+// Assertion: TestShowGlobalDailyRendersWithResolvedLinks — nn show --global daily note output includes
+// resolved link titles and a Backlinks section, matching plain nn show <id> output.
+func TestShowGlobalDailyRendersWithResolvedLinks(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	today := time.Now().Format("2006-01-02")
+	todayTitle := "Daily: " + today
+
+	target := newTestNoteForCLI(note.GenerateID(), "Linked Concept", note.TypeConcept)
+	target.Body = "target body"
+
+	daily := newTestNoteForCLI(note.GenerateID(), todayTitle, note.TypeObservation)
+	daily.Tags = []string{"daily"}
+	daily.Status = note.StatusDraft
+	daily.Links = []note.Link{
+		{TargetID: target.ID, Annotation: "worked on this", Type: "extends"},
+	}
+
+	backer := newTestNoteForCLI(note.GenerateID(), "Referencing Note", note.TypeConcept)
+	backer.Body = "backer body"
+	backer.Links = []note.Link{
+		{TargetID: daily.ID, Annotation: "captures work on", Type: "source-of"},
+	}
+
+	writeNoteFile(t, nbDir, target)
+	writeNoteFile(t, nbDir, daily)
+	writeNoteFile(t, nbDir, backer)
+
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global: %v", err)
+	}
+	if !strings.Contains(out, "Linked Concept") {
+		t.Errorf("nn show --global daily: want resolved link title 'Linked Concept', got:\n%s", out)
+	}
+	if !strings.Contains(out, "## Backlinks") {
+		t.Errorf("nn show --global daily: want '## Backlinks' section, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Referencing Note") {
+		t.Errorf("nn show --global daily: want backlinker title 'Referencing Note', got:\n%s", out)
+	}
+}
+
 // Assertion: TestShowGlobalShowsTodayWhenPresent — nn show --global shows today's daily note even when it already exists.
 func TestShowGlobalShowsTodayWhenPresent(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
