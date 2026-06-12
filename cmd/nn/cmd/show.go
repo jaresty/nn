@@ -96,6 +96,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn clusters** — topological clusters via label propagation\n\n" +
 			"**nn list** `--similar <id>` — BM25 similarity (notes sharing vocabulary but not linked)\n\n" +
 			"**nn graph** `[--json]` — export full graph as JSON `{ \"nodes\": [...], \"edges\": [...] }`\n\n" +
+			"**nn graph show** `--focus <id> [--depth N]` — subgraph centered on a note (LLM-facing; default depth 2)\n\n" +
 			"For the full command reference, invoke `/nn-guide`.\n",
 	},
 	{

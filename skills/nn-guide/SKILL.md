@@ -198,6 +198,14 @@ nn graph [--json]
 
 JSON output: `{ "nodes": [...], "edges": [...] }`
 
+### nn graph show (LLM-facing subgraph)
+
+```
+nn graph show --focus <id> [--depth N] [--format text|json]
+```
+
+Renders a subgraph centered on `<id>`. BFS depth defaults to 2. Use `--format json` for structured output. Prefer this over `nn graph` when exploring a note's neighborhood — it scopes the result to the relevant region rather than exporting the whole graph.
+
 ## nn status
 
 ```

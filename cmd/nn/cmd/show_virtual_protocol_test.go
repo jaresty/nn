@@ -147,6 +147,12 @@ func TestShowVirtualCLIReferenceGraphCommands(t *testing.T) {
 	if !strings.Contains(out, "/nn-guide") {
 		t.Errorf("expected /nn-guide pointer in body:\n%s", out)
 	}
+	if !strings.Contains(out, "nn graph show") {
+		t.Errorf("expected nn graph show subcommand in body:\n%s", out)
+	}
+	if !strings.Contains(out, "--focus") {
+		t.Errorf("expected --focus flag in body:\n%s", out)
+	}
 }
 
 // Assertion: capture-discipline skip clause requires quoting a verbatim excerpt from the tool result,
