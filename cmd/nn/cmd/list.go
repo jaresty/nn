@@ -351,26 +351,28 @@ func linkedToNote(notes []*note.Note, fromID, targetID string) bool {
 }
 
 type noteJSON struct {
-	ID     string   `json:"id"`
-	Title  string   `json:"title"`
-	Type   string   `json:"type"`
-	Status string   `json:"status"`
-	Tags   []string `json:"tags"`
-}
-
-type noteSearchJSON struct {
 	ID          string   `json:"id"`
 	Title       string   `json:"title"`
 	Type        string   `json:"type"`
 	Status      string   `json:"status"`
 	Tags        []string `json:"tags"`
-	Excerpt     string   `json:"excerpt"`
-	Score       float64  `json:"score"`
-	Modified    string   `json:"modified"`
-	MatchReason string   `json:"match_reason"`
+	AppliesWhen string   `json:"applies_when,omitempty"`
+}
+
+type noteSearchJSON struct {
+	ID            string   `json:"id"`
+	Title         string   `json:"title"`
+	Type          string   `json:"type"`
+	Status        string   `json:"status"`
+	Tags          []string `json:"tags"`
+	Excerpt       string   `json:"excerpt"`
+	Score         float64  `json:"score"`
+	Modified      string   `json:"modified"`
+	MatchReason   string   `json:"match_reason"`
 	IsProtocol    bool     `json:"is_protocol"`
 	LinkCount     int      `json:"link_count"`
 	BacklinkCount int      `json:"backlink_count"`
+	AppliesWhen   string   `json:"applies_when,omitempty"`
 }
 
 // centralityMultiplier returns a score boost based on backlink count.
@@ -408,18 +410,19 @@ func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, score
 			}
 		}
 		out[i] = noteSearchJSON{
-			ID:          n.ID,
-			Title:       n.Title,
-			Type:        string(n.Type),
-			Status:      string(n.Status),
-			Tags:        tags,
-			Excerpt:     extractExcerpt(n.Body, query),
-			Score:       normalizedScore,
-			Modified:    n.Modified.UTC().Format(time.RFC3339),
-			MatchReason: computeMatchReason(n, query),
+			ID:            n.ID,
+			Title:         n.Title,
+			Type:          string(n.Type),
+			Status:        string(n.Status),
+			Tags:          tags,
+			Excerpt:       extractExcerpt(n.Body, query),
+			Score:         normalizedScore,
+			Modified:      n.Modified.UTC().Format(time.RFC3339),
+			MatchReason:   computeMatchReason(n, query),
 			IsProtocol:    isProtocol,
 			LinkCount:     len(n.Links),
 			BacklinkCount: backlinkCount,
+			AppliesWhen:   n.AppliesWhen,
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
@@ -467,6 +470,7 @@ func printSearchEnvelopeJSON(cmd *cobra.Command, notes []*note.Note, query strin
 			Type:          string(n.Type),
 			Status:        string(n.Status),
 			Tags:          tags,
+			AppliesWhen:   n.AppliesWhen,
 			Excerpt:       extractExcerpt(n.Body, query),
 			Score:         normalizedScore,
 			Modified:      n.Modified.UTC().Format(time.RFC3339),
@@ -537,11 +541,12 @@ func printNotesJSON(cmd *cobra.Command, notes []*note.Note) error {
 			tags = []string{}
 		}
 		out[i] = noteJSON{
-			ID:     n.ID,
-			Title:  n.Title,
-			Type:   string(n.Type),
-			Status: string(n.Status),
-			Tags:   tags,
+			ID:          n.ID,
+			Title:       n.Title,
+			Type:        string(n.Type),
+			Status:      string(n.Status),
+			Tags:        tags,
+			AppliesWhen: n.AppliesWhen,
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
