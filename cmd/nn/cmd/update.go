@@ -11,6 +11,8 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+var updateNowFn = time.Now
+
 func newUpdateCmd(state *rootState) *cobra.Command {
 	var (
 		title          string
@@ -148,7 +150,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 					n.Body = n.Body + "\n\n" + appendS
 				}
 			}
-			n.Modified = time.Now().In(time.Local)
+			n.Modified = updateNowFn().In(time.Local)
 			warnIfLarge(cmd, n.Body)
 
 			if err := state.backend.Update(n); err != nil {

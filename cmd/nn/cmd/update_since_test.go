@@ -67,14 +67,24 @@ func TestUpdateSinceRequired(t *testing.T) {
 }
 
 // Assertion: TestUpdateModifiedUsesLocalTimezone — after nn update, the modified: field in nn show output uses local timezone, not UTC (no trailing Z).
+// Uses an injected clock set to America/Los_Angeles so the test is deterministic in UTC CI environments.
 func TestUpdateModifiedUsesLocalTimezone(t *testing.T) {
+	loc, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Skip("timezone data unavailable")
+	}
+	fixedTime := time.Date(2026, 6, 11, 10, 0, 0, 0, loc)
+	orig := updateNowFn
+	updateNowFn = func() time.Time { return fixedTime }
+	defer func() { updateNowFn = orig }()
+
 	nbDir, execute := setupNotebook(t)
 	n := newTestNoteForCLI(note.GenerateID(), "TZ Test Note", note.TypeConcept)
 	n.Modified = time.Now().UTC().Truncate(time.Second)
 	writeNoteFile(t, nbDir, n)
 
 	since := n.Modified.Format(time.RFC3339)
-	_, err := execute("update", n.ID, "--title", "TZ Test Note Updated", "--since", since, "--no-edit")
+	_, err = execute("update", n.ID, "--title", "TZ Test Note Updated", "--since", since, "--no-edit")
 	if err != nil {
 		t.Fatalf("update failed: %v", err)
 	}
