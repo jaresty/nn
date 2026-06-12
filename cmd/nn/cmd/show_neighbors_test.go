@@ -63,3 +63,43 @@ func TestShowBacklinksSection(t *testing.T) {
 		t.Errorf("show backlinks section should contain backer note title %q, got:\n%s", "Backer Note", out)
 	}
 }
+
+// Assertion (SH3): nn show <id> output contains a Neighborhood section listing
+// outgoing links as "→ Title [type]" and incoming links as "← Title [type]".
+func TestShowNeighborhoodSection(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	target := newTestNoteForCLI("20260101000000-0220", "Outgoing Target", note.TypeConcept)
+	target.Body = "target body"
+
+	src := newTestNoteForCLI("20260101000000-0221", "Focus Note", note.TypeConcept)
+	src.Body = "focus body"
+	src.Links = []note.Link{
+		{TargetID: target.ID, Annotation: "extends this", Type: "extends"},
+	}
+
+	backer := newTestNoteForCLI("20260101000000-0222", "Incoming Backer", note.TypeConcept)
+	backer.Body = "backer body"
+	backer.Links = []note.Link{
+		{TargetID: src.ID, Annotation: "refines focus", Type: "refines"},
+	}
+
+	writeNoteFile(t, nbDir, target)
+	writeNoteFile(t, nbDir, src)
+	writeNoteFile(t, nbDir, backer)
+
+	out, err := execute("show", src.ID)
+	if err != nil {
+		t.Fatalf("nn show: %v", err)
+	}
+
+	if !strings.Contains(out, "## Neighborhood") {
+		t.Errorf("show output should contain '## Neighborhood' section, got:\n%s", out)
+	}
+	if !strings.Contains(out, "→ Outgoing Target [extends]") {
+		t.Errorf("show neighborhood should contain outgoing link '→ Outgoing Target [extends]', got:\n%s", out)
+	}
+	if !strings.Contains(out, "← Incoming Backer [refines]") {
+		t.Errorf("show neighborhood should contain incoming link '← Incoming Backer [refines]', got:\n%s", out)
+	}
+}

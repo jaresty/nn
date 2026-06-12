@@ -622,5 +622,34 @@ func renderWithResolvedLinks(raw string, n *note.Note, byID map[string]*note.Not
 			}
 		}
 	}
+	// Neighborhood section: compact map of outgoing and incoming links (titles + types only).
+	hasOutgoing := len(n.Links) > 0
+	hasIncoming := len(backlinkers) > 0
+	if hasOutgoing || hasIncoming {
+		fmt.Fprintf(&buf, "\n## Neighborhood\n\n")
+		for _, lnk := range n.Links {
+			title := lnk.TargetID
+			if t, ok := byID[lnk.TargetID]; ok {
+				title = t.Title
+			}
+			if lnk.Type != "" {
+				fmt.Fprintf(&buf, "→ %s [%s]\n", title, lnk.Type)
+			} else {
+				fmt.Fprintf(&buf, "→ %s\n", title)
+			}
+		}
+		for _, b := range backlinkers {
+			for _, lnk := range b.Links {
+				if lnk.TargetID == n.ID {
+					if lnk.Type != "" {
+						fmt.Fprintf(&buf, "← %s [%s]\n", b.Title, lnk.Type)
+					} else {
+						fmt.Fprintf(&buf, "← %s\n", b.Title)
+					}
+					break
+				}
+			}
+		}
+	}
 	return buf.String()
 }
