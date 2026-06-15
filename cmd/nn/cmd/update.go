@@ -208,7 +208,16 @@ func replaceMarkdownSection(body, heading, newContent string) (string, error) {
 		}
 	}
 	if startIdx == -1 {
-		return "", fmt.Errorf("section %q not found", heading)
+		var appended strings.Builder
+		appended.WriteString(body)
+		if body != "" && !strings.HasSuffix(body, "\n") {
+			appended.WriteString("\n")
+		}
+		appended.WriteString("\n## ")
+		appended.WriteString(heading)
+		appended.WriteString("\n\n")
+		appended.WriteString(newContent)
+		return appended.String(), nil
 	}
 
 	// Find where the section ends (next level-2 heading or end of body).

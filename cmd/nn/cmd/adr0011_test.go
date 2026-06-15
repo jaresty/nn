@@ -275,8 +275,19 @@ func TestUpdateReplaceSectionNotFound(t *testing.T) {
 
 	_, err := execute("update", n.ID, "--replace-section", "Nonexistent",
 		"--content", "New content.", "--since", sinceFor(n), "--no-edit")
-	if err == nil {
-		t.Fatal("nn update --replace-section with missing heading: want error, got nil")
+	if err != nil {
+		t.Fatalf("nn update --replace-section with missing heading: want section created, got error: %v", err)
+	}
+
+	updated, showErr := execute("show", n.ID)
+	if showErr != nil {
+		t.Fatalf("nn show after replace-section: %v", showErr)
+	}
+	if !strings.Contains(updated, "## Nonexistent") {
+		t.Errorf("expected new section heading in body, got:\n%s", updated)
+	}
+	if !strings.Contains(updated, "New content.") {
+		t.Errorf("expected new section content in body, got:\n%s", updated)
 	}
 }
 
