@@ -10,14 +10,15 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
-// Assertion: TestShowDailyCreationEmbedsYesterday — when resolveDailyNote creates today's note, it embeds yesterday's body as ### Yesterday section.
-func TestShowDailyCreationEmbedsYesterday(t *testing.T) {
+// Assertion: TestShowDailyCreationEmbedsYesterdayWithoutDone — when resolveDailyNote creates today's note,
+// it embeds yesterday's body as ### Yesterday but strips the ## Done section to prevent accumulation.
+func TestShowDailyCreationEmbedsYesterdayWithoutDone(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 	yesterdayTitle := "Daily: " + yesterday
 	yNote := newTestNoteForCLI(note.GenerateID(), yesterdayTitle, note.TypeObservation)
 	yNote.Tags = []string{"daily"}
-	yNote.Body = "## Done\n- fixed the thing"
+	yNote.Body = "## Open\n- investigate X\n\n## Done\n- fixed the thing"
 	writeNoteFile(t, nbDir, yNote)
 
 	out, err := execute("show", "daily")
@@ -27,8 +28,11 @@ func TestShowDailyCreationEmbedsYesterday(t *testing.T) {
 	if !strings.Contains(out, "### Yesterday") {
 		t.Errorf("nn show daily: want '### Yesterday' section in new note, got:\n%s", out)
 	}
-	if !strings.Contains(out, "fixed the thing") {
-		t.Errorf("nn show daily: want yesterday body embedded, got:\n%s", out)
+	if !strings.Contains(out, "investigate X") {
+		t.Errorf("nn show daily: want non-Done yesterday content embedded, got:\n%s", out)
+	}
+	if strings.Contains(out, "fixed the thing") {
+		t.Errorf("nn show daily: Done section must not carry forward to today's note, got:\n%s", out)
 	}
 }
 
@@ -135,7 +139,7 @@ func TestDailyYesterdayEmbedUsesLocalTime(t *testing.T) {
 	localYesterdayTitle := "Daily: " + fixedLocal.AddDate(0, 0, -1).Format("2006-01-02")
 	yNote := newTestNoteForCLI(note.GenerateID(), localYesterdayTitle, note.TypeObservation)
 	yNote.Tags = []string{"daily"}
-	yNote.Body = "## Done\n- local yesterday content"
+	yNote.Body = "## Open\n- local yesterday content"
 	writeNoteFile(t, nbDir, yNote)
 
 	out, err := execute("show", "daily")

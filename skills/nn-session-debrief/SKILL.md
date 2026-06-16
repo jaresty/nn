@@ -200,9 +200,9 @@ This creates today's `Daily: YYYY-MM-DD` note if it does not yet exist (tagged `
 **Update sections — `nn update daily` bypasses `--since` and upserts automatically:**
 
 ```bash
-# Append completed work to Done section
+# Replace Done with today's completed work only (do NOT include prior entries — they accumulate across days otherwise)
 nn update daily --replace-section "Done" \
-  --content "<existing Done entries>\n- <new entry 1>\n- <new entry 2>" \
+  --content "- <new entry 1>\n- <new entry 2>" \
   --no-edit
 
 # Replace Open with current unresolved items
@@ -237,7 +237,7 @@ Blocked: <blockers or —>" --no-edit
 **Section semantics — ledger discipline:**
 Each section is a categorized ledger entry. Write only content that belongs to the category — no narrative, no filler, no reasoning traces. Every entry must be self-contained: a reader with no prior context must be able to understand it without reading the conversation that produced it.
 
-- **Done** — append-only factual record of completed work. Each entry names what changed and where (e.g. "Added `--since` flag to `nn update` — `cmd/nn/cmd/update.go`"). Never overwrite; only append.
+- **Done** — today's completed work only. Replace the section each session with this session's entries — do not carry forward entries from prior sessions or prior days. Each entry names what changed and where (e.g. "Added `--since` flag to `nn update` — `cmd/nn/cmd/update.go`"). Prior sessions' Done entries belong in session summary notes.
 - **Decided** — decisions with enough context to reconstruct why. Name the decision, the alternative considered, and the reason chosen (e.g. "`--since` hard-required, not optional — all callers must prove they read the note before writing"). Append new decisions.
 - **Open** — replace each session. Forward-looking: unresolved questions, next actions, things that need follow-up. Must be specific enough to act on without re-reading the session.
 - **Relay** — replace each session. Explicit handoff state written so the next session can resume without re-reading anything: what is in flight (named artifact or task), what the immediate next action is, and what is blocked. This is relay-topology writing: schemas, invariants, and dependency relationships must be named explicitly — "the thing we discussed" is not relay-compliant.

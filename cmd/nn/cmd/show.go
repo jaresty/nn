@@ -477,7 +477,7 @@ func resolveDailyNote(state *rootState) (*note.Note, error) {
 		if candidate.Title == yesterdayTitle {
 			yn, readErr := state.backend.Read(candidate.ID)
 			if readErr == nil && yn.Body != "" {
-				body = "### Yesterday\n\n" + yn.Body
+				body = "### Yesterday\n\n" + stripDoneSection(yn.Body)
 			}
 			break
 		}
@@ -500,6 +500,27 @@ func resolveDailyNote(state *rootState) (*note.Note, error) {
 		return nil, fmt.Errorf("daily: create: %w", err)
 	}
 	return n, nil
+}
+
+// stripDoneSection removes the ## Done section from a daily note body so it is
+// not carried forward when yesterday's note seeds today's note.
+func stripDoneSection(body string) string {
+	lines := strings.Split(body, "\n")
+	var out []string
+	inDone := false
+	for _, line := range lines {
+		if strings.HasPrefix(line, "## Done") {
+			inDone = true
+			continue
+		}
+		if inDone && strings.HasPrefix(line, "## ") {
+			inDone = false
+		}
+		if !inDone {
+			out = append(out, line)
+		}
+	}
+	return strings.TrimRight(strings.Join(out, "\n"), "\n")
 }
 
 // findVirtualProtocol returns the virtualProtocol whose ID matches query exactly,
