@@ -26,7 +26,7 @@ func TestShowGlobalVirtualFullBodyPresent(t *testing.T) {
 	}
 	// Virtual notes have no notebook file — their full body must appear in --global output
 	// so consumers don't need a follow-up nn show <id> to access the content.
-	if !strings.Contains(out, "Every Read tool call or file-reading Bash tool call requires a preceding") {
+	if !strings.Contains(out, "search window do not reset it") {
 		t.Errorf("expected virtual protocol full body in --global output; got:\n%s", out)
 	}
 }

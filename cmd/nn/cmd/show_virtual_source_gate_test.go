@@ -14,7 +14,7 @@ func TestShowGlobalVirtualIncludesSourceFileGate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out, "reading any file not on the allow-list") {
-		t.Errorf("expected allow-list file gate in virtual protocol output:\n%s", out)
+	if !strings.Contains(out, "Allow-list (no gate required)") {
+		t.Errorf("expected allow-list section in virtual protocol output:\n%s", out)
 	}
 }

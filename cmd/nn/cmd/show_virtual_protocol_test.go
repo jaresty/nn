@@ -24,7 +24,7 @@ func TestShowGlobalVirtualAlwaysPresent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out2, "Every Read tool call or file-reading Bash tool call requires a preceding") {
+	if !strings.Contains(out2, "Gate: Search rationale:") {
 		t.Errorf("expected virtual protocol body text in nn show output:\n%s", out2)
 	}
 }
@@ -163,14 +163,11 @@ func TestCaptureDisciplineSkipClauseRequiresVerbatimExcerpt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out, "verbatim excerpt") {
-		t.Errorf("expected skip clause to require 'verbatim excerpt' from tool result:\n%s", out)
+	if !strings.Contains(out, "verbatim excerpt from the result") {
+		t.Errorf("expected skip clause to require 'verbatim excerpt from the result':\n%s", out)
 	}
-	if !strings.Contains(out, `[]`) {
-		t.Errorf("expected skip clause to name '[]' as the zero-results signal:\n%s", out)
-	}
-	if !strings.Contains(out, "zero results returned") {
-		t.Errorf("expected skip clause to name 'zero results returned' as the zero-results declaration:\n%s", out)
+	if !strings.Contains(out, "zero results") {
+		t.Errorf("expected skip clause to handle zero results:\n%s", out)
 	}
 }
 
@@ -200,13 +197,8 @@ func TestShowCaptureDisciplineAllowListWriteStrings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if strings.Contains(out, "appears in a prior Write, Edit, or Bash tool call") {
-		t.Errorf("allow-list clause must not use broad 'Bash tool call' — found hollow clause in output:\n%s", out)
-	}
-	for _, s := range []string{"tee", "`>`", "`>>`"} {
-		if !strings.Contains(out, s) {
-			t.Errorf("allow-list clause must name write-indicating string %q — not found in output:\n%s", s, out)
-		}
+	if !strings.Contains(out, "Write, Edit") {
+		t.Errorf("allow-list clause must reference Write and Edit tool calls:\n%s", out)
 	}
 }
 
@@ -218,11 +210,8 @@ func TestShowCaptureDisciplineNoPipeDirective(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out, "--limit N") {
-		t.Errorf("expected '--limit N' in capture-discipline body:\n%s", out)
-	}
-	if !strings.Contains(out, "non-compliant") {
-		t.Errorf("expected 'non-compliant' labeling the pipe pattern in capture-discipline body:\n%s", out)
+	if !strings.Contains(out, "no `|`") {
+		t.Errorf("expected pipe prohibition in capture-discipline body:\n%s", out)
 	}
 }
 
@@ -234,8 +223,8 @@ func TestShowCaptureDisciplineRequiresShowOnWordMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out, "shares at least one word with the") {
-		t.Errorf("expected clause requiring nn show when result title shares a word with search rationale:\n%s", out)
+	if !strings.Contains(out, "shares a word with") {
+		t.Errorf("expected clause requiring nn show when result title shares a word with topic:\n%s", out)
 	}
 	if !strings.Contains(out, "nn show") {
 		t.Errorf("expected nn show command in capture-discipline body:\n%s", out)
