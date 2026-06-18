@@ -46,9 +46,10 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 			if replaceSection != "" && content == "" && !fromStdin {
 				return fmt.Errorf("--replace-section requires --content or --stdin")
 			}
+			willOpenEditor := !noEdit && isTTYFn()
 			if title == "" && tags == "" && content == "" && appendS == "" &&
 				typ == "" && status == "" && appliesWhen == "" && expiresWhen == "" && expiresStr == "" && !fromStdin && replaceSection == "" &&
-				len(tagsAdd) == 0 && len(tagsRemove) == 0 {
+				len(tagsAdd) == 0 && len(tagsRemove) == 0 && !willOpenEditor {
 				return fmt.Errorf("at least one of --title, --tags, --tags-add, --tags-remove, --content, --stdin, --append, --type, --status, --applies-when, --expires-when, --expires, --replace-section is required")
 			}
 			isDailyAlias := strings.ToLower(args[0]) == "daily"
@@ -135,7 +136,13 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 				}
 				n.Expires = &t
 			}
-			if replaceSection != "" {
+			if willOpenEditor && content == "" && appendS == "" && replaceSection == "" && !fromStdin {
+				edited, err := openEditorFn(strings.TrimSpace(n.Body))
+				if err != nil {
+					return fmt.Errorf("update: editor: %w", err)
+				}
+				n.Body = edited
+			} else if replaceSection != "" {
 				replaced, replErr := replaceMarkdownSection(n.Body, replaceSection, content)
 				if replErr != nil {
 					return fmt.Errorf("update: %w", replErr)

@@ -118,6 +118,14 @@ func newNewCmd(state *rootState) *cobra.Command {
 				n.Links = []note.Link{{TargetID: linkTo, Annotation: annotation}}
 			}
 
+			if !noEdit && isTTYFn() {
+				edited, err := openEditorFn(n.Body)
+				if err != nil {
+					return fmt.Errorf("new: editor: %w", err)
+				}
+				n.Body = edited
+			}
+
 			warnIfLarge(cmd, n.Body)
 
 			if err := state.backend.Write(n); err != nil {
