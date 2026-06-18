@@ -32,6 +32,54 @@ func TestSearchExcerptPlain(t *testing.T) {
 	}
 }
 
+func TestExtractExcerptHeadingBreadcrumb(t *testing.T) {
+	cases := []struct {
+		name     string
+		body     string
+		query    string
+		wantPfx  string
+	}{
+		{
+			name:    "match under single heading",
+			body:    "## Section\n\nsome matched content here",
+			query:   "matched",
+			wantPfx: "## Section",
+		},
+		{
+			name:    "match under nested headings",
+			body:    "## Parent\n\n### Child\n\nsome matched content here",
+			query:   "matched",
+			wantPfx: "## Parent > ### Child",
+		},
+		{
+			name:    "match before any heading",
+			body:    "some matched content here\n\n## Section\n\nother stuff",
+			query:   "matched",
+			wantPfx: "",
+		},
+		{
+			name:    "match under heading no subheading",
+			body:    "## Only\n\nsome matched content here",
+			query:   "matched",
+			wantPfx: "## Only",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := extractExcerpt(tc.body, tc.query)
+			if tc.wantPfx == "" {
+				if strings.HasPrefix(got, "#") {
+					t.Errorf("expected no heading prefix, got %q", got)
+				}
+			} else {
+				if !strings.HasPrefix(got, tc.wantPfx+" | ") {
+					t.Errorf("expected prefix %q, got %q", tc.wantPfx+" | ", got)
+				}
+			}
+		})
+	}
+}
+
 func TestSearchExcerptJSON(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	n := newTestNoteForCLI(note.GenerateID(), "Some Note", note.TypeConcept)

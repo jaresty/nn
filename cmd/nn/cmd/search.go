@@ -87,6 +87,37 @@ func newSearchCmd(state *rootState) *cobra.Command {
 
 const excerptLen = 120
 
+// extractHeadingBreadcrumb returns the heading breadcrumb (e.g. "## Foo > ### Bar")
+// for the position matchIdx in body, by walking backward to collect ancestor headings.
+func extractHeadingBreadcrumb(body string, matchIdx int) string {
+	lines := strings.Split(body[:matchIdx], "\n")
+	// headings[level] = most recent heading text at that level (1=H1, 2=H2, 3=H3)
+	headings := make(map[int]string)
+	for _, line := range lines {
+		for level := 1; level <= 6; level++ {
+			prefix := strings.Repeat("#", level) + " "
+			if strings.HasPrefix(line, prefix) {
+				headings[level] = strings.TrimSpace(line)
+				// clear all deeper levels when a shallower heading is found
+				for deeper := level + 1; deeper <= 6; deeper++ {
+					delete(headings, deeper)
+				}
+				break
+			}
+		}
+	}
+	if len(headings) == 0 {
+		return ""
+	}
+	var parts []string
+	for level := 1; level <= 6; level++ {
+		if h, ok := headings[level]; ok {
+			parts = append(parts, h)
+		}
+	}
+	return strings.Join(parts, " > ")
+}
+
 // extractExcerpt returns a ≤120-char snippet from body containing the first
 // query term found, with leading "..." when the snippet is not from the start.
 func extractExcerpt(body, query string) string {
@@ -117,6 +148,9 @@ func extractExcerpt(body, query string) string {
 		snippet := body[start:end]
 		if start > 0 {
 			snippet = "..." + snippet
+		}
+		if crumb := extractHeadingBreadcrumb(body, idx); crumb != "" {
+			snippet = crumb + " | " + snippet
 		}
 		return snippet
 	}
