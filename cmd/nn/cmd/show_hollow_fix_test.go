@@ -5,15 +5,15 @@ import (
 	"testing"
 )
 
-// Assertion: C3 uses word-overlap against stated search rationale (not tool call argument string).
+// Assertion: C3 uses word-sharing criterion against topic (not tool call argument string).
 func TestVirtualCaptureDisciplineC3ArgumentString(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}
-	if !strings.Contains(out, "stated search rationale") {
-		t.Errorf("expected rationale-overlap clause in C3; got:\n%s", out)
+	if !strings.Contains(out, "shares a word with") {
+		t.Errorf("expected word-sharing criterion in C3; got:\n%s", out)
 	}
 }
 
