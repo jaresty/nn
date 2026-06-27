@@ -76,6 +76,8 @@ nn promote <id> --to reviewed
 
 Ask: **"What slowed you down this session? Any theories about why?"**
 
+Also scan the conversation transcript for **repeated similar edits** — making the same kind of change in multiple places is a strong signal that the concern is not centralized and a refactor may be warranted. Flag these as friction candidates even if the user did not name them explicitly.
+
 For each friction point identified, capture it as a note:
 
 ```bash
