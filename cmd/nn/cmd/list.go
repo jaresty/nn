@@ -46,6 +46,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		similarTo    string
 		envelope     bool
 		boostRecent  bool
+		fields       string
 	)
 
 	cmd := &cobra.Command{
@@ -227,19 +228,29 @@ func newListCmd(state *rootState) *cobra.Command {
 				filtered = filtered[:limit]
 			}
 
+			if fields != "" && !jsonOut {
+				return fmt.Errorf("--fields requires --json")
+			}
 			if jsonOut {
+				var requestedFields []string
+				if fields != "" {
+					requestedFields, err = parseFields(fields)
+					if err != nil {
+						return err
+					}
+				}
 				if rich {
-					return printNotesRichJSON(cmd, filtered)
+					return printNotesRichJSON(cmd, filtered, requestedFields)
 				}
 				if search != "" {
 					if envelope {
 						return printSearchEnvelopeJSON(cmd, filtered, search, searchScores, allInbound, totalMatching)
 					}
-					if err := printSearchJSON(cmd, filtered, search, searchScores, allInbound); err != nil {
+					if err := printSearchJSON(cmd, filtered, search, searchScores, allInbound, requestedFields); err != nil {
 						return err
 					}
 				} else {
-					if err := printNotesJSON(cmd, filtered); err != nil {
+					if err := printNotesJSON(cmd, filtered, requestedFields); err != nil {
 						return err
 					}
 				}
@@ -288,6 +299,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&showFirst, "show-first", false, "Append full body of top search result after JSON output (requires --json)")
 	cmd.Flags().StringVar(&similarTo, "similar", "", "Rank notes by BM25 similarity to this note ID (excludes the note itself)")
 	cmd.Flags().BoolVar(&envelope, "envelope", false, "Wrap search JSON in envelope with query, result_count, total_matching (requires --json --search)")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in --json output (id,title,type,status,tags,applies_when,excerpt,score,modified,match_reason,is_protocol,link_count,backlink_count,created,body_preview)")
 	return cmd
 }
 
@@ -382,7 +394,7 @@ func centralityMultiplier(backlinkCount int) float64 {
 	return 1.0 + 0.2*math.Log1p(float64(backlinkCount))
 }
 
-func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, scores map[string]float64, inbound map[string][]string) error {
+func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, scores map[string]float64, inbound map[string][]string, requestedFields []string) error {
 	maxScore := 0.0
 	for _, s := range scores {
 		if s > maxScore {
@@ -426,8 +438,14 @@ func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, score
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
-
-	return enc.Encode(out)
+	if len(requestedFields) == 0 {
+		return enc.Encode(out)
+	}
+	projected := make([]map[string]any, len(out))
+	for i, v := range out {
+		projected[i] = projectFields(v, requestedFields)
+	}
+	return enc.Encode(projected)
 }
 
 type searchEnvelope struct {
@@ -533,7 +551,46 @@ func computeMatchReason(n *note.Note, query string) string {
 	return strings.Join(fields, ", ")
 }
 
-func printNotesJSON(cmd *cobra.Command, notes []*note.Note) error {
+var validFields = map[string]bool{
+	"id": true, "title": true, "type": true, "status": true, "tags": true,
+	"applies_when": true, "excerpt": true, "score": true, "modified": true,
+	"match_reason": true, "is_protocol": true, "link_count": true,
+	"backlink_count": true, "created": true, "body_preview": true,
+}
+
+func parseFields(raw string) ([]string, error) {
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if !validFields[p] {
+			return nil, fmt.Errorf("unknown field %q; valid fields: id,title,type,status,tags,applies_when,excerpt,score,modified,match_reason,is_protocol,link_count,backlink_count,created,body_preview", p)
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+func projectFields(v any, requested []string) map[string]any {
+	if len(requested) == 0 {
+		return nil
+	}
+	data, _ := json.Marshal(v)
+	var m map[string]any
+	_ = json.Unmarshal(data, &m)
+	out := make(map[string]any, len(requested))
+	for _, f := range requested {
+		if val, ok := m[f]; ok {
+			out[f] = val
+		}
+	}
+	return out
+}
+
+func printNotesJSON(cmd *cobra.Command, notes []*note.Note, requestedFields []string) error {
 	out := make([]noteJSON, len(notes))
 	for i, n := range notes {
 		tags := n.Tags
@@ -550,8 +607,14 @@ func printNotesJSON(cmd *cobra.Command, notes []*note.Note) error {
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
-
-	return enc.Encode(out)
+	if len(requestedFields) == 0 {
+		return enc.Encode(out)
+	}
+	projected := make([]map[string]any, len(out))
+	for i, v := range out {
+		projected[i] = projectFields(v, requestedFields)
+	}
+	return enc.Encode(projected)
 }
 
 const bodyPreviewLen = 200
@@ -568,7 +631,7 @@ type noteRichJSON struct {
 	BodyPreview string   `json:"body_preview"`
 }
 
-func printNotesRichJSON(cmd *cobra.Command, notes []*note.Note) error {
+func printNotesRichJSON(cmd *cobra.Command, notes []*note.Note, requestedFields []string) error {
 	out := make([]noteRichJSON, len(notes))
 	for i, n := range notes {
 		tags := n.Tags
@@ -592,8 +655,14 @@ func printNotesRichJSON(cmd *cobra.Command, notes []*note.Note) error {
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
-
-	return enc.Encode(out)
+	if len(requestedFields) == 0 {
+		return enc.Encode(out)
+	}
+	projected := make([]map[string]any, len(out))
+	for i, v := range out {
+		projected[i] = projectFields(v, requestedFields)
+	}
+	return enc.Encode(projected)
 }
 
 // tagsString is used by status command.

@@ -144,6 +144,9 @@ func TestInstallHooksMergesExistingSettings(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	// Exclude real claude binary so plugin commands are no-ops (command not found),
+	// leaving mergeHooksIntoSettings as the only thing that can touch settings.json.
+	t.Setenv("PATH", t.TempDir())
 
 	settingsDir := filepath.Join(home, ".claude")
 	if err := os.MkdirAll(settingsDir, 0o755); err != nil {

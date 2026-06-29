@@ -210,7 +210,7 @@ func TestShowCaptureDisciplineNoPipeDirective(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out, "no `|`") {
+	if !strings.Contains(out, "no additional flags, arguments, or shell operators") {
 		t.Errorf("expected pipe prohibition in capture-discipline body:\n%s", out)
 	}
 }

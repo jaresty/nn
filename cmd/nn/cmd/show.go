@@ -37,8 +37,10 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"line of your assistant text before that call must begin with `Gate:` followed by either:\n" +
 			"- `Gate: allow-listed — [item]` for allow-listed actions\n" +
 			"- `Gate: Search rationale: [topic] — [action]` otherwise\n\n" +
-			"Then run `nn list --search \"<topic>\" --json` (no `|` or other shell operators in the same " +
-			"command). The assistant text immediately following that result must quote a verbatim " +
+			"Then run `nn list --search \"<topic>\" --json` as the complete Bash tool call text — " +
+			"no additional flags, arguments, or shell operators. " +
+			"The full JSON array must land in the transcript as a tool result. " +
+			"The assistant text immediately following that result must quote a verbatim " +
 			"title from the JSON array, or write `zero results` if the array is empty. If any quoted " +
 			"title shares a word with [topic], run `nn show <id>` (id = first matching result's `id` " +
 			"field) before the gated action. `nn show` calls within the search window do not reset it.\n\n" +
@@ -62,7 +64,8 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"Valid --status: draft|reviewed|permanent\n" +
 			"--since is required: read 'modified:' from nn show output; update is rejected if the note was changed after that timestamp\n\n" +
 			"**nn remind** `\"content\" [--for N] [--expires YYYY-MM-DD]` — creates observation tagged 'reminder', permanent, expires today+1d by default; surfaces in nn show --global\n\n" +
-			"**nn list** `--search \"<q>\" --show-first --json` | `--type <type>` | `--status <status>` | `--orphan` | `--since <ISO>` | `--expired` | `--has-expires`\n\n" +
+			"**nn list** `--search \"<q>\" --show-first --json [--fields id,title,...]` | `--type <type>` | `--status <status>` | `--orphan` | `--since <ISO>` | `--expired` | `--has-expires`\n" +
+			"Valid --fields: id|title|type|status|tags|applies_when|excerpt|score|modified|match_reason|is_protocol|link_count|backlink_count|created|body_preview (requires --json; errors on unknown field)\n\n" +
 			"**nn show** `<id>` | `--global`\n\n" +
 			"**nn link** `<from> <to> --type <type> --annotation \"...\"`\n" +
 			"Valid --type: refines|contradicts|source-of|extends|supports|questions|governs\n\n" +

@@ -156,3 +156,15 @@ requires no new dependency, and is sufficient for notebooks up to tens of thousa
 
 **Enforced link type vocabulary:** Rejected. Enforcing a closed set makes the schema a
 dependency. The open vocabulary matches the `tags` design principle.
+
+---
+
+## 2026-06-29 — `nn list --json --fields`: JSON field projection
+
+**Decision:** Add `--fields <f1,f2,...>` to `nn list`, applying only when `--json` is also present. The flag projects the output array to only the requested keys, eliminating the need to pipe to `python`/`jq` for field extraction.
+
+**Valid fields:** `id`, `title`, `type`, `status`, `tags`, `applies_when`, `excerpt`, `score`, `modified`, `match_reason`, `is_protocol`, `link_count`, `backlink_count`, `created`, `body_preview`.
+
+**Constraints:** `--fields` without `--json` returns an error. Unknown field names return an error naming the bad field. Absent `--fields` leaves existing JSON output unchanged.
+
+**Implementation:** Post-filter projection — marshal the full struct to `map[string]any` via `projectFields`, then emit only requested keys. Chosen over native struct per-field population for simplicity; the CLI is local and the note count is bounded.
