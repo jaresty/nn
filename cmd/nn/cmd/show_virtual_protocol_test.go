@@ -181,7 +181,7 @@ func TestShowCaptureDisciplineNoShowFirst(t *testing.T) {
 	}
 	if strings.Contains(out, "requires a preceding `nn list --search") && strings.Contains(out, "--show-first") {
 		// Check that the gate instruction sentence itself doesn't contain --show-first.
-		for _, line := range strings.Split(out, "\n") {
+		for line := range strings.SplitSeq(out, "\n") {
 			if strings.Contains(line, "requires a preceding") && strings.Contains(line, "--show-first") {
 				t.Errorf("gate instruction must not tell agents to use --show-first: %q", line)
 			}
