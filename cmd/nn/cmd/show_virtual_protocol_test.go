@@ -202,6 +202,27 @@ func TestShowCaptureDisciplineAllowListWriteStrings(t *testing.T) {
 	}
 }
 
+// Assertion: virtual-nn-cli-reference body prohibits piping nn show output to truncating commands.
+func TestShowVirtualCLIReferenceNoPipeTruncate(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-cli-reference: %v", err)
+	}
+	if !strings.Contains(out, "must not be piped to") {
+		t.Errorf("expected pipe prohibition in cli-reference body:\n%s", out)
+	}
+	for _, cmd := range []string{"head", "tail", "less", "more"} {
+		if !strings.Contains(out, "`"+cmd+"`") {
+			t.Errorf("expected %q named in pipe prohibition:\n%s", cmd, out)
+		}
+	}
+	if !strings.Contains(out, "complete note body is required") {
+		t.Errorf("expected rationale clause in pipe prohibition:\n%s", out)
+	}
+}
+
 // Assertion: virtual-nn-capture-discipline prohibits piping nn list --search and directs use of --limit N.
 func TestShowCaptureDisciplineNoPipeDirective(t *testing.T) {
 	_, execute := setupNotebook(t)

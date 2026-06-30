@@ -66,7 +66,8 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn remind** `\"content\" [--for N] [--expires YYYY-MM-DD]` — creates observation tagged 'reminder', permanent, expires today+1d by default; surfaces in nn show --global\n\n" +
 			"**nn list** `--search \"<q>\" --show-first --json [--fields id,title,...]` | `--type <type>` | `--status <status>` | `--orphan` | `--since <ISO>` | `--expired` | `--has-expires`\n" +
 			"Valid --fields: id|title|type|status|tags|applies_when|excerpt|score|modified|match_reason|is_protocol|link_count|backlink_count|created|body_preview (requires --json; errors on unknown field)\n\n" +
-			"**nn show** `<id>` | `--global`\n\n" +
+			"**nn show** `<id>` | `--global`\n" +
+			"`nn show` output must not be piped to `head`, `tail`, `less`, or `more`. Pipe the full output or omit the pipe — the complete note body is required for accurate retrieval.\n\n" +
 			"**nn link** `<from> <to> --type <type> --annotation \"...\"`\n" +
 			"Valid --type: refines|contradicts|source-of|extends|supports|questions|governs\n\n" +
 			"**nn show** `<id> --depth N` — traverse N hops of outgoing links from a note\n\n" +
