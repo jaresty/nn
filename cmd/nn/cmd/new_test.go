@@ -91,3 +91,32 @@ func TestNewNoteInvalidType(t *testing.T) {
 		t.Fatal("nn new --type invalid: want error, got nil")
 	}
 }
+
+func TestNewQuickFlag(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	_, err := execute("new", "--quick", "--title", "Quick Note", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn new --quick: %v", err)
+	}
+	entries, _ := os.ReadDir(nbDir)
+	var noteFile string
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".md") {
+			noteFile = filepath.Join(nbDir, e.Name())
+		}
+	}
+	if noteFile == "" {
+		t.Fatal("no .md file created")
+	}
+	data, err := os.ReadFile(noteFile)
+	if err != nil {
+		t.Fatalf("read note file: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "type: observation") {
+		t.Errorf("--quick did not set type=observation; got:\n%s", content)
+	}
+	if !strings.Contains(content, "status: draft") {
+		t.Errorf("--quick did not set status=draft; got:\n%s", content)
+	}
+}
