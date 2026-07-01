@@ -135,6 +135,18 @@ func TestNNSessionDebriefPartialMode(t *testing.T) {
 	}
 }
 
+// Assertion: TestNNSessionDebriefRelayReminder — --partial section instructs LLM to emit relay handoff reminder
+func TestNNSessionDebriefRelayReminder(t *testing.T) {
+	data, err := nnSkills.FS.ReadFile("nn-session-debrief/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-session-debrief/SKILL.md: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "Relay block not updated") {
+		t.Errorf("nn-session-debrief SKILL.md: expected relay handoff reminder 'Relay block not updated' in --partial section; got no match")
+	}
+}
+
 func TestInstallMetaCmd(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()

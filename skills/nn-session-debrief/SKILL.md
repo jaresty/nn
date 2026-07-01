@@ -22,6 +22,7 @@ Invoke with `--partial` for a lightweight mid-session capture pass:
 - Skips step 6 (daily note / relay update) and step 7 (session summary)
 - Tags each note captured or promoted in this pass with `partial-debrief` so the full end-of-session debrief can skip already-processed notes
 - Use when context is filling and you want to capture findings without the full debrief overhead
+- After completing steps, emit to the user: "Relay block not updated — run /nn-session-debrief to complete handoff."
 
 **Full debrief behaviour when `--partial` runs occurred:** skip notes already tagged `partial-debrief` in steps 1 and 2; still run steps 3, 3b, 3c, 6, and 7 in full.
 
