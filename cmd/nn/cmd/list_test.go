@@ -205,6 +205,77 @@ func TestListJSONCompact(t *testing.T) {
 	assertCompactJSON(t, out, "nn list --search --json")
 }
 
+func TestListSearchNeighborsJSON(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	src := newTestNoteForCLI(note.GenerateID(), "Source Note", note.TypeConcept)
+	src.Body = "uniqueterm alpha"
+	dst := newTestNoteForCLI(note.GenerateID(), "Destination Note", note.TypeConcept)
+	dst.Body = "target body"
+	src.Links = []note.Link{
+		{TargetID: dst.ID, Type: "supports", Annotation: "because it does"},
+	}
+	writeNoteFile(t, nbDir, dst)
+	writeNoteFile(t, nbDir, src)
+
+	out, err := execute("list", "--search", "uniqueterm", "--json")
+	if err != nil {
+		t.Fatalf("nn list --search uniqueterm --json: %v", err)
+	}
+	if !strings.Contains(out, `"neighbors"`) {
+		t.Errorf("search JSON missing neighbors field; got: %s", out)
+	}
+	if !strings.Contains(out, `"direction"`) {
+		t.Errorf("search JSON neighbors missing direction field; got: %s", out)
+	}
+	if !strings.Contains(out, "Destination Note") {
+		t.Errorf("search JSON neighbors missing target title; got: %s", out)
+	}
+	if !strings.Contains(out, "supports") {
+		t.Errorf("search JSON neighbors missing link type; got: %s", out)
+	}
+	if !strings.Contains(out, "because it does") {
+		t.Errorf("search JSON neighbors missing annotation; got: %s", out)
+	}
+}
+
+func TestListSearchNeighborsPlain(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	src := newTestNoteForCLI(note.GenerateID(), "Source Note Plain", note.TypeConcept)
+	src.Body = "uniquetermplain"
+	dst := newTestNoteForCLI(note.GenerateID(), "Destination Note Plain", note.TypeConcept)
+	dst.Body = "target"
+	src.Links = []note.Link{
+		{TargetID: dst.ID, Type: "refines", Annotation: "sharpens the point"},
+	}
+	blinker := newTestNoteForCLI(note.GenerateID(), "Backlinker Note Plain", note.TypeConcept)
+	blinker.Body = "another note"
+	blinker.Links = []note.Link{
+		{TargetID: src.ID, Type: "extends", Annotation: "builds on it"},
+	}
+	writeNoteFile(t, nbDir, dst)
+	writeNoteFile(t, nbDir, blinker)
+	writeNoteFile(t, nbDir, src)
+
+	out, err := execute("list", "--search", "uniquetermplain")
+	if err != nil {
+		t.Fatalf("nn list --search uniquetermplain: %v", err)
+	}
+	if !strings.Contains(out, "→") {
+		t.Errorf("plain search output missing outgoing neighbor arrow →; got: %s", out)
+	}
+	if !strings.Contains(out, "←") {
+		t.Errorf("plain search output missing incoming neighbor arrow ←; got: %s", out)
+	}
+	if !strings.Contains(out, "Destination Note Plain") {
+		t.Errorf("plain search output missing outgoing neighbor title; got: %s", out)
+	}
+	if !strings.Contains(out, "Backlinker Note Plain") {
+		t.Errorf("plain search output missing incoming neighbor title; got: %s", out)
+	}
+}
+
 func TestListSearchRelevanceOrder(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 

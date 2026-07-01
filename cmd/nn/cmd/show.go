@@ -65,7 +65,8 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"--since is required: read 'modified:' from nn show output; update is rejected if the note was changed after that timestamp\n\n" +
 			"**nn remind** `\"content\" [--for N] [--expires YYYY-MM-DD]` — creates observation tagged 'reminder', permanent, expires today+1d by default; surfaces in nn show --global\n\n" +
 			"**nn list** `--search \"<q>\" --show-first --json [--fields id,title,...]` | `--type <type>` | `--status <status>` | `--orphan` | `--since <ISO>` | `--expired` | `--has-expires`\n" +
-			"Valid --fields: id|title|type|status|tags|applies_when|excerpt|score|modified|match_reason|is_protocol|link_count|backlink_count|created|body_preview (requires --json; errors on unknown field)\n\n" +
+			"Valid --fields: id|title|type|status|tags|applies_when|excerpt|score|modified|match_reason|is_protocol|link_count|backlink_count|created|body_preview (requires --json; errors on unknown field)\n" +
+			"`nn list --search` always includes 1-hop graph neighbors in output: plain text shows indented `→`/`←` lines (id, title, type, annotation); `--json` includes a `neighbors` array with direction/id/title/type/annotation fields.\n\n" +
 			"**nn show** `<id>` | `--global`\n" +
 			"`nn show` output must not be piped to `head`, `tail`, `less`, or `more`. Pipe the full output or omit the pipe — the complete note body is required for accurate retrieval.\n\n" +
 			"**nn link** `<from> <to> --type <type> --annotation \"...\"`\n" +

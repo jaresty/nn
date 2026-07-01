@@ -246,7 +246,7 @@ func newListCmd(state *rootState) *cobra.Command {
 					if envelope {
 						return printSearchEnvelopeJSON(cmd, filtered, search, searchScores, allInbound, totalMatching)
 					}
-					if err := printSearchJSON(cmd, filtered, search, searchScores, allInbound, requestedFields); err != nil {
+					if err := printSearchJSON(cmd, filtered, notes, search, searchScores, allInbound, requestedFields); err != nil {
 						return err
 					}
 				} else {
@@ -266,6 +266,13 @@ func newListCmd(state *rootState) *cobra.Command {
 				if search != "" {
 					if ex := extractExcerpt(n.Body, search); ex != "" {
 						fmt.Fprintf(w, "  %s\n", ex)
+					}
+					for _, nb := range buildNeighbors(n, notes) {
+						if nb.Direction == "outgoing" {
+							fmt.Fprintf(w, "  → [[%s|%s]] [%s] — %s\n", nb.ID, nb.Title, nb.Type, nb.Annotation)
+						} else {
+							fmt.Fprintf(w, "  ← [[%s|%s]] [%s] — %s\n", nb.ID, nb.Title, nb.Type, nb.Annotation)
+						}
 					}
 				}
 			}
@@ -371,20 +378,29 @@ type noteJSON struct {
 	AppliesWhen string   `json:"applies_when,omitempty"`
 }
 
+type neighborJSON struct {
+	Direction  string `json:"direction"`
+	ID         string `json:"id"`
+	Title      string `json:"title"`
+	Type       string `json:"type"`
+	Annotation string `json:"annotation"`
+}
+
 type noteSearchJSON struct {
-	ID            string   `json:"id"`
-	Title         string   `json:"title"`
-	Type          string   `json:"type"`
-	Status        string   `json:"status"`
-	Tags          []string `json:"tags"`
-	Excerpt       string   `json:"excerpt"`
-	Score         float64  `json:"score"`
-	Modified      string   `json:"modified"`
-	MatchReason   string   `json:"match_reason"`
-	IsProtocol    bool     `json:"is_protocol"`
-	LinkCount     int      `json:"link_count"`
-	BacklinkCount int      `json:"backlink_count"`
-	AppliesWhen   string   `json:"applies_when,omitempty"`
+	ID            string         `json:"id"`
+	Title         string         `json:"title"`
+	Type          string         `json:"type"`
+	Status        string         `json:"status"`
+	Tags          []string       `json:"tags"`
+	Excerpt       string         `json:"excerpt"`
+	Score         float64        `json:"score"`
+	Modified      string         `json:"modified"`
+	MatchReason   string         `json:"match_reason"`
+	IsProtocol    bool           `json:"is_protocol"`
+	LinkCount     int            `json:"link_count"`
+	BacklinkCount int            `json:"backlink_count"`
+	Neighbors     []neighborJSON `json:"neighbors"`
+	AppliesWhen   string         `json:"applies_when,omitempty"`
 }
 
 // centralityMultiplier returns a score boost based on backlink count.
@@ -394,7 +410,46 @@ func centralityMultiplier(backlinkCount int) float64 {
 	return 1.0 + 0.2*math.Log1p(float64(backlinkCount))
 }
 
-func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, scores map[string]float64, inbound map[string][]string, requestedFields []string) error {
+func buildNeighbors(n *note.Note, allNotes []*note.Note) []neighborJSON {
+	byID := make(map[string]*note.Note, len(allNotes))
+	for _, a := range allNotes {
+		byID[a.ID] = a
+	}
+	var neighbors []neighborJSON
+	for _, lnk := range n.Links {
+		title := lnk.TargetID
+		if t, ok := byID[lnk.TargetID]; ok {
+			title = t.Title
+		}
+		neighbors = append(neighbors, neighborJSON{
+			Direction:  "outgoing",
+			ID:         lnk.TargetID,
+			Title:      title,
+			Type:       lnk.Type,
+			Annotation: lnk.Annotation,
+		})
+	}
+	for _, a := range allNotes {
+		for _, lnk := range a.Links {
+			if lnk.TargetID == n.ID {
+				neighbors = append(neighbors, neighborJSON{
+					Direction:  "incoming",
+					ID:         a.ID,
+					Title:      a.Title,
+					Type:       lnk.Type,
+					Annotation: lnk.Annotation,
+				})
+				break
+			}
+		}
+	}
+	if neighbors == nil {
+		neighbors = []neighborJSON{}
+	}
+	return neighbors
+}
+
+func printSearchJSON(cmd *cobra.Command, notes []*note.Note, allNotes []*note.Note, query string, scores map[string]float64, inbound map[string][]string, requestedFields []string) error {
 	maxScore := 0.0
 	for _, s := range scores {
 		if s > maxScore {
@@ -434,6 +489,7 @@ func printSearchJSON(cmd *cobra.Command, notes []*note.Note, query string, score
 			IsProtocol:    isProtocol,
 			LinkCount:     len(n.Links),
 			BacklinkCount: backlinkCount,
+			Neighbors:     buildNeighbors(n, allNotes),
 			AppliesWhen:   n.AppliesWhen,
 		}
 	}
