@@ -51,7 +51,9 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"system appears in the conversation above this action\n\n" +
 			"After the gated action, quote a verbatim excerpt from the result. Then either capture " +
 			"with `nn new` / `nn update` / `nn link`, or skip with the excerpt, the source, and " +
-			"`result is a runtime value` if the result is execution output with no reuse across sessions.\n",
+			"`result is a runtime value` if the result is execution output with no reuse across sessions.\n" +
+			"If result is reusable across sessions, immediately run `nn new --quick` with the finding as title.\n" +
+			"If the quoted result is an existing draft note you own, promote it: `nn update <id> --status reviewed` — re-discovery is the usefulness signal; the draft note earned promotion by being found relevant.\n",
 	},
 	{
 		ID:          "virtual-nn-cli-reference",
@@ -59,11 +61,14 @@ var virtualGlobalProtocols = []virtualProtocol{
 		AppliesWhen: "always — reference for valid nn command flags, types, and statuses",
 		Body: "**nn new** `--title \"...\" --type <type> --content \"...\" --no-edit [--tags \"t1,t2\"] [--link-to <id> --annotation \"...\"] [--applies-when \"...\"] [--expires YYYY-MM-DD] [--expires-when \"condition\"]`\n" +
 			"Valid --type: concept|argument|model|hypothesis|observation|question|protocol\n" +
-			"New notes are always created as draft. Promote with: `nn update <id> --status reviewed`\n\n" +
+			"New notes are always created as draft. Promote with: `nn update <id> --status reviewed`\n" +
+			"**nn new --quick** `--title \"...\" --no-edit` — quick capture: sets type=observation, status=draft, content empty; no --type required\n\n" +
 			"**nn update** `<id> --since <RFC3339> --status <status>` | `--title \"...\"` | `--applies-when \"...\"` | `--expires YYYY-MM-DD` | `--expires-when \"condition\"` | `--content \"...\" --no-edit`\n" +
 			"Valid --status: draft|reviewed|permanent\n" +
 			"--since is required: read 'modified:' from nn show output; update is rejected if the note was changed after that timestamp\n\n" +
-			"**nn remind** `\"content\" [--for N] [--expires YYYY-MM-DD]` — creates observation tagged 'reminder', permanent, expires today+1d by default; surfaces in nn show --global\n\n" +
+			"**nn remind** `\"content\" [--for N] [--expires YYYY-MM-DD]` — creates observation tagged 'reminder', permanent, expires today+1d by default; surfaces in nn show --global\n" +
+			"**nn remind --find FRAGMENT** — search reminder titles by substring; prints matching ID; error if ambiguous (multiple matches) or zero matches\n" +
+			"**nn remind \"new body\" --update ID** — replace body of existing reminder in place; preserves expiry; no new note created\n\n" +
 			"**nn list** `--search \"<q>\" --show-first --json [--fields id,title,...]` | `--type <type>` | `--status <status>` | `--orphan` | `--since <ISO>` | `--expired` | `--has-expires`\n" +
 			"Valid --fields: id|title|type|status|tags|applies_when|excerpt|score|modified|match_reason|is_protocol|link_count|backlink_count|created|body_preview (requires --json; errors on unknown field)\n" +
 			"`nn list --search` always includes 1-hop graph neighbors in output: plain text shows indented `→`/`←` lines (id, title, type, annotation); `--json` includes a `neighbors` array with direction/id/title/type/annotation fields.\n\n" +
@@ -205,6 +210,9 @@ func newShowCmd(state *rootState) *cobra.Command {
 						fmt.Fprint(w, rendered)
 					} else {
 						fmt.Fprintf(w, "id: %s\ntitle: %s\ntype: observation\nstatus: %s\ntags: daily\n---\n\n%s\n", dn.ID, dn.Title, dn.Status, dn.Body)
+					}
+					if !strings.Contains(dn.Body, "## Relay") {
+						fmt.Fprintln(w, "Warning: relay block missing or not updated — check daily note before proceeding.")
 					}
 				}
 

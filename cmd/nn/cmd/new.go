@@ -28,6 +28,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 		annotation  string
 		fromStdin   bool
 		fromFile    string
+		quick       bool
 	)
 
 	cmd := &cobra.Command{
@@ -70,6 +71,10 @@ func newNewCmd(state *rootState) *cobra.Command {
 					}
 					content = sb.String()
 				}
+			}
+			if quick {
+				typ = "observation"
+				content = ""
 			}
 			if typ == "" {
 				return fmt.Errorf("--type is required (concept|argument|model|hypothesis|observation|question|protocol)")
@@ -154,5 +159,6 @@ func newNewCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&expiresStr, "expires", "", "Set expiration date (YYYY-MM-DD); note appears in nn list --expired after this date")
 	cmd.Flags().BoolVar(&fromStdin, "from-stdin", false, "Read note body from stdin")
 	cmd.Flags().StringVar(&fromFile, "from-file", "", "Scaffold note body from ast outline of a source file")
+	cmd.Flags().BoolVar(&quick, "quick", false, "Quick capture: sets type=observation, status=draft, content empty")
 	return cmd
 }

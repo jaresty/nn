@@ -116,6 +116,25 @@ func TestInstallSkillsUnknownForErrors(t *testing.T) {
 	}
 }
 
+
+// Assertion: nn-session-debrief SKILL.md contains --partial mode with partial-debrief tag and skips for steps 6/7.
+func TestNNSessionDebriefPartialMode(t *testing.T) {
+	data, err := nnSkills.FS.ReadFile("nn-session-debrief/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-session-debrief/SKILL.md: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "--partial") {
+		t.Errorf("nn-session-debrief SKILL.md: expected '--partial' flag documented; got no match")
+	}
+	if !strings.Contains(content, "partial-debrief") {
+		t.Errorf("nn-session-debrief SKILL.md: expected 'partial-debrief' tag instruction; got no match")
+	}
+	if !strings.Contains(content, "skip") || !strings.Contains(content, "step 6") {
+		t.Errorf("nn-session-debrief SKILL.md: expected partial mode to document skipping step 6; got no match")
+	}
+}
+
 func TestInstallMetaCmd(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()

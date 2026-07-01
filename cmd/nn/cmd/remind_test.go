@@ -166,6 +166,175 @@ func TestGlobalShowRemindersExpiresWhen(t *testing.T) {
 	}
 }
 
+// Assertion: TestRemindFindFlag — nn remind --find FRAGMENT returns matching reminder IDs by title substring
+func TestRemindFindFlag(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	exp := time.Now().UTC().Add(24 * time.Hour).Truncate(time.Second)
+	n1 := newTestNoteForCLI(note.GenerateID(), "Check deploy pipeline", note.TypeObservation)
+	n1.Status = note.StatusPermanent
+	n1.Tags = []string{"reminder"}
+	n1.Expires = &exp
+	n1.Body = "deploy"
+	writeNoteFile(t, nbDir, n1)
+
+	n2 := newTestNoteForCLI(note.GenerateID(), "Review PR queue", note.TypeObservation)
+	n2.Status = note.StatusPermanent
+	n2.Tags = []string{"reminder"}
+	n2.Expires = &exp
+	n2.Body = "pr"
+	writeNoteFile(t, nbDir, n2)
+
+	out, err := execute("remind", "--find", "deploy")
+	if err != nil {
+		t.Fatalf("nn remind --find deploy: %v", err)
+	}
+	if !strings.Contains(out, n1.ID) {
+		t.Errorf("want ID %s in output, got:\n%s", n1.ID, out)
+	}
+	if strings.Contains(out, n2.ID) {
+		t.Errorf("want ID %s absent from output, got:\n%s", n2.ID, out)
+	}
+}
+
+// Assertion: TestRemindFindAmbiguous — nn remind --find aborts with error when multiple matches
+func TestRemindFindAmbiguous(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	exp := time.Now().UTC().Add(24 * time.Hour).Truncate(time.Second)
+	n1 := newTestNoteForCLI(note.GenerateID(), "Check deploy pipeline", note.TypeObservation)
+	n1.Status = note.StatusPermanent
+	n1.Tags = []string{"reminder"}
+	n1.Expires = &exp
+	writeNoteFile(t, nbDir, n1)
+
+	n2 := newTestNoteForCLI(note.GenerateID(), "Check PR queue", note.TypeObservation)
+	n2.Status = note.StatusPermanent
+	n2.Tags = []string{"reminder"}
+	n2.Expires = &exp
+	writeNoteFile(t, nbDir, n2)
+
+	_, err := execute("remind", "--find", "Check")
+	if err == nil {
+		t.Fatal("nn remind --find with ambiguous match: want error, got nil")
+	}
+}
+
+// Assertion: TestRemindUpdateFlag — nn remind --update ID replaces body of existing reminder
+func TestRemindUpdateFlag(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	exp := time.Now().UTC().Add(24 * time.Hour).Truncate(time.Second)
+	n := newTestNoteForCLI(note.GenerateID(), "Old reminder body", note.TypeObservation)
+	n.Status = note.StatusPermanent
+	n.Tags = []string{"reminder"}
+	n.Expires = &exp
+	n.Body = "Old reminder body"
+	writeNoteFile(t, nbDir, n)
+
+	_, err := execute("remind", "New body text", "--update", n.ID)
+	if err != nil {
+		t.Fatalf("nn remind --update: %v", err)
+	}
+	updated := readNoteByID(t, nbDir, n.ID)
+	if !strings.Contains(updated.Body, "New body text") {
+		t.Errorf("want body 'New body text', got %q", updated.Body)
+	}
+}
+
+// Assertion: TestRemindUpdatePreservesExpiry — nn remind --update preserves existing expiry
+func TestRemindUpdatePreservesExpiry(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	exp := time.Now().UTC().Add(48 * time.Hour).Truncate(time.Second)
+	n := newTestNoteForCLI(note.GenerateID(), "Some reminder", note.TypeObservation)
+	n.Status = note.StatusPermanent
+	n.Tags = []string{"reminder"}
+	n.Expires = &exp
+	n.Body = "original"
+	writeNoteFile(t, nbDir, n)
+
+	_, err := execute("remind", "updated body", "--update", n.ID)
+	if err != nil {
+		t.Fatalf("nn remind --update: %v", err)
+	}
+	updated := readNoteByID(t, nbDir, n.ID)
+	if updated.Expires == nil {
+		t.Fatal("want Expires preserved, got nil")
+	}
+	if !updated.Expires.Equal(exp) {
+		t.Errorf("want expires %v, got %v", exp, *updated.Expires)
+	}
+}
+
+// Assertion: TestRemindUpdateNoNewNote — nn remind --update does not create a new note
+func TestRemindUpdateNoNewNote(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	exp := time.Now().UTC().Add(24 * time.Hour).Truncate(time.Second)
+	n := newTestNoteForCLI(note.GenerateID(), "Existing reminder", note.TypeObservation)
+	n.Status = note.StatusPermanent
+	n.Tags = []string{"reminder"}
+	n.Expires = &exp
+	n.Body = "original"
+	writeNoteFile(t, nbDir, n)
+
+	_, err := execute("remind", "new body", "--update", n.ID)
+	if err != nil {
+		t.Fatalf("nn remind --update: %v", err)
+	}
+	entries, _ := os.ReadDir(nbDir)
+	var mdCount int
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".md") {
+			mdCount++
+		}
+	}
+	if mdCount != 1 {
+		t.Errorf("want 1 note file after --update, got %d", mdCount)
+	}
+}
+
+// Assertion: TestGlobalShowRelayWarningWhenAbsent — nn show --global emits relay warning when daily note has no ## Relay section
+func TestGlobalShowRelayWarningWhenAbsent(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	today := time.Now().Format("2006-01-02")
+	n := newTestNoteForCLI(note.GenerateID(), "Daily: "+today, note.TypeObservation)
+	n.Status = note.StatusDraft
+	n.Tags = []string{"daily"}
+	n.Body = "## Open\n\n- some task\n"
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global: %v", err)
+	}
+	if !strings.Contains(out, "Warning: relay block missing") {
+		t.Errorf("expected relay warning when ## Relay absent; got:\n%s", out)
+	}
+}
+
+// Assertion: TestGlobalShowNoRelayWarningWhenPresent — nn show --global suppresses relay warning when ## Relay section exists
+func TestGlobalShowNoRelayWarningWhenPresent(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	today := time.Now().Format("2006-01-02")
+	n := newTestNoteForCLI(note.GenerateID(), "Daily: "+today, note.TypeObservation)
+	n.Status = note.StatusDraft
+	n.Tags = []string{"daily"}
+	n.Body = "## Relay\n\nSome relay content.\n"
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global: %v", err)
+	}
+	if strings.Contains(out, "Warning: relay block missing") {
+		t.Errorf("expected no relay warning when ## Relay present; got:\n%s", out)
+	}
+}
+
 // Assertion: TestGlobalShowRemindersExcludesExpired — nn show --global omits expired reminder notes
 func TestGlobalShowRemindersExcludesExpired(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
