@@ -35,45 +35,63 @@ metadata changes as the grammar evolves; `bar-dictionary` always reflects the cu
 
 ## Operation 1: Intent lookup
 
-**Use when:** You have a user intent phrase and need to find matching tokens.
+**Use when:** You have a user intent phrase and need to find matching tokens, starter packs, or sequences.
+
+Results include three kinds, distinguished by the `kind` field:
+- `kind=token` — a single grammar token to append to `bar build`
+- `kind=pack` — a starter pack; the runnable `bar build` command appears inline in text output and in the `command` field in JSON
+- `kind=sequence` — a named multi-step workflow; step count and `bar sequence show <name>` appear inline
 
 ```bash
-bar lookup "<phrase>"               # search across all axes
-bar lookup "<phrase>" --axis method # restrict to one axis
-bar lookup "<phrase>" --json        # structured output for programmatic use
+bar lookup "<phrase>"               # search across all axes (tokens + packs + sequences)
+bar lookup "<phrase>" --axis method # restrict to one axis (tokens only when axis filter set)
+bar lookup "<phrase>" --json        # structured output; each result has kind, token, command fields
+bar lookup debug                    # → pack:debug (→ bar build probe diagnose adversarial unknowns), sequence:debug-cycle, tokens
 ```
 
-**Output (human-readable):** one result per line, `axis:token — Label`, ranked by match quality.
+**Output (human-readable):** one result per line, ranked by match quality. Tokens with a guidebook entry show `[guide]`; use `bar guide <token>` to read it.
 
 ```
-task:probe — Surface assumptions and implications
-form:prep — Experiment design write-up
-method:diagnose — Identify likely root causes
+[T3] pack:debug — Diagnosing a bug or system failure  → bar build probe diagnose adversarial unknowns
+[T3] task:probe — Surface assumptions and implications  [guide]  [matched heuristics: "debug"]
+[T2] sequence:debug-cycle — Surface root causes, fix them...  [3 steps → bar sequence show debug-cycle]
+[T2] method:diagnose — Identify likely root causes
 ```
 
-**Output (--json):** array of objects with `axis`, `token`, `label`, `tier` (0–3),
-`matched_field`, `matched_text`.
+**Output (--json):** array of objects with `axis`, `token`, `label`, `kind`, `command` (packs only), `tier` (0–3), `matched_field`, `matched_text`, `has_guide` (true when a guidebook entry exists).
 
 ```json
 [
   {
+    "axis": "pack",
+    "token": "debug",
+    "label": "Diagnosing a bug or system failure",
+    "kind": "pack",
+    "command": "bar build probe diagnose adversarial unknowns",
+    "tier": 3,
+    "matched_field": "token",
+    "matched_text": "debug"
+  },
+  {
     "axis": "task",
     "token": "probe",
     "label": "Surface assumptions and implications",
+    "kind": "token",
     "tier": 3,
     "matched_field": "heuristics",
-    "matched_text": "debug"
+    "matched_text": "debug",
+    "has_guide": true
   }
 ]
 ```
 
-**Tier meanings:** 3 = exact heuristic match, 2 = substring heuristic match,
+**Tier meanings:** 3 = exact name/heuristic match, 2 = substring match,
 1 = distinction token name match, 0 = definition text match. Higher tier = stronger signal.
 
 **Multi-word queries use AND logic:** all words must match. Quote phrases:
 ```bash
-bar lookup "root cause"         # matches tokens where both words appear
-bar lookup "debug" --axis method  # debug-related method tokens only
+bar lookup "root cause"           # matches tokens where both words appear
+bar lookup "debug" --axis method  # debug-related method tokens only (no packs/sequences)
 ```
 
 ---
@@ -88,10 +106,15 @@ When the input is a natural-language intent phrase or a token name being searche
 bar lookup "diagnose" --axis method
 ```
 
-**Output:** ranked results with tier (3 = exact token match, 1 = mentioned in distinctions):
+**Output:** ranked results with tier (3 = exact token match, 1 = mentioned in distinctions). `[guide]` signals a guidebook entry exists:
 ```
 method:diagnose — Identify likely root causes  [matched token: "diagnose"]
 method:abduce — Generate explanatory hypotheses  [matched distinctions: "diagnose"]
+```
+
+When a result shows `[guide]`, read the disambiguation entry before committing to a token:
+```bash
+bar guide diagnose    # near-neighbor disambiguation: diagnose vs probe vs abduce vs induce
 ```
 
 When the raw four-field tab-separated record (heuristics or distinctions text verbatim) is required:
@@ -106,20 +129,22 @@ Output: `axis:token<TAB>label<TAB>heuristics<TAB>distinctions`
 
 **Use when:** You need all tokens on an axis (e.g., to show options or verify a token exists).
 
+**Preferred:**
 ```bash
-bar help tokens --plain <axis>
+bar help llm --section tokens
 ```
+A compliant invocation produces a tool-result block containing `### Directional (0-1 token)` — this string appears only at the end of the full token catalog. A tool-result block that does not contain it has not loaded the full catalog. Do not pipe this command to any other command — run it standalone.
 
 Valid axis values: `task`, `scope`, `method`, `form`, `channel`, `completeness`,
 `directional`, `voice`, `audience`, `tone`, `intent`
 
-**Example:**
+**Legacy fallback** (older bar versions without `bar help llm`):
 ```bash
 bar help tokens --plain task    # all task tokens
 bar help tokens --plain method  # all 80+ method tokens
 ```
 
-**Output:** one tab-separated line per token (same four-field format as Operation 2).
+**Output:** `bar help llm --section tokens` produces human-readable catalog with definitions. Legacy `--plain` produces one tab-separated line per token (same four-field format as Operation 2).
 
 ---
 
@@ -136,7 +161,8 @@ Use bar-dictionary to find tokens matching "<intent>"
 ```bash
 bar lookup "<intent>"
 bar lookup "<intent>" --axis method --json
-bar help tokens --plain <axis>
+bar help llm --section tokens          # full catalog (preferred)
+bar help tokens --plain <axis>         # legacy fallback only
 ```
 
 Both patterns are equivalent in result. Pattern B is simpler and lower-overhead for

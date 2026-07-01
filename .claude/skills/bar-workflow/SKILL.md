@@ -32,15 +32,21 @@ Each step is a required gate. Do not advance to the next step until the current 
 
 1. **Analyze request** and decide on the number of steps and progression strategy
 2. **Load navigation guide** via `bar help llm` (no args), then load sections on demand
-3. **Explore tokens** — use `bar lookup` and `bar help llm` to find candidate tokens for
-   each planned step. A step plan must name at least one token candidate and the intent it
-   serves before proceeding. A transcript that reaches step 4 without naming token candidates
-   and their intents does not satisfy this requirement.
+3. **Explore tokens, packs, and sequences** — use `bar lookup` to find candidate tokens,
+   starter packs, and sequences for each planned step. `bar lookup` now returns all three kinds
+   in one ranked list: `kind=token` (append to `bar build`), `kind=pack` (runnable `bar build`
+   command shown inline — use it directly), `kind=sequence` (shows step count and
+   `bar sequence show <name>`). When a result shows `[guide]`, run `bar guide <token>` before
+   committing — it provides near-neighbor disambiguation that may change the token choice.
+   A step plan must name at least one token candidate and the
+   intent it serves before proceeding. A transcript that reaches step 4 without naming token
+   candidates and their intents does not satisfy this requirement.
 4. **Generate candidate step structures** — from the token candidates, write out one or more
    possible step orderings as text before running any `bar sequence` commands. Each candidate
    must name the step count, the token(s) per step, and the role each step plays. A transcript
    that runs `bar sequence list` before a candidate step structure appears in the text does
-   not satisfy this requirement.
+   not satisfy this requirement. If `bar lookup` returned a `kind=pack` result, its command
+   can serve as a single-step candidate directly.
 5. **Check sequences as a scaffold** — run `bar sequence list`. If a named sequence's step
    structure aligns with a candidate from step 4, run `bar sequence show <name>` and adopt
    its step count, step order, execution mode, prompt hints, and anchor tokens as additions
@@ -75,11 +81,12 @@ Each step is a required gate. Do not advance to the next step until the current 
 **For bar versions with `bar help llm` support:**
 
 1. **Check for cached navigation guide** - If `bar help llm` was already run in this conversation, reuse it
-2. **Load navigation guide** - Run `bar help llm` (no args) to get the navigation endpoint. It lists available `--section` names and the `bar help token <slug>` command.
+2. **Load navigation guide** - Run `bar help llm` (no args) as a standalone Bash command. A compliant invocation produces a tool-result block containing `## Context window` — a tool-result block that does not contain this string has not loaded the full dispatch page. Do not pipe any `bar help llm` invocation to any other command.
 3. **Load only what you need:**
    - `bar help llm --section heuristics` → Choosing Method/Scope/Form guidance
-   - `bar help llm --section tokens` → full token catalog with definitions
+   - `bar help llm --section tokens` → full token catalog with definitions (compliant when tool-result contains `### Directional (0-1 token)`)
    - `bar help llm --section rules` → composition rules and incompatibilities
+   - `bar help llm --section sequences` → sequence list, execution modes, dispatch step protocol
    - `bar help token <slug>` → definition, heuristics, distinctions for one token
 4. **Workflow planning strategy:**
    - Consult **"Choosing Method"** section (`--section heuristics`) to understand method categorization

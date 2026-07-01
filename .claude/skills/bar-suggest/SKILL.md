@@ -11,99 +11,73 @@ This skill enables the LLM to **present users with bar-based choices** for how t
 
 Assumes:
 - **REQUIRED:** `bar` CLI is installed and accessible — this skill cannot function without it
-- The LLM can run `bar help llm` (or `bar help tokens` for older versions) to discover available tokens
+- The LLM can run `bar help llm` to discover available tokens
 - The LLM has access to a tool for executing bar commands (Bash or equivalent)
 
-## Presenting Options to the User
+## Interactive Refinement Mode
 
-**Two modes are available; use whichever is supported by the current agent:**
+For ambiguous or open-ended requests, bar-suggest uses a **single `bar build ... form:interactive` invocation** to initiate a multi-turn refinement dialogue rather than presenting a flat menu of pre-generated options.
 
-### Mode A — Interactive (preferred when AskUserQuestion tool is available)
+### How it works
 
-Use `AskUserQuestion` to present 2-4 choices as a structured question. This provides the best user experience with a native selection UI.
+1. Run one `bar build` command with `form:interactive` and tokens appropriate to the request domain — this is the only bar invocation during the refinement phase.
+2. Follow the `form:interactive` contract across N turns: each response names the current state of understanding, names at least one available input (dimension the user could clarify), and ends with a prompt that names those inputs.
+3. The dialogue continues until the **stop condition** is met:
+   - **Sufficient signal**: the transcript contains a named token value for task (required) and for any other axes that are relevant to the request — scope, method, form, completeness, persona (voice, audience, tone, intent), channel, topology, and directional are all optional but must be accumulated when the user's answers provide signal for them — each derived from a user answer appearing above the stop declaration in the transcript. A named token value is a token slug appearing in the form `<axis>: <token>` or as a backtick-quoted slug preceded by the axis name within the same sentence — a prose mention of a token name without this format does not satisfy the named-token-value requirement. A stop declaration that appears before a named task token value is present does not satisfy this requirement. OR
+   - **User says "go"**: the user explicitly asks to proceed with the current understanding.
+4. Once the stop condition fires, generate the final menu (see Refinement Turn Structure) — do not execute any `bar build` command before the user has selected from the menu. A menu selection is a user message that begins with or contains a digit matching an option number (`1`, `2`, `3`, or `4`) or contains the phrase `option <N>` — a message lacking either pattern does not satisfy the menu-selection gate. A `bar build` execution that appears before a qualifying user menu selection does not satisfy this requirement.
 
-### Mode B — Inline (fallback for agents without AskUserQuestion)
+**Ambiguous or partial user answers:** If the user's answer does not name a specific value for the asked dimension (e.g., "maybe" / "I'm not sure" / answers a different question), treat the dimension as still unresolved and ask a more specific follow-up that names two concrete options. A turn that exits refinement without a named token value (in the form `<axis>: <token>` or backtick-quoted slug preceded by axis name) for each required axis does not satisfy the sufficient-signal stop condition.
 
-Present options as a numbered list directly in the response, then pause and ask the user to reply with their choice number. Example:
+**No additional `bar build` invocations occur during refinement turns** — the single `bar build form:interactive` output governs the whole dialogue until the stop condition. `bar lookup` and `bar guide` calls are permitted and required during refinement (see Refinement Turn Structure).
 
-```
-I can approach this several ways. Which would you prefer?
+### Example initiation
 
-1. **Exploratory** — map out the space broadly before going deep
-   `bar build probe full explore mapping variants`
-
-2. **Analytical** — break down structure and dependencies
-   `bar build probe full struct depends effects`
-
-3. **Risk-focused** — surface failure modes and fragilities
-   `bar build probe fail adversarial checklist`
-
-4. **Surprise me** — `bar shuffle` generates an unexpected angle
-
-Reply with a number (or describe what you want) and I'll proceed.
+```bash
+# Single bar invocation to start refinement
+bar build probe form:interactive --subject "explain microservices architecture"
 ```
 
-**In both modes the core rules are the same:**
-- Do not answer the original request directly before the user has chosen an approach.
-- Present options first, then execute the user's choice.
-- Keep options distinct (different method categories, scope, or form).
+The resulting `form:interactive` prompt instructs the LLM to name what it currently understands about the request and what dimension would most sharpen the approach (depth? audience? specific tradeoff?), then end with a prompt naming those options.
+
+### Fallback: flat menu
+
+If the request is **not** ambiguous — the user has given sufficient signal about approach, depth, and audience — skip refinement and proceed directly to a single `bar build` execution (bar-autopilot mode).
 
 ## High-level Workflow
 
 1. **Detect open-ended or ambiguous request**
 2. **Load navigation guide** via `bar help llm` (no args), then load sections on demand
-3. **Generate 2-4 distinct bar command options** using method categorization and patterns from reference
-4. **Present options** using Mode A (AskUserQuestion) if available, otherwise Mode B (inline numbered list)
-5. **Execute user's choice** and return structured response
+3. **Initial `bar lookup`** on the original request to surface seed token candidates
+4. **Run `bar build form:interactive`** with confirmed seed tokens but no task token
+5. **Refine across turns** — `bar lookup` after each user answer; accumulate token set across all axes (task, scope, method, form, completeness, voice, audience, tone, intent, channel, topology, directional)
+6. **Stop condition fires** — select task token from dialogue answers; `bar guide` near-neighbors
+7. **Generate final menu** — primary command + alternative framings + any sequences (named or ad-hoc)
+8. **User picks** — execute single command directly or hand sequence to bar-workflow
 
 ## Skill Behavior Rules
 
-- **Do not answer directly before presenting options.** Always present 2-4 choices first.
-- **A response that addresses the original request is permitted only when a user selection appears above it in the transcript — a response addressing the original request without a prior user selection in the transcript does not satisfy this requirement.**
-- **Use AskUserQuestion when available** (Claude agents); otherwise fall back to an inline numbered list (Mode B).
-- **Present options, don't choose.** Let the user decide the approach after seeing the options.
-- **Never hardcode tokens.** Discover via `bar help llm` (preferred) or `bar help tokens` (fallback).
+- **Do not answer directly before the menu is presented and the user has selected.** Run `bar build probe form:interactive` first, follow the refinement dialogue until the stop condition fires, then generate the final menu.
+- **A response that addresses the original request is permitted only when a final menu containing at least one literal `` `bar build `` string and the user's menu selection (a message beginning with or containing a digit `1`–`4` or the phrase `option <N>`) both appear above it in the transcript — a response addressing the original request before both are present does not satisfy this requirement.**
+- **Use `form:interactive` for refinement, not a flat menu.** The refinement is intent-driven: ask the question that eliminates the most ambiguity given the current state of understanding.
+- **Never hardcode tokens.** Discover via `bar help llm` and `bar lookup`.
 - **Use kebab-case for multi-word tokens.** Convert spaces to hyphens (e.g., "as-kent-beck").
-- **Keep options distinct.** Each option should represent a meaningfully different approach.
-- **Explain trade-offs.** Help the user understand what each option emphasizes.
-- **Be transparent about usage.** After executing the user's choice, explain the bar command used.
-- **Execute chosen option.** A `bar build` tool result must appear in the transcript above the response for the chosen option — a response for the chosen option that appears before the bar build result does not satisfy this requirement.
+- **Be transparent about usage.** After the stop condition fires and the final `bar build` executes, state: "Based on your answers I used `bar build [tokens]` — [token]: [reason], ..."
+- **Show commands in menu.** Each menu option must contain a literal `` `bar build `` or `` `bar sequence show `` string — a menu option without one does not satisfy this requirement. Every `` `bar build` `` command in the menu must include a task token — a command string without a task token does not satisfy this requirement.
+- **Execute final command.** A final `bar build` tool result must appear in the transcript above a response whose content addresses the user's original request domain (identifiable by the presence of the user's original subject matter or a direct answer to the request) — such a response appearing before the `bar build` tool result does not satisfy this requirement.
 
 ## Discovery Workflow
 
-### With `bar help llm` (preferred)
-
-**For bar versions with `bar help llm` support:**
-
-1. **Check for cached reference** - If already loaded in conversation, reuse it
-2. **Load reference once** - Run `bar help llm` as a standalone Bash command and read its full output before any planning — never pipe it as `--subject` or `--addendum` to another command; piping truncates output and silently drops token definitions
-3. **Option generation strategy:**
-   - Consult **"Usage Patterns by Task Type"** section for diverse examples
-   - Reference **"Choosing Method"** section to understand method categorization
-   - Use **"Token Catalog"** to discover tokens across all axes
-   - Check **"Composition Rules"** for valid combinations
-
-**Performance benefit:** Single reference load enables generating multiple diverse options
-
-**Method categorization for option diversity:**
-- **Exploration Methods** → For discovery-oriented options
-- **Understanding Methods** → For analysis-oriented options
-- **Decision Methods** → For evaluation-oriented options
-- **Diagnostic Methods** → For problem-focused options
-
-### Fallback (legacy `bar help tokens`)
-
-**For older bar versions without `bar help llm`:**
-
-1. Run `bar help tokens` to discover available tokens
-2. Use sectioned queries: `bar help tokens scope method form`
-3. Apply embedded heuristics for option generation
+1. **Check for cached reference** — if `bar help llm` was already run in this conversation, reuse it
+2. **Load reference once** — run `bar help llm` (no args) as a standalone Bash command. A compliant invocation produces a tool-result block containing `## Context window`. The tool call text must be exactly `bar help llm` with no `|` character — a compliant invocation contains no pipe operator in the same shell command.
+3. **Discover tokens by intent** — use `bar lookup "<intent>"` after each user answer during refinement (see Refinement Turn Structure)
+4. **Disambiguate near-neighbors** — use `bar guide <token>` after the stop condition fires only if a prior `bar lookup` result contained a guide indicator for that token
 
 **Grammar note:** Token order is: persona → static → completeness → scope (1-2) → method (1-3) → form → channel → directional.
 
 ## Option Generation Strategy
 
-**IMPORTANT:** Never hardcode tokens. Always discover them from `bar help llm` or `bar help tokens` first.
+**IMPORTANT:** Never hardcode tokens. Discover them via `bar lookup` during the refinement dialogue.
 
 ### Step 1: Detect When to Offer Choices
 
@@ -113,79 +87,82 @@ Use bar-suggest when the request is:
 - **Exploratory** - User wants to understand something but unclear what aspect matters most
 - **Multi-faceted** - Topic can be analyzed from several distinct angles
 
-### Step 2: Generate Distinct Options
+### Step 2: Initiate Refinement Dialogue
 
 **With `bar help llm` Reference:**
 
-1. **Read method categorization** - Reference § "Choosing Method" to discover:
-   - Which method categories exist
-   - Specific methods within each category
-   - How categories represent different thinking modes
+1. **Initial lookup pass** — before starting the dialogue, run `bar lookup` with a query that names the cognitive operation the request implies, not the task content itself:
+   ```bash
+   bar lookup "<cognitive operation> <what it applies to>"
+   # e.g., "audit UI for missing data" not "sequences tab SPA"
+   # e.g., "diagnose performance bottleneck" not "slow API endpoint"
+   # e.g., "evaluate architectural tradeoffs" not "microservices vs monolith"
+   ```
+   The query must contain a verb naming how to think about the task (audit, compare, diagnose, evaluate, surface, map, review, trace). A query containing only task-content words without such a verb does not satisfy this requirement. Note which tokens surface and their axes — include any clearly confirmed by the request as seed tokens; leave ambiguous ones for the dialogue to resolve.
 
-2. **Select task for options** - **REQUIRED: Select a task token** for each option to give clear task direction. Discover available task tokens from the reference § "Token Catalog" § "Tasks". The grammar marks tasks as optional (0-1), but this is a technical specification—automated usage MUST include a task to make options distinct and focused. See reference § "Usage Guidance for Automated/Agent Contexts".
+2. **Run `bar build probe form:interactive`** — always use `probe` as the task token for the initiation; `probe` reflects that the dialogue itself is probing to understand the request, not yet executing it. Include any clearly-confirmed seed tokens from the initial lookup. This is the only `bar build` invocation during refinement. The final task token (which may differ from `probe`) is derived from the dialogue answers at the stop condition. A `bar build form:interactive` invocation that does not have a `bar lookup` tool result block appearing above it in the transcript does not satisfy this requirement.
 
-3. **Create cross-category options** - Generate options using methods from different categories:
-   - **Option 1**: Use methods from Exploration category (discover from reference)
-   - **Option 2**: Use methods from Understanding category (discover from reference)
-   - **Option 3**: Use methods from Decision category (discover from reference)
-   - **Option 4**: Use methods from Diagnostic category (discover from reference)
+3. **Follow the `form:interactive` contract** across N turns:
+   - Name the current state of understanding (what is clear, what is ambiguous)
+   - Name at least one available input — the dimension most likely to resolve the remaining ambiguity across all axes: task (required), scope, method, form, completeness, persona (voice, audience, tone, intent), channel, topology, and directional (all optional, accumulate when user answers provide signal)
+   - End each turn with a prompt that names those inputs
 
-4. **Vary scope and form** - Read reference § "Choosing Scope" and § "Choosing Form" to:
-   - Discover available scope tokens for different focus areas
-   - Discover available form tokens for different output structures
-   - Combine with method variation for truly distinct options
+4. **Derive the final token set** — as the user's answers accumulate, build the final `bar build` command. When the stop condition fires: select the task token from the dialogue answers (what verb did the user's intent resolve to?), combine with all accumulated axis tokens, then execute.
 
-5. **Check patterns** - Reference § "Usage Patterns by Task Type" to:
-   - See examples of different approach types
-   - Understand how token combinations create distinct experiences
-   - Ensure your options match established patterns
+**Token discovery during dialogue (required after each user answer):**
 
-**Example option diversity (tokens discovered from reference):**
-- **Exploratory approach**: Methods from Exploration category
-- **Analytical approach**: Methods from Understanding category
-- **Decisional approach**: Methods from Decision category
-- **Diagnostic approach**: Methods from Diagnostic category
-
-### Legacy Option Generation (without bar help llm)
-
-If `bar help llm` is unavailable, use `bar lookup` to find tokens by intent:
+After each user answer in a refinement turn, translate the answer into a reasoning mode and run `bar lookup` on that mode — not on the answer text itself:
 
 ```bash
-bar lookup "<your intent>"               # find matching tokens across all axes
-bar lookup "<your intent>" --axis method # restrict to method tokens only
+bar lookup "<cognitive operation implied by the answer>"
+bar lookup "<cognitive operation>" --axis method  # restrict if the answer names an approach
+# e.g., user says "I want to find bugs" → bar lookup "diagnose surface failure modes"
+# e.g., user says "compare options" → bar lookup "evaluate tradeoffs contrast alternatives"
+# e.g., user says "just give me the plan" → bar lookup "sequence ordered steps structured plan"
 ```
 
-For generating distinct options, run several lookups with different intent framings
-(e.g., "explore broadly", "diagnose root cause", "evaluate tradeoffs") to surface
-tokens from different method categories.
+Show the top 2-3 results (token name + short label + axis). Fold confirmed candidates into the accumulating token set. **Track any `kind=sequence` results separately** — these are candidates for the final menu. A refinement turn that does not run `bar lookup` does not satisfy this requirement.
 
-Or invoke `bar-dictionary` for a guided lookup session.
+### Refinement Turn Structure
 
-Fall back to `bar help tokens scope method form` only if `bar lookup` is also unavailable.
+Each refinement turn must follow the `form:interactive` contract:
+- **Name current state**: the turn must contain a sentence beginning with the literal prefix `Currently understood:` — a turn that restates the original request without this prefix does not satisfy this requirement
+- **Name available inputs**: the turn must name at least one dimension as a bracketed choice list using `[` and `/` as the literal delimiters — e.g., `[concept / evaluate / diagnose]` — a turn without a `[` ... `/` ... `]` pattern does not satisfy this requirement
+- **End with a prompt**: the final line of the turn must end with `?` as its last character — a turn whose final line does not end with `?` does not satisfy this requirement
 
-### Include Freeform Option
+**After stop condition fires**, generate a final menu of 2-4 options before executing:
 
-Always include as one option:
-- **"Surprise me"** or **"Explore freely"** - Use `bar shuffle` to generate an unexpected combination
-- Explain this allows bar to discover novel token combinations
-- Reference § "Advanced Features" § "Shuffle for Exploration" if using bar help llm
+1. **Disambiguate near-neighbor tokens**: if any `bar lookup` result during the dialogue returned a `guide` entry for an ambiguous token, run `bar guide <token>` for that token. Skip this step if no lookup result contained a guide indicator — a `bar guide` invocation with no prior guide indicator in a lookup result does not satisfy this requirement and will error.
+   ```bash
+   bar guide <token>   # side-by-side distinctions and combination guidance
+   ```
 
-### Present and Execute
+2. **Build the primary option**: the derived `bar build` command with confirmed tokens and task token from the dialogue.
 
-**If AskUserQuestion is available (Mode A):**
-Use AskUserQuestion with:
-- **Header**: Brief label for each option
-- **Description**: What the approach emphasizes, expected output characteristics
-- Optional: Reference to similar pattern from § "Usage Patterns" if using bar help llm
+3. **Generate alternative framings**: run 1-2 additional `bar lookup` calls using contrasting cognitive operations — not rewordings of the primary framing's verb:
+   ```bash
+   bar lookup "<contrasting cognitive operation>"
+   # Primary used "evaluate tradeoffs" → alternatives might use:
+   #   "surface failure modes adversarial"
+   #   "map structure dependencies"
+   #   "diagnose root cause"
+   # The alternative verb must differ from the primary verb — a query using the same
+   # cognitive operation as the primary does not satisfy this requirement.
+   ```
+   For each alternative framing, assemble a full token set using judgment over the lookup results — select whichever tokens across method, scope, form, and completeness best serve that framing given the subject matter. Do not default to the top result; pick tokens that produce a meaningfully different response. An option that differs from the primary in exactly one axis token position does not satisfy this requirement — each option must differ from every other option in at least two axis token positions, evaluator-checkable by comparing the two `bar build` token lists.
 
-**If AskUserQuestion is unavailable (Mode B):**
-Write a numbered list in your response with the same information — option name, trade-off description, and the bar command that would be used. After emitting the numbered list and selection prompt, produce no further content in the same response — additional content after the selection prompt in the same response does not satisfy this requirement.
+4. **Include sequences if applicable**: check the running list of `kind=sequence` results collected during dialogue lookups. If any named sequence fits, include it as a menu option. If the domain inherently benefits from staged output (e.g., explore→evaluate, diagnose→fix) and no named sequence matches, generate an ad-hoc 2-3 step sequence as an additional option.
 
-When user selects, build and execute the corresponding bar command with discovered tokens.
+5. **Distinctness check**: before presenting, verify each option would produce noticeably different output from the others — different reasoning process, different output shape, or different angle of attack. If two options are too similar (same methods, same scope, same form — differing only in one minor token), replace one with a more divergent framing by running a new `bar lookup` with a more contrasting intent phrase.
 
-Explain: "You chose [option], so I used `bar build [tokens]` to [reason]"
+6. **Present the final menu** to the user — 2-4 options. Each option must contain: a short label, a literal `` `bar build <tokens>` `` command (or named sequence identifier of the form `` `bar sequence show <name>` ``), and one sentence naming what it emphasizes. End with `[1 / 2 / 3 ...]`. A menu option whose text does not contain a literal `` `bar build `` or `` `bar sequence show `` string does not satisfy this requirement — prose descriptions of approach without a command string do not satisfy this requirement. Every `` `bar build` `` command in the menu must include a task token — a `` `bar build` `` command string that does not contain a task token does not satisfy this requirement.
 
-## Example Option Generation
+7. **Execute the chosen option**:
+   - Single `bar build`: execute directly
+   - Named sequence: run `bar sequence show <name>` then hand off to bar-workflow
+   - Ad-hoc sequence: hand the step list to bar-workflow for execution
+
+## Example Refinement Flow
 
 **With bar help llm:**
 
@@ -193,36 +170,50 @@ Explain: "You chose [option], so I used `bar build [tokens]` to [reason]"
 # Step 1: Load reference
 bar help llm
 
-# Step 2: Read sections for option generation
-# - Read § "Choosing Method" to understand categorization
-# - Read § "Usage Patterns by Task Type" for examples
-# - Read § "Token Catalog" to discover available tokens
+# Step 2: Initial lookup on original request — seed token candidates before dialogue
+bar lookup "explain microservices architecture"
+# → surfaces: show, probe, full, struct, depends, mapping
+# "show" and "struct" clearly confirmed; task token (probe/show?) still ambiguous — leave for dialogue
 
-# Step 3: Present options (tokens discovered from reference)
-# Example for "Explain microservices architecture":
-# Option 1 (Exploratory): Methods from Exploration category + appropriate scope/form
-# Option 2 (Analytical): Methods from Understanding category + appropriate scope/form
-# Option 3 (Decisional): Methods from Decision category + appropriate scope/form
-# Option 4 (Freeform): bar shuffle
+# Step 3: Initiate refinement — always probe, seed tokens included
+bar build probe form:interactive struct --subject "microservices architecture"
 
-# Step 4: Execute user's choice with discovered tokens
-bar build <user-chosen-tokens> --subject "microservices architecture"
-```
+# Step 4: Follow form:interactive contract — bar lookup after each user answer
+# Turn 1: "Currently understood: you want structural coverage of microservices.
+#           Still unclear: explain to understand broadly, evaluate whether to adopt,
+#           or diagnose a specific problem? [understand / evaluate / diagnose]"
+# User: "evaluate"
+bar lookup "evaluate tradeoffs compare options"   # → surfaces: diff, depends, contrast
+# Fold confirmed: diff, depends; task token resolves to: diff
 
-**Legacy approach:**
+# Turn 2: "Got it — evaluation framing (diff, depends). Technical or mixed audience?
+#           [technical / mixed]"
+# User: "technical, just go"
+bar lookup "technical depth"                     # → surfaces: full, narrow
+# Stop condition fires: sufficient signal + user said "go"
 
-```bash
-# Step 1: Discover tokens
-bar help tokens scope method form
+# Step 5: Generate final menu
+bar guide diff        # disambiguate diff vs check
+bar lookup "failure modes assumptions evaluation"   # alternative framing → adversarial, contrast
+# No kind=sequence results surfaced during dialogue; domain (evaluate architecture) benefits
+# from staged output → generate ad-hoc sequence as option 3
 
-# Step 2: Generate options from discovered tokens
-# Option 1: Exploratory method + broad scope + variants form
-# Option 2: Analytical method + structure scope + table form
-# Option 3: Flow method + time scope + walkthrough form
-# Option 4: bar shuffle
+# Present menu:
+# 1. Structured evaluation — compare with dependencies mapped
+#    bar build diff full struct depends --subject "microservices architecture"
+#
+# 2. Tradeoff deep-dive — surface assumptions and failure modes
+#    bar build diff full adversarial contrast --subject "microservices architecture"
+#
+# 3. Step-by-step — map space then evaluate (2-step sequence)
+#    Step 1: bar build probe full mapping --subject "microservices architecture"
+#    Step 2: bar build diff depends contrast --subject "microservices architecture"
+#
+# Which fits best? [1 / 2 / 3]
 
-# Step 3: Execute user's choice
-bar build <discovered-tokens-for-choice> --subject "topic"
+# User picks 1 → execute directly:
+bar build diff full struct depends --subject "microservices architecture"
+# User picks 3 → hand to bar-workflow with step list
 ```
 
 ## Integration with Other Skills
@@ -236,22 +227,11 @@ bar build <discovered-tokens-for-choice> --subject "topic"
 - If request is ambiguous or open-ended → use bar-suggest
 - If request is complex multi-faceted task → use bar-workflow
 
-## Performance Notes
-
-**With `bar help llm`:**
-- **Tool calls:** 1 navigation guide + on-demand section loads
-- **Benefits:** Method categorization provides natural option diversity; load only sections needed
-
-**Legacy approach:**
-- **Tool calls:** 1-2 discovery queries per suggestion request
-- Still fully functional with embedded heuristics
-
 ## Cross-Agent Compatibility
 
-- Works with any LLM agent that can execute shell commands
-- **AskUserQuestion preferred** when available (Claude agents) — use Mode A
-- **Inline numbered list fallback** when AskUserQuestion is unavailable — use Mode B
-- Both modes achieve the same goal: user chooses an approach before any answer is given
+- Works with any LLM agent that can execute shell commands and run `bar build`
+- The refinement dialogue runs as plain text turns — no special tool (AskUserQuestion or otherwise) is required
+- The bracketed choice list in each turn serves as the selection mechanism regardless of agent type
 
 ## Understanding Bar Output
 

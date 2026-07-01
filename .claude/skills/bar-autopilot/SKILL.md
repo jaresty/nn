@@ -33,7 +33,7 @@ Each step is a required gate. Do not advance to the next step until the current 
 1. **Analyze user request** for task type, scope, and desired output structure
 2. **Load navigation guide** via `bar help llm` (no args), then load sections on demand
 3. **Select tokens** by consulting reference sections (Usage Patterns, Token Selection Heuristics, Token Catalog)
-4. **Build and execute bar command** — run `bar build <tokens> [--subject ...] [--addendum ...]` via Bash tool
+4. **Build and execute bar command** — run `bar build <tokens> [--subject ...] [--addendum ...]` via Bash tool. If `bar lookup` returned `[guide]` on a candidate token, run `bar guide <token>` before committing — it surfaces near-neighbor disambiguation that may change the token choice.
 5. **Read bar output** — the printed text is now your instruction for this response
 6. **Pre-flight: check method constraints for ordering requirements** — before taking any action, read each method token description in the CONSTRAINTS section. Some method tokens impose ordering requirements: they specify that something must exist or be run *before* implementation begins. These are not style guidelines — they gate what you do first. If a description says a structure must exist before code, or artifacts must be run before reasoning about their outcomes, satisfy that precondition before proceeding. A pre-formed plan does not exempt you from these gates.
 7. **Return well-structured response** following the bar output exactly
@@ -44,7 +44,7 @@ Each step is a required gate. Do not advance to the next step until the current 
 - **Never hardcode tokens.** Always discover them via `bar help llm` (preferred) or `bar help tokens` (fallback).
 - **Be version-agnostic.** Tokens evolve; discover them dynamically from the current bar version.
 - **Use kebab-case for multi-word tokens.** When tokens contain spaces (e.g., "as kent beck"), convert to kebab-case: "as-kent-beck".
-- **Be transparent about usage.** After running bar build, state the command used and the reason each token was selected — a response that does not name both the command and the token selection reasons does not satisfy this requirement.
+- **REQUIRED: Document token selection after every bar build.** After running `bar build`, state the exact command used and the reason each token was selected — a response that does not name both the command and the token selection reasons does not satisfy this requirement. Format: "I used `bar build [tokens]` — [token]: [reason], [token]: [reason], ..."
 - **Fallback only on command-not-found.** If bar is unavailable, fall back to normal response and tell the user. A failed bar command is not a reason to skip; retry once with corrections.
 - **Cross-agent compatible.** Must work across all Claude agent types (general-purpose, Explore, Plan, etc.).
 - **Use Bash tool.** Execute bar commands via the Bash tool.
@@ -64,6 +64,11 @@ Each step is a required gate. Do not advance to the next step until the current 
    - `bar help llm --section rules` → Composition Rules (ordering, caps, incompatibilities)
    - `bar help llm --section patterns` → Usage Patterns by Task Type
    - `bar help token <slug>` → definition, heuristics, distinctions for one token
+
+   **Loading constraint:** Each `bar help llm` invocation must be run as a standalone Bash command with no pipe operators. Compliance is verified by the literal string present in the tool-result block:
+   - `bar help llm` (no args): tool-result must contain `## Context window` — this string appears only at the end of the navigation dispatch page
+   - `bar help llm --section tokens`: tool-result must contain `### Directional (0-1 token)` — this string appears only at the end of the full token catalog
+   A tool-result block that does not contain the expected literal string has not loaded the full output and does not satisfy this requirement.
 4. **Token selection strategy:**
    - Use `bar lookup "<intent>"` for intent-to-token discovery (no section load needed)
    - Consult **"Usage Patterns by Task Type"** (`--section patterns`) for similar use case examples
@@ -149,7 +154,7 @@ If the request doesn't clearly match any pattern:
 After selecting tokens via discovery:
 1. Build the bar command with discovered tokens
 2. Execute it to structure your response
-3. Briefly explain: "I used `bar build [tokens]` to structure this response around [reason]"
+3. **After responding, state:** "I used `bar build [tokens]` — [token]: [reason], [token]: [reason], ..." — a post-response note that does not name both the exact command and a per-token reason does not satisfy this requirement.
 
 ## Performance Notes
 
