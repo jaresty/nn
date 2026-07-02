@@ -49,10 +49,11 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"- Any command producing output solely from session state (tests, builds, linters)\n" +
 			"- Live machine-generated output (JSON, log, status) where a resource identifier for that " +
 			"system appears in the conversation above this action\n\n" +
-			"After the gated action, quote a verbatim excerpt from the result. Then either capture " +
-			"with `nn new` / `nn update` / `nn link`, or skip with the excerpt, the source, and " +
-			"`result is a runtime value` if the result is execution output with no reuse across sessions.\n" +
-			"If result is reusable across sessions, immediately run `nn new --quick` with the finding as title.\n" +
+			"After the gated action, quote a verbatim excerpt from the result. Default action: run " +
+			"`nn new --quick --title \"<finding>\"` where `<finding>` is the excerpt restated as a claim. " +
+			"To skip capture, write `skip-capture: runtime-only — <artifact>` where `<artifact>` names a " +
+			"specific execution artifact (ID, count, status code, PID) present in the result. " +
+			"Any skip not using this exact prefix is a capture omission.\n" +
 			"If the quoted result is an existing draft note you own, promote it: `nn update <id> --status reviewed` — re-discovery is the usefulness signal; the draft note earned promotion by being found relevant.\n",
 	},
 	{

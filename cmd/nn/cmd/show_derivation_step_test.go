@@ -20,7 +20,7 @@ func TestVirtualCaptureDisciplineSearchRationale(t *testing.T) {
 	}
 }
 
-// Assertion: post-gate capture prompt fires when result is reusable — instructs nn new --quick.
+// Assertion: post-gate capture prompt instructs nn new --quick as default.
 func TestCaptureDisciplinePostGatePrompt(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "virtual-nn-capture-discipline")
@@ -30,8 +30,41 @@ func TestCaptureDisciplinePostGatePrompt(t *testing.T) {
 	if !strings.Contains(out, "nn new --quick") {
 		t.Errorf("expected post-gate capture prompt 'nn new --quick' in protocol body; got:\n%s", out)
 	}
-	if !strings.Contains(out, "reusable across sessions") {
-		t.Errorf("expected condition 'reusable across sessions' in protocol body; got:\n%s", out)
+}
+
+// Assertion: capture is the default after gated action (opt-out model, not opt-in).
+func TestCaptureDisciplineDefaultCapture(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if strings.Contains(out, "reusable across sessions") {
+		t.Errorf("capture-discipline must not contain opt-in judgment 'reusable across sessions'; got:\n%s", out)
+	}
+}
+
+// Assertion: skip-capture: prefix is the required opt-out string.
+func TestCaptureDisciplineOptOutSkip(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if !strings.Contains(out, "skip-capture:") {
+		t.Errorf("capture-discipline must contain 'skip-capture:' opt-out prefix; got:\n%s", out)
+	}
+}
+
+// Assertion: skip-capture requires naming a specific execution artifact.
+func TestCaptureDisciplineSkipRequiresArtifact(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if !strings.Contains(out, "runtime-only") {
+		t.Errorf("capture-discipline must contain 'runtime-only' artifact class in skip condition; got:\n%s", out)
 	}
 }
 
