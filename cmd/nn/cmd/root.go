@@ -43,6 +43,7 @@ Workflow guidance is embedded in the binary:
 		newInitCmd(cfgFile),
 		newNewCmd(state),
 		newShowCmd(state),
+		newReadCmd(state),
 		newListCmd(state),
 		newSearchCmd(state),
 		newLinkCmd(state),
