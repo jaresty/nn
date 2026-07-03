@@ -49,13 +49,14 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"- Any command producing output solely from session state (tests, builds, linters)\n" +
 			"- Live machine-generated output (JSON, log, status) where a resource identifier for that " +
 			"system appears in the conversation above this action\n" +
-			"- `nn read <file>` — use this instead of a bare Read or cat call; the gate is satisfied by nn read itself\n\n" +
+			"- `nn read <file>` — use this instead of a bare Read or cat call; writing `Gate:` before `nn read` is a protocol violation (the call itself satisfies the gate)\n\n" +
 			"After the gated action, quote a verbatim excerpt from the result. Default action: run " +
 			"`nn new --quick --title \"<finding>\"` where `<finding>` is the excerpt restated as a claim. " +
-			"To skip capture, write `skip-capture: runtime-only — <artifact>` where `<artifact>` names a " +
-			"specific execution artifact (ID, count, status code, PID) present in the result. " +
+			"To skip capture, write `skip-capture: runtime-only — <artifact>` where `<artifact>` is a " +
+			"specific execution artifact (ID, count, status code, PID) that appears verbatim as a substring of the tool result text. " +
 			"Any skip not using this exact prefix is a capture omission.\n" +
-			"If the quoted result is an existing draft note you own, promote it: `nn update <id> --status reviewed` — re-discovery is the usefulness signal; the draft note earned promotion by being found relevant.\n",
+			"If the quoted result is an existing **draft** note you own, promote it: `nn update <id> --status reviewed` — re-discovery is the usefulness signal; the draft note earned promotion by being found relevant.\n" +
+			"If the quoted result is an existing **reviewed** or **permanent** note, promotion does not apply — but if the excerpt contains a finding not yet captured as its own note, still run `nn new --quick --title \"<finding>\"`.\n",
 	},
 	{
 		ID:          "virtual-nn-cli-reference",
