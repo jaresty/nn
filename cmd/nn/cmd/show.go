@@ -56,7 +56,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"specific execution artifact (ID, count, status code, PID) that appears verbatim as a substring of the tool result text. " +
 			"Any skip not using this exact prefix is a capture omission.\n" +
 			"If the quoted result is an existing **draft** note you own, promote it: `nn update <id> --status reviewed` — re-discovery is the usefulness signal; the draft note earned promotion by being found relevant.\n" +
-			"If the quoted result is an existing **reviewed** or **permanent** note, promotion does not apply — but if the excerpt contains a finding not yet captured as its own note, still run `nn new --quick --title \"<finding>\"`.\n",
+			"If the quoted result is an existing **reviewed** or **permanent** note, promotion does not apply — but if the excerpt contains new information, apply the default action (`nn new --quick --title \"<finding>\"`); to skip, use `skip-capture: runtime-only — <artifact>` with an artifact that appears verbatim as a substring of the tool result text.\n",
 	},
 	{
 		ID:          "virtual-nn-cli-reference",
