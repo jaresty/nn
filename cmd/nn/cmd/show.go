@@ -76,7 +76,8 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"Valid --fields: id|title|type|status|tags|applies_when|excerpt|score|modified|match_reason|is_protocol|link_count|backlink_count|created|body_preview (requires --json; errors on unknown field)\n" +
 			"`nn list --search` always includes 1-hop graph neighbors in output: plain text shows indented `→`/`←` lines (id, title, type, annotation); `--json` includes a `neighbors` array with direction/id/title/type/annotation fields.\n\n" +
 			"**nn show** `<id>` | `--global`\n" +
-			"`nn show` output must not be piped to `head`, `tail`, `less`, or `more`. Pipe the full output or omit the pipe — the complete note body is required for accurate retrieval.\n\n" +
+			"`nn show` output must not be piped to `head`, `tail`, `less`, or `more`. Pipe the full output or omit the pipe — the complete note body is required for accurate retrieval.\n" +
+			"Output format: Links and Backlinks sections each render as `[[id|title]] [type] {status} — annotation` (fields omitted when empty).\n\n" +
 			"**nn link** `<from> <to> --type <type> --annotation \"...\"`\n" +
 			"Valid --type: refines|contradicts|source-of|extends|supports|questions|governs\n\n" +
 			"**nn read** `<file> [--lines N-M] [--limit N]` — read file with line numbers; appends `## Related notes` from BM25 search on shown content\n\n" +
@@ -635,10 +636,15 @@ func renderWithResolvedLinks(raw string, n *note.Note, byID map[string]*note.Not
 		for _, b := range backlinkers {
 			for _, lnk := range b.Links {
 				if lnk.TargetID == n.ID {
-					if lnk.Annotation != "" {
+					switch {
+					case lnk.Type != "" && lnk.Status != "":
+						fmt.Fprintf(&buf, "- [[%s|%s]] [%s] {%s} — %s\n", b.ID, b.Title, lnk.Type, lnk.Status, lnk.Annotation)
+					case lnk.Type != "":
+						fmt.Fprintf(&buf, "- [[%s|%s]] [%s] — %s\n", b.ID, b.Title, lnk.Type, lnk.Annotation)
+					case lnk.Status != "":
+						fmt.Fprintf(&buf, "- [[%s|%s]] {%s} — %s\n", b.ID, b.Title, lnk.Status, lnk.Annotation)
+					default:
 						fmt.Fprintf(&buf, "- [[%s|%s]] — %s\n", b.ID, b.Title, lnk.Annotation)
-					} else {
-						fmt.Fprintf(&buf, "- [[%s|%s]]\n", b.ID, b.Title)
 					}
 					break
 				}

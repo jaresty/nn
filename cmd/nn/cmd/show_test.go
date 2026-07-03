@@ -433,6 +433,53 @@ func TestShowGlobalDailyRendersWithResolvedLinks(t *testing.T) {
 }
 
 // Assertion: TestShowGlobalShowsTodayWhenPresent — nn show --global shows today's daily note even when it already exists.
+// Assertion: TestShowBacklinkTypeAndAnnotation — nn show <id> backlinks section includes [type] and annotation.
+func TestShowBacklinkTypeAndAnnotation(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	target := newTestNoteForCLI(note.GenerateID(), "Target Note", note.TypeConcept)
+	backer := newTestNoteForCLI(note.GenerateID(), "Backer Note", note.TypeConcept)
+	backer.Links = []note.Link{
+		{TargetID: target.ID, Type: "source-of", Annotation: "backs this"},
+	}
+
+	writeNoteFile(t, nbDir, target)
+	writeNoteFile(t, nbDir, backer)
+
+	out, err := execute("show", target.ID)
+	if err != nil {
+		t.Fatalf("nn show: %v", err)
+	}
+	if !strings.Contains(out, "[source-of]") {
+		t.Errorf("backlink line missing [source-of] type, got:\n%s", out)
+	}
+	if !strings.Contains(out, "backs this") {
+		t.Errorf("backlink line missing annotation 'backs this', got:\n%s", out)
+	}
+}
+
+// Assertion: TestShowBacklinkStatus — nn show <id> backlinks section includes {status}.
+func TestShowBacklinkStatus(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	target := newTestNoteForCLI(note.GenerateID(), "Target Note", note.TypeConcept)
+	backer := newTestNoteForCLI(note.GenerateID(), "Backer Note", note.TypeConcept)
+	backer.Links = []note.Link{
+		{TargetID: target.ID, Type: "source-of", Annotation: "backs this", Status: "draft"},
+	}
+
+	writeNoteFile(t, nbDir, target)
+	writeNoteFile(t, nbDir, backer)
+
+	out, err := execute("show", target.ID)
+	if err != nil {
+		t.Fatalf("nn show: %v", err)
+	}
+	if !strings.Contains(out, "{draft}") {
+		t.Errorf("backlink line missing {draft} status, got:\n%s", out)
+	}
+}
+
 func TestShowGlobalShowsTodayWhenPresent(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	today := time.Now().Format("2006-01-02")
