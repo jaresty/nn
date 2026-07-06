@@ -67,6 +67,17 @@ func TestInstallSkillsForCursor(t *testing.T) {
 	}
 }
 
+func TestInstallSkillsForPi(t *testing.T) {
+	_, execute := setupNotebook(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	_, err := execute("install-skills", "--for", "pi", "--list")
+	if err != nil {
+		t.Fatalf("nn install-skills --for pi --list: %v", err)
+	}
+}
+
 // TestInstallSkillsMatchInstalled asserts that each embedded skill's SKILL.md
 // matches the installed version at ~/.claude/skills/<skill>/SKILL.md.
 // Skips individual skills that are not yet installed; skips entirely if HOME is not set.
@@ -115,7 +126,6 @@ func TestInstallSkillsUnknownForErrors(t *testing.T) {
 		t.Fatal("--for unknownllm: want error, got nil")
 	}
 }
-
 
 // Assertion: nn-session-debrief SKILL.md contains --partial mode with partial-debrief tag and skips for steps 6/7.
 func TestNNSessionDebriefPartialMode(t *testing.T) {
@@ -179,5 +189,29 @@ func TestInstallMetaCmdCopiesSkills(t *testing.T) {
 		if _, err := os.Stat(skillPath); err != nil {
 			t.Errorf("skill %s not installed at %s: %v", skill, skillPath, err)
 		}
+	}
+}
+
+func TestInstallPiCopiesExtensionAndSkills(t *testing.T) {
+	_, execute := setupNotebook(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	out, err := execute("install-pi")
+	if err != nil {
+		t.Fatalf("nn install-pi: %v", err)
+	}
+	if !strings.Contains(out, "nn Pi support installed") {
+		t.Fatalf("install-pi output missing success message: %q", out)
+	}
+
+	extensionPath := filepath.Join(home, ".pi", "agent", "extensions", "nn_global_context.ts")
+	if _, err := os.Stat(extensionPath); err != nil {
+		t.Fatalf("Pi extension not installed at %s: %v", extensionPath, err)
+	}
+
+	skillPath := filepath.Join(home, ".pi", "agent", "skills", "nn-guide", "SKILL.md")
+	if _, err := os.Stat(skillPath); err != nil {
+		t.Fatalf("Pi skill not installed at %s: %v", skillPath, err)
 	}
 }

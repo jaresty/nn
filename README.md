@@ -84,13 +84,15 @@ nn link <from> <to> --annotation "..."
 nn list --json
 ```
 
-Install the Claude Code skills for guided LLM workflows:
+Install guided LLM workflows:
 
 ```sh
-nn install-skills
+nn install-skills              # Claude Code skills in ~/.claude/skills/
+nn install-skills --for pi     # Pi skills in ~/.pi/agent/skills/
+nn install-pi                  # Pi skills plus the nn global-context extension
 ```
 
-This copies `nn-workflow` and `nn-guide` into `~/.claude/skills/`.
+`nn install-pi` installs a Pi extension that loads `nn show --global` at session start and injects the global protocol context before each agent turn. Restart Pi or run `/reload` after installing.
 
 ## Note format
 

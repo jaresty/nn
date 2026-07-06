@@ -1,0 +1,11 @@
+{
+  "name": "nn-pi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pi package for nn global protocol context and skills.",
+  "keywords": ["pi-package", "nn", "zettelkasten"],
+  "pi": {
+    "extensions": ["./pi/extensions"],
+    "skills": ["./skills"]
+  }
+}

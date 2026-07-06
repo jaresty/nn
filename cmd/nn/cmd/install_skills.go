@@ -35,6 +35,13 @@ var skillsDestinations = map[string]func() (string, error){
 		}
 		return filepath.Join(home, ".config", "zed", "skills"), nil
 	},
+	"pi": func() (string, error) {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(home, ".pi", "agent", "skills"), nil
+	},
 }
 
 func newInstallSkillsCmd() *cobra.Command {
@@ -53,6 +60,7 @@ Presets (--for):
   claude   ~/.claude/skills/         (default)
   cursor   ~/.cursor/skills/
   zed      ~/.config/zed/skills/
+  pi       ~/.pi/agent/skills/
 
 Use --dest to specify a custom destination directory.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -62,7 +70,7 @@ Use --dest to specify a custom destination directory.`,
 				}
 				fn, ok := skillsDestinations[forLLM]
 				if !ok {
-					return fmt.Errorf("install-skills: unknown --for value %q (valid: claude, cursor, zed)", forLLM)
+					return fmt.Errorf("install-skills: unknown --for value %q (valid: claude, cursor, zed, pi)", forLLM)
 				}
 				var err error
 				dest, err = fn()
@@ -80,25 +88,38 @@ Use --dest to specify a custom destination directory.`,
 				if !e.IsDir() {
 					continue
 				}
-				name := e.Name()
-				fmt.Fprintf(outWriter(cmd), "%s\n", name)
-				if listOnly {
-					continue
-				}
-				destDir := filepath.Join(dest, name)
-				if err := copySkill(name, destDir); err != nil {
-					return fmt.Errorf("install-skills: copy %s: %w", name, err)
-				}
+				fmt.Fprintf(outWriter(cmd), "%s\n", e.Name())
 			}
-			return nil
+			if listOnly {
+				return nil
+			}
+			return installSkillsToDest(dest)
 		},
 	}
 
 	cmd.Flags().StringVar(&dest, "dest", "", "Custom destination directory (overrides --for)")
-	cmd.Flags().StringVar(&forLLM, "for", "", "Target LLM preset: claude (default), cursor, zed")
+	cmd.Flags().StringVar(&forLLM, "for", "", "Target LLM preset: claude (default), cursor, zed, pi")
 	cmd.Flags().BoolVar(&listOnly, "list", false, "List skills without copying")
 	cmd.Flags().BoolVar(&listOnly, "dry-run", false, "Alias for --list")
 	return cmd
+}
+
+func installSkillsToDest(dest string) error {
+	entries, err := nnSkills.FS.ReadDir(".")
+	if err != nil {
+		return fmt.Errorf("read embedded skills: %w", err)
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		destDir := filepath.Join(dest, name)
+		if err := copySkill(name, destDir); err != nil {
+			return fmt.Errorf("copy %s: %w", name, err)
+		}
+	}
+	return nil
 }
 
 // copySkill copies the embedded skill directory to destDir.
