@@ -192,17 +192,17 @@ func TestInstallMetaCmdCopiesSkills(t *testing.T) {
 	}
 }
 
-func TestInstallPiCopiesExtensionAndSkills(t *testing.T) {
+func TestInstallForPiCopiesExtensionsAndSkills(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 
-	out, err := execute("install-pi")
+	out, err := execute("install", "--for", "pi")
 	if err != nil {
-		t.Fatalf("nn install-pi: %v", err)
+		t.Fatalf("nn install --for pi: %v", err)
 	}
-	if !strings.Contains(out, "nn Pi support installed") {
-		t.Fatalf("install-pi output missing success message: %q", out)
+	if !strings.Contains(out, "nn Pi extensions installed") {
+		t.Fatalf("install --for pi output missing extensions message: %q", out)
 	}
 
 	extensionPath := filepath.Join(home, ".pi", "agent", "extensions", "nn_global_context.ts")
