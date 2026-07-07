@@ -34,6 +34,27 @@ Invoke with `--weekly` for a broader review pass:
 
 ## Workflow
 
+> **Execution contract** — each step names its completion artifact in a `Completion:` line.
+> Before starting the next step, emit a `## Checkpoint` block quoting that artifact verbatim.
+> If a step is skipped, the checkpoint must read `Skipped: Step N — <reason>` (reason required;
+> silent omission is a violation).
+>
+> Mode skip tables — each skipped step still requires a `Skipped:` checkpoint:
+> - `--daily`: skips steps 1, 1b, 2, 3, 3b, 3c, 4, 5, and 7
+> - `--partial`: skips steps 3, 3b, 3c, 4, 5, 6, and 7
+> - `--weekly`: skips step 7
+>
+> Example checkpoint after step 1:
+> ```
+> ## Checkpoint
+> Step 1 complete — reviewed: 20260707-1234, 20260707-5678
+> ```
+> Example skip checkpoint:
+> ```
+> ## Checkpoint
+> Skipped: Step 3 — daily mode
+> ```
+
 ### 1. Review captures
 
 List recently created notes to see what was captured this session:
@@ -43,6 +64,8 @@ nn list --sort created --status draft --json | head -20
 ```
 
 For each captured note, run `nn show <id>` to verify the content is accurate and the title is precise.
+
+**Completion:** emit the list of reviewed note IDs, or `"zero captures this session"` if none.
 
 ### 1b. Surface capture opportunities from session searches
 
@@ -57,6 +80,8 @@ nn new --title "<topic>" --type <concept|observation|question> --content "..." -
 ```
 
 For each non-empty search where relevant results were found but nothing was captured, flag the gap: "Searched for X, found Y — no capture or link recorded."
+
+**Completion:** emit each gap flagged and each note created, or `"no zero-result searches found"` if none.
 
 ### 2. Find promotion candidates
 
@@ -80,6 +105,8 @@ nn backlinks <id> --json
 ```
 nn promote <id> --to reviewed
 ```
+
+**Completion:** emit each promotion decision (promoted `<id>` or deferred with reason), or `"no candidates"` if none.
 
 ### 3. Capture friction points
 
@@ -114,6 +141,8 @@ nn list --search "friction" --status draft --json
 
 For each: is it resolved? Promote to `reviewed` with a note on what changed, or update the body with new evidence.
 
+**Completion:** emit each friction note ID created, or `"no friction identified"` with a reason.
+
 ### 3b. Flag retrieved notes as potentially stale
 
 Scan the conversation transcript for `nn show <id>` calls made this session (excluding virtual notes). For each real note that was shown, run:
@@ -130,6 +159,8 @@ Reason: session discovered [X] which is not reflected in the note body.
 ```
 
 Propose an update for each flagged note. If the note content is still accurate, note "content verified — no update needed."
+
+**Completion:** emit `"Stale candidate: <id>"` for each flagged note, or `"content verified — no update needed"` for each checked note that was accurate.
 
 ### 3c. Capture knowledge transmission opportunities
 
@@ -156,9 +187,13 @@ nn new \
 
 Present candidates to the user before creating — quiz notes are only worth capturing if the user confirms they want active recall on the topic. Ask: **"These moments looked like new knowledge — worth a quiz note?"**
 
+**Completion:** emit each quiz note ID created, or `"no candidates"` if none were identified.
+
 ### 4. Run nn-refine on key captures
 
 For each significant capture from this session, invoke the `nn-refine` workflow to check atomicity, links, and title quality.
+
+**Completion:** emit each note ID passed to nn-refine, or `"no significant captures"` if none.
 
 ### 5. (Weekly mode only) Notebook health review
 
@@ -261,6 +296,8 @@ nn bulk-link <daily-id> \
   --to <id2> --annotation "worked on this today" --type source-of
 ```
 
+**Completion:** emit the daily note ID and the sections updated (Done / Open / Relay).
+
 ### 7. Propose session summary note
 
 Create a session summary note linking the key captures:
@@ -273,6 +310,8 @@ nn bulk-link <summary-id> \
   --to <id1> --annotation "captured this session" --type source-of \
   --to <id2> --annotation "captured this session" --type source-of
 ```
+
+**Completion:** emit the session summary note ID, or `"skipped — weekly mode"` if in `--weekly`.
 
 ## nn commands used
 
