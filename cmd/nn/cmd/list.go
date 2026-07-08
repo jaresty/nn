@@ -38,6 +38,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		limit        int
 		jsonOut      bool
 		rich         bool
+		fullOutput   bool
 		showFirst    bool
 		search       string
 		sortBy       string
@@ -246,7 +247,7 @@ func newListCmd(state *rootState) *cobra.Command {
 					if envelope {
 						return printSearchEnvelopeJSON(cmd, filtered, search, searchScores, allInbound, totalMatching)
 					}
-					if err := printSearchJSON(cmd, filtered, notes, search, searchScores, allInbound, requestedFields); err != nil {
+					if err := printSearchJSON(cmd, filtered, notes, search, searchScores, allInbound, requestedFields, fullOutput); err != nil {
 						return err
 					}
 				} else {
@@ -303,6 +304,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&before, "before", "", "Notes modified before this date (ISO 8601)")
 	cmd.Flags().BoolVar(&boostRecent, "boost-recent", false, "Boost recently-modified notes in search results (requires --search)")
 	cmd.Flags().BoolVar(&rich, "rich", false, "Include modified, link_count, body_preview in JSON output (requires --json)")
+	cmd.Flags().BoolVar(&fullOutput, "full", false, "Disable truncation of excerpt and annotation in JSON output")
 	cmd.Flags().BoolVar(&showFirst, "show-first", false, "Append full body of top search result after JSON output (requires --json)")
 	cmd.Flags().StringVar(&similarTo, "similar", "", "Rank notes by BM25 similarity to this note ID (excludes the note itself)")
 	cmd.Flags().BoolVar(&envelope, "envelope", false, "Wrap search JSON in envelope with query, result_count, total_matching (requires --json --search)")
@@ -410,6 +412,13 @@ func centralityMultiplier(backlinkCount int) float64 {
 	return 1.0 + 0.2*math.Log1p(float64(backlinkCount))
 }
 
+func truncateStr(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
+}
+
 func buildNeighbors(n *note.Note, allNotes []*note.Note) []neighborJSON {
 	byID := make(map[string]*note.Note, len(allNotes))
 	for _, a := range allNotes {
@@ -449,7 +458,7 @@ func buildNeighbors(n *note.Note, allNotes []*note.Note) []neighborJSON {
 	return neighbors
 }
 
-func printSearchJSON(cmd *cobra.Command, notes []*note.Note, allNotes []*note.Note, query string, scores map[string]float64, inbound map[string][]string, requestedFields []string) error {
+func printSearchJSON(cmd *cobra.Command, notes []*note.Note, allNotes []*note.Note, query string, scores map[string]float64, inbound map[string][]string, requestedFields []string, fullOutput bool) error {
 	maxScore := 0.0
 	for _, s := range scores {
 		if s > maxScore {
@@ -476,20 +485,30 @@ func printSearchJSON(cmd *cobra.Command, notes []*note.Note, allNotes []*note.No
 				}
 			}
 		}
+		ex := extractExcerpt(n.Body, query)
+		if fullOutput {
+			ex = n.Body
+		}
+		neighbors := buildNeighbors(n, allNotes)
+		if !fullOutput {
+			for j := range neighbors {
+				neighbors[j].Annotation = truncateStr(neighbors[j].Annotation, 80)
+			}
+		}
 		out[i] = noteSearchJSON{
 			ID:            n.ID,
 			Title:         n.Title,
 			Type:          string(n.Type),
 			Status:        string(n.Status),
 			Tags:          tags,
-			Excerpt:       extractExcerpt(n.Body, query),
+			Excerpt:       ex,
 			Score:         normalizedScore,
 			Modified:      n.Modified.UTC().Format(time.RFC3339),
 			MatchReason:   computeMatchReason(n, query),
 			IsProtocol:    isProtocol,
 			LinkCount:     len(n.Links),
 			BacklinkCount: backlinkCount,
-			Neighbors:     buildNeighbors(n, allNotes),
+			Neighbors:     neighbors,
 			AppliesWhen:   n.AppliesWhen,
 		}
 	}

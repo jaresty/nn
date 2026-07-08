@@ -310,3 +310,98 @@ func TestListSearchRelevanceOrder(t *testing.T) {
 		t.Errorf("search results not ordered by relevance: high-relevance note (id=%s) appeared after low-relevance note (id=%s)", high.ID, low.ID)
 	}
 }
+
+func TestListJSONExcerptTruncation(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	n := newTestNoteForCLI(note.GenerateID(), "Truncation Test", note.TypeConcept)
+	// body longer than 200 chars so excerpt exceeds limit
+	n.Body = "searchtruncword " + strings.Repeat("x", 250)
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("list", "--search", "searchtruncword", "--json")
+	if err != nil {
+		t.Fatalf("nn list --search --json: %v", err)
+	}
+
+	var results []noteSearchJSON
+	mustJSON(t, out, &results)
+	if len(results) == 0 {
+		t.Fatalf("expected at least one result")
+	}
+	if len(results[0].Excerpt) > 203 { // 200 chars + "..."
+		t.Errorf("default excerpt not truncated: len=%d, want ≤203", len(results[0].Excerpt))
+	}
+}
+
+func TestListJSONAnnotationTruncation(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	src := newTestNoteForCLI(note.GenerateID(), "Annot Source", note.TypeConcept)
+	src.Body = "searchannotword body text"
+	dst := newTestNoteForCLI(note.GenerateID(), "Annot Dest", note.TypeConcept)
+	dst.Body = "dest body"
+	longAnnotation := strings.Repeat("a", 120)
+	src.Links = []note.Link{
+		{TargetID: dst.ID, Type: "supports", Annotation: longAnnotation},
+	}
+	writeNoteFile(t, nbDir, dst)
+	writeNoteFile(t, nbDir, src)
+
+	out, err := execute("list", "--search", "searchannotword", "--json")
+	if err != nil {
+		t.Fatalf("nn list --search --json: %v", err)
+	}
+
+	var results []noteSearchJSON
+	mustJSON(t, out, &results)
+	if len(results) == 0 {
+		t.Fatalf("expected at least one result")
+	}
+	found := false
+	for _, nb := range results[0].Neighbors {
+		if nb.ID == dst.ID {
+			found = true
+			if len(nb.Annotation) > 83 { // 80 chars + "..."
+				t.Errorf("default annotation not truncated: len=%d, want ≤83", len(nb.Annotation))
+			}
+		}
+	}
+	if !found {
+		t.Errorf("neighbor %s not found in results", dst.ID)
+	}
+}
+
+func TestListJSONFullFlag(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	src := newTestNoteForCLI(note.GenerateID(), "Full Flag Source", note.TypeConcept)
+	src.Body = "searchfullflag " + strings.Repeat("y", 250)
+	dst := newTestNoteForCLI(note.GenerateID(), "Full Flag Dest", note.TypeConcept)
+	dst.Body = "dest"
+	longAnnotation := strings.Repeat("b", 120)
+	src.Links = []note.Link{
+		{TargetID: dst.ID, Type: "supports", Annotation: longAnnotation},
+	}
+	writeNoteFile(t, nbDir, dst)
+	writeNoteFile(t, nbDir, src)
+
+	out, err := execute("list", "--search", "searchfullflag", "--json", "--full")
+	if err != nil {
+		t.Fatalf("nn list --search --json --full: %v", err)
+	}
+
+	var results []noteSearchJSON
+	mustJSON(t, out, &results)
+	if len(results) == 0 {
+		t.Fatalf("expected at least one result")
+	}
+	if len(results[0].Excerpt) <= 120 {
+		t.Errorf("--full excerpt unexpectedly short: len=%d, want >120 (default excerpt window)", len(results[0].Excerpt))
+	}
+	for _, nb := range results[0].Neighbors {
+		if nb.ID == dst.ID && len(nb.Annotation) <= 80 {
+			t.Errorf("--full annotation unexpectedly short: len=%d", len(nb.Annotation))
+		}
+	}
+}
