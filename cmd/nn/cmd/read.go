@@ -102,6 +102,7 @@ func newReadCmd(state *rootState) *cobra.Command {
 			}
 
 			fmt.Fprintln(w, "\n## Related notes")
+			fmt.Fprintln(w, "hint: run `nn show <id>` to read a note")
 			for _, m := range matches {
 				fmt.Fprintf(w, "- %s — %s\n", m.n.ID, m.n.Title)
 			}
