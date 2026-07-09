@@ -75,7 +75,13 @@ Do not pipe this command — piping to `head` or any other command truncates the
 
 For each session capture, run `nn show <id>` to verify the content is accurate and the title is precise.
 
-**Completion:** emit every ID from the JSON array whose `created` value is at or after the daily note's `created:` timestamp. If no notes meet that condition, emit `"zero captures this session"` instead. (`nn show` on each ID is a required step; the completion artifact is the ID list regardless of whether every show completed.)
+If a note shown via `nn show <id>` has no body text after the frontmatter, it is a hollow capture. For each hollow capture, you must do one of:
+- **Fill it:** run `nn update <id> --content "..." --no-edit --since <modified>`. An `nn update` tool result must appear in the transcript for the note to count as filled.
+- **Defer it:** include the string `hollow — body not yet written: <id>` in the completion artifact for this step.
+
+Every session capture must appear in the completion artifact either as a filled ID or as `hollow — body not yet written: <id>`. A session capture absent from both categories has not been reviewed.
+
+**Completion:** emit every ID from the JSON array whose `created` value is at or after the daily note's `created:` timestamp, categorized as filled or `hollow — body not yet written: <id>`. If no notes meet that condition, emit `"zero captures this session"` instead.
 
 ### 1b. Surface capture opportunities from session searches
 
