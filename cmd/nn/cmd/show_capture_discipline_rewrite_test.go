@@ -77,7 +77,7 @@ func TestVirtualCaptureDisciplineLastLineGate(t *testing.T) {
 	}
 }
 
-// Assertion D8: body handles zero results by writing "zero results" (no mandatory retry).
+// Assertion D8: body handles empty/truncated output via skip-search: prefix (no "zero results" wording).
 func TestVirtualCaptureDisciplineZeroResults(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "virtual-nn-capture-discipline")
@@ -87,7 +87,7 @@ func TestVirtualCaptureDisciplineZeroResults(t *testing.T) {
 	if strings.Contains(out, "rephrased") {
 		t.Errorf("body must not require retry-with-rephrased; got:\n%s", out)
 	}
-	if !strings.Contains(out, "zero results") {
-		t.Errorf("expected 'zero results' handling in body; got:\n%s", out)
+	if !strings.Contains(out, "skip-search:") {
+		t.Errorf("expected 'skip-search:' empty/truncated exit in body; got:\n%s", out)
 	}
 }

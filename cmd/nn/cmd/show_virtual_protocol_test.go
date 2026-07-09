@@ -155,19 +155,18 @@ func TestShowVirtualCLIReferenceGraphCommands(t *testing.T) {
 	}
 }
 
-// Assertion: capture-discipline skip clause requires quoting a verbatim excerpt from the tool result,
-// with [] mapping to "zero results returned" and non-empty results requiring a title citation.
+// Assertion: empty/truncated exit requires skip-search: prefix with a quoted substring from the tool result.
 func TestCaptureDisciplineSkipClauseRequiresVerbatimExcerpt(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out, "verbatim excerpt from the result") {
-		t.Errorf("expected skip clause to require 'verbatim excerpt from the result':\n%s", out)
+	if !strings.Contains(out, "skip-search:") {
+		t.Errorf("expected 'skip-search:' exit for empty/truncated output:\n%s", out)
 	}
-	if !strings.Contains(out, "zero results") {
-		t.Errorf("expected skip clause to handle zero results:\n%s", out)
+	if !strings.Contains(out, "appears verbatim in the tool result") {
+		t.Errorf("expected requirement that quoted substring appears verbatim in tool result:\n%s", out)
 	}
 }
 
@@ -236,7 +235,7 @@ func TestShowCaptureDisciplineNoPipeDirective(t *testing.T) {
 	}
 }
 
-// Assertion: virtual-nn-capture-discipline requires nn show on results that share a word with the search rationale.
+// Assertion: virtual-nn-capture-discipline requires nn show on the best-fit result via Selected because: judgment.
 func TestShowCaptureDisciplineRequiresShowOnWordMatch(t *testing.T) {
 	_, execute := setupNotebook(t)
 
@@ -244,8 +243,8 @@ func TestShowCaptureDisciplineRequiresShowOnWordMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out, "shares a word with") {
-		t.Errorf("expected clause requiring nn show when result title shares a word with topic:\n%s", out)
+	if !strings.Contains(out, "Selected because:") {
+		t.Errorf("expected 'Selected because:' judgment requirement before nn show:\n%s", out)
 	}
 	if !strings.Contains(out, "nn show") {
 		t.Errorf("expected nn show command in capture-discipline body:\n%s", out)

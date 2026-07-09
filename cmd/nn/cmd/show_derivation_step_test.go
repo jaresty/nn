@@ -83,17 +83,20 @@ func TestCaptureDisciplineRediscoveryPromotion(t *testing.T) {
 	}
 }
 
-// Assertion: C3 word-overlap check uses topic-sharing criterion, not tool call argument string.
+// Assertion: gate requires judgment-based selection with match_reason citation, not word-sharing criterion.
 func TestVirtualCaptureDisciplineC3RationaleOverlap(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show --global: %v", err)
 	}
-	if !strings.Contains(out, "shares a word with") {
-		t.Errorf("expected word-sharing criterion for nn show trigger; got:\n%s", out)
+	if !strings.Contains(out, "Selected because:") {
+		t.Errorf("expected 'Selected because:' judgment requirement for nn show trigger; got:\n%s", out)
+	}
+	if !strings.Contains(out, "match_reason") {
+		t.Errorf("expected match_reason citation requirement; got:\n%s", out)
 	}
 	if strings.Contains(out, "tool call argument string") {
-		t.Errorf("C3 should not reference 'tool call argument string'; got:\n%s", out)
+		t.Errorf("gate should not reference 'tool call argument string'; got:\n%s", out)
 	}
 }
