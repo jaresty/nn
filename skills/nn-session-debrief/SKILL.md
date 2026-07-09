@@ -57,15 +57,25 @@ Invoke with `--weekly` for a broader review pass:
 
 ### 1. Review captures
 
-List recently created notes to see what was captured this session:
+First, get today's daily note to establish the session boundary:
+
+```
+nn show daily
+```
+
+Note the `created:` timestamp from the output — this is the session boundary. Notes created at or after this timestamp are this session's captures.
+
+List all draft notes:
 
 ```
 nn list --sort created --status draft --json
 ```
 
-Do not pipe this command — piping to `head` or any other command truncates the result and silently drops captures. For each captured note, run `nn show <id>` to verify the content is accurate and the title is precise.
+Do not pipe this command — piping to `head` or any other command truncates the result and silently drops captures. Filter to session captures by comparing each note's `created` field against the daily note's `created:` timestamp from above. Notes created before that timestamp are pre-session drafts — skip them in step 1; they are candidates for step 2's promotion sweep.
 
-**Completion:** emit every ID from the JSON array returned by the `nn list` command in this step. If that array was `[]`, emit `"zero captures this session"` instead. (`nn show` on each ID is a required step; the completion artifact is the ID list regardless of whether every show completed.)
+For each session capture, run `nn show <id>` to verify the content is accurate and the title is precise.
+
+**Completion:** emit every ID from the JSON array whose `created` value is at or after the daily note's `created:` timestamp. If no notes meet that condition, emit `"zero captures this session"` instead. (`nn show` on each ID is a required step; the completion artifact is the ID list regardless of whether every show completed.)
 
 ### 1b. Surface capture opportunities from session searches
 
