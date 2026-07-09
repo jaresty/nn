@@ -47,6 +47,9 @@ func newReadCmd(state *rootState) *cobra.Command {
 				if end > len(allLines) {
 					end = len(allLines)
 				}
+				if start > len(allLines) {
+					start = len(allLines) + 1
+				}
 			}
 
 			shown := allLines[start-1 : end]

@@ -127,6 +127,24 @@ func TestReadCmdCLIReference(t *testing.T) {
 	}
 }
 
+// Assertion: TestReadCmdLinesStartBeyondEOF — nn read --lines N-M does not panic when N exceeds file length.
+func TestReadCmdLinesStartBeyondEOF(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	f := filepath.Join(t.TempDir(), "short.go")
+	if err := os.WriteFile(f, []byte("line1\nline2\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("read", f, "--lines", "50-60")
+	if err != nil {
+		t.Fatalf("nn read --lines start beyond EOF: %v", err)
+	}
+	if strings.Contains(out, "line1") || strings.Contains(out, "line2") {
+		t.Errorf("expected empty output when start exceeds file length; got:\n%s", out)
+	}
+}
+
 // Assertion: TestReadCmdAllowList — nn read appears in capture-discipline allow-list.
 func TestReadCmdAllowList(t *testing.T) {
 	_, execute := setupNotebook(t)
