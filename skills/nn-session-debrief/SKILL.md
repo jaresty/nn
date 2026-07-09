@@ -60,12 +60,12 @@ Invoke with `--weekly` for a broader review pass:
 List recently created notes to see what was captured this session:
 
 ```
-nn list --sort created --status draft --json | head -20
+nn list --sort created --status draft --json
 ```
 
-For each captured note, run `nn show <id>` to verify the content is accurate and the title is precise.
+Do not pipe this command — piping to `head` or any other command truncates the result and silently drops captures. For each captured note, run `nn show <id>` to verify the content is accurate and the title is precise.
 
-**Completion:** emit the list of reviewed note IDs, or `"zero captures this session"` if none.
+**Completion:** emit every ID from the JSON array returned by the `nn list` command in this step. If that array was `[]`, emit `"zero captures this session"` instead. (`nn show` on each ID is a required step; the completion artifact is the ID list regardless of whether every show completed.)
 
 ### 1b. Surface capture opportunities from session searches
 
@@ -316,7 +316,7 @@ nn bulk-link <summary-id> \
 ## nn commands used
 
 ```
-nn list --sort created --status draft --json
+nn list --sort created --status draft --json  # no pipe — piping truncates
 nn show <id>
 nn backlinks <id> --json
 nn promote <id> --to reviewed|permanent
