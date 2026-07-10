@@ -1,6 +1,6 @@
 ---
 name: nn-capture-discipline
-description: Enforces the research protocol — search nn before going external, then write or skip with a verifiable artifact after the external action completes.
+description: Use when about to take any action that introduces new information not already in the conversation. Invoke with /nn-capture-discipline.
 when_to_use: Before any action that introduces new information not already present in the conversation. Invoke with /nn-capture-discipline.
 ---
 

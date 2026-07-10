@@ -1,6 +1,6 @@
 ---
 name: nn-guide
-description: Complete reference for nn commands, flags, note types, link types, and LLM usage patterns.
+description: Use when you need to look up an nn command, flag, or usage pattern. Invoke with /nn-guide.
 when_to_use: When you need to look up an nn command, flag, or usage pattern. Invoke with /nn-guide.
 ---
 

@@ -104,3 +104,49 @@ func TestInstallSkillsRemovesDeprecated(t *testing.T) {
 		t.Errorf("deprecated skill dir %s was not removed", oldSkillDir)
 	}
 }
+
+func TestSkillDescriptionsLeadWithUseWhen(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("skills", "list")
+	if err != nil {
+		t.Fatalf("nn skills list: %v", err)
+	}
+	for _, skill := range []string{"nn-workflow", "nn-guide", "nn-capture-discipline", "nn-session-debrief", "nn-link-suggester", "nn-refine", "nn-refine-workflow"} {
+		content, readErr := execute("skills", "get", skill)
+		if readErr != nil {
+			t.Fatalf("nn skills get %s: %v", skill, readErr)
+		}
+		// description field must start with "Use when"
+		for _, line := range strings.Split(content, "\n") {
+			if strings.HasPrefix(line, "description:") {
+				if !strings.Contains(line, "Use when") {
+					t.Errorf("skill %s: description does not lead with 'Use when': %q", skill, line)
+				}
+				break
+			}
+		}
+	}
+	// stub must gate on nn skills list, not list skills statically
+	if !strings.Contains(out, "Use when") {
+		t.Errorf("nn skills list output does not contain 'Use when' routing triggers: %q", out)
+	}
+}
+
+func TestStubGatesOnSkillsList(t *testing.T) {
+	_, execute := setupNotebook(t)
+	destDir := t.TempDir()
+	if _, err := execute("install-skills", "--dest", destDir); err != nil {
+		t.Fatalf("nn install-skills: %v", err)
+	}
+	data, err := os.ReadFile(destDir + "/nn/SKILL.md")
+	if err != nil {
+		t.Fatalf("stub not found: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "nn skills list") {
+		t.Errorf("stub does not instruct Claude to run 'nn skills list': %q", content)
+	}
+	if strings.Contains(content, "nn skills get nn-workflow") {
+		t.Errorf("stub contains hardcoded 'nn skills get nn-workflow' — should use live output instead")
+	}
+}

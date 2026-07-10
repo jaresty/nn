@@ -1,6 +1,6 @@
 ---
 name: nn-refine-workflow
-description: Batch hygiene pass — invoke nn-refine across a filtered set of notes and present proposed changes grouped by note.
+description: Use when running a hygiene pass across multiple notes at once — drafts, orphans, long notes, or a topic cluster. Invoke with /nn-refine-workflow.
 when_to_use: When you want to run a hygiene pass across multiple notes at once — drafts, orphans, long notes, or a topic cluster. Invoke with /nn-refine-workflow.
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: nn-link-suggester
-description: After any capture, surface candidate notes and propose nn link commands with annotations.
+description: Use when after nn new or nn update to discover notes that should be linked to the modified note. Invoke with /nn-link-suggester.
 when_to_use: After nn new or nn update, to discover notes that should be linked to the newly created or modified note. Invoke with /nn-link-suggester.
 ---
 

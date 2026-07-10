@@ -114,17 +114,17 @@ allowed-tools: Bash(nn:*)
 
 # nn
 
-nn is a Zettelkasten CLI designed for LLM agents. Load the skill you need:
+If you have not yet run ` + "`nn skills list`" + ` this session, run it before any ` + "`nn skills get`" + `
+or nn command — its output tells you which skill to load and when:
 
 ` + "```bash" + `
-nn skills list                       # list available skills with descriptions
-nn skills get nn-workflow            # multi-step capture/link/review workflow
-nn skills get nn-guide               # complete nn command reference
-nn skills get nn-capture-discipline  # gated capture discipline protocol
-nn skills get nn-session-debrief     # end-of-session review and consolidation
-nn skills get nn-link-suggester      # suggest links between notes
-nn skills get nn-refine              # refine and improve notes
-nn skills get nn-refine-workflow     # multi-step refine workflow
+nn skills list
+` + "```" + `
+
+Then load the matching skill before responding:
+
+` + "```bash" + `
+nn skills get <name>
 ` + "```" + `
 `
 
