@@ -58,11 +58,17 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"- `nn read <file>` — use this instead of a bare Read or cat call; writing `Gate:` before `nn read` is a protocol violation (the call itself satisfies the gate)\n\n" +
 			"After the gated action, quote a verbatim excerpt from the result. Default action: run " +
 			"`nn new --quick --title \"<finding>\"` where `<finding>` is the excerpt restated as a claim. " +
-			"To skip capture, write `skip-capture: runtime-only — <artifact>` where `<artifact>` is a " +
-			"specific execution artifact (ID, count, status code, PID) that appears verbatim as a substring of the tool result text. " +
-			"Any skip not using this exact prefix is a capture omission.\n" +
+			"To skip capture, write one of:\n" +
+			"- `skip-capture: execution-artifact — <value>` where `<value>` is a string whose type is a " +
+			"runtime execution byproduct (process ID, exit code, generated note ID, or operation count) " +
+			"and appears verbatim as a substring of the tool result text.\n" +
+			"- `skip-capture: session-transient — <observation> / will resolve when <action>` where " +
+			"`<observation>` names the current condition and `<action>` names the specific step in this " +
+			"session that will change it. The string `/ will resolve when` must appear verbatim in the skip line. " +
+			"A `session-transient` skip missing this separator is a capture omission.\n" +
+			"Any skip not using one of these exact prefixes is a capture omission.\n" +
 			"If the quoted result is an existing **draft** note you own, promote it: `nn update <id> --status reviewed` — re-discovery is the usefulness signal; the draft note earned promotion by being found relevant.\n" +
-			"If the quoted result is an existing **reviewed** or **permanent** note, promotion does not apply — apply the default action (`nn new --quick --title \"<finding>\"`); to skip, use `skip-capture: runtime-only — <artifact>` with an artifact that appears verbatim as a substring of the tool result text.\n",
+			"If the quoted result is an existing **reviewed** or **permanent** note, promotion does not apply — apply the default action (`nn new --quick --title \"<finding>\"`); to skip, use `skip-capture: execution-artifact — <value>` or `skip-capture: session-transient — <observation> / will resolve when <action>` as above.\n",
 	},
 	{
 		ID:          "virtual-nn-cli-reference",

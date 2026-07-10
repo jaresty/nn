@@ -56,15 +56,18 @@ func TestCaptureDisciplineOptOutSkip(t *testing.T) {
 	}
 }
 
-// Assertion: skip-capture requires naming a specific execution artifact.
+// Assertion: skip-capture requires naming a specific execution artifact or session-transient state.
 func TestCaptureDisciplineSkipRequiresArtifact(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out, "runtime-only") {
-		t.Errorf("capture-discipline must contain 'runtime-only' artifact class in skip condition; got:\n%s", out)
+	if !strings.Contains(out, "execution-artifact") {
+		t.Errorf("capture-discipline must contain 'execution-artifact' class in skip condition; got:\n%s", out)
+	}
+	if !strings.Contains(out, "session-transient") {
+		t.Errorf("capture-discipline must contain 'session-transient' class in skip condition; got:\n%s", out)
 	}
 }
 

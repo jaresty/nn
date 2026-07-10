@@ -91,3 +91,25 @@ func TestVirtualCaptureDisciplineZeroResults(t *testing.T) {
 		t.Errorf("expected 'skip-search:' empty/truncated exit in body; got:\n%s", out)
 	}
 }
+
+// Assertion: virtual capture discipline uses two-prefix skip-capture form (execution-artifact and session-transient),
+// not the old runtime-only single-prefix form.
+func TestSkipCaptureClauseTwoPrefixes(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if strings.Contains(out, "skip-capture: runtime-only") {
+		t.Errorf("body must not contain old runtime-only prefix; got:\n%s", out)
+	}
+	if !strings.Contains(out, "skip-capture: execution-artifact") {
+		t.Errorf("body must contain 'skip-capture: execution-artifact' prefix; got:\n%s", out)
+	}
+	if !strings.Contains(out, "skip-capture: session-transient") {
+		t.Errorf("body must contain 'skip-capture: session-transient' prefix; got:\n%s", out)
+	}
+	if !strings.Contains(out, "/ will resolve when") {
+		t.Errorf("body must contain '/ will resolve when' separator; got:\n%s", out)
+	}
+}
