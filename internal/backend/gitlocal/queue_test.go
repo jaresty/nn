@@ -195,3 +195,36 @@ func TestDrainLockElection(t *testing.T) {
 		}
 	}
 }
+
+// TestCommitItemSkipsOutsideRepoFiles verifies that DrainQueue silently skips
+// items whose files are outside the repo directory (stale cross-repo queue items).
+func TestCommitItemSkipsOutsideRepoFiles(t *testing.T) {
+	dir := t.TempDir()
+	initGitRepo(t, dir)
+	configDir := t.TempDir()
+
+	// Enqueue an item pointing to a path in a completely different temp dir.
+	outsideDir := t.TempDir()
+	outsideFile := filepath.Join(outsideDir, "20990101000000-0000-outside.md")
+	if err := os.WriteFile(outsideFile, []byte("---\nid: outside\ntitle: outside\n---\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := gitlocal.Enqueue(configDir, gitlocal.CommitItem{
+		Op:      "write",
+		Message: "note: create outside",
+		Files:   []string{outsideFile},
+	}); err != nil {
+		t.Fatalf("Enqueue: %v", err)
+	}
+
+	// DrainQueue must not return an error for an outside-repo item.
+	if err := gitlocal.DrainQueue(configDir, dir); err != nil {
+		t.Fatalf("DrainQueue returned error for outside-repo item: %v", err)
+	}
+
+	// The queue should be empty (item was consumed and skipped).
+	entries, _ := os.ReadDir(queueDir(configDir))
+	if len(entries) != 0 {
+		t.Errorf("expected empty queue after drain, got %d items", len(entries))
+	}
+}

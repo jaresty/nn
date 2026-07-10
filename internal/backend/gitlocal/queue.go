@@ -147,6 +147,13 @@ func drain(configDir, repoDir string) error {
 }
 
 func commitItem(repoDir string, item CommitItem) error {
+	// Skip items whose files are outside the repo (e.g. stale test temp paths).
+	cleanRepo := filepath.Clean(repoDir) + string(filepath.Separator)
+	for _, f := range item.Files {
+		if !strings.HasPrefix(filepath.Clean(f)+string(filepath.Separator), cleanRepo) {
+			return nil
+		}
+	}
 	if item.Op == "delete" {
 		// Stage removal; file is already gone from disk.
 		rmArgs := append([]string{"rm", "--cached", "--ignore-unmatch"}, item.Files...)
