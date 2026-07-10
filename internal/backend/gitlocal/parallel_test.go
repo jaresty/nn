@@ -174,6 +174,70 @@ func TestCrossProcessWritesEachProduceOwnCommit(t *testing.T) {
 	}
 }
 
+// TestCrossProcessPromotesNoIndexLock spawns N nn promote processes concurrently
+// and asserts that none fail with an index.lock error.
+func TestCrossProcessPromotesNoIndexLock(t *testing.T) {
+	dir := t.TempDir()
+	initGitRepo(t, dir)
+
+	xdgDir := t.TempDir()
+	cfgPath := filepath.Join(xdgDir, "nn", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
+		t.Fatalf("mkdir config dir: %v", err)
+	}
+	cfgContent := fmt.Sprintf("[notebooks]\ndefault = \"personal\"\n[notebooks.personal]\npath = %q\nbackend = \"gitlocal\"\n", dir)
+	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	// Pre-create notes serially so we have IDs to promote.
+	const n = 5
+	ids := make([]string, n)
+	b, err := gitlocal.NewWithConfigDir(dir, filepath.Join(xdgDir, "nn"))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	for i := range n {
+		nn := &note.Note{
+			ID:       note.GenerateID(),
+			Title:    fmt.Sprintf("Promote Target %d", i),
+			Type:     note.TypeObservation,
+			Status:   note.StatusDraft,
+			Created:  time.Now().UTC().Truncate(time.Second),
+			Modified: time.Now().UTC().Truncate(time.Second),
+		}
+		if err := b.Write(nn); err != nil {
+			t.Fatalf("setup Write %d: %v", i, err)
+		}
+		ids[i] = nn.ID
+	}
+
+	// Promote all notes concurrently via separate nn processes.
+	var wg sync.WaitGroup
+	errs := make([]error, n)
+	for i := range n {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			cmd := exec.Command("go", "run", "github.com/jaresty/nn/cmd/nn",
+				"promote", ids[idx], "--to", "reviewed",
+			)
+			cmd.Env = append(os.Environ(), "XDG_CONFIG_HOME="+xdgDir)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				errs[idx] = fmt.Errorf("nn promote %d: %v\n%s", idx, err, out)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			t.Errorf("process %d failed: %v", i, err)
+		}
+	}
+}
+
 // TestParallelUpdates verifies that concurrent Write calls on the same backend
 // all succeed — none fail due to git index.lock contention.
 func TestParallelUpdates(t *testing.T) {

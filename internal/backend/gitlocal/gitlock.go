@@ -32,7 +32,10 @@ func acquireGitLock(configDir string) error {
 		f, err := os.OpenFile(lock, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 		if err == nil {
 			fmt.Fprintf(f, "%d\n", os.Getpid())
-			f.Close()
+			if err := f.Close(); err != nil {
+				os.Remove(lock)
+				return fmt.Errorf("gitlock: write pid: %w", err)
+			}
 			return nil
 		}
 		if !os.IsExist(err) {
@@ -40,7 +43,13 @@ func acquireGitLock(configDir string) error {
 		}
 		// Lock exists — check if holder is alive.
 		pid, err := readGitLockPid(lock)
-		if err != nil || !gitLockPidAlive(pid) {
+		if err != nil {
+			// Empty or unreadable — writer is between O_EXCL create and PID write.
+			// Wait rather than stealing to avoid a false-stale race.
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+		if !gitLockPidAlive(pid) {
 			os.Remove(lock) // stale — steal it
 			continue
 		}
