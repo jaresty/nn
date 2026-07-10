@@ -46,6 +46,22 @@ func TestSkillsGetNoNameErrors(t *testing.T) {
 	}
 }
 
+func TestInstallSkillsOutputShowsStubPath(t *testing.T) {
+	_, execute := setupNotebook(t)
+	destDir := t.TempDir()
+
+	out, err := execute("install-skills", "--dest", destDir)
+	if err != nil {
+		t.Fatalf("nn install-skills: %v", err)
+	}
+	if strings.Contains(out, "nn-workflow") {
+		t.Errorf("install-skills output should not list per-skill names, got: %q", out)
+	}
+	if !strings.Contains(out, "nn/SKILL.md") {
+		t.Errorf("install-skills output should show stub path containing 'nn/SKILL.md', got: %q", out)
+	}
+}
+
 func TestInstallSkillsStub(t *testing.T) {
 	_, execute := setupNotebook(t)
 	destDir := t.TempDir()

@@ -78,21 +78,24 @@ Use --dest to specify a custom destination directory.`,
 				}
 			}
 
-			entries, err := nnSkills.FS.ReadDir(".")
-			if err != nil {
-				return fmt.Errorf("install-skills: read embedded skills: %w", err)
-			}
-
-			for _, e := range entries {
-				if !e.IsDir() {
-					continue
-				}
-				fmt.Fprintf(outWriter(cmd), "%s\n", e.Name())
-			}
 			if listOnly {
+				entries, err := nnSkills.FS.ReadDir(".")
+				if err != nil {
+					return fmt.Errorf("install-skills: read embedded skills: %w", err)
+				}
+				for _, e := range entries {
+					if !e.IsDir() {
+						continue
+					}
+					fmt.Fprintf(outWriter(cmd), "%s\n", e.Name())
+				}
 				return nil
 			}
-			return installSkillsToDest(dest)
+			if err := installSkillsToDest(dest); err != nil {
+				return err
+			}
+			fmt.Fprintf(outWriter(cmd), "Installed nn stub: %s\n", filepath.Join(dest, "nn", "SKILL.md"))
+			return nil
 		},
 	}
 

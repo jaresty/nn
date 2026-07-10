@@ -148,9 +148,9 @@ func TestInstallMetaCmd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn install: %v", err)
 	}
-	// Both skills and hooks steps should produce output.
-	if !strings.Contains(out, "nn-workflow") {
-		t.Errorf("nn install: expected skill names in output, got: %q", out)
+	// Skills step should show the stub path; hooks step should show hook output.
+	if !strings.Contains(out, "nn/SKILL.md") {
+		t.Errorf("nn install: expected stub path in output, got: %q", out)
 	}
 }
 
