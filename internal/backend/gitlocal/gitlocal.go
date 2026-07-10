@@ -5,11 +5,9 @@ package gitlocal
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/jaresty/nn/internal/backend"
 	"github.com/jaresty/nn/internal/note"
@@ -206,26 +204,45 @@ func (b *Backend) commitDelete(path, msg string) error {
 	return nil
 }
 
-// git runs a git subcommand in the backend directory, retrying if the index
-// lock is held by a concurrent process.
-func (b *Backend) git(args ...string) error {
-	const maxRetries = 10
-	const retryDelay = 50 * time.Millisecond
-	for i := range maxRetries {
-		cmd := exec.Command("git", args...)
-		cmd.Dir = b.dir
-		out, err := cmd.CombinedOutput()
-		if err == nil {
-			return nil
-		}
-		if strings.Contains(string(out), "index.lock") && i < maxRetries-1 {
-			time.Sleep(retryDelay)
-			continue
-		}
-		return fmt.Errorf("git %s: %w\n%s", strings.Join(args, " "), err, out)
+// commitRename serializes git rm --cached + git add + git commit under one lock,
+// ensuring the old slug is unstaged and the new slug is staged atomically.
+func (b *Backend) commitRename(oldPath, newPath, msg string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.commitRename: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
+	if out, err := gitCmdIn(b.dir, "rm", "--cached", "--ignore-unmatch", oldPath); err != nil {
+		return fmt.Errorf("gitlocal.commitRename: git rm: %w\n%s", err, out)
+	}
+	if out, err := gitCmdIn(b.dir, "add", newPath); err != nil {
+		return fmt.Errorf("gitlocal.commitRename: git add: %w\n%s", err, out)
+	}
+	if out, err := gitCmdIn(b.dir, "commit", "-m", msg); err != nil {
+		return fmt.Errorf("gitlocal.commitRename: git commit: %w\n%s", err, out)
 	}
 	return nil
 }
+
+// commitBulk holds the lock for the full git add (all paths) + git commit sequence.
+func (b *Backend) commitBulk(paths []string, msg string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.commitBulk: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
+	addArgs := append([]string{"add"}, paths...)
+	if out, err := gitCmdIn(b.dir, addArgs...); err != nil {
+		return fmt.Errorf("gitlocal.commitBulk: git add: %w\n%s", err, out)
+	}
+	if out, err := gitCmdIn(b.dir, "commit", "-m", msg); err != nil {
+		return fmt.Errorf("gitlocal.commitBulk: git commit: %w\n%s", err, out)
+	}
+	return nil
+}
+
 
 // AddLink adds an annotated link from fromID to toID and commits.
 func (b *Backend) AddLink(fromID, toID, annotation, linkType, linkStatus string) error {
@@ -458,14 +475,14 @@ func (b *Backend) Update(n *note.Note) error {
 	if err := os.WriteFile(newPath, data, 0o644); err != nil {
 		return fmt.Errorf("gitlocal.Update: %w", err)
 	}
+	msg := fmt.Sprintf("note: update %s — %s", n.ID, n.Title)
 	if oldPath != newPath {
-		// Title changed slug — remove the old file and unstage it.
+		// Title changed slug — remove old file; unstage+add+commit under one lock.
 		if err := os.Remove(oldPath); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("gitlocal.Update: remove old file: %w", err)
 		}
-		_ = b.git("rm", "--cached", "--ignore-unmatch", oldPath)
+		return b.commitRename(oldPath, newPath, msg)
 	}
-	msg := fmt.Sprintf("note: update %s — %s", n.ID, n.Title)
 	return b.commit(newPath, msg)
 }
 
@@ -493,6 +510,7 @@ func (b *Backend) BulkWrite(notes []*note.Note) error {
 	if len(notes) == 0 {
 		return nil
 	}
+	var paths []string
 	for _, n := range notes {
 		for {
 			if _, err := b.findByID(n.ID); err != nil {
@@ -508,9 +526,7 @@ func (b *Backend) BulkWrite(notes []*note.Note) error {
 		if err := os.WriteFile(path, data, 0o644); err != nil {
 			return fmt.Errorf("gitlocal.BulkWrite: write %s: %w", n.ID, err)
 		}
-		if err := b.git("add", path); err != nil {
-			return fmt.Errorf("gitlocal.BulkWrite: stage %s: %w", n.ID, err)
-		}
+		paths = append(paths, path)
 	}
-	return b.git("commit", "-m", fmt.Sprintf("note: bulk-new %d notes", len(notes)))
+	return b.commitBulk(paths, fmt.Sprintf("note: bulk-new %d notes", len(notes)))
 }
