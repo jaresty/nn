@@ -17,14 +17,26 @@ import (
 
 // Backend stores notes as Markdown files in a Git-backed directory.
 // mu serialises add+commit pairs so concurrent goroutines in the same process
-// do not interleave staging. Cross-process isolation is handled by --only.
+// do not interleave staging. Cross-process isolation is handled by the commit queue.
 type Backend struct {
-	dir string
-	mu  sync.Mutex
+	dir       string
+	configDir string // directory holding the commit queue and lock file
+	mu        sync.Mutex
 }
 
-// New returns a Backend rooted at dir, which must already be a Git repository.
+// New returns a Backend rooted at dir, using the default nn config directory
+// for the commit queue.
 func New(dir string) (*Backend, error) {
+	return newBackendWithConfigDir(dir, defaultNNConfigDir())
+}
+
+// NewWithConfigDir returns a Backend rooted at dir using configDir for the
+// commit queue. Used in tests to isolate queue state.
+func NewWithConfigDir(dir, configDir string) (*Backend, error) {
+	return newBackendWithConfigDir(dir, configDir)
+}
+
+func newBackendWithConfigDir(dir, configDir string) (*Backend, error) {
 	info, err := os.Stat(dir)
 	if err != nil {
 		return nil, fmt.Errorf("gitlocal.New: %w", err)
@@ -32,7 +44,19 @@ func New(dir string) (*Backend, error) {
 	if !info.IsDir() {
 		return nil, fmt.Errorf("gitlocal.New: %q is not a directory", dir)
 	}
-	return &Backend{dir: dir}, nil
+	return &Backend{dir: dir, configDir: configDir}, nil
+}
+
+func defaultNNConfigDir() string {
+	if d := os.Getenv("NN_CONFIG_DIR"); d != "" {
+		return d
+	}
+	cfgDir := os.Getenv("XDG_CONFIG_HOME")
+	if cfgDir == "" {
+		home, _ := os.UserHomeDir()
+		cfgDir = filepath.Join(home, ".config")
+	}
+	return filepath.Join(cfgDir, "nn")
 }
 
 // Write serialises n to a Markdown file and commits it to Git.
@@ -139,32 +163,23 @@ func (b *Backend) findByID(id string) (string, error) {
 	return "", fmt.Errorf("note %q not found", id)
 }
 
-// commit stages path and commits it. The mutex serialises add+commit pairs for
-// in-process concurrency; --only ensures cross-process commits don't sweep
-// files staged by other concurrent nn invocations.
+// commit enqueues path+msg and races to drain the commit queue.
 func (b *Backend) commit(path, msg string) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if err := b.git("add", path); err != nil {
-		return err
-	}
-	return b.git("commit", "--only", path, "-m", msg)
+	return EnqueueAndDrain(b.configDir, b.dir, CommitItem{
+		Op:      "write",
+		Message: msg,
+		Files:   []string{path},
+	})
 }
 
-// commitDelete stages the deleted file and creates a commit with msg.
-// If the file was not tracked by git (e.g. written outside the backend in tests),
-// the commit is skipped gracefully.
+// commitDelete enqueues path deletion via the commit queue.
+// The drainer handles git rm --cached and skips gracefully if the file was untracked.
 func (b *Backend) commitDelete(path, msg string) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	_ = b.git("rm", "--cached", "--ignore-unmatch", path) // best-effort; ignore error for untracked
-	// Check whether anything is staged before committing.
-	check := exec.Command("git", "diff", "--cached", "--quiet")
-	check.Dir = b.dir
-	if check.Run() == nil {
-		return nil // nothing staged — file was not tracked, deletion is still done on disk
-	}
-	return b.git("commit", "-m", msg)
+	return EnqueueAndDrain(b.configDir, b.dir, CommitItem{
+		Op:      "delete",
+		Message: msg,
+		Files:   []string{path},
+	})
 }
 
 // git runs a git subcommand in the backend directory, retrying if the index

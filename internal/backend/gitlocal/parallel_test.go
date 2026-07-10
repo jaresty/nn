@@ -18,8 +18,9 @@ import (
 // their own git commit containing only their own file — not a sweep commit.
 func TestEachWriteProducesOwnCommit(t *testing.T) {
 	dir := t.TempDir()
+	configDir := t.TempDir()
 	initGitRepo(t, dir)
-	b, err := gitlocal.New(dir)
+	b, err := gitlocal.NewWithConfigDir(dir, configDir)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -177,8 +178,9 @@ func TestCrossProcessWritesEachProduceOwnCommit(t *testing.T) {
 // all succeed — none fail due to git index.lock contention.
 func TestParallelUpdates(t *testing.T) {
 	dir := t.TempDir()
+	configDir := t.TempDir()
 	initGitRepo(t, dir)
-	b, err := gitlocal.New(dir)
+	b, err := gitlocal.NewWithConfigDir(dir, configDir)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

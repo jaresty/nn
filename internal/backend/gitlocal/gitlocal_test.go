@@ -44,8 +44,9 @@ func initGitRepo(t *testing.T, dir string) {
 func newBackend(t *testing.T) (*gitlocal.Backend, string) {
 	t.Helper()
 	dir := t.TempDir()
+	configDir := t.TempDir()
 	initGitRepo(t, dir)
-	b, err := gitlocal.New(dir)
+	b, err := gitlocal.NewWithConfigDir(dir, configDir)
 	if err != nil {
 		t.Fatalf("gitlocal.New: %v", err)
 	}

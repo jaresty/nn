@@ -22,6 +22,7 @@ func setupNotebook(t *testing.T) (string, func(...string) (string, error)) {
 	initGitRepoForCLI(t, nbDir)
 
 	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir) // isolate commit queue per test
 	cfgFile := filepath.Join(cfgDir, "config.toml")
 	os.WriteFile(cfgFile, []byte(fmt.Sprintf(`
 [notebooks]
@@ -51,6 +52,7 @@ func setupNotebookWithCfg(t *testing.T) (string, string) {
 	nbDir := t.TempDir()
 	initGitRepoForCLI(t, nbDir)
 	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir) // isolate commit queue per test
 	cfgFile := filepath.Join(cfgDir, "config.toml")
 	os.WriteFile(cfgFile, []byte(fmt.Sprintf(`
 [notebooks]
