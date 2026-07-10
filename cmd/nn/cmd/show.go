@@ -56,19 +56,10 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"- Live machine-generated output (JSON, log, status) where a resource identifier for that " +
 			"system appears in the conversation above this action\n" +
 			"- `nn read <file>` — use this instead of a bare Read or cat call; writing `Gate:` before `nn read` is a protocol violation (the call itself satisfies the gate)\n\n" +
-			"After the gated action, quote a verbatim excerpt from the result. Default action: run " +
-			"`nn new --quick --title \"<finding>\"` where `<finding>` is the excerpt restated as a claim. " +
-			"To skip capture, write one of:\n" +
-			"- `skip-capture: execution-artifact — <value>` where `<value>` is a string whose type is a " +
-			"runtime execution byproduct (process ID, exit code, generated note ID, or operation count) " +
-			"and appears verbatim as a substring of the tool result text.\n" +
-			"- `skip-capture: session-transient — <observation> / will resolve when <action>` where " +
-			"`<observation>` names the current condition and `<action>` names the specific step in this " +
-			"session that will change it. The string `/ will resolve when` must appear verbatim in the skip line. " +
-			"A `session-transient` skip missing this separator is a capture omission.\n" +
-			"Any skip not using one of these exact prefixes is a capture omission.\n" +
-			"If the quoted result is an existing **draft** note you own, promote it: `nn update <id> --status reviewed` — re-discovery is the usefulness signal; the draft note earned promotion by being found relevant.\n" +
-			"If the quoted result is an existing **reviewed** or **permanent** note, promotion does not apply — apply the default action (`nn new --quick --title \"<finding>\"`); to skip, use `skip-capture: execution-artifact — <value>` or `skip-capture: session-transient — <observation> / will resolve when <action>` as above.\n",
+			"After the gated action, quote a verbatim excerpt from the result (minimum: one complete clause or value).\n\n" +
+			"**If `skip-search:` appeared above this action:** run `nn new --quick --title \"<finding>\"` where `<finding>` is the excerpt restated as a claim. The empty search result confirms the notebook has no covering note — capture is required.\n\n" +
+			"**If `Selected because:` appeared above this action:** the gate found a relevant note. Capture only if the gated action produced a finding not already in that note. To confirm, quote a sentence from the `nn show` result and write `not in note: <claim>` naming what this finding adds that the quoted sentence does not contain. Then run `nn new --quick --title \"<finding>\"`. If the finding is already represented in that note, write `represented by: <quoted note title>` — no capture needed.\n\n" +
+			"**If the quoted result is an existing draft note:** promote it — `nn update <id> --status reviewed` — re-discovery is the usefulness signal.\n",
 	},
 	{
 		ID:          "virtual-nn-cli-reference",

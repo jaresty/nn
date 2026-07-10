@@ -44,30 +44,33 @@ func TestCaptureDisciplineDefaultCapture(t *testing.T) {
 	}
 }
 
-// Assertion: skip-capture: prefix is the required opt-out string.
-func TestCaptureDisciplineOptOutSkip(t *testing.T) {
+// Assertion: capture discipline uses opt-in model — represented by: is the no-capture declaration.
+func TestCaptureDisciplineOptInModel(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out, "skip-capture:") {
-		t.Errorf("capture-discipline must contain 'skip-capture:' opt-out prefix; got:\n%s", out)
+	if strings.Contains(out, "skip-capture:") {
+		t.Errorf("capture-discipline must not contain old skip-capture: opt-out prefix; got:\n%s", out)
+	}
+	if !strings.Contains(out, "represented by:") {
+		t.Errorf("capture-discipline must contain 'represented by:' no-capture declaration; got:\n%s", out)
 	}
 }
 
-// Assertion: skip-capture requires naming a specific execution artifact or session-transient state.
-func TestCaptureDisciplineSkipRequiresArtifact(t *testing.T) {
+// Assertion: capture discipline names the two gate-outcome branch strings.
+func TestCaptureDisciplineGateBranches(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out, "execution-artifact") {
-		t.Errorf("capture-discipline must contain 'execution-artifact' class in skip condition; got:\n%s", out)
+	if !strings.Contains(out, "not in note:") {
+		t.Errorf("capture-discipline must contain 'not in note:' capture branch; got:\n%s", out)
 	}
-	if !strings.Contains(out, "session-transient") {
-		t.Errorf("capture-discipline must contain 'session-transient' class in skip condition; got:\n%s", out)
+	if !strings.Contains(out, "represented by:") {
+		t.Errorf("capture-discipline must contain 'represented by:' no-capture branch; got:\n%s", out)
 	}
 }
 

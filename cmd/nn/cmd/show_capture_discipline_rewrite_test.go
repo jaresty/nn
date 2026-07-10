@@ -92,9 +92,9 @@ func TestVirtualCaptureDisciplineZeroResults(t *testing.T) {
 	}
 }
 
-// Assertion: virtual capture discipline uses two-prefix skip-capture form (execution-artifact and session-transient),
-// not the old runtime-only single-prefix form.
-func TestSkipCaptureClauseTwoPrefixes(t *testing.T) {
+// Assertion: virtual capture discipline uses two-branch opt-in model (not in note / represented by),
+// not the old skip-capture prefix form.
+func TestSkipCaptureClauseTwoBranches(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
@@ -103,13 +103,16 @@ func TestSkipCaptureClauseTwoPrefixes(t *testing.T) {
 	if strings.Contains(out, "skip-capture: runtime-only") {
 		t.Errorf("body must not contain old runtime-only prefix; got:\n%s", out)
 	}
-	if !strings.Contains(out, "skip-capture: execution-artifact") {
-		t.Errorf("body must contain 'skip-capture: execution-artifact' prefix; got:\n%s", out)
+	if strings.Contains(out, "skip-capture: execution-artifact") {
+		t.Errorf("body must not contain old execution-artifact prefix; got:\n%s", out)
 	}
-	if !strings.Contains(out, "skip-capture: session-transient") {
-		t.Errorf("body must contain 'skip-capture: session-transient' prefix; got:\n%s", out)
+	if strings.Contains(out, "skip-capture: session-transient") {
+		t.Errorf("body must not contain old session-transient prefix; got:\n%s", out)
 	}
-	if !strings.Contains(out, "/ will resolve when") {
-		t.Errorf("body must contain '/ will resolve when' separator; got:\n%s", out)
+	if !strings.Contains(out, "not in note:") {
+		t.Errorf("body must contain 'not in note:' branch string; got:\n%s", out)
+	}
+	if !strings.Contains(out, "represented by:") {
+		t.Errorf("body must contain 'represented by:' no-capture string; got:\n%s", out)
 	}
 }
