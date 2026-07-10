@@ -167,23 +167,43 @@ func (b *Backend) findByID(id string) (string, error) {
 	return "", fmt.Errorf("note %q not found", id)
 }
 
-// commit enqueues path+msg and races to drain the commit queue.
+// commit serializes git add+commit within the process (b.mu) and across
+// processes (git-commit.lock), then runs git directly.
 func (b *Backend) commit(path, msg string) error {
-	return EnqueueAndDrain(b.configDir, b.dir, CommitItem{
-		Op:      "write",
-		Message: msg,
-		Files:   []string{path},
-	})
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.commit: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
+	if out, err := gitCmdIn(b.dir, "add", path); err != nil {
+		return fmt.Errorf("gitlocal.commit: git add: %w\n%s", err, out)
+	}
+	if out, err := gitCmdIn(b.dir, "commit", "-m", msg); err != nil {
+		return fmt.Errorf("gitlocal.commit: git commit: %w\n%s", err, out)
+	}
+	return nil
 }
 
-// commitDelete enqueues path deletion via the commit queue.
-// The drainer handles git rm --cached and skips gracefully if the file was untracked.
+// commitDelete serializes git rm+commit within the process and across processes.
 func (b *Backend) commitDelete(path, msg string) error {
-	return EnqueueAndDrain(b.configDir, b.dir, CommitItem{
-		Op:      "delete",
-		Message: msg,
-		Files:   []string{path},
-	})
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.commitDelete: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
+	if out, err := gitCmdIn(b.dir, "rm", "--cached", "--ignore-unmatch", path); err != nil {
+		return fmt.Errorf("gitlocal.commitDelete: git rm: %w\n%s", err, out)
+	}
+	// Skip commit if nothing staged (file was untracked).
+	if nothingStaged(b.dir) {
+		return nil
+	}
+	if out, err := gitCmdIn(b.dir, "commit", "-m", msg); err != nil {
+		return fmt.Errorf("gitlocal.commitDelete: git commit: %w\n%s", err, out)
+	}
+	return nil
 }
 
 // git runs a git subcommand in the backend directory, retrying if the index
