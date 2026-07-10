@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/jaresty/nn/internal/backend"
 	"github.com/jaresty/nn/internal/note"
@@ -153,12 +154,22 @@ func (b *Backend) commitDelete(path, msg string) error {
 	return b.git("commit", "-m", msg)
 }
 
-// git runs a git subcommand in the backend directory.
+// git runs a git subcommand in the backend directory, retrying if the index
+// lock is held by a concurrent process.
 func (b *Backend) git(args ...string) error {
-	cmd := exec.Command("git", args...)
-	cmd.Dir = b.dir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
+	const maxRetries = 10
+	const retryDelay = 50 * time.Millisecond
+	for i := range maxRetries {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = b.dir
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			return nil
+		}
+		if strings.Contains(string(out), "index.lock") && i < maxRetries-1 {
+			time.Sleep(retryDelay)
+			continue
+		}
 		return fmt.Errorf("git %s: %w\n%s", strings.Join(args, " "), err, out)
 	}
 	return nil
