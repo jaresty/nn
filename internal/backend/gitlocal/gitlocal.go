@@ -59,6 +59,8 @@ func defaultNNConfigDir() string {
 
 // Write serialises n to a Markdown file and commits it to Git.
 func (b *Backend) Write(n *note.Note) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	for {
 		if _, err := b.findByID(n.ID); err != nil {
 			break // no collision
@@ -74,7 +76,7 @@ func (b *Backend) Write(n *note.Note) error {
 		return fmt.Errorf("gitlocal.Write: %w", err)
 	}
 	msg := fmt.Sprintf("note: create %s — %s", n.ID, n.Title)
-	return b.commit(path, msg)
+	return b.commitLocked(path, msg)
 }
 
 // Read finds and parses the note with the given ID.
@@ -96,6 +98,8 @@ func (b *Backend) Read(id string) (*note.Note, error) {
 
 // Delete removes the note file for id and commits the deletion.
 func (b *Backend) Delete(id string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	path, err := b.findByID(id)
 	if err != nil {
 		return fmt.Errorf("gitlocal.Delete: %w", err)
@@ -113,11 +117,11 @@ func (b *Backend) Delete(id string) error {
 		return fmt.Errorf("gitlocal.Delete: remove: %w", err)
 	}
 	// Cascade: remove edges pointing to the deleted note from all other notes.
-	if err := b.removeInboundEdges(n.ID); err != nil {
+	if err := b.removeInboundEdgesLocked(n.ID); err != nil {
 		return fmt.Errorf("gitlocal.Delete: cascade: %w", err)
 	}
 	msg := fmt.Sprintf("note: delete %s — %s", n.ID, n.Title)
-	return b.commitDelete(path, msg)
+	return b.commitDeleteLocked(path, msg)
 }
 
 // List returns all notes in the notebook directory.
@@ -165,11 +169,9 @@ func (b *Backend) findByID(id string) (string, error) {
 	return "", fmt.Errorf("note %q not found", id)
 }
 
-// commit serializes git add+commit within the process (b.mu) and across
-// processes (git-commit.lock), then runs git directly.
-func (b *Backend) commit(path, msg string) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+// commitLocked runs git add+commit under the cross-process git lock.
+// Caller must hold b.mu.
+func (b *Backend) commitLocked(path, msg string) error {
 	if err := acquireGitLock(b.configDir); err != nil {
 		return fmt.Errorf("gitlocal.commit: %w", err)
 	}
@@ -186,10 +188,9 @@ func (b *Backend) commit(path, msg string) error {
 	return nil
 }
 
-// commitDelete serializes git rm+commit within the process and across processes.
-func (b *Backend) commitDelete(path, msg string) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+// commitDeleteLocked runs git rm+commit under the cross-process git lock.
+// Caller must hold b.mu.
+func (b *Backend) commitDeleteLocked(path, msg string) error {
 	if err := acquireGitLock(b.configDir); err != nil {
 		return fmt.Errorf("gitlocal.commitDelete: %w", err)
 	}
@@ -197,7 +198,6 @@ func (b *Backend) commitDelete(path, msg string) error {
 	if out, err := gitCmdIn(b.dir, "rm", "--cached", "--ignore-unmatch", path); err != nil {
 		return fmt.Errorf("gitlocal.commitDelete: git rm: %w\n%s", err, out)
 	}
-	// Skip commit if nothing staged (file was untracked).
 	if nothingStaged(b.dir) {
 		return nil
 	}
@@ -207,11 +207,9 @@ func (b *Backend) commitDelete(path, msg string) error {
 	return nil
 }
 
-// commitRename serializes git rm --cached + git add + git commit under one lock,
-// ensuring the old slug is unstaged and the new slug is staged atomically.
-func (b *Backend) commitRename(oldPath, newPath, msg string) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+// commitRenameLocked runs git rm+add+commit under the cross-process git lock.
+// Caller must hold b.mu.
+func (b *Backend) commitRenameLocked(oldPath, newPath, msg string) error {
 	if err := acquireGitLock(b.configDir); err != nil {
 		return fmt.Errorf("gitlocal.commitRename: %w", err)
 	}
@@ -228,10 +226,9 @@ func (b *Backend) commitRename(oldPath, newPath, msg string) error {
 	return nil
 }
 
-// commitBulk holds the lock for the full git add (all paths) + git commit sequence.
-func (b *Backend) commitBulk(paths []string, msg string) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+// commitBulkLocked runs git add (all paths)+commit under the cross-process git lock.
+// Caller must hold b.mu.
+func (b *Backend) commitBulkLocked(paths []string, msg string) error {
 	if err := acquireGitLock(b.configDir); err != nil {
 		return fmt.Errorf("gitlocal.commitBulk: %w", err)
 	}
@@ -249,6 +246,8 @@ func (b *Backend) commitBulk(paths []string, msg string) error {
 
 // AddLink adds an annotated link from fromID to toID and commits.
 func (b *Backend) AddLink(fromID, toID, annotation, linkType, linkStatus string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.AddLink: %w", err)
@@ -268,11 +267,13 @@ func (b *Backend) AddLink(fromID, toID, annotation, linkType, linkStatus string)
 		return fmt.Errorf("gitlocal.AddLink: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: link %s → %s", fromID, toID)
-	return b.commit(path, msg)
+	return b.commitLocked(path, msg)
 }
 
 // AddLinks adds multiple annotated links from fromID in a single git commit.
 func (b *Backend) AddLinks(fromID string, targets []backend.LinkTarget) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.AddLinks: %w", err)
@@ -299,11 +300,12 @@ func (b *Backend) AddLinks(fromID string, targets []backend.LinkTarget) error {
 		return fmt.Errorf("gitlocal.AddLinks: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: bulk-link %s → %d notes", fromID, len(targets))
-	return b.commit(path, msg)
+	return b.commitLocked(path, msg)
 }
 
-// removeInboundEdges removes all links targeting deletedID from every other note, committing each change.
-func (b *Backend) removeInboundEdges(deletedID string) error {
+// removeInboundEdgesLocked removes all links targeting deletedID from every other note.
+// Caller must hold b.mu.
+func (b *Backend) removeInboundEdgesLocked(deletedID string) error {
 	notes, err := b.List()
 	if err != nil {
 		return err
@@ -328,7 +330,7 @@ func (b *Backend) removeInboundEdges(deletedID string) error {
 			return fmt.Errorf("removeInboundEdges: write %s: %w", n.ID, err)
 		}
 		msg := fmt.Sprintf("note: unlink %s → %s (cascade delete)", n.ID, deletedID)
-		if err := b.commit(p, msg); err != nil {
+		if err := b.commitLocked(p, msg); err != nil {
 			return err
 		}
 	}
@@ -337,6 +339,8 @@ func (b *Backend) removeInboundEdges(deletedID string) error {
 
 // RemoveLink removes the link from fromID to toID and commits.
 func (b *Backend) RemoveLink(fromID, toID string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.RemoveLink: %w", err)
@@ -357,11 +361,13 @@ func (b *Backend) RemoveLink(fromID, toID string) error {
 		return fmt.Errorf("gitlocal.RemoveLink: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: unlink %s → %s", fromID, toID)
-	return b.commit(path, msg)
+	return b.commitLocked(path, msg)
 }
 
 // RemoveLinkByType removes only edges from fromID to toID with the given type.
 func (b *Backend) RemoveLinkByType(fromID, toID, linkType string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.RemoveLinkByType: %w", err)
@@ -382,11 +388,13 @@ func (b *Backend) RemoveLinkByType(fromID, toID, linkType string) error {
 		return fmt.Errorf("gitlocal.RemoveLinkByType: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: unlink %s → %s [%s]", fromID, toID, linkType)
-	return b.commit(path, msg)
+	return b.commitLocked(path, msg)
 }
 
 // BulkUpdateLinks applies multiple link updates to fromID in a single git commit.
 func (b *Backend) BulkUpdateLinks(fromID string, updates []backend.LinkUpdate) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.BulkUpdateLinks: %w", err)
@@ -422,12 +430,14 @@ func (b *Backend) BulkUpdateLinks(fromID string, updates []backend.LinkUpdate) e
 		return fmt.Errorf("gitlocal.BulkUpdateLinks: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: bulk-update-link %s (%d links)", fromID, len(updates))
-	return b.commit(path, msg)
+	return b.commitLocked(path, msg)
 }
 
 // UpdateLink modifies the annotation, type, and/or status of an existing link without removing it.
 // nil pointer arguments mean "leave unchanged".
 func (b *Backend) UpdateLink(fromID, toID string, annotation, linkType, linkStatus *string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.UpdateLink: %w", err)
@@ -461,11 +471,13 @@ func (b *Backend) UpdateLink(fromID, toID string, annotation, linkType, linkStat
 		return fmt.Errorf("gitlocal.UpdateLink: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: update-link %s → %s", fromID, toID)
-	return b.commit(path, msg)
+	return b.commitLocked(path, msg)
 }
 
 // Update writes the modified note and commits with an "update" message.
 func (b *Backend) Update(n *note.Note) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	oldPath, err := b.findByID(n.ID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.Update: note not found: %w", err)
@@ -484,13 +496,15 @@ func (b *Backend) Update(n *note.Note) error {
 		if err := os.Remove(oldPath); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("gitlocal.Update: remove old file: %w", err)
 		}
-		return b.commitRename(oldPath, newPath, msg)
+		return b.commitRenameLocked(oldPath, newPath, msg)
 	}
-	return b.commit(newPath, msg)
+	return b.commitLocked(newPath, msg)
 }
 
 // Promote updates the status of the note with the given id and commits.
 func (b *Backend) Promote(id string, to note.Status) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	n, err := b.Read(id)
 	if err != nil {
 		return fmt.Errorf("gitlocal.Promote: %w", err)
@@ -505,7 +519,7 @@ func (b *Backend) Promote(id string, to note.Status) error {
 		return fmt.Errorf("gitlocal.Promote: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: promote %s to %s", id, string(to))
-	return b.commit(path, msg)
+	return b.commitLocked(path, msg)
 }
 
 // BulkWrite writes all notes and commits in a single commit.
@@ -513,6 +527,8 @@ func (b *Backend) BulkWrite(notes []*note.Note) error {
 	if len(notes) == 0 {
 		return nil
 	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	var paths []string
 	for _, n := range notes {
 		for {
@@ -531,5 +547,5 @@ func (b *Backend) BulkWrite(notes []*note.Note) error {
 		}
 		paths = append(paths, path)
 	}
-	return b.commitBulk(paths, fmt.Sprintf("note: bulk-new %d notes", len(notes)))
+	return b.commitBulkLocked(paths, fmt.Sprintf("note: bulk-new %d notes", len(notes)))
 }
