@@ -177,6 +177,9 @@ func (b *Backend) commit(path, msg string) error {
 	if out, err := gitCmdIn(b.dir, "add", path); err != nil {
 		return fmt.Errorf("gitlocal.commit: git add: %w\n%s", err, out)
 	}
+	if nothingStaged(b.dir) {
+		return nil
+	}
 	if out, err := gitCmdIn(b.dir, "commit", "-m", msg); err != nil {
 		return fmt.Errorf("gitlocal.commit: git commit: %w\n%s", err, out)
 	}
