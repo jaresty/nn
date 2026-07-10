@@ -110,7 +110,21 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"the lookup is not required. " +
 			"Write: `Skipping lookup: self-evident — \"<quoted error substring>\"` quoting the exact substring from the tool output verbatim. " +
 			"Absence of either skip declaration means the lookup is required.\n",
-	},
+		},
+		{
+			ID:          "virtual-nn-skills",
+			Title:       "Protocol: load nn skills via nn skills list",
+			AppliesWhen: "at session start, and before any nn workflow operation",
+			Body: "If you have not yet run `nn skills list` this session, run it before any `nn skills get` " +
+				"or nn workflow operation — its output tells you which skill to load and when:\n\n" +
+				"```bash\n" +
+				"nn skills list\n" +
+				"```\n\n" +
+				"Then load the matching skill before responding:\n\n" +
+				"```bash\n" +
+				"nn skills get <name>\n" +
+				"```\n",
+		},
 }
 
 // protocolDerivationBlock is appended to every protocol note in plain-text display.

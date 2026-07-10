@@ -350,6 +350,21 @@ func TestShowGlobalEmpty(t *testing.T) {
 	}
 }
 
+// Assertion: TestShowGlobalIncludesSkillsProtocol — nn show --global includes the nn skills routing protocol.
+func TestShowGlobalIncludesSkillsProtocol(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global: %v", err)
+	}
+	if !strings.Contains(out, "nn skills list") {
+		t.Errorf("expected 'nn skills list' in nn show --global output; got:\n%s", out)
+	}
+	if !strings.Contains(out, "virtual-nn-skills") {
+		t.Errorf("expected 'virtual-nn-skills' protocol ID in nn show --global output; got:\n%s", out)
+	}
+}
+
 // Assertion: TestShowGlobalSeparator — multiple protocols are separated by ---.
 func TestShowGlobalSeparator(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
