@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jaresty/nn/internal/backend"
@@ -15,8 +16,11 @@ import (
 )
 
 // Backend stores notes as Markdown files in a Git-backed directory.
+// mu serialises add+commit pairs so concurrent goroutines in the same process
+// do not interleave staging. Cross-process isolation is handled by --only.
 type Backend struct {
 	dir string
+	mu  sync.Mutex
 }
 
 // New returns a Backend rooted at dir, which must already be a Git repository.
@@ -132,18 +136,24 @@ func (b *Backend) findByID(id string) (string, error) {
 	return "", fmt.Errorf("note %q not found", id)
 }
 
-// commit stages the file at path and creates a commit with msg.
+// commit stages path and commits it. The mutex serialises add+commit pairs for
+// in-process concurrency; --only ensures cross-process commits don't sweep
+// files staged by other concurrent nn invocations.
 func (b *Backend) commit(path, msg string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if err := b.git("add", path); err != nil {
 		return err
 	}
-	return b.git("commit", "-m", msg)
+	return b.git("commit", "--only", path, "-m", msg)
 }
 
 // commitDelete stages the deleted file and creates a commit with msg.
 // If the file was not tracked by git (e.g. written outside the backend in tests),
 // the commit is skipped gracefully.
 func (b *Backend) commitDelete(path, msg string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	_ = b.git("rm", "--cached", "--ignore-unmatch", path) // best-effort; ignore error for untracked
 	// Check whether anything is staged before committing.
 	check := exec.Command("git", "diff", "--cached", "--quiet")
