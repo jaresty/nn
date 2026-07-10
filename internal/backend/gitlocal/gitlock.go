@@ -39,9 +39,14 @@ func acquireGitLock(configDir string) error {
 			return fmt.Errorf("gitlock: open: %w", err)
 		}
 		// Lock exists — check if holder is alive.
-		if pid, err := readGitLockPid(lock); err != nil || !gitLockPidAlive(pid) {
+		pid, err := readGitLockPid(lock)
+		if err != nil || !gitLockPidAlive(pid) {
 			os.Remove(lock) // stale — steal it
 			continue
+		}
+		if pid == os.Getpid() {
+			// We already hold the lock (re-entrant call, e.g. from a git hook).
+			return nil
 		}
 		// Live holder — wait and retry.
 		time.Sleep(10 * time.Millisecond)
