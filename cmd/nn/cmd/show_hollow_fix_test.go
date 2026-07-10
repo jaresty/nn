@@ -20,7 +20,7 @@ func TestVirtualCaptureDisciplineC3ArgumentString(t *testing.T) {
 	}
 }
 
-// Assertion: post-gate clause uses two-branch opt-in model anchored to gate outcome strings.
+// Assertion: post-gate clause uses two-branch opt-in model; Selected because: branch uses --append to update found note.
 func TestVirtualCaptureDisciplineC8SkipStructural(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "virtual-nn-capture-discipline")
@@ -35,6 +35,9 @@ func TestVirtualCaptureDisciplineC8SkipStructural(t *testing.T) {
 	}
 	if !strings.Contains(out, "represented by:") {
 		t.Errorf("expected 'represented by:' no-capture string; got:\n%s", out)
+	}
+	if !strings.Contains(out, "--append") {
+		t.Errorf("expected '--append' in Selected because: branch to add claim to found note; got:\n%s", out)
 	}
 	if strings.Contains(out, "skip-capture: runtime-only") {
 		t.Errorf("old runtime-only prefix must be removed; got:\n%s", out)

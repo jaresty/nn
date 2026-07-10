@@ -58,7 +58,9 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"- `nn read <file>` — use this instead of a bare Read or cat call; writing `Gate:` before `nn read` is a protocol violation (the call itself satisfies the gate)\n\n" +
 			"After the gated action, quote a verbatim excerpt from the result (minimum: one complete clause or value).\n\n" +
 			"**If `skip-search:` appeared above this action:** run `nn new --quick --title \"<finding>\"` where `<finding>` is the excerpt restated as a claim. The empty search result confirms the notebook has no covering note — capture is required.\n\n" +
-			"**If `Selected because:` appeared above this action:** the gate found a relevant note. Capture only if the gated action produced a finding not already in that note. To confirm, quote a sentence from the `nn show` result and write `not in note: <claim>` naming what this finding adds that the quoted sentence does not contain. Then run `nn new --quick --title \"<finding>\"`. If the finding is already represented in that note, write `represented by: <quoted note title>` — no capture needed.\n\n" +
+			"**If `Selected because:` appeared above this action:** the gate found a relevant note. Quote a sentence from the `nn show` result. Then:\n" +
+			"- If the finding adds a claim absent from that sentence: write `not in note: <claim>`, then run `nn update <id> --append \"<claim>\" --since <modified>` using the `<id>` and `modified:` value from the `nn show` result.\n" +
+			"- If the finding is already represented: write `represented by: <quoted note title>` — no action needed.\n\n" +
 			"**If the quoted result is an existing draft note:** promote it — `nn update <id> --status reviewed` — re-discovery is the usefulness signal.\n",
 	},
 	{
