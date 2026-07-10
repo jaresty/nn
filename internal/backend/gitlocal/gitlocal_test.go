@@ -183,3 +183,43 @@ func TestUpdateDeletesOldFileOnRename(t *testing.T) {
 		t.Errorf("new file %q not found after rename: %v", newFilename, err)
 	}
 }
+
+// TestListSkipsDeletedFile confirms that List tolerates a file that disappears
+// after ReadDir but before ReadFile (TOCTOU race). We simulate this by writing a
+// valid .md file directly to the notebook directory and then removing it before
+// calling List — so ReadDir would have seen it in a real race window but ReadFile
+// returns ENOENT. We use a symlink trick: create the file, create a symlink to it
+// with the .md name that ReadDir will enumerate, delete the real file so the
+// symlink is dangling, then call List. ReadDir returns the symlink name; ReadFile
+// on a dangling symlink returns ENOENT on Linux/macOS.
+func TestListSkipsDeletedFile(t *testing.T) {
+	b, dir := newBackend(t)
+
+	// Write a real note so List has something to return.
+	n := newTestNote(t)
+	if err := b.Write(n); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	// Create a dangling symlink whose name looks like a valid note file.
+	// ReadDir enumerates it; os.ReadFile on a dangling symlink → ENOENT.
+	target := filepath.Join(dir, "20990101000000-9999-ghost-target.md")
+	link := filepath.Join(dir, "20990101000000-9999-ghost.md")
+	if err := os.WriteFile(target, []byte("---\nid: 20990101000000-9999\ntitle: ghost\n---\n"), 0o644); err != nil {
+		t.Fatalf("create target: %v", err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatalf("symlink: %v", err)
+	}
+	if err := os.Remove(target); err != nil {
+		t.Fatalf("remove target: %v", err)
+	}
+
+	notes, err := b.List()
+	if err != nil {
+		t.Fatalf("List returned error on dangling symlink (simulated TOCTOU): %v", err)
+	}
+	if len(notes) != 1 || notes[0].ID != n.ID {
+		t.Errorf("expected exactly note %s, got %d notes", n.ID, len(notes))
+	}
+}

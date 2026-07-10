@@ -106,6 +106,9 @@ func (b *Backend) List() ([]*note.Note, error) {
 			continue
 		}
 		data, err := os.ReadFile(filepath.Join(b.dir, e.Name()))
+		if os.IsNotExist(err) {
+			continue
+		}
 		if err != nil {
 			return nil, fmt.Errorf("gitlocal.List: read %s: %w", e.Name(), err)
 		}
