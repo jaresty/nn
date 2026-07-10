@@ -75,6 +75,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"Valid --status: draft|reviewed|permanent\n" +
 			"--since is required: read 'modified:' from nn show output; update is rejected if the note was changed after that timestamp\n\n" +
 			"**nn delete** `<id> [--confirm]` — delete a note (warns if linked-to by others); `--from-stdin` reads IDs line-by-line from stdin\n\n" +
+			"**nn drain** — force-drain the commit queue, committing any pending git operations; `--status` prints queue depth and lock holder pid without draining\n\n" +
 			"**nn remind** `\"content\" [--for N] [--expires YYYY-MM-DD]` — creates observation tagged 'reminder', permanent, expires today+1d by default; surfaces in nn show --global\n" +
 			"**nn remind --find FRAGMENT** — search reminder titles by substring; prints matching ID; error if ambiguous (multiple matches) or zero matches\n" +
 			"**nn remind \"new body\" --update ID** — replace body of existing reminder in place; preserves expiry; no new note created\n\n" +
