@@ -35,11 +35,13 @@ func TestInstallSkillsCopies(t *testing.T) {
 		t.Fatalf("nn install-skills: %v", err)
 	}
 
-	for _, skill := range []string{"nn-workflow", "nn-guide"} {
-		skillPath := filepath.Join(destDir, skill, "SKILL.md")
-		if _, err := os.Stat(skillPath); err != nil {
-			t.Errorf("skill %s not installed at %s: %v", skill, skillPath, err)
-		}
+	stubPath := filepath.Join(destDir, "nn", "SKILL.md")
+	data, err := os.ReadFile(stubPath)
+	if err != nil {
+		t.Fatalf("stub not created at %s: %v", stubPath, err)
+	}
+	if !strings.Contains(string(data), "nn skills get") {
+		t.Errorf("stub at %s does not instruct Claude to call 'nn skills get': %q", stubPath, string(data))
 	}
 }
 
@@ -78,44 +80,24 @@ func TestInstallSkillsForPi(t *testing.T) {
 	}
 }
 
-// TestInstallSkillsMatchInstalled asserts that each embedded skill's SKILL.md
-// matches the installed version at ~/.claude/skills/<skill>/SKILL.md.
-// Skips individual skills that are not yet installed; skips entirely if HOME is not set.
+// TestInstallSkillsMatchInstalled asserts that the installed nn stub at
+// ~/.claude/skills/nn/SKILL.md instructs Claude to call 'nn skills get'.
+// Skips if the stub is not installed.
 func TestInstallSkillsMatchInstalled(t *testing.T) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Skip("no HOME directory available")
 	}
-	installedBase := filepath.Join(home, ".claude", "skills")
-
-	entries, err := nnSkills.FS.ReadDir(".")
-	if err != nil {
-		t.Fatalf("read embedded skills: %v", err)
+	stubPath := filepath.Join(home, ".claude", "skills", "nn", "SKILL.md")
+	data, err := os.ReadFile(stubPath)
+	if os.IsNotExist(err) {
+		t.Skip("nn stub not installed at " + stubPath)
 	}
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		installedPath := filepath.Join(installedBase, name, "SKILL.md")
-		installedData, err := os.ReadFile(installedPath)
-		if os.IsNotExist(err) {
-			t.Logf("skill %s: not installed, skipping", name)
-			continue
-		}
-		if err != nil {
-			t.Errorf("skill %s: read installed: %v", name, err)
-			continue
-		}
-		embeddedData, err := nnSkills.FS.ReadFile(filepath.Join(name, "SKILL.md"))
-		if err != nil {
-			t.Errorf("skill %s: read embedded: %v", name, err)
-			continue
-		}
-		if string(embeddedData) != string(installedData) {
-			t.Errorf("skill %s: embedded SKILL.md does not match installed at %s\n--- embedded ---\n%s\n--- installed ---\n%s",
-				name, installedPath, embeddedData, installedData)
-		}
+	if err != nil {
+		t.Fatalf("read installed stub: %v", err)
+	}
+	if !strings.Contains(string(data), "nn skills get") {
+		t.Errorf("installed stub at %s does not instruct Claude to call 'nn skills get': %q", stubPath, string(data))
 	}
 }
 
@@ -180,15 +162,13 @@ func TestInstallMetaCmdCopiesSkills(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn install --dest: %v", err)
 	}
-	for _, skill := range []string{
-		"nn-workflow", "nn-guide",
-		"nn-capture-discipline", "nn-link-suggester", "nn-refine",
-		"nn-session-debrief", "nn-refine-workflow",
-	} {
-		skillPath := filepath.Join(destDir, skill, "SKILL.md")
-		if _, err := os.Stat(skillPath); err != nil {
-			t.Errorf("skill %s not installed at %s: %v", skill, skillPath, err)
-		}
+	stubPath := filepath.Join(destDir, "nn", "SKILL.md")
+	data, err := os.ReadFile(stubPath)
+	if err != nil {
+		t.Fatalf("stub not created at %s: %v", stubPath, err)
+	}
+	if !strings.Contains(string(data), "nn skills get") {
+		t.Errorf("stub at %s does not instruct Claude to call 'nn skills get': %q", stubPath, string(data))
 	}
 }
 
@@ -210,8 +190,12 @@ func TestInstallForPiCopiesExtensionsAndSkills(t *testing.T) {
 		t.Fatalf("Pi extension not installed at %s: %v", extensionPath, err)
 	}
 
-	skillPath := filepath.Join(home, ".pi", "agent", "skills", "nn-guide", "SKILL.md")
-	if _, err := os.Stat(skillPath); err != nil {
-		t.Fatalf("Pi skill not installed at %s: %v", skillPath, err)
+	stubPath := filepath.Join(home, ".pi", "agent", "skills", "nn", "SKILL.md")
+	data, err := os.ReadFile(stubPath)
+	if err != nil {
+		t.Fatalf("Pi stub not installed at %s: %v", stubPath, err)
+	}
+	if !strings.Contains(string(data), "nn skills get") {
+		t.Errorf("Pi stub does not instruct Claude to call 'nn skills get': %q", string(data))
 	}
 }

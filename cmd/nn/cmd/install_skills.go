@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -104,42 +103,43 @@ Use --dest to specify a custom destination directory.`,
 	return cmd
 }
 
-func installSkillsToDest(dest string) error {
-	entries, err := nnSkills.FS.ReadDir(".")
-	if err != nil {
-		return fmt.Errorf("read embedded skills: %w", err)
-	}
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		destDir := filepath.Join(dest, name)
-		if err := copySkill(name, destDir); err != nil {
-			return fmt.Errorf("copy %s: %w", name, err)
-		}
-	}
-	return nil
+const nnSkillStub = `---
+name: nn
+description: nn Zettelkasten CLI — capture, link, review, and maintain notes as an LLM agent.
+allowed-tools: Bash(nn:*)
+---
+
+# nn
+
+nn is a Zettelkasten CLI designed for LLM agents. Load the skill you need:
+
+` + "```bash" + `
+nn skills list                       # list available skills with descriptions
+nn skills get nn-workflow            # multi-step capture/link/review workflow
+nn skills get nn-guide               # complete nn command reference
+nn skills get nn-capture-discipline  # gated capture discipline protocol
+nn skills get nn-session-debrief     # end-of-session review and consolidation
+nn skills get nn-link-suggester      # suggest links between notes
+nn skills get nn-refine              # refine and improve notes
+nn skills get nn-refine-workflow     # multi-step refine workflow
+` + "```" + `
+`
+
+var deprecatedSkillDirs = []string{
+	"nn-workflow", "nn-guide", "nn-capture-discipline",
+	"nn-link-suggester", "nn-refine", "nn-refine-workflow", "nn-session-debrief",
 }
 
-// copySkill copies the embedded skill directory to destDir.
-func copySkill(name, destDir string) error {
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
-		return err
+func installSkillsToDest(dest string) error {
+	for _, name := range deprecatedSkillDirs {
+		path := filepath.Join(dest, name)
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			_ = os.RemoveAll(path)
+		}
 	}
-	return fs.WalkDir(nnSkills.FS, name, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, _ := filepath.Rel(name, path)
-		dst := filepath.Join(destDir, rel)
-		if d.IsDir() {
-			return os.MkdirAll(dst, 0o755)
-		}
-		data, err := nnSkills.FS.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(dst, data, 0o644)
-	})
+	stubDir := filepath.Join(dest, "nn")
+	if err := os.MkdirAll(stubDir, 0o755); err != nil {
+		return fmt.Errorf("create stub dir: %w", err)
+	}
+	return os.WriteFile(filepath.Join(stubDir, "SKILL.md"), []byte(nnSkillStub), 0o644)
 }
