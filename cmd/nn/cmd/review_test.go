@@ -232,3 +232,56 @@ func TestReviewAgingNotesSection(t *testing.T) {
 		t.Errorf("want stale note %s in review output", stale.ID)
 	}
 }
+
+// Assertion: TestRequiredActionsHasFixCommands — each Required Actions item includes nn commands to fix it.
+func TestRequiredActionsHasFixCommands(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	// Create an orphan note (no links).
+	orphan := newTestNoteForCLI(note.GenerateID(), "OrphanNote", note.TypeConcept)
+	writeNoteFile(t, nbDir, orphan)
+
+	// Create a dead-end: has outbound link but no inbound.
+	target := newTestNoteForCLI(note.GenerateID(), "Target", note.TypeConcept)
+	deadEnd := newTestNoteForCLI(note.GenerateID(), "DeadEnd", note.TypeConcept)
+	deadEnd.Links = []note.Link{{TargetID: target.ID, Type: "extends", Annotation: "extends target"}}
+	writeNoteFile(t, nbDir, target)
+	writeNoteFile(t, nbDir, deadEnd)
+
+	// Create a long note.
+	longNote := newTestNoteForCLI(note.GenerateID(), "LongNote", note.TypeConcept)
+	longNote.Body = strings.Repeat("x", atomicityThreshold+1)
+	writeNoteFile(t, nbDir, longNote)
+
+	// Create an expired note.
+	expiredTime := time.Now().UTC().Add(-24 * time.Hour)
+	expiredNote := newTestNoteForCLI(note.GenerateID(), "ExpiredNote", note.TypeConcept)
+	expiredNote.Expires = &expiredTime
+	writeNoteFile(t, nbDir, expiredNote)
+
+	// Create a friction candidate.
+	frictionNote := newTestNoteForCLI(note.GenerateID(), "FrictionNote", note.TypeObservation)
+	frictionNote.Tags = []string{"friction-candidate"}
+	writeNoteFile(t, nbDir, frictionNote)
+
+	out, err := execute("review")
+	if err != nil {
+		t.Fatalf("review: %v", err)
+	}
+
+	cases := []struct {
+		label   string
+		wantCmd string
+	}{
+		{"orphan fix", "nn suggest-links"},
+		{"dead-end fix", "nn link"},
+		{"long note fix", "nn show"},
+		{"expired note fix", "nn delete"},
+		{"friction candidate fix", "nn new --type protocol"},
+	}
+	for _, c := range cases {
+		if !strings.Contains(out, c.wantCmd) {
+			t.Errorf("[%s] expected %q in Required Actions output; got:\n%s", c.label, c.wantCmd, out)
+		}
+	}
+}

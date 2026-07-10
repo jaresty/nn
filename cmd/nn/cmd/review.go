@@ -490,32 +490,32 @@ interpretation and recommendations.`,
 			fmt.Fprintf(w, "## Required Actions\n\n")
 			fmt.Fprintf(w, "Work through each item below before closing this session.\n\n")
 			if len(orphans) > 0 {
-				fmt.Fprintf(w, "- [ ] Link or delete %d orphan notes (run: nn list --orphan)\n", len(orphans))
+				fmt.Fprintf(w, "- [ ] Link or delete %d orphan notes (run: nn list --orphan; for each: nn suggest-links <id> then nn link, or nn delete <id> --confirm)\n", len(orphans))
 			}
 			if len(deadEnds) > 0 {
-				fmt.Fprintf(w, "- [ ] Add backlinks to %d dead-end notes (run: nn list --orphan to find candidates)\n", len(deadEnds))
+				fmt.Fprintf(w, "- [ ] Add backlinks to %d dead-end notes (run: nn list --search \"<topic>\" to find candidates; then nn link <candidate-id> <dead-end-id> --type <type> --annotation \"...\")\n", len(deadEnds))
 			}
 			if len(drafts) > 0 {
-				fmt.Fprintf(w, "- [ ] Promote or prune %d draft notes\n", len(drafts))
+				fmt.Fprintf(w, "- [ ] Promote or prune %d draft notes (run: nn list --status draft; for each: nn update <id> --status reviewed --since <modified>, or nn delete <id> --confirm)\n", len(drafts))
 			}
 			if len(longNotes) > 0 {
-				fmt.Fprintf(w, "- [ ] Split or rewrite %d long notes:", len(longNotes))
+				fmt.Fprintf(w, "- [ ] Split or rewrite %d long notes (for each: nn show <id>, then nn new --title \"<claim>\" --type <type> --content \"<body>\" --no-edit && nn link <new-id> <id> --type refines --annotation \"split from\"):", len(longNotes))
 				for _, n := range longNotes {
 					fmt.Fprintf(w, " %s", n.ID)
 				}
 				fmt.Fprintf(w, "\n")
 			}
 			if len(agingNotes) > 0 {
-				fmt.Fprintf(w, "- [ ] Review %d aging notes for accuracy (run: nn list --since <3-days-ago>)\n", len(agingNotes))
+				fmt.Fprintf(w, "- [ ] Review %d aging notes for accuracy (run: nn list --since <3-days-ago>; for each: nn update <id> --content \"<revised>\" --since <modified> --no-edit, or nn update <id> --status permanent --since <modified>)\n", len(agingNotes))
 			}
 			if len(expiredNotes) > 0 {
-				fmt.Fprintf(w, "- [ ] Delete or update %d expired notes\n", len(expiredNotes))
+				fmt.Fprintf(w, "- [ ] Delete or update %d expired notes (run: nn list --expired; for each: nn delete <id> --confirm, or nn update <id> --expires <new-date> --since <modified>)\n", len(expiredNotes))
 			}
 			if len(pendingConditions) > 0 {
-				fmt.Fprintf(w, "- [ ] Resolve %d conditional-friction notes (run: nn list --has-expires)\n", len(pendingConditions))
+				fmt.Fprintf(w, "- [ ] Resolve %d conditional-expiry notes (run: nn list --has-expires; for each: if condition met — nn delete <id> --confirm; if not yet — nn update <id> --expires-when \"<revised condition>\" --since <modified>)\n", len(pendingConditions))
 			}
 			if len(frictionCandidates) > 0 {
-				fmt.Fprintf(w, "- [ ] Promote or discard %d friction candidates\n", len(frictionCandidates))
+				fmt.Fprintf(w, "- [ ] Promote or discard %d friction candidates (run: nn list --search \"friction-candidate\"; for each: nn new --type protocol --title \"<name>\" --no-edit, or nn update <id> --tags reviewed --since <modified>)\n", len(frictionCandidates))
 			}
 			if len(orphans) == 0 && len(deadEnds) == 0 && len(drafts) == 0 && len(longNotes) == 0 &&
 				len(agingNotes) == 0 && len(expiredNotes) == 0 && len(pendingConditions) == 0 && len(frictionCandidates) == 0 {
