@@ -63,20 +63,20 @@ func newUnlinkCmd(state *rootState) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("unlink: %w", err)
 			}
-			toNote, err := resolveNote(state, args[1])
-			if err != nil {
-				return fmt.Errorf("unlink: %w", err)
+			toID := args[1]
+			if toNote, err := resolveNote(state, args[1]); err == nil {
+				toID = toNote.ID
 			}
 			if linkType != "" {
-				if err := state.backend.RemoveLinkByType(fromNote.ID, toNote.ID, linkType); err != nil {
+				if err := state.backend.RemoveLinkByType(fromNote.ID, toID, linkType); err != nil {
 					return fmt.Errorf("unlink: %w", err)
 				}
-				fmt.Fprintf(outWriter(cmd), "unlinked %s → %s [%s]\n", fromNote.ID, toNote.ID, linkType)
+				fmt.Fprintf(outWriter(cmd), "unlinked %s → %s [%s]\n", fromNote.ID, toID, linkType)
 			} else {
-				if err := state.backend.RemoveLink(fromNote.ID, toNote.ID); err != nil {
+				if err := state.backend.RemoveLink(fromNote.ID, toID); err != nil {
 					return fmt.Errorf("unlink: %w", err)
 				}
-				fmt.Fprintf(outWriter(cmd), "unlinked %s → %s\n", fromNote.ID, toNote.ID)
+				fmt.Fprintf(outWriter(cmd), "unlinked %s → %s\n", fromNote.ID, toID)
 			}
 			return nil
 		},

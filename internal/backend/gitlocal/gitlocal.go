@@ -114,6 +114,10 @@ func (b *Backend) Delete(id string) error {
 	if err := os.Remove(path); err != nil {
 		return fmt.Errorf("gitlocal.Delete: remove: %w", err)
 	}
+	// Cascade: remove edges pointing to the deleted note from all other notes.
+	if err := b.removeInboundEdges(n.ID); err != nil {
+		return fmt.Errorf("gitlocal.Delete: cascade: %w", err)
+	}
 	msg := fmt.Sprintf("note: delete %s — %s", n.ID, n.Title)
 	return b.commitDelete(path, msg)
 }
@@ -256,6 +260,39 @@ func (b *Backend) AddLinks(fromID string, targets []backend.LinkTarget) error {
 	}
 	msg := fmt.Sprintf("note: bulk-link %s → %d notes", fromID, len(targets))
 	return b.commit(path, msg)
+}
+
+// removeInboundEdges removes all links targeting deletedID from every other note, committing each change.
+func (b *Backend) removeInboundEdges(deletedID string) error {
+	notes, err := b.List()
+	if err != nil {
+		return err
+	}
+	for _, n := range notes {
+		var keep []note.Link
+		for _, lnk := range n.Links {
+			if lnk.TargetID != deletedID {
+				keep = append(keep, lnk)
+			}
+		}
+		if len(keep) == len(n.Links) {
+			continue
+		}
+		n.Links = keep
+		data, err := n.Marshal()
+		if err != nil {
+			return fmt.Errorf("removeInboundEdges: marshal %s: %w", n.ID, err)
+		}
+		p := filepath.Join(b.dir, n.Filename())
+		if err := os.WriteFile(p, data, 0o644); err != nil {
+			return fmt.Errorf("removeInboundEdges: write %s: %w", n.ID, err)
+		}
+		msg := fmt.Sprintf("note: unlink %s → %s (cascade delete)", n.ID, deletedID)
+		if err := b.commit(p, msg); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RemoveLink removes the link from fromID to toID and commits.

@@ -9,6 +9,21 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+// Assertion: TestReviewRequiredActions — review output ends with a Required Actions section.
+func TestReviewRequiredActions(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "Orphan", note.TypeConcept)
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("review")
+	if err != nil {
+		t.Fatalf("review: %v", err)
+	}
+	if !strings.Contains(out, "## Required Actions") {
+		t.Errorf("expected '## Required Actions' section in review output; got:\n%s", out)
+	}
+}
+
 // Assertion: TestReviewCommandExists — command is registered and runs without error.
 func TestReviewCommandExists(t *testing.T) {
 	_, execute := setupNotebook(t)

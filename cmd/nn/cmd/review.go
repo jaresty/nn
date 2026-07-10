@@ -486,6 +486,43 @@ interpretation and recommendations.`,
 			}
 			fmt.Fprintf(w, "\n")
 
+			// Required Actions — imperative checklist for the LLM to work through.
+			fmt.Fprintf(w, "## Required Actions\n\n")
+			fmt.Fprintf(w, "Work through each item below before closing this session.\n\n")
+			if len(orphans) > 0 {
+				fmt.Fprintf(w, "- [ ] Link or delete %d orphan notes (run: nn list --orphan)\n", len(orphans))
+			}
+			if len(deadEnds) > 0 {
+				fmt.Fprintf(w, "- [ ] Add backlinks to %d dead-end notes (run: nn list --orphan to find candidates)\n", len(deadEnds))
+			}
+			if len(drafts) > 0 {
+				fmt.Fprintf(w, "- [ ] Promote or prune %d draft notes\n", len(drafts))
+			}
+			if len(longNotes) > 0 {
+				fmt.Fprintf(w, "- [ ] Split or rewrite %d long notes:", len(longNotes))
+				for _, n := range longNotes {
+					fmt.Fprintf(w, " %s", n.ID)
+				}
+				fmt.Fprintf(w, "\n")
+			}
+			if len(agingNotes) > 0 {
+				fmt.Fprintf(w, "- [ ] Review %d aging notes for accuracy (run: nn list --since <3-days-ago>)\n", len(agingNotes))
+			}
+			if len(expiredNotes) > 0 {
+				fmt.Fprintf(w, "- [ ] Delete or update %d expired notes\n", len(expiredNotes))
+			}
+			if len(pendingConditions) > 0 {
+				fmt.Fprintf(w, "- [ ] Resolve %d conditional-friction notes (run: nn list --has-expires)\n", len(pendingConditions))
+			}
+			if len(frictionCandidates) > 0 {
+				fmt.Fprintf(w, "- [ ] Promote or discard %d friction candidates\n", len(frictionCandidates))
+			}
+			if len(orphans) == 0 && len(deadEnds) == 0 && len(drafts) == 0 && len(longNotes) == 0 &&
+				len(agingNotes) == 0 && len(expiredNotes) == 0 && len(pendingConditions) == 0 && len(frictionCandidates) == 0 {
+				fmt.Fprintf(w, "No actions required — notebook is healthy.\n")
+			}
+			fmt.Fprintf(w, "\n")
+
 			return nil
 		},
 	}

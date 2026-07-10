@@ -55,6 +55,21 @@ func TestLinkRequiresType(t *testing.T) {
 	}
 }
 
+// Assertion: TestUnlinkMissingTarget — unlink succeeds when target note file is absent (raw ID cleanup).
+func TestUnlinkMissingTarget(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	src := newTestNoteForCLI(note.GenerateID(), "Source", note.TypeConcept)
+	deletedID := note.GenerateID()
+	src.Links = []note.Link{{TargetID: deletedID, Annotation: "was linked"}}
+	writeNoteFile(t, nbDir, src)
+	// Target note is never written — simulates post-delete dangling edge.
+
+	_, err := execute("unlink", src.ID, deletedID)
+	if err != nil {
+		t.Fatalf("nn unlink with missing target: want success, got %v", err)
+	}
+}
+
 func TestUnlinkRemovesLink(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	src := newTestNoteForCLI(note.GenerateID(), "Source", note.TypeConcept)

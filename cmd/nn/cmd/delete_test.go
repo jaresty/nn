@@ -62,6 +62,26 @@ func TestDeleteFromStdin(t *testing.T) {
 	}
 }
 
+// Assertion: TestDeleteRemovesInboundEdges — deleting a note removes edges pointing to it from other notes.
+func TestDeleteRemovesInboundEdges(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	target := newTestNoteForCLI(note.GenerateID(), "Target", note.TypeConcept)
+	linker := newTestNoteForCLI(note.GenerateID(), "Linker", note.TypeArgument)
+	linker.Links = []note.Link{{TargetID: target.ID, Annotation: "depends on", Type: "supports"}}
+	writeNoteFile(t, nbDir, target)
+	writeNoteFile(t, nbDir, linker)
+
+	_, err := execute("delete", target.ID, "--confirm")
+	if err != nil {
+		t.Fatalf("nn delete: %v", err)
+	}
+
+	out, _ := execute("show", linker.ID)
+	if strings.Contains(out, target.ID) {
+		t.Errorf("linker note still contains deleted target ID %s after delete:\n%s", target.ID, out)
+	}
+}
+
 func TestDeleteLinkedWarns(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	target := newTestNoteForCLI(note.GenerateID(), "Target", note.TypeConcept)
