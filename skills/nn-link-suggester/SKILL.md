@@ -1,6 +1,6 @@
 ---
 name: nn-link-suggester
-description: Use when after nn new or nn update to discover notes that should be linked to the modified note. Invoke with /nn-link-suggester.
+description: Use when after nn new or nn update to discover notes that should be linked to the modified note. Load with `nn skills get nn-link-suggester`.
 when_to_use: After nn new or nn update, to discover notes that should be linked to the newly created or modified note. Invoke with /nn-link-suggester.
 ---
 

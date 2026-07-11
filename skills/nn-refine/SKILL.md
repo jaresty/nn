@@ -1,6 +1,6 @@
 ---
 name: nn-refine
-description: Use when cleaning up a specific note or before promoting it — runs atomicity, link, and title checks. Invoke with /nn-refine.
+description: Use when cleaning up a specific note or before promoting it — runs atomicity, link, and title checks. Load with `nn skills get nn-refine`.
 when_to_use: After nn show <id> when you want to clean up a specific note, or before considering a note for promotion. Invoke with /nn-refine.
 ---
 

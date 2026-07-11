@@ -1,6 +1,6 @@
 ---
 name: nn-refine-workflow
-description: Use when running a hygiene pass across multiple notes at once — drafts, orphans, long notes, or a topic cluster. Invoke with /nn-refine-workflow.
+description: Use when running a hygiene pass across multiple notes at once — drafts, orphans, long notes, or a topic cluster. Load with `nn skills get nn-refine-workflow`.
 when_to_use: When you want to run a hygiene pass across multiple notes at once — drafts, orphans, long notes, or a topic cluster. Invoke with /nn-refine-workflow.
 ---
 

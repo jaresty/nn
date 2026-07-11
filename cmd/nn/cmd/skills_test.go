@@ -130,6 +130,10 @@ func TestSkillDescriptionsLeadWithUseWhen(t *testing.T) {
 	if !strings.Contains(out, "Use when") {
 		t.Errorf("nn skills list output does not contain 'Use when' routing triggers: %q", out)
 	}
+	// descriptions must not tell Claude to use slash commands — those no longer exist as installed skills
+	if strings.Contains(out, "Invoke with /nn-") {
+		t.Errorf("nn skills list output contains stale slash-command invocation 'Invoke with /nn-': %q", out)
+	}
 }
 
 func TestStubGatesOnSkillsList(t *testing.T) {

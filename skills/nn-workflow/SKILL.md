@@ -1,6 +1,6 @@
 ---
 name: nn-workflow
-description: Use when asked to organise, capture, or link notes in the Zettelkasten. Invoke with /nn-workflow.
+description: Use when asked to organise, capture, or link notes in the Zettelkasten. Load with `nn skills get nn-workflow`.
 when_to_use: When asked to organise, capture, or link notes in the user's Zettelkasten. Invoke with /nn-workflow.
 ---
 

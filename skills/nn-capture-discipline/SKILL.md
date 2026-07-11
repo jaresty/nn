@@ -1,6 +1,6 @@
 ---
 name: nn-capture-discipline
-description: Use when about to take any action that introduces new information not already in the conversation. Invoke with /nn-capture-discipline.
+description: Use when about to take any action that introduces new information not already in the conversation. Load with `nn skills get nn-capture-discipline`.
 when_to_use: Before any action that introduces new information not already present in the conversation. Invoke with /nn-capture-discipline.
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: nn-guide
-description: Use when you need to look up an nn command, flag, or usage pattern. Invoke with /nn-guide.
+description: Use when you need to look up an nn command, flag, or usage pattern. Load with `nn skills get nn-guide`.
 when_to_use: When you need to look up an nn command, flag, or usage pattern. Invoke with /nn-guide.
 ---
 

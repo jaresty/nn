@@ -1,6 +1,6 @@
 ---
 name: nn-session-debrief
-description: Use when ending a session to consolidate captures, assess promotion eligibility, and update the daily page. For weekly review use --weekly; for daily page only use --daily; for lightweight mid-session capture use --partial. Invoke with /nn-session-debrief.
+description: Use when ending a session to consolidate captures, assess promotion eligibility, and update the daily page. For weekly review use --weekly; for daily page only use --daily; for lightweight mid-session capture use --partial. Load with `nn skills get nn-session-debrief`.
 when_to_use: At the end of a working session to consolidate captures, assess promotion eligibility, and record what was learned. Invoke with /nn-session-debrief. For a weekly review pass (wider time window, stale draft sweep, promotion focus), invoke with /nn-session-debrief --weekly. To update only the daily page mid-session or on demand, invoke with /nn-session-debrief --daily. For a lightweight mid-session capture pass without relay/daily updates, invoke with /nn-session-debrief --partial.
 ---
 
