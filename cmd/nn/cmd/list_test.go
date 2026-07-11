@@ -311,6 +311,113 @@ func TestListSearchRelevanceOrder(t *testing.T) {
 	}
 }
 
+func TestListSearchScoresDescending(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	now := time.Now().UTC().Truncate(time.Second)
+
+	// Create notes with different backlink counts by linking — note with more
+	// backlinks gets a centrality boost, so raw BM25 order ≠ normalized order.
+	// We need the displayed score to match the sort order.
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha Zygote", note.TypeConcept)
+	a.Body = "zygote zygote zygote zygote zygote zygote zygote"
+	a.Created = now.Add(-2 * time.Hour)
+	a.Modified = now.Add(-2 * time.Hour)
+
+	b := newTestNoteForCLI(note.GenerateID(), "Beta Zygote", note.TypeConcept)
+	b.Body = "zygote zygote zygote"
+	b.Created = now.Add(-time.Hour)
+	b.Modified = now.Add(-time.Hour)
+
+	// c has lowest BM25 but many inbound links — centrality boost may push its
+	// normalized score above b; sort must use normalized score to stay consistent
+	// with what is displayed.
+	c := newTestNoteForCLI(note.GenerateID(), "Gamma Zygote", note.TypeConcept)
+	c.Body = "zygote"
+	c.Created = now
+	c.Modified = now
+
+	// Give c many inbound links by creating linker notes that point to it.
+	for range 10 {
+		linker := newTestNoteForCLI(note.GenerateID(), "Linker", note.TypeConcept)
+		linker.Links = []note.Link{{TargetID: c.ID, Type: "extends"}}
+		writeNoteFile(t, nbDir, linker)
+	}
+
+	writeNoteFile(t, nbDir, a)
+	writeNoteFile(t, nbDir, b)
+	writeNoteFile(t, nbDir, c)
+
+	out, err := execute("list", "--search", "zygote", "--json", "--fields", "id,score")
+	if err != nil {
+		t.Fatalf("nn list --search zygote --json: %v", err)
+	}
+
+	var results []struct {
+		Score float64 `json:"score"`
+	}
+	mustJSON(t, out, &results)
+
+	if len(results) < 2 {
+		t.Fatalf("expected at least 2 results, got %d", len(results))
+	}
+	for i := 1; i < len(results); i++ {
+		if results[i].Score > results[i-1].Score {
+			t.Errorf("scores not descending at index %d: score[%d]=%f > score[%d]=%f\nfull output: %s",
+				i, i, results[i].Score, i-1, results[i-1].Score, out)
+		}
+	}
+}
+
+func TestListSearchDefaultLimit(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	now := time.Now().UTC().Truncate(time.Second)
+
+	// Create 25 notes all matching "zygote"
+	for i := range 25 {
+		n := newTestNoteForCLI(note.GenerateID(), "Note", note.TypeConcept)
+		n.Body = "zygote"
+		n.Created = now.Add(time.Duration(-i) * time.Minute)
+		n.Modified = n.Created
+		writeNoteFile(t, nbDir, n)
+	}
+
+	out, err := execute("list", "--search", "zygote", "--json", "--fields", "id")
+	if err != nil {
+		t.Fatalf("nn list --search zygote --json: %v", err)
+	}
+
+	var results []struct {
+		ID string `json:"id"`
+	}
+	mustJSON(t, out, &results)
+
+	if len(results) > 20 {
+		t.Errorf("default search limit: expected ≤20 results, got %d", len(results))
+	}
+}
+
+func TestListSearchTruncationNotice(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	now := time.Now().UTC().Truncate(time.Second)
+
+	for i := range 25 {
+		n := newTestNoteForCLI(note.GenerateID(), "Note", note.TypeConcept)
+		n.Body = "zygote"
+		n.Created = now.Add(time.Duration(-i) * time.Minute)
+		n.Modified = n.Created
+		writeNoteFile(t, nbDir, n)
+	}
+
+	out, err := execute("list", "--search", "zygote")
+	if err != nil {
+		t.Fatalf("nn list --search zygote: %v", err)
+	}
+
+	if !strings.Contains(out, "more") || !strings.Contains(out, "--limit 0") {
+		t.Errorf("expected truncation notice in plain-text output; got:\n%s", out)
+	}
+}
+
 func TestListJSONExcerptTruncation(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 

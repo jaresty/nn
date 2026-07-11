@@ -191,6 +191,7 @@ func newListCmd(state *rootState) *cobra.Command {
 			}
 
 			var searchScores map[string]float64
+			var normalizedSearchScores map[string]float64
 			if search != "" {
 				searchScores = note.BM25Scores(filtered, search, allInbound)
 				if boostRecent {
@@ -201,8 +202,20 @@ func newListCmd(state *rootState) *cobra.Command {
 						searchScores[n.ID] *= 1.0 + 0.5*math.Exp(-ageDays/30.0)
 					}
 				}
+				maxScore := 0.0
+				for _, s := range searchScores {
+					if s > maxScore {
+						maxScore = s
+					}
+				}
+				normalizedSearchScores = make(map[string]float64, len(filtered))
+				for _, n := range filtered {
+					if maxScore > 0 {
+						normalizedSearchScores[n.ID] = searchScores[n.ID] / maxScore * centralityMultiplier(len(allInbound[n.ID]))
+					}
+				}
 				sort.SliceStable(filtered, func(i, j int) bool {
-					return searchScores[filtered[i].ID] > searchScores[filtered[j].ID]
+					return normalizedSearchScores[filtered[i].ID] > normalizedSearchScores[filtered[j].ID]
 				})
 			}
 
@@ -224,6 +237,9 @@ func newListCmd(state *rootState) *cobra.Command {
 				}
 			}
 
+			if search != "" && limit == 0 {
+				limit = 20
+			}
 			totalMatching := len(filtered)
 			if limit > 0 && len(filtered) > limit {
 				filtered = filtered[:limit]
@@ -245,9 +261,9 @@ func newListCmd(state *rootState) *cobra.Command {
 				}
 				if search != "" {
 					if envelope {
-						return printSearchEnvelopeJSON(cmd, filtered, search, searchScores, allInbound, totalMatching)
+						return printSearchEnvelopeJSON(cmd, filtered, search, normalizedSearchScores, allInbound, totalMatching)
 					}
-					if err := printSearchJSON(cmd, filtered, notes, search, searchScores, allInbound, requestedFields, fullOutput); err != nil {
+					if err := printSearchJSON(cmd, filtered, notes, search, normalizedSearchScores, allInbound, requestedFields, fullOutput); err != nil {
 						return err
 					}
 				} else {
@@ -276,6 +292,9 @@ func newListCmd(state *rootState) *cobra.Command {
 						}
 					}
 				}
+			}
+			if search != "" && totalMatching > len(filtered) {
+				fmt.Fprintf(w, "(%d shown, %d more — use --limit 0 to show all)\n", len(filtered), totalMatching-len(filtered))
 			}
 			return nil
 		},
@@ -459,23 +478,13 @@ func buildNeighbors(n *note.Note, allNotes []*note.Note) []neighborJSON {
 }
 
 func printSearchJSON(cmd *cobra.Command, notes []*note.Note, allNotes []*note.Note, query string, scores map[string]float64, inbound map[string][]string, requestedFields []string, fullOutput bool) error {
-	maxScore := 0.0
-	for _, s := range scores {
-		if s > maxScore {
-			maxScore = s
-		}
-	}
 	out := make([]noteSearchJSON, len(notes))
 	for i, n := range notes {
 		tags := n.Tags
 		if tags == nil {
 			tags = []string{}
 		}
-		backlinkCount := len(inbound[n.ID])
-		normalizedScore := 0.0
-		if maxScore > 0 {
-			normalizedScore = scores[n.ID] / maxScore * centralityMultiplier(backlinkCount)
-		}
+		normalizedScore := scores[n.ID]
 		isProtocol := n.Type == note.TypeProtocol
 		if !isProtocol {
 			for _, lnk := range n.Links {
@@ -507,7 +516,7 @@ func printSearchJSON(cmd *cobra.Command, notes []*note.Note, allNotes []*note.No
 			MatchReason:   computeMatchReason(n, query),
 			IsProtocol:    isProtocol,
 			LinkCount:     len(n.Links),
-			BacklinkCount: backlinkCount,
+			BacklinkCount: len(inbound[n.ID]),
 			Neighbors:     neighbors,
 			AppliesWhen:   n.AppliesWhen,
 		}
@@ -531,23 +540,13 @@ type searchEnvelope struct {
 }
 
 func printSearchEnvelopeJSON(cmd *cobra.Command, notes []*note.Note, query string, scores map[string]float64, inbound map[string][]string, totalMatching int) error {
-	maxScore := 0.0
-	for _, s := range scores {
-		if s > maxScore {
-			maxScore = s
-		}
-	}
 	results := make([]noteSearchJSON, len(notes))
 	for i, n := range notes {
 		tags := n.Tags
 		if tags == nil {
 			tags = []string{}
 		}
-		backlinkCount := len(inbound[n.ID])
-		normalizedScore := 0.0
-		if maxScore > 0 {
-			normalizedScore = scores[n.ID] / maxScore * centralityMultiplier(backlinkCount)
-		}
+		normalizedScore := scores[n.ID]
 		isProtocol := n.Type == note.TypeProtocol
 		if !isProtocol {
 			for _, lnk := range n.Links {
@@ -570,7 +569,7 @@ func printSearchEnvelopeJSON(cmd *cobra.Command, notes []*note.Note, query strin
 			MatchReason:   computeMatchReason(n, query),
 			IsProtocol:    isProtocol,
 			LinkCount:     len(n.Links),
-			BacklinkCount: backlinkCount,
+			BacklinkCount: len(inbound[n.ID]),
 		}
 	}
 	env := searchEnvelope{
