@@ -44,6 +44,7 @@ Workflow guidance is embedded in the binary:
 		newNewCmd(state),
 		newShowCmd(state),
 		newReadCmd(state),
+		newGrepCmd(state),
 		newListCmd(state),
 		newSearchCmd(state),
 		newLinkCmd(state),

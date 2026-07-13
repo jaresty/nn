@@ -55,7 +55,8 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"- Any command producing output solely from session state (tests, builds, linters)\n" +
 			"- Live machine-generated output (JSON, log, status) where a resource identifier for that " +
 			"system appears in the conversation above this action\n" +
-			"- `nn read <file>` — use this instead of a bare Read or cat call; writing `Gate:` before `nn read` is a protocol violation (the call itself satisfies the gate)\n\n" +
+			"- `nn read <file>` — use this instead of a bare Read or cat call; writing `Gate:` before `nn read` is a protocol violation (the call itself satisfies the gate)\n" +
+				"- `nn grep <pattern> [path]` — use this instead of a bare grep or find+read to search code; the call itself satisfies the gate\n\n" +
 			"After the gated action, quote a verbatim excerpt from the result (minimum: one complete clause or value).\n\n" +
 			"**If `skip-search:` appeared above this action:** run `nn new --quick --title \"<finding>\"` where `<finding>` is the excerpt restated as a claim. The empty search result confirms the notebook has no covering note — capture is required.\n\n" +
 			"**If `Selected because:` appeared above this action:** the gate found a relevant note. Quote a sentence from the `nn show` result. Then:\n" +
@@ -87,6 +88,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn link** `<from> <to> --type <type> --annotation \"...\"`\n" +
 			"Valid --type: refines|contradicts|source-of|extends|supports|questions|governs\n\n" +
 			"**nn read** `<file> [--lines N-M] [--limit N]` — read file with line numbers; appends `## Related notes` from BM25 search on shown content\n\n" +
+			"**nn grep** `<pattern> [path] [--context N] [--notes-per-match K]` — search files for pattern and annotate each match with related nn notes via BM25 on surrounding context; use instead of bare grep when working in a codebase to surface relevant knowledge alongside code locations\n\n" +
 			"**nn show** `<id> --depth N` — traverse N hops of outgoing links from a note\n\n" +
 			"**nn path** `<id-a> <id-b>` — shortest path between two notes\n\n" +
 			"**nn clusters** — topological clusters via label propagation\n\n" +
