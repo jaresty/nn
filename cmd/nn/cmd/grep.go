@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -21,6 +22,10 @@ func newGrepCmd(state *rootState) *cobra.Command {
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pattern := args[0]
+			re, err := regexp.Compile(pattern)
+			if err != nil {
+				return fmt.Errorf("invalid pattern %q: %w", pattern, err)
+			}
 			searchPath := "."
 			if len(args) == 2 {
 				searchPath = args[1]
@@ -67,7 +72,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 			}
 			var matches []match
 			for idx, fl := range allLines {
-				if !strings.Contains(fl.text, pattern) {
+				if !re.MatchString(fl.text) {
 					continue
 				}
 				// Gather context lines.

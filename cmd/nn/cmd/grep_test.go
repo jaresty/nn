@@ -73,6 +73,47 @@ func TestGrepCmdNoMatch(t *testing.T) {
 	}
 }
 
+// Assertion: TestGrepCmdRegex — nn grep treats pattern as a regular expression.
+func TestGrepCmdRegex(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(f, []byte("func handleAuth() {}\nfunc handleLogin() {}\nfunc helper() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "handle(Auth|Login)", f)
+	if err != nil {
+		t.Fatalf("nn grep regex: %v", err)
+	}
+	if !strings.Contains(out, "handleAuth") {
+		t.Errorf("expected 'handleAuth' in regex output; got:\n%s", out)
+	}
+	if !strings.Contains(out, "handleLogin") {
+		t.Errorf("expected 'handleLogin' in regex output; got:\n%s", out)
+	}
+	if strings.Contains(out, "helper") {
+		t.Errorf("expected 'helper' to be excluded by regex; got:\n%s", out)
+	}
+}
+
+// Assertion: TestGrepCmdInvalidRegex — nn grep returns an error for invalid regex.
+func TestGrepCmdInvalidRegex(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(f, []byte("package main\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := execute("grep", "[invalid", f)
+	if err == nil {
+		t.Error("expected error for invalid regex pattern; got nil")
+	}
+}
+
 // Assertion: TestGrepCmdContextFlag — nn grep --context N includes surrounding lines in BM25 query.
 func TestGrepCmdContextFlag(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
