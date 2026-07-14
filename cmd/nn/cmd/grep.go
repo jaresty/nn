@@ -19,18 +19,18 @@ func newGrepCmd(state *rootState) *cobra.Command {
 	var notesPerMatch int
 
 	cmd := &cobra.Command{
-		Use:   "grep <pattern> [path]",
+		Use:   "grep <pattern> [path...]",
 		Short: "Search files for pattern and annotate matches with related nn notes",
-		Args:  cobra.RangeArgs(1, 2),
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pattern := args[0]
 			re, err := regexp.Compile(pattern)
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q: %w", pattern, err)
 			}
-			searchPath := "."
-			if len(args) == 2 {
-				searchPath = args[1]
+			searchPaths := args[1:]
+			if len(searchPaths) == 0 {
+				searchPaths = []string{"."}
 			}
 
 			// Collect lines from file(s).
@@ -41,20 +41,21 @@ func newGrepCmd(state *rootState) *cobra.Command {
 			}
 			var allLines []fileLine
 
-			info, err := os.Stat(searchPath)
-			if err != nil {
-				return fmt.Errorf("stat %s: %w", searchPath, err)
-			}
-
 			var files []string
-			if info.IsDir() {
-				if err := gitTrackedFiles(searchPath, &files); err != nil {
-					if err := collectFiles(searchPath, &files); err != nil {
-						return err
-					}
+			for _, searchPath := range searchPaths {
+				info, err := os.Stat(searchPath)
+				if err != nil {
+					return fmt.Errorf("stat %s: %w", searchPath, err)
 				}
-			} else {
-				files = []string{searchPath}
+				if info.IsDir() {
+					if err := gitTrackedFiles(searchPath, &files); err != nil {
+						if err := collectFiles(searchPath, &files); err != nil {
+							return err
+						}
+					}
+				} else {
+					files = append(files, searchPath)
+				}
 			}
 
 			for _, f := range files {

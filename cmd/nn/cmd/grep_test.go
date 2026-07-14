@@ -115,6 +115,31 @@ func TestGrepCmdInvalidRegex(t *testing.T) {
 	}
 }
 
+// Assertion: TestGrepCmdMultiplePaths — nn grep accepts multiple path arguments and returns matches from all.
+func TestGrepCmdMultiplePaths(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir1 := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir1, "a.go"), []byte("func targetFunc() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	dir2 := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir2, "b.go"), []byte("func targetFunc() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "targetFunc", dir1, dir2)
+	if err != nil {
+		t.Fatalf("nn grep multi-path: %v", err)
+	}
+	if !strings.Contains(out, filepath.Join(dir1, "a.go")) {
+		t.Errorf("expected match from dir1; got:\n%s", out)
+	}
+	if !strings.Contains(out, filepath.Join(dir2, "b.go")) {
+		t.Errorf("expected match from dir2; got:\n%s", out)
+	}
+}
+
 // Assertion: TestGrepCmdRespectsGitignore — nn grep skips gitignored files when inside a git repo.
 func TestGrepCmdRespectsGitignore(t *testing.T) {
 	_, execute := setupNotebook(t)
