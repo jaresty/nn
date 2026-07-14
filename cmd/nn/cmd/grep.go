@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -46,8 +48,10 @@ func newGrepCmd(state *rootState) *cobra.Command {
 
 			var files []string
 			if info.IsDir() {
-				if err := collectFiles(searchPath, &files); err != nil {
-					return err
+				if err := gitTrackedFiles(searchPath, &files); err != nil {
+					if err := collectFiles(searchPath, &files); err != nil {
+						return err
+					}
 				}
 			} else {
 				files = []string{searchPath}
@@ -151,12 +155,31 @@ func newGrepCmd(state *rootState) *cobra.Command {
 	return cmd
 }
 
+func gitTrackedFiles(dir string, out *[]string) error {
+	cmd := exec.Command("git", "ls-files", "--cached", "--others", "--exclude-standard")
+	cmd.Dir = dir
+	b, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+	for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		*out = append(*out, filepath.Join(dir, line))
+	}
+	return nil
+}
+
 func collectFiles(dir string, out *[]string) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
 	for _, e := range entries {
+		if e.Name() == ".git" {
+			continue
+		}
 		path := dir + "/" + e.Name()
 		if e.IsDir() {
 			if err := collectFiles(path, out); err != nil {
@@ -175,6 +198,21 @@ func readFileLines(path string) ([]string, error) {
 		return nil, err
 	}
 	defer f.Close()
+
+	buf := make([]byte, 512)
+	n, err := f.Read(buf)
+	if err != nil && n == 0 {
+		return nil, err
+	}
+	for _, b := range buf[:n] {
+		if b == 0 {
+			return nil, nil
+		}
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		return nil, err
+	}
+
 	var lines []string
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {

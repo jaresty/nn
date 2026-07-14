@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -111,6 +112,109 @@ func TestGrepCmdInvalidRegex(t *testing.T) {
 	_, err := execute("grep", "[invalid", f)
 	if err == nil {
 		t.Error("expected error for invalid regex pattern; got nil")
+	}
+}
+
+// Assertion: TestGrepCmdRespectsGitignore — nn grep skips gitignored files when inside a git repo.
+func TestGrepCmdRespectsGitignore(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v: %s", args, out)
+		}
+	}
+	run("git", "init")
+	run("git", "config", "user.email", "test@test.com")
+	run("git", "config", "user.name", "Test")
+
+	ignored := filepath.Join(dir, "ignored.log")
+	if err := os.WriteFile(ignored, []byte("secret pattern\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	tracked := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(tracked, []byte("// nothing here\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	gitignore := filepath.Join(dir, ".gitignore")
+	if err := os.WriteFile(gitignore, []byte("*.log\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	run("git", "add", ".")
+
+	out, err := execute("grep", "secret", dir)
+	if err != nil {
+		t.Fatalf("nn grep: %v", err)
+	}
+	if strings.Contains(out, "secret") {
+		t.Errorf("nn grep should not match gitignored file; got:\n%s", out)
+	}
+}
+
+// Assertion: TestGrepCmdFallsBackOutsideGitRepo — nn grep collects files via walker when not in a git repo.
+func TestGrepCmdFallsBackOutsideGitRepo(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(f, []byte("func findMe() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "findMe", dir)
+	if err != nil {
+		t.Fatalf("nn grep outside git: %v", err)
+	}
+	if !strings.Contains(out, "findMe") {
+		t.Errorf("expected 'findMe' in output outside git repo; got:\n%s", out)
+	}
+}
+
+// Assertion: TestCollectFilesSkipsGitDir — collectFiles must not traverse .git directories.
+func TestCollectFilesSkipsGitDir(t *testing.T) {
+	dir := t.TempDir()
+	gitDir := filepath.Join(dir, ".git")
+	if err := os.MkdirAll(gitDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	gitFile := filepath.Join(gitDir, "COMMIT_EDITMSG")
+	if err := os.WriteFile(gitFile, []byte("initial commit\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	normalFile := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(normalFile, []byte("package main\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var files []string
+	if err := collectFiles(dir, &files); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		if strings.Contains(f, ".git") {
+			t.Errorf("collectFiles traversed .git directory: found %q", f)
+		}
+	}
+}
+
+// Assertion: TestReadFileLinesSkipsBinary — readFileLines must return nil for binary files.
+func TestReadFileLinesSkipsBinary(t *testing.T) {
+	dir := t.TempDir()
+	binFile := filepath.Join(dir, "data.bin")
+	content := []byte("some text\x00more text\n")
+	if err := os.WriteFile(binFile, content, 0644); err != nil {
+		t.Fatal(err)
+	}
+	lines, err := readFileLines(binFile)
+	if err != nil {
+		t.Fatalf("readFileLines returned error: %v", err)
+	}
+	if lines != nil {
+		t.Errorf("readFileLines should return nil for binary file; got %d lines", len(lines))
 	}
 }
 
