@@ -39,6 +39,16 @@ func initGitRepo(t *testing.T, dir string) {
 	run("init")
 	run("config", "user.email", "test@example.com")
 	run("config", "user.name", "Test")
+	// Git leaves read-only object files under .git on Linux, which prevents
+	// TempDir's RemoveAll from cleaning up. Make everything writable first.
+	t.Cleanup(func() {
+		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			return os.Chmod(path, 0700)
+		})
+	})
 }
 
 func newBackend(t *testing.T) (*gitlocal.Backend, string) {
