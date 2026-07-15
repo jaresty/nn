@@ -49,3 +49,39 @@ func TestVirtualCaptureDisciplineC8SkipStructural(t *testing.T) {
 		t.Errorf("old session-transient prefix must be removed; got:\n%s", out)
 	}
 }
+
+// Assertion: compare: line required before branch action — closes condition-gap in clauses 2-5.
+func TestCaptureDisciplineHollowCompareLineRequired(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if !strings.Contains(out, "compare: note sentence =") {
+		t.Errorf("expected 'compare: note sentence =' intermediate line requirement; got:\n%s", out)
+	}
+}
+
+// Assertion: not relevant: is declared terminal — closes deny-list gap in clause 3.
+func TestCaptureDisciplineHollowNotRelevantTerminal(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if !strings.Contains(out, "no `nn update` tool call follows") {
+		t.Errorf("expected allow-list form 'no `nn update` tool call follows' for not-relevant terminal; got:\n%s", out)
+	}
+}
+
+// Assertion: verbatim-in-preceding requirement closes quote-attachment gap in clause 1.
+func TestCaptureDisciplineHollowVerbatimAttachment(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if !strings.Contains(out, "verbatim in the preceding") {
+		t.Errorf("expected 'verbatim in the preceding' attachment requirement for quoted sentence; got:\n%s", out)
+	}
+}
