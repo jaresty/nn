@@ -238,7 +238,7 @@ func newListCmd(state *rootState) *cobra.Command {
 			}
 
 			if search != "" && limit == 0 {
-				limit = 20
+				limit = 5
 			}
 			totalMatching := len(filtered)
 			if limit > 0 && len(filtered) > limit {
