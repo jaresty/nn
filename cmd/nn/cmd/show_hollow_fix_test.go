@@ -85,3 +85,39 @@ func TestCaptureDisciplineHollowVerbatimAttachment(t *testing.T) {
 		t.Errorf("expected 'verbatim in the preceding' attachment requirement for quoted sentence; got:\n%s", out)
 	}
 }
+
+// Assertion: compare: line includes [durable | ephemeral] field.
+func TestCaptureDisciplineEphemeralField(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if !strings.Contains(out, "durable | ephemeral") {
+		t.Errorf("expected 'durable | ephemeral' field in compare: line; got:\n%s", out)
+	}
+}
+
+// Assertion: ephemeral branch writes ephemeral: skip and stops — no capture action.
+func TestCaptureDisciplineEphemeralRoute(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if !strings.Contains(out, "ephemeral: skip") {
+		t.Errorf("expected 'ephemeral: skip' as terminal action for ephemeral findings; got:\n%s", out)
+	}
+}
+
+// Assertion: ephemeral branch does not route to nn remind (avoids reminder bloat).
+func TestCaptureDisciplineNoRemind(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if strings.Contains(out, "nn remind") {
+		t.Errorf("ephemeral branch must not use nn remind; got:\n%s", out)
+	}
+}
