@@ -40,7 +40,9 @@ func initGitRepo(t *testing.T, dir string) {
 	run("config", "user.email", "test@example.com")
 	run("config", "user.name", "Test")
 	// Git leaves read-only object files under .git on Linux, which prevents
-	// TempDir's RemoveAll from cleaning up. Make everything writable first.
+	// TempDir's RemoveAll from cleaning up. Chmod everything writable then
+	// remove explicitly so new read-only objects written between the walk and
+	// TempDir's own RemoveAll don't cause cleanup failures.
 	t.Cleanup(func() {
 		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -48,6 +50,7 @@ func initGitRepo(t *testing.T, dir string) {
 			}
 			return os.Chmod(path, 0700)
 		})
+		_ = os.RemoveAll(dir)
 	})
 }
 
