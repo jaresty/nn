@@ -55,6 +55,33 @@ func TestGrepCmdAnnotatesWithNotes(t *testing.T) {
 	}
 }
 
+// Assertion: TestGrepCmdRelatedNotesInstruction — nn grep appends nn show instruction after related notes.
+func TestGrepCmdRelatedNotesInstruction(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	noteFile := filepath.Join(nbDir, "20260101000000-0002.md")
+	if err := os.WriteFile(noteFile, []byte("---\nid: 20260101000000-0002\ntitle: Auth flow design\ntype: concept\nstatus: draft\n---\nhandleAuth is responsible for token validation.\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "server.go")
+	if err := os.WriteFile(f, []byte("package main\n\nfunc handleAuth() {\n\t// validate token\n}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "handleAuth", f)
+	if err != nil {
+		t.Fatalf("nn grep: %v", err)
+	}
+	if !strings.Contains(out, "nn show") {
+		t.Errorf("expected nn show instruction in related notes output; got:\n%s", out)
+	}
+	if !strings.Contains(out, "skip-related:") {
+		t.Errorf("expected skip-related: in related notes output; got:\n%s", out)
+	}
+}
+
 // Assertion: TestGrepCmdNoMatch — nn grep with no matches produces no output and exits cleanly.
 func TestGrepCmdNoMatch(t *testing.T) {
 	_, execute := setupNotebook(t)

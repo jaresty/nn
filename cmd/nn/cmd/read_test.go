@@ -112,6 +112,33 @@ func TestReadCmdRelatedNotes(t *testing.T) {
 	}
 }
 
+// Assertion: TestReadCmdRelatedNotesInstruction — nn read appends nn show instruction after related notes.
+func TestReadCmdRelatedNotesInstruction(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	n := newTestNoteForCLI(note.GenerateID(), "BM25 indexing and scoring", note.TypeConcept)
+	n.Status = note.StatusReviewed
+	n.Body = "BM25 is a ranking function used in information retrieval."
+	writeNoteFile(t, nbDir, n)
+
+	f := filepath.Join(t.TempDir(), "search.go")
+	content := "// BM25 scoring implementation\npackage search\n"
+	if err := os.WriteFile(f, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("read", f)
+	if err != nil {
+		t.Fatalf("nn read: %v", err)
+	}
+	if !strings.Contains(out, "nn show") {
+		t.Errorf("expected nn show instruction in related notes output; got:\n%s", out)
+	}
+	if !strings.Contains(out, "skip-related:") {
+		t.Errorf("expected skip-related: in related notes output; got:\n%s", out)
+	}
+}
+
 // Assertion: TestReadCmdCLIReference — nn read appears in CLI reference virtual protocol.
 func TestReadCmdCLIReference(t *testing.T) {
 	_, execute := setupNotebook(t)
