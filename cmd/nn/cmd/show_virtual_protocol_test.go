@@ -251,6 +251,25 @@ func TestShowCaptureDisciplineRequiresShowOnWordMatch(t *testing.T) {
 	}
 }
 
+// Assertion: virtual-nn-cli-reference body documents nn promote with conflict detection behavior.
+func TestShowVirtualCLIReferencePromote(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-cli-reference: %v", err)
+	}
+	if !strings.Contains(out, "nn promote") {
+		t.Errorf("expected nn promote command in cli-reference body:\n%s", out)
+	}
+	if !strings.Contains(out, "--to") {
+		t.Errorf("expected --to flag for nn promote in cli-reference body:\n%s", out)
+	}
+	if !strings.Contains(out, "conflict") {
+		t.Errorf("expected conflict detection note for nn promote in cli-reference body:\n%s", out)
+	}
+}
+
 // Assertion: virtual-nn-cli-reference body documents that --content is literal and recommends $'...' or stdin.
 func TestShowVirtualCLIReferenceContentLiteral(t *testing.T) {
 	_, execute := setupNotebook(t)

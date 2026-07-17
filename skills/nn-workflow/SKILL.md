@@ -117,5 +117,5 @@ Invoke it with `/nn-workflow`.
 | `nn update <id-or-title> --type TYPE --no-edit` | Change note type |
 | `nn update <id-or-title> --status draft\|reviewed\|permanent --no-edit` | Set status directly (including demotion) |
 | `nn update <id-or-title> --tags-add TAG --tags-remove TAG --no-edit` | Additive/subtractive tag ops |
-| `nn promote <id-or-title> --to reviewed` | Advance review status (forward-only) |
+| `nn promote <id-or-title> --to reviewed` | Advance review status (forward-only); errors on concurrent modification conflict |
 | `nn delete <id-or-title> --confirm` | Delete a note |

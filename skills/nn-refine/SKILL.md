@@ -48,8 +48,8 @@ A note is eligible for promotion when:
 
 If eligible, propose:
 ```
-nn promote <id> --to reviewed      # draft → reviewed
-nn promote <id> --to permanent     # reviewed → permanent
+nn promote <id> --to reviewed      # draft → reviewed (errors on concurrent conflict)
+nn promote <id> --to permanent     # reviewed → permanent (errors on concurrent conflict)
 ```
 
 Or use direct assignment:
@@ -76,7 +76,7 @@ nn new --title "..." --type <type> --content "..." --no-edit
 nn link <from> <to> --annotation "..." --type TYPE
 nn bulk-link <from> --to <id> --annotation "..." --type TYPE [--to <id> ...]
 nn backlinks <id> [--json]
-nn promote <id> --to reviewed|permanent
+nn promote <id> --to reviewed|permanent  # errors on concurrent modification conflict
 nn update <id> [--title "..."] [--content "..."] [--status STATUS] --no-edit
 nn list --long --json
 ```

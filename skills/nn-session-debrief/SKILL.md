@@ -335,7 +335,7 @@ nn bulk-link <summary-id> \
 nn list --sort created --status draft --json  # no pipe — piping truncates
 nn show <id>
 nn backlinks <id> --json
-nn promote <id> --to reviewed|permanent
+nn promote <id> --to reviewed|permanent  # errors on concurrent modification conflict
 nn new --title "..." --type observation --content "..." --no-edit
 nn bulk-link <from> --to <id> --annotation "..." --type TYPE [--to <id> ...]
 nn review                                    # weekly mode: full health report
