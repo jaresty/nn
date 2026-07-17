@@ -250,3 +250,19 @@ func TestShowCaptureDisciplineRequiresShowOnWordMatch(t *testing.T) {
 		t.Errorf("expected nn show command in capture-discipline body:\n%s", out)
 	}
 }
+
+// Assertion: virtual-nn-cli-reference body documents that --content is literal and recommends $'...' or stdin.
+func TestShowVirtualCLIReferenceContentLiteral(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-cli-reference: %v", err)
+	}
+	if !strings.Contains(out, "--content` is literal") {
+		t.Errorf("expected --content literal note in cli-reference body:\n%s", out)
+	}
+	if !strings.Contains(out, `$'...'`) {
+		t.Errorf("expected $'...' ANSI-C quoting recommendation in cli-reference body:\n%s", out)
+	}
+}

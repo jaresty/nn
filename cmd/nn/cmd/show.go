@@ -73,7 +73,8 @@ var virtualGlobalProtocols = []virtualProtocol{
 		Body: "**nn new** `--title \"...\" --type <type> --content \"...\" --no-edit [--tags \"t1,t2\"] [--link-to <id> --annotation \"...\"] [--applies-when \"...\"] [--expires YYYY-MM-DD] [--expires-when \"condition\"]`\n" +
 			"Valid --type: concept|argument|model|hypothesis|observation|question|protocol\n" +
 			"New notes are always created as draft. Promote with: `nn update <id> --status reviewed`\n" +
-			"**nn new --quick** `--title \"...\" --no-edit` — quick capture: sets type=observation, status=draft, content empty; no --type required\n\n" +
+			"**nn new --quick** `--title \"...\" --no-edit` — quick capture: sets type=observation, status=draft, content empty; no --type required\n" +
+			"Note: `--content` is literal — the shell does not expand `\\n` in double-quoted strings. Use `$'...'` ANSI-C quoting or pipe via stdin for multiline content.\n\n" +
 			"**nn update** `<id> --since <RFC3339> --status <status>` | `--title \"...\"` | `--applies-when \"...\"` | `--expires YYYY-MM-DD` | `--expires-when \"condition\"` | `--content \"...\" --no-edit`\n" +
 			"Valid --status: draft|reviewed|permanent\n" +
 			"--since is required: read 'modified:' from nn show output; update is rejected if the note was changed after that timestamp\n\n" +
