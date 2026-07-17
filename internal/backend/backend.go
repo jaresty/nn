@@ -1,7 +1,11 @@
 // Package backend defines the Backend interface for note storage.
 package backend
 
-import "github.com/jaresty/nn/internal/note"
+import (
+	"time"
+
+	"github.com/jaresty/nn/internal/note"
+)
 
 // LinkTarget is a (toID, annotation, optional type, optional status) pair used by AddLinks.
 type LinkTarget struct {
@@ -30,7 +34,7 @@ type Backend interface {
 	AddLinks(fromID string, targets []LinkTarget) error
 	RemoveLink(fromID, toID string) error
 	RemoveLinkByType(fromID, toID, linkType string) error
-	Promote(id string, to note.Status) error
+	Promote(id string, from time.Time, to note.Status) error
 	Update(n *note.Note) error
 	UpdateLink(fromID, toID string, annotation, linkType, linkStatus *string) error
 	BulkUpdateLinks(fromID string, updates []LinkUpdate) error

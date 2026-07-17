@@ -27,7 +27,7 @@ func newPromoteCmd(state *rootState) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("promote: %w", err)
 			}
-			if err := state.backend.Promote(n.ID, status); err != nil {
+			if err := state.backend.Promote(n.ID, n.Modified, status); err != nil {
 				return fmt.Errorf("promote: %w", err)
 			}
 			fmt.Fprintf(outWriter(cmd), "promoted %s to %s\n", n.ID, to)

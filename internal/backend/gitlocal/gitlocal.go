@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/jaresty/nn/internal/backend"
 	"github.com/jaresty/nn/internal/note"
@@ -363,6 +364,10 @@ func (b *Backend) removeInboundEdgesLocked(deletedID string) error {
 func (b *Backend) RemoveLink(fromID, toID string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.RemoveLink: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.RemoveLink: %w", err)
@@ -383,13 +388,17 @@ func (b *Backend) RemoveLink(fromID, toID string) error {
 		return fmt.Errorf("gitlocal.RemoveLink: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: unlink %s → %s", fromID, toID)
-	return b.commitLocked(path, msg)
+	return b.commitWithLockHeld(path, msg)
 }
 
 // RemoveLinkByType removes only edges from fromID to toID with the given type.
 func (b *Backend) RemoveLinkByType(fromID, toID, linkType string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.RemoveLinkByType: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.RemoveLinkByType: %w", err)
@@ -410,13 +419,17 @@ func (b *Backend) RemoveLinkByType(fromID, toID, linkType string) error {
 		return fmt.Errorf("gitlocal.RemoveLinkByType: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: unlink %s → %s [%s]", fromID, toID, linkType)
-	return b.commitLocked(path, msg)
+	return b.commitWithLockHeld(path, msg)
 }
 
 // BulkUpdateLinks applies multiple link updates to fromID in a single git commit.
 func (b *Backend) BulkUpdateLinks(fromID string, updates []backend.LinkUpdate) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.BulkUpdateLinks: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.BulkUpdateLinks: %w", err)
@@ -452,7 +465,7 @@ func (b *Backend) BulkUpdateLinks(fromID string, updates []backend.LinkUpdate) e
 		return fmt.Errorf("gitlocal.BulkUpdateLinks: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: bulk-update-link %s (%d links)", fromID, len(updates))
-	return b.commitLocked(path, msg)
+	return b.commitWithLockHeld(path, msg)
 }
 
 // UpdateLink modifies the annotation, type, and/or status of an existing link without removing it.
@@ -460,6 +473,10 @@ func (b *Backend) BulkUpdateLinks(fromID string, updates []backend.LinkUpdate) e
 func (b *Backend) UpdateLink(fromID, toID string, annotation, linkType, linkStatus *string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.UpdateLink: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.UpdateLink: %w", err)
@@ -493,7 +510,7 @@ func (b *Backend) UpdateLink(fromID, toID string, annotation, linkType, linkStat
 		return fmt.Errorf("gitlocal.UpdateLink: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: update-link %s → %s", fromID, toID)
-	return b.commitLocked(path, msg)
+	return b.commitWithLockHeld(path, msg)
 }
 
 // Update writes the modified note and commits with an "update" message.
@@ -524,14 +541,22 @@ func (b *Backend) Update(n *note.Note) error {
 }
 
 // Promote updates the status of the note with the given id and commits.
-func (b *Backend) Promote(id string, to note.Status) error {
+func (b *Backend) Promote(id string, from time.Time, to note.Status) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.Promote: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
 	n, err := b.Read(id)
 	if err != nil {
 		return fmt.Errorf("gitlocal.Promote: %w", err)
 	}
+	if !n.Modified.Equal(from) {
+		return fmt.Errorf("gitlocal.Promote: note %s was modified since you read it (conflict)", id)
+	}
 	n.Status = to
+	n.Modified = time.Now().UTC()
 	data, err := n.Marshal()
 	if err != nil {
 		return fmt.Errorf("gitlocal.Promote: marshal: %w", err)
@@ -541,7 +566,7 @@ func (b *Backend) Promote(id string, to note.Status) error {
 		return fmt.Errorf("gitlocal.Promote: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: promote %s to %s", id, string(to))
-	return b.commitLocked(path, msg)
+	return b.commitWithLockHeld(path, msg)
 }
 
 // BulkWrite writes all notes and commits in a single commit.

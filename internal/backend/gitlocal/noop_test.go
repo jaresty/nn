@@ -34,7 +34,7 @@ func TestNoOpCommitIsIdempotent(t *testing.T) {
 		t.Errorf("second Write (no-op): %v", err)
 	}
 	// Promoting to the same status should not error.
-	if err := b.Promote(n.ID, note.StatusDraft); err != nil {
+	if err := b.Promote(n.ID, n.Modified, note.StatusDraft); err != nil {
 		t.Errorf("Promote to same status (no-op): %v", err)
 	}
 }

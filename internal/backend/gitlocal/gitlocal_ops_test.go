@@ -83,7 +83,7 @@ func TestPromote(t *testing.T) {
 	n := newTestNote(t)
 	b.Write(n)
 
-	if err := b.Promote(n.ID, note.StatusReviewed); err != nil {
+	if err := b.Promote(n.ID, n.Modified, note.StatusReviewed); err != nil {
 		t.Fatalf("Promote: %v", err)
 	}
 
@@ -97,7 +97,7 @@ func TestPromoteCommitMessage(t *testing.T) {
 	b, dir := newBackend(t)
 	n := newTestNote(t)
 	b.Write(n)
-	b.Promote(n.ID, note.StatusReviewed)
+	b.Promote(n.ID, n.Modified, note.StatusReviewed)
 
 	cmd := exec.Command("git", "log", "--oneline", "-1")
 	cmd.Dir = dir
