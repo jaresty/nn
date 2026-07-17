@@ -105,9 +105,9 @@ func newReadCmd(state *rootState) *cobra.Command {
 			}
 
 			fmt.Fprintln(w, "\n## Related notes")
-			fmt.Fprintln(w, "Review related notes below — run `nn show <id>` on any that may be relevant, or write `skip-related: <id> [<id> ...] — <reason>` to dismiss.")
+			fmt.Fprintln(w, "Resolve each related note before the next action — run `nn show <id>` to open, or write `skip-related: <id> [<id> ...] — <reason>` to dismiss. Continuing without resolving is a protocol violation.")
 			for _, m := range matches {
-				fmt.Fprintf(w, "- %s — %s\n", m.n.ID, m.n.Title)
+				fmt.Fprintf(w, "- %s — %s %s\n", m.n.ID, m.n.Title, scoreLabel(m.score))
 			}
 			return nil
 		},
@@ -116,4 +116,11 @@ func newReadCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&linesFlag, "lines", "", "Line range to show (e.g. 10-20)")
 	cmd.Flags().IntVar(&limitFlag, "limit", 0, "Maximum number of lines to show")
 	return cmd
+}
+
+func scoreLabel(score float64) string {
+	if score >= 1.0 {
+		return "[likely relevant]"
+	}
+	return "[possibly relevant]"
 }

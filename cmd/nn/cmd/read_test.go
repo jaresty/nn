@@ -139,6 +139,54 @@ func TestReadCmdRelatedNotesInstruction(t *testing.T) {
 	}
 }
 
+// Assertion: TestReadCmdRelatedNotesGateHeader — nn read related notes header uses gate language.
+func TestReadCmdRelatedNotesGateHeader(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	n := newTestNoteForCLI(note.GenerateID(), "BM25 indexing and scoring", note.TypeConcept)
+	n.Status = note.StatusReviewed
+	n.Body = "BM25 is a ranking function used in information retrieval."
+	writeNoteFile(t, nbDir, n)
+
+	f := filepath.Join(t.TempDir(), "search.go")
+	content := "// BM25 scoring implementation\npackage search\n"
+	if err := os.WriteFile(f, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("read", f)
+	if err != nil {
+		t.Fatalf("nn read: %v", err)
+	}
+	if !strings.Contains(out, "Resolve each related note before the next action") {
+		t.Errorf("expected gate language 'Resolve each related note before the next action' in related notes header; got:\n%s", out)
+	}
+}
+
+// Assertion: TestReadCmdRelatedNotesLabel — nn read appends score-derived label per related note.
+func TestReadCmdRelatedNotesLabel(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	n := newTestNoteForCLI(note.GenerateID(), "BM25 indexing and scoring", note.TypeConcept)
+	n.Status = note.StatusReviewed
+	n.Body = "BM25 is a ranking function used in information retrieval."
+	writeNoteFile(t, nbDir, n)
+
+	f := filepath.Join(t.TempDir(), "search.go")
+	content := "// BM25 scoring implementation\npackage search\n"
+	if err := os.WriteFile(f, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("read", f)
+	if err != nil {
+		t.Fatalf("nn read: %v", err)
+	}
+	if !strings.Contains(out, "[likely relevant]") && !strings.Contains(out, "[possibly relevant]") {
+		t.Errorf("expected score-derived label ([likely relevant] or [possibly relevant]) in related notes output; got:\n%s", out)
+	}
+}
+
 // Assertion: TestReadCmdCLIReference — nn read appears in CLI reference virtual protocol.
 func TestReadCmdCLIReference(t *testing.T) {
 	_, execute := setupNotebook(t)

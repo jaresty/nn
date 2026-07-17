@@ -55,6 +55,54 @@ func TestGrepCmdAnnotatesWithNotes(t *testing.T) {
 	}
 }
 
+// Assertion: TestGrepCmdRelatedNotesLabel — nn grep appends score-derived label per related note.
+func TestGrepCmdRelatedNotesLabel(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	noteFile := filepath.Join(nbDir, "20260101000000-0003.md")
+	if err := os.WriteFile(noteFile, []byte("---\nid: 20260101000000-0003\ntitle: Auth flow design\ntype: concept\nstatus: reviewed\n---\nhandleAuth is responsible for token validation.\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "server.go")
+	if err := os.WriteFile(f, []byte("package main\n\nfunc handleAuth() {\n\t// validate token\n}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "handleAuth", f)
+	if err != nil {
+		t.Fatalf("nn grep: %v", err)
+	}
+	if !strings.Contains(out, "[likely relevant]") && !strings.Contains(out, "[possibly relevant]") {
+		t.Errorf("expected score-derived label ([likely relevant] or [possibly relevant]) in grep output; got:\n%s", out)
+	}
+}
+
+// Assertion: TestGrepCmdRelatedNotesGateHeader — nn grep footer uses gate language.
+func TestGrepCmdRelatedNotesGateHeader(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	noteFile := filepath.Join(nbDir, "20260101000000-0004.md")
+	if err := os.WriteFile(noteFile, []byte("---\nid: 20260101000000-0004\ntitle: Auth flow design\ntype: concept\nstatus: reviewed\n---\nhandleAuth is responsible for token validation.\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "server.go")
+	if err := os.WriteFile(f, []byte("package main\n\nfunc handleAuth() {\n\t// validate token\n}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "handleAuth", f)
+	if err != nil {
+		t.Fatalf("nn grep: %v", err)
+	}
+	if !strings.Contains(out, "Resolve each related note before the next action") {
+		t.Errorf("expected gate language in grep footer; got:\n%s", out)
+	}
+}
+
 // Assertion: TestGrepCmdRelatedNotesInstruction — nn grep appends nn show instruction after related notes.
 func TestGrepCmdRelatedNotesInstruction(t *testing.T) {
 	nbDir, execute := setupNotebook(t)

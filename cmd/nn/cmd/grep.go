@@ -144,10 +144,10 @@ func newGrepCmd(state *rootState) *cobra.Command {
 					ranked = ranked[:k]
 				}
 				for _, r := range ranked {
-					fmt.Fprintf(w, "  → [[%s|%s]]\n", r.n.ID, r.n.Title)
+					fmt.Fprintf(w, "  → [[%s|%s]] %s\n", r.n.ID, r.n.Title, scoreLabel(r.score))
 				}
 			}
-			fmt.Fprintln(w, "Review related notes above — run `nn show <id>` on any that may be relevant, or write `skip-related: <id> [<id> ...] — <reason>` to dismiss.")
+			fmt.Fprintln(w, "Resolve each related note before the next action — run `nn show <id>` to open, or write `skip-related: <id> [<id> ...] — <reason>` to dismiss. Continuing without resolving is a protocol violation.")
 			return nil
 		},
 	}
