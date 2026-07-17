@@ -1,6 +1,10 @@
 package gitlocal_test
 
 import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -141,6 +145,162 @@ func TestUpdateConcurrentRace(t *testing.T) {
 		// The real invariant is that neither Update returns an error — both must succeed.
 		if errs[0] != nil && errs[1] != nil {
 			t.Errorf("both concurrent Updates failed")
+			return
+		}
+	}
+}
+
+// TestAddLinkCrossProcessRace proves the cross-process RMW race in AddLink by spawning
+// real nn subprocesses via go run. Two concurrent nn link invocations share the same
+// source note; both report success but without the fix one link is silently lost.
+func TestAddLinkCrossProcessRace(t *testing.T) {
+	dir := t.TempDir()
+	initGitRepo(t, dir)
+
+	xdgDir := t.TempDir()
+	cfgPath := filepath.Join(xdgDir, "nn", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
+		t.Fatalf("mkdir config: %v", err)
+	}
+	cfgContent := fmt.Sprintf("[notebooks]\ndefault = \"personal\"\n[notebooks.personal]\npath = %q\nbackend = \"gitlocal\"\n", dir)
+	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	b, err := gitlocal.NewWithConfigDir(dir, xdgDir)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	src, dst1, dst2 := makeNote("src"), makeNote("dst1"), makeNote("dst2")
+	for _, n := range []*note.Note{src, dst1, dst2} {
+		if err := b.Write(n); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+	}
+
+	env := append(os.Environ(), "XDG_CONFIG_HOME="+xdgDir)
+	nn := func(args ...string) error {
+		cmd := exec.Command("go", append([]string{"run", "github.com/jaresty/nn/cmd/nn"}, args...)...)
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%v: %s", args, out)
+		}
+		return nil
+	}
+
+	const attempts = 10
+	for i := range attempts {
+		// Reset: remove all links from src.
+		src.Links = nil
+		src.Modified = time.Now().UTC().Truncate(time.Second)
+		if err := b.Update(src); err != nil {
+			t.Fatalf("reset attempt %d: %v", i, err)
+		}
+
+		var wg sync.WaitGroup
+		errs := make([]error, 2)
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			errs[0] = nn("link", src.ID, dst1.ID, "--type", "supports", "--annotation", "probe A")
+		}()
+		go func() {
+			defer wg.Done()
+			errs[1] = nn("link", src.ID, dst2.ID, "--type", "supports", "--annotation", "probe B")
+		}()
+		wg.Wait()
+
+		for j, e := range errs {
+			if e != nil {
+				t.Logf("attempt %d link %d error (may be dup): %v", i, j, e)
+			}
+		}
+
+		got, err := b.Read(src.ID)
+		if err != nil {
+			t.Fatalf("Read attempt %d: %v", i, err)
+		}
+		if len(got.Links) < 2 {
+			t.Errorf("attempt %d: cross-process AddLink race: got %d links (want 2) — one write was lost", i, len(got.Links))
+			return
+		}
+	}
+}
+
+
+// TestAddLinksCrossProcessRace proves the cross-process RMW race in AddLinks by spawning
+// real nn bulk-link subprocesses. Two concurrent invocations share the same source note;
+// without the fix one set of links is silently lost.
+func TestAddLinksCrossProcessRace(t *testing.T) {
+	dir := t.TempDir()
+	initGitRepo(t, dir)
+
+	xdgDir := t.TempDir()
+	cfgPath := filepath.Join(xdgDir, "nn", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
+		t.Fatalf("mkdir config: %v", err)
+	}
+	cfgContent := fmt.Sprintf("[notebooks]\ndefault = \"personal\"\n[notebooks.personal]\npath = %q\nbackend = \"gitlocal\"\n", dir)
+	if err := os.WriteFile(cfgPath, []byte(cfgContent), 0o644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	b, err := gitlocal.NewWithConfigDir(dir, xdgDir)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	src, dst1, dst2 := makeNote("src"), makeNote("dst1"), makeNote("dst2")
+	for _, n := range []*note.Note{src, dst1, dst2} {
+		if err := b.Write(n); err != nil {
+			t.Fatalf("Write: %v", err)
+		}
+	}
+
+	env := append(os.Environ(), "XDG_CONFIG_HOME="+xdgDir)
+	nn := func(args ...string) error {
+		cmd := exec.Command("go", append([]string{"run", "github.com/jaresty/nn/cmd/nn"}, args...)...)
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("%v: %s", args, out)
+		}
+		return nil
+	}
+
+	const attempts = 10
+	for i := range attempts {
+		src.Links = nil
+		src.Modified = time.Now().UTC().Truncate(time.Second)
+		if err := b.Update(src); err != nil {
+			t.Fatalf("reset attempt %d: %v", i, err)
+		}
+
+		var wg sync.WaitGroup
+		errs := make([]error, 2)
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			errs[0] = nn("bulk-link", src.ID, "--to", dst1.ID, "--annotation", "probe A", "--type", "supports")
+		}()
+		go func() {
+			defer wg.Done()
+			errs[1] = nn("bulk-link", src.ID, "--to", dst2.ID, "--annotation", "probe B", "--type", "supports")
+		}()
+		wg.Wait()
+
+		for j, e := range errs {
+			if e != nil {
+				t.Logf("attempt %d bulk-link %d error (may be dup): %v", i, j, e)
+			}
+		}
+
+		got, err := b.Read(src.ID)
+		if err != nil {
+			t.Fatalf("Read attempt %d: %v", i, err)
+		}
+		if len(got.Links) < 2 {
+			t.Errorf("attempt %d: cross-process AddLinks race: got %d links (want 2) — one write was lost", i, len(got.Links))
 			return
 		}
 	}

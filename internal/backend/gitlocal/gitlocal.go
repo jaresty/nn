@@ -188,6 +188,20 @@ func (b *Backend) commitLocked(path, msg string) error {
 	return nil
 }
 
+// commitWithLockHeld runs git add+commit. Caller must hold both b.mu and the git lock.
+func (b *Backend) commitWithLockHeld(path, msg string) error {
+	if out, err := gitCmdIn(b.dir, "add", path); err != nil {
+		return fmt.Errorf("gitlocal.commit: git add: %w\n%s", err, out)
+	}
+	if nothingStaged(b.dir) {
+		return nil
+	}
+	if out, err := gitCmdIn(b.dir, "commit", "-m", msg); err != nil {
+		return fmt.Errorf("gitlocal.commit: git commit: %w\n%s", err, out)
+	}
+	return nil
+}
+
 // commitDeleteLocked runs git rm+commit under the cross-process git lock.
 // Caller must hold b.mu.
 func (b *Backend) commitDeleteLocked(path, msg string) error {
@@ -248,6 +262,10 @@ func (b *Backend) commitBulkLocked(paths []string, msg string) error {
 func (b *Backend) AddLink(fromID, toID, annotation, linkType, linkStatus string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.AddLink: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.AddLink: %w", err)
@@ -267,13 +285,17 @@ func (b *Backend) AddLink(fromID, toID, annotation, linkType, linkStatus string)
 		return fmt.Errorf("gitlocal.AddLink: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: link %s → %s", fromID, toID)
-	return b.commitLocked(path, msg)
+	return b.commitWithLockHeld(path, msg)
 }
 
 // AddLinks adds multiple annotated links from fromID in a single git commit.
 func (b *Backend) AddLinks(fromID string, targets []backend.LinkTarget) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.AddLinks: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
 	n, err := b.Read(fromID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.AddLinks: %w", err)
@@ -300,7 +322,7 @@ func (b *Backend) AddLinks(fromID string, targets []backend.LinkTarget) error {
 		return fmt.Errorf("gitlocal.AddLinks: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: bulk-link %s → %d notes", fromID, len(targets))
-	return b.commitLocked(path, msg)
+	return b.commitWithLockHeld(path, msg)
 }
 
 // removeInboundEdgesLocked removes all links targeting deletedID from every other note.
