@@ -198,6 +198,7 @@ func TestAddLinkCrossProcessRace(t *testing.T) {
 
 
 // setupCrossProcess creates a notebook dir and XDG config, returns a backend and an nn runner.
+// The nn binary is built once upfront so concurrent subprocess calls don't race on compilation.
 func setupCrossProcess(t *testing.T) (*gitlocal.Backend, func(...string) error) {
 	t.Helper()
 	dir := t.TempDir()
@@ -216,9 +217,17 @@ func setupCrossProcess(t *testing.T) (*gitlocal.Backend, func(...string) error) 
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
+
+	// Build the binary once; concurrent go run calls race on the build cache on CI.
+	binPath := filepath.Join(t.TempDir(), "nn-test-bin")
+	build := exec.Command("go", "build", "-o", binPath, "github.com/jaresty/nn/cmd/nn")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build nn: %v\n%s", err, out)
+	}
+
 	env := append(os.Environ(), "XDG_CONFIG_HOME="+xdgDir)
 	nn := func(args ...string) error {
-		cmd := exec.Command("go", append([]string{"run", "github.com/jaresty/nn/cmd/nn"}, args...)...)
+		cmd := exec.Command(binPath, args...)
 		cmd.Env = env
 		out, err := cmd.CombinedOutput()
 		if err != nil {
