@@ -14,6 +14,31 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+// atomicWriteFile writes data to path via a temp file + rename so concurrent
+// readers never observe a partially-written file (avoids O_TRUNC visibility window on Linux).
+func atomicWriteFile(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".nn-write-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	if err := os.Chmod(tmpName, 0o644); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	return os.Rename(tmpName, path)
+}
+
 // Backend stores notes as Markdown files in a Git-backed directory.
 // mu serialises add+commit pairs so concurrent goroutines in the same process
 // do not interleave staging. Cross-process isolation is handled by the commit queue.
@@ -73,7 +98,7 @@ func (b *Backend) Write(n *note.Note) error {
 		return fmt.Errorf("gitlocal.Write: %w", err)
 	}
 	path := filepath.Join(b.dir, n.Filename())
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := atomicWriteFile(path, data); err != nil {
 		return fmt.Errorf("gitlocal.Write: %w", err)
 	}
 	msg := fmt.Sprintf("note: create %s — %s", n.ID, n.Title)
@@ -282,7 +307,7 @@ func (b *Backend) AddLink(fromID, toID, annotation, linkType, linkStatus string)
 		return fmt.Errorf("gitlocal.AddLink: marshal: %w", err)
 	}
 	path := filepath.Join(b.dir, n.Filename())
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := atomicWriteFile(path, data); err != nil {
 		return fmt.Errorf("gitlocal.AddLink: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: link %s → %s", fromID, toID)
@@ -319,7 +344,7 @@ func (b *Backend) AddLinks(fromID string, targets []backend.LinkTarget) error {
 		return fmt.Errorf("gitlocal.AddLinks: marshal: %w", err)
 	}
 	path := filepath.Join(b.dir, n.Filename())
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := atomicWriteFile(path, data); err != nil {
 		return fmt.Errorf("gitlocal.AddLinks: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: bulk-link %s → %d notes", fromID, len(targets))
@@ -349,7 +374,7 @@ func (b *Backend) removeInboundEdgesLocked(deletedID string) error {
 			return fmt.Errorf("removeInboundEdges: marshal %s: %w", n.ID, err)
 		}
 		p := filepath.Join(b.dir, n.Filename())
-		if err := os.WriteFile(p, data, 0o644); err != nil {
+		if err := atomicWriteFile(p, data); err != nil {
 			return fmt.Errorf("removeInboundEdges: write %s: %w", n.ID, err)
 		}
 		msg := fmt.Sprintf("note: unlink %s → %s (cascade delete)", n.ID, deletedID)
@@ -384,7 +409,7 @@ func (b *Backend) RemoveLink(fromID, toID string) error {
 		return fmt.Errorf("gitlocal.RemoveLink: marshal: %w", err)
 	}
 	path := filepath.Join(b.dir, n.Filename())
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := atomicWriteFile(path, data); err != nil {
 		return fmt.Errorf("gitlocal.RemoveLink: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: unlink %s → %s", fromID, toID)
@@ -415,7 +440,7 @@ func (b *Backend) RemoveLinkByType(fromID, toID, linkType string) error {
 		return fmt.Errorf("gitlocal.RemoveLinkByType: marshal: %w", err)
 	}
 	path := filepath.Join(b.dir, n.Filename())
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := atomicWriteFile(path, data); err != nil {
 		return fmt.Errorf("gitlocal.RemoveLinkByType: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: unlink %s → %s [%s]", fromID, toID, linkType)
@@ -461,7 +486,7 @@ func (b *Backend) BulkUpdateLinks(fromID string, updates []backend.LinkUpdate) e
 		return fmt.Errorf("gitlocal.BulkUpdateLinks: marshal: %w", err)
 	}
 	path := filepath.Join(b.dir, n.Filename())
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := atomicWriteFile(path, data); err != nil {
 		return fmt.Errorf("gitlocal.BulkUpdateLinks: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: bulk-update-link %s (%d links)", fromID, len(updates))
@@ -506,7 +531,7 @@ func (b *Backend) UpdateLink(fromID, toID string, annotation, linkType, linkStat
 		return fmt.Errorf("gitlocal.UpdateLink: marshal: %w", err)
 	}
 	path := filepath.Join(b.dir, n.Filename())
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := atomicWriteFile(path, data); err != nil {
 		return fmt.Errorf("gitlocal.UpdateLink: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: update-link %s → %s", fromID, toID)
@@ -526,7 +551,7 @@ func (b *Backend) Update(n *note.Note) error {
 		return fmt.Errorf("gitlocal.Update: %w", err)
 	}
 	newPath := filepath.Join(b.dir, n.Filename())
-	if err := os.WriteFile(newPath, data, 0o644); err != nil {
+	if err := atomicWriteFile(newPath, data); err != nil {
 		return fmt.Errorf("gitlocal.Update: %w", err)
 	}
 	msg := fmt.Sprintf("note: update %s — %s", n.ID, n.Title)
@@ -562,7 +587,7 @@ func (b *Backend) Promote(id string, from time.Time, to note.Status) error {
 		return fmt.Errorf("gitlocal.Promote: marshal: %w", err)
 	}
 	path := filepath.Join(b.dir, n.Filename())
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := atomicWriteFile(path, data); err != nil {
 		return fmt.Errorf("gitlocal.Promote: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: promote %s to %s", id, string(to))
@@ -589,7 +614,7 @@ func (b *Backend) BulkWrite(notes []*note.Note) error {
 			return fmt.Errorf("gitlocal.BulkWrite: marshal %s: %w", n.ID, err)
 		}
 		path := filepath.Join(b.dir, n.Filename())
-		if err := os.WriteFile(path, data, 0o644); err != nil {
+		if err := atomicWriteFile(path, data); err != nil {
 			return fmt.Errorf("gitlocal.BulkWrite: write %s: %w", n.ID, err)
 		}
 		paths = append(paths, path)
