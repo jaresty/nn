@@ -170,7 +170,7 @@ func newAstCmd(state *rootState) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON array of symbols")
 	cmd.Flags().BoolVar(&refs, "refs", false, "For each symbol in the outline, search for name-match references across --root")
-	cmd.Flags().StringVar(&refsRoot, "root", ".", "Root directory for --refs reference search")
+	cmd.Flags().StringVar(&refsRoot, "root", "", "Root directory for --refs reference search (default: directory of the analyzed file)")
 	cmd.Flags().StringArrayVar(&refsSymbols, "symbol", nil, "Limit --refs to these symbol names (repeatable); default: all symbols")
 	return cmd
 }
