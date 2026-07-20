@@ -7,17 +7,19 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jaresty/nn/internal/ast"
+	"github.com/jaresty/nn/internal/note"
 )
 
 func newAstCmd(state *rootState) *cobra.Command {
 	var jsonOut bool
-	var trace bool
-	var traceRoot string
+	var refs bool
+	var refsRoot string
 
 	cmd := &cobra.Command{
 		Use:   "ast <file>",
@@ -56,8 +58,55 @@ func newAstCmd(state *rootState) *cobra.Command {
 				fmt.Fprintf(w, "%s\n", sym.Signature)
 			}
 
-			if trace {
-				root := traceRoot
+			// BM25 annotation: query each non-import symbol name against nn notes.
+			notes, _ := state.backend.List()
+			if len(notes) > 0 {
+				allInbound := make(map[string][]string)
+				for _, n := range notes {
+					for _, lnk := range n.Links {
+						allInbound[lnk.TargetID] = append(allInbound[lnk.TargetID], lnk.Annotation)
+					}
+				}
+				seenNotes := map[string]bool{}
+				var relatedNotes []*note.Note
+				for _, sym := range f.Symbols {
+					if sym.Kind == "import" || sym.Name == "" {
+						continue
+					}
+					scores := note.BM25Scores(notes, sym.Name, allInbound)
+					type scored struct {
+						n     *note.Note
+						score float64
+					}
+					var ranked []scored
+					for _, n := range notes {
+						if s := scores[n.ID]; s > 0 {
+							ranked = append(ranked, scored{n, s})
+						}
+					}
+					sort.Slice(ranked, func(i, j int) bool { return ranked[i].score > ranked[j].score })
+					if len(ranked) > 2 {
+						ranked = ranked[:2]
+					}
+					for _, r := range ranked {
+						if !seenNotes[r.n.ID] {
+							seenNotes[r.n.ID] = true
+							relatedNotes = append(relatedNotes, r.n)
+						}
+					}
+				}
+				fmt.Fprintln(w, "\n## Related notes")
+				for _, n := range relatedNotes {
+					fmt.Fprintf(w, "- [[%s|%s]] [likely relevant]\n", n.ID, n.Title)
+				}
+				fmt.Fprintln(w, "Resolve each related note before the next action — run `nn show <id>` to open, or write `skip-related: <id> [<id> ...] — <reason>` to dismiss. Continuing without resolving is a protocol violation.")
+			} else {
+				fmt.Fprintln(w, "\n## Related notes")
+				fmt.Fprintln(w, "Resolve each related note before the next action — run `nn show <id>` to open, or write `skip-related: <id> [<id> ...] — <reason>` to dismiss. Continuing without resolving is a protocol violation.")
+			}
+
+			if refs {
+				root := refsRoot
 				if root == "" {
 					root = "."
 				}
@@ -73,7 +122,7 @@ func newAstCmd(state *rootState) *cobra.Command {
 					seen[sym.Name] = true
 					fmt.Fprintf(w, "\nreferences to %q (name-match only — not symbol-resolved, may include false positives):\n", sym.Name)
 					if err := traceNameMatch(w, root, sym.Name); err != nil {
-						return fmt.Errorf("ast --trace: %w", err)
+						return fmt.Errorf("ast --refs: %w", err)
 					}
 				}
 			}
@@ -82,8 +131,8 @@ func newAstCmd(state *rootState) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON array of symbols")
-	cmd.Flags().BoolVar(&trace, "trace", false, "For each symbol in the outline, search for name-match references across --root")
-	cmd.Flags().StringVar(&traceRoot, "root", ".", "Root directory for --trace reference search")
+	cmd.Flags().BoolVar(&refs, "refs", false, "For each symbol in the outline, search for name-match references across --root")
+	cmd.Flags().StringVar(&refsRoot, "root", ".", "Root directory for --refs reference search")
 	return cmd
 }
 

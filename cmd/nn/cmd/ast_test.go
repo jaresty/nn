@@ -46,24 +46,43 @@ func TestAstJSON(t *testing.T) {
 	}
 }
 
-func TestAstTrace(t *testing.T) {
+
+func TestAstRefs(t *testing.T) {
 	_, execute := setupNotebook(t)
 
-	// --trace is a boolean; traces every symbol found in the AST.
-	out, err := execute("ast", noteGoFile, "--trace", "--root", "../../../")
+	out, err := execute("ast", noteGoFile, "--refs", "--root", "../../../")
 	if err != nil {
-		t.Fatalf("nn ast --trace: %v", err)
+		t.Fatalf("nn ast --refs: %v", err)
 	}
-	// Should find references to symbols defined in note.go (e.g. GenerateID, Parse, Marshal).
-	if !strings.Contains(out, "GenerateID") && !strings.Contains(out, "Parse") && !strings.Contains(out, "Marshal") {
-		t.Errorf("ast --trace missing expected symbol references:\n%s", out)
+	if !strings.Contains(out, "references to") {
+		t.Errorf("ast --refs missing 'references to' output:\n%s", out)
 	}
-	if !strings.Contains(out, "name-match") {
-		t.Errorf("ast --trace missing name-match disclaimer:\n%s", out)
+}
+
+func TestAstFooter(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("ast", noteGoFile)
+	if err != nil {
+		t.Fatalf("nn ast: %v", err)
 	}
-	// Should include multiple symbol sections (not just one name).
-	if strings.Count(out, "references to") < 2 {
-		t.Errorf("ast --trace should include multiple symbol sections (one per symbol), got:\n%s", out)
+	if !strings.Contains(out, "Continuing without resolving is a protocol violation.") {
+		t.Errorf("ast output missing resolution footer:\n%s", out)
+	}
+	if !strings.Contains(out, "## Related notes") {
+		t.Errorf("ast output missing '## Related notes' section:\n%s", out)
+	}
+}
+
+func TestAstJSONNoFooter(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("ast", "--json", noteGoFile)
+	if err != nil {
+		t.Fatalf("nn ast --json: %v", err)
+	}
+	if strings.Contains(out, "Continuing without resolving is a protocol violation.") {
+		t.Errorf("ast --json must not contain resolution footer:\n%s", out)
 	}
 }
 
