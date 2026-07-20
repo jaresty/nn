@@ -187,7 +187,7 @@ func collectNameMatches(root, name string) (matches []string, filesScanned int) 
 		}
 		if info.IsDir() {
 			base := filepath.Base(path)
-			if base == ".git" || base == "vendor" || strings.HasPrefix(base, ".") {
+			if base == ".git" || base == "vendor" || (len(base) > 1 && base[0] == '.' && base[1] != '.') {
 				return filepath.SkipDir
 			}
 			return nil
