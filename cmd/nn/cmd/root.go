@@ -60,6 +60,7 @@ Workflow guidance is embedded in the binary:
 		newPathCmd(state),
 		newClustersCmd(state),
 		newAstCmd(state),
+		newTraceCmd(state),
 		newRemindCmd(state),
 		newUpdateCmd(state),
 		newPromoteCmd(state),

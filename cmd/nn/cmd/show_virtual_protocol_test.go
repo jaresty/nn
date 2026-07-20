@@ -155,6 +155,35 @@ func TestShowVirtualCLIReferenceGraphCommands(t *testing.T) {
 	}
 }
 
+// Assertion: virtual-nn-cli-reference surfaces nn trace as symbol-discovery alternative to grep.
+func TestShowVirtualCLIReferenceTrace(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-cli-reference: %v", err)
+	}
+	if !strings.Contains(out, "nn trace") {
+		t.Errorf("expected nn trace in virtual-nn-cli-reference body:\n%s", out)
+	}
+	if !strings.Contains(out, "--symbol") {
+		t.Errorf("expected --symbol flag documented in virtual-nn-cli-reference body:\n%s", out)
+	}
+}
+
+// Assertion: virtual-nn-capture-discipline allow-list includes nn trace.
+func TestCaptureDisciplineAllowListIncludesTrace(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if !strings.Contains(out, "nn trace") {
+		t.Errorf("expected nn trace in capture-discipline allow-list:\n%s", out)
+	}
+}
+
 // Assertion: empty/truncated exit requires skip-search: prefix with a quoted substring from the tool result.
 func TestCaptureDisciplineSkipClauseRequiresVerbatimExcerpt(t *testing.T) {
 	_, execute := setupNotebook(t)
