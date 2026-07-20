@@ -290,6 +290,37 @@ func (b *Backend) Write(n *note.Note) error {
 nn ast src/backend/gitlocal.go --trace --root ./
 ```
 
+## nn trace
+
+```
+nn trace <root-dir> --symbol <name> [--symbol <name> ...] [--depth N] [--json] [--show-unresolved]
+```
+
+Syntax-aware call graph from one or more entry-point symbols. Uses gotreesitter to index all definitions in `<root-dir>`, then DFS-traces calls from each `--symbol` up to `--depth` hops (default 3).
+
+**Prefer `nn trace` over `nn grep`** when you want to understand how a symbol is called or what it calls across files — trace follows actual call edges rather than text matches.
+
+Each resolved node is annotated with related nn notes via BM25 (same mechanism as `nn grep`). After the tree, a `## Related notes` section lists all surfaced notes with the standard resolution instruction.
+
+**Ambiguous receiver annotation:** when a method call `obj.method()` resolves to N > 1 definitions (because the receiver type is unknown), each expanded candidate is marked `[receiver: obj, N candidates — type-unqualified]`. This signals that those branches may be false positives — the call is real but the targets are uncertain.
+
+Human-readable output (default):
+```
+AddLink (method) [internal/backend/gitlocal/gitlocal.go:288]
+  note: [[20260630…|gitlocal RMW lock pattern]]
+  → acquireLock (function) [internal/backend/gitlocal/gitlock.go:26]
+  → Read (method) [internal/backend/gitlocal/gitlocal.go:109] [receiver: g, 3 candidates — type-unqualified]
+```
+
+`--json` output: `{"nodes": [...], "edges": [...]}` — each node has `nn_notes`, `ambiguous_receiver`, and `receiver` fields.
+
+`--show-unresolved`: include stdlib/external leaves (default off; always in JSON with `resolved: false`).
+
+```
+nn trace ./internal/backend/gitlocal --symbol AddLink --depth 3
+nn trace ./cmd/nn/cmd --symbol newGrepCmd --json
+```
+
 ## nn update
 
 ```

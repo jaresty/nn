@@ -33,14 +33,16 @@ type Index struct {
 
 // Node is a call-graph node in the trace result.
 type Node struct {
-	ID          string      `json:"id"`
-	Name        string      `json:"name"`
-	Kind        string      `json:"kind"`
-	File        string      `json:"file"`
-	Line        int         `json:"line"`
-	Resolved    bool        `json:"resolved"`
-	CycleMarker string      `json:"cycle_marker,omitempty"`
-	NNNotes     []NoteRef   `json:"nn_notes"`
+	ID                string    `json:"id"`
+	Name              string    `json:"name"`
+	Kind              string    `json:"kind"`
+	File              string    `json:"file"`
+	Line              int       `json:"line"`
+	Resolved          bool      `json:"resolved"`
+	CycleMarker       string    `json:"cycle_marker,omitempty"`
+	AmbiguousReceiver bool      `json:"ambiguous_receiver,omitempty"`
+	Receiver          string    `json:"receiver,omitempty"`
+	NNNotes           []NoteRef `json:"nn_notes"`
 }
 
 // Edge is a directed call edge in the trace result.
@@ -222,10 +224,22 @@ func Trace(idx *Index, symbols []string, maxDepth int, notes []*note.Note) *Resu
 				result.Edges = append(result.Edges, edge)
 				continue
 			}
+			ambiguous := call.receiver != "" && len(targets) > 1
 			for _, t := range targets {
 				toID := t.File + ":" + t.Name
 				result.Edges = append(result.Edges, Edge{From: nodeID, To: toID, Resolved: true})
-				dfs(&defSiteWithSource{DefSite: t, srcBytes: def.srcBytes}, depth+1)
+				child := &defSiteWithSource{DefSite: t, srcBytes: def.srcBytes}
+				// Recurse first, then annotate the node that was added.
+				prevLen := len(result.Nodes)
+				dfs(child, depth+1)
+				if ambiguous {
+					for i := prevLen; i < len(result.Nodes); i++ {
+						if result.Nodes[i].ID == toID {
+							result.Nodes[i].AmbiguousReceiver = true
+							result.Nodes[i].Receiver = call.receiver
+						}
+					}
+				}
 			}
 		}
 	}

@@ -65,6 +65,15 @@ func newTraceCmd(state *rootState) *cobra.Command {
 				if n.CycleMarker != "" {
 					marker = " [" + n.CycleMarker + "]"
 				}
+				if n.AmbiguousReceiver {
+					candidates := 0
+					for _, e := range edges[n.ID] {
+						if e.Resolved {
+							candidates++
+						}
+					}
+					marker += fmt.Sprintf(" [receiver: %s, %d candidates — type-unqualified]", n.Receiver, candidates+1)
+				}
 				fmt.Fprintf(w, "%s%s (%s) [%s:%d]%s\n", prefix, n.Name, n.Kind, n.File, n.Line, marker)
 				for _, ref := range n.NNNotes {
 					fmt.Fprintf(w, "%s  note: [[%s|%s]]\n", prefix, ref.ID, ref.Title)

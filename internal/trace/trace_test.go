@@ -61,6 +61,81 @@ func B() { A() }
 	}
 }
 
+func TestTraceAmbiguousReceiver(t *testing.T) {
+	dir := t.TempDir()
+	// Two definitions of "Run" — one free function, one method.
+	// Caller calls obj.Run() — receiver="obj", N=2 candidates.
+	writeTempFile(t, dir, "ambig.go", `package main
+func Run() {}
+type Worker struct{}
+func (w *Worker) Run() {}
+func Start() {
+	var obj Worker
+	obj.Run()
+}
+`)
+	idx, err := trace.BuildIndex(dir)
+	if err != nil {
+		t.Fatalf("BuildIndex error: %v", err)
+	}
+	result := trace.Trace(idx, []string{"Start"}, 3, nil)
+
+	var ambigNode *trace.Node
+	for i := range result.Nodes {
+		if result.Nodes[i].AmbiguousReceiver {
+			ambigNode = &result.Nodes[i]
+			break
+		}
+	}
+	if ambigNode == nil {
+		t.Fatal("expected at least one node with AmbiguousReceiver=true")
+	}
+	if ambigNode.Receiver == "" {
+		t.Error("expected non-empty Receiver on ambiguous node")
+	}
+}
+
+func TestTraceAmbiguousReceiverString(t *testing.T) {
+	dir := t.TempDir()
+	writeTempFile(t, dir, "ambig2.go", `package main
+func Run() {}
+type Worker struct{}
+func (w *Worker) Run() {}
+func Start() {
+	var obj Worker
+	obj.Run()
+}
+`)
+	idx, err := trace.BuildIndex(dir)
+	if err != nil {
+		t.Fatalf("BuildIndex error: %v", err)
+	}
+	result := trace.Trace(idx, []string{"Start"}, 3, nil)
+	for _, n := range result.Nodes {
+		if n.AmbiguousReceiver && n.Receiver == "" {
+			t.Errorf("ambiguous node %s has empty Receiver string", n.Name)
+		}
+	}
+}
+
+func TestTraceNonAmbiguousUnaffected(t *testing.T) {
+	dir := t.TempDir()
+	writeTempFile(t, dir, "clean.go", `package main
+func BuildIndex() {}
+func Main() { BuildIndex() }
+`)
+	idx, err := trace.BuildIndex(dir)
+	if err != nil {
+		t.Fatalf("BuildIndex error: %v", err)
+	}
+	result := trace.Trace(idx, []string{"Main"}, 3, nil)
+	for _, n := range result.Nodes {
+		if n.AmbiguousReceiver {
+			t.Errorf("unexpected AmbiguousReceiver on node %s", n.Name)
+		}
+	}
+}
+
 func TestJSONOutput(t *testing.T) {
 	dir := t.TempDir()
 	writeTempFile(t, dir, "simple.go", `package main
