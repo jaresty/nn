@@ -266,12 +266,14 @@ Text output: one cluster per block — `cluster N (K notes):\n  ID  Title\n  ...
 ## nn ast
 
 ```
-nn ast <file> [--json] [--trace] [--root DIR]
+nn ast <file> [--json] [--refs] [--root DIR]
 ```
 
 Print a compact structural outline of a source file (imports, types, functions, constants). Uses gotreesitter (pure Go) to parse the file.
 
 Supported languages: Go, Python, JavaScript, TypeScript, Rust, Java.
+
+Text output always appends a `## Related notes` section with BM25-matched nn notes per symbol and the standard resolution instruction. Use `--json` for symbol-array-only output without the footer.
 
 Text output:
 ```
@@ -280,14 +282,18 @@ imports: fmt, os, path/filepath, ...
 type Backend struct {
 func (b *Backend) Write(n *note.Note) error {
 ...
+
+## Related notes
+- [[20260630…|gitlocal RMW lock pattern]] [likely relevant]
+Resolve each related note before the next action — run `nn show <id>` to open...
 ```
 
-`--json` output: `[{"kind": "...", "name": "...", "signature": "...", "line": N}]`
+`--json` output: `[{"kind": "...", "name": "...", "signature": "...", "line": N}]` (no footer)
 
-`--trace` searches for name-match references to every symbol in the outline across the codebase rooted at `--root` (default: `.`). Emits one `references to "X"` section per symbol. Explicitly name-match only — not symbol-resolved, may include false positives.
+`--refs` searches for name-match references to every symbol in the outline across the codebase rooted at `--root` (default: `.`). Emits one `references to "X"` section per symbol. Name-match only — not symbol-resolved, may include false positives. Prefer `nn trace` when you need call-graph traversal rather than text matches.
 
 ```
-nn ast src/backend/gitlocal.go --trace --root ./
+nn ast src/backend/gitlocal.go --refs --root ./
 ```
 
 ## nn trace

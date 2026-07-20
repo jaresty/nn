@@ -299,6 +299,35 @@ func TestShowVirtualCLIReferencePromote(t *testing.T) {
 	}
 }
 
+// Assertion: virtual-nn-cli-reference body documents nn ast command.
+func TestShowVirtualCLIReferenceAst(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-cli-reference: %v", err)
+	}
+	if !strings.Contains(out, "nn ast") {
+		t.Errorf("expected nn ast in virtual-nn-cli-reference body:\n%s", out)
+	}
+	if !strings.Contains(out, "--refs") {
+		t.Errorf("expected --refs flag documented in virtual-nn-cli-reference body:\n%s", out)
+	}
+}
+
+// Assertion: virtual-nn-capture-discipline allow-list includes nn ast.
+func TestCaptureDisciplineAllowListIncludesAst(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if !strings.Contains(out, "nn ast") {
+		t.Errorf("expected nn ast in capture-discipline allow-list:\n%s", out)
+	}
+}
+
 // Assertion: virtual-nn-cli-reference body documents that --content is literal and recommends $'...' or stdin.
 func TestShowVirtualCLIReferenceContentLiteral(t *testing.T) {
 	_, execute := setupNotebook(t)

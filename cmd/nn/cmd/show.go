@@ -57,7 +57,9 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"system appears in the conversation above this action\n" +
 			"- `nn read <file>` — use this instead of a bare Read or cat call; writing `Gate:` before `nn read` is a protocol violation (the call itself satisfies the gate)\n" +
 				"- `nn grep <pattern> [path]` — use this instead of a bare grep or find+read to search code; the call itself satisfies the gate\n" +
-				"- `nn trace <root-dir> --symbol <name>` — use this instead of grep when tracing call graphs or symbol relationships across files; the call itself satisfies the gate\n\n" +
+				"- `nn trace <root-dir> --symbol <name>` — use this instead of grep when tracing call graphs or symbol relationships across files; the call itself satisfies the gate\n" +
+				"- `nn ast <file>` — print structural outline of a source file; the call itself satisfies the gate\n" +
+				"- `nn ast <file> --refs` — also search for name-match references across --root; the call itself satisfies the gate\n\n" +
 			"After the gated action, quote a verbatim excerpt from the result (minimum: one complete clause or value).\n\n" +
 			"**If `skip-search:` appeared above this action:** run `nn new --quick --title \"<finding>\"` where `<finding>` is the excerpt restated as a claim. The empty search result confirms the notebook has no covering note — capture is required.\n\n" +
 			"**If `Selected because:` appeared above this action:** the gate found a relevant note. Quote a sentence from the `nn show` result — the sentence must appear verbatim in the preceding `nn show` tool-result block. Then write: `compare: note sentence = \"<verbatim sentence from nn show>\" / finding = \"<claim>\" — [same topic | different topic] / [present | absent] / [durable | ephemeral]`. Then:\n" +
@@ -95,6 +97,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn read** `<file> [--lines N-M] [--limit N]` — read file with line numbers; appends `## Related notes` from BM25 search on shown content\n\n" +
 			"**nn grep** `<pattern> [path] [--context N] [--notes-per-match K]` — search files for pattern and annotate each match with related nn notes via BM25 on surrounding context; use instead of bare grep when working in a codebase to surface relevant knowledge alongside code locations\n\n" +
 			"**nn trace** `<root-dir> --symbol <name> [--symbol <name> ...] [--depth N] [--json] [--show-unresolved]` — syntax-aware call graph from entry-point symbols using gotreesitter; prefer over nn grep when tracing how a symbol is called or what it calls across files; annotates each resolved node with related nn notes via BM25; emits human-readable tree by default or JSON graph with --json\n\n" +
+			"**nn ast** `<file> [--json] [--refs] [--root <dir>]` — print compact structural outline of a source file (functions, types, imports); `--refs` additionally searches for name-match references across `--root`; text output always appends `## Related notes` via BM25; `--json` emits symbol array only\n\n" +
 			"**nn show** `<id> --depth N` — traverse N hops of outgoing links from a note\n\n" +
 			"**nn path** `<id-a> <id-b>` — shortest path between two notes\n\n" +
 			"**nn clusters** — topological clusters via label propagation\n\n" +
