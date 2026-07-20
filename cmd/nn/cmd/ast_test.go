@@ -109,6 +109,41 @@ func TestAstRefsSummaryLine(t *testing.T) {
 	}
 }
 
+// TestAstRefsDefaultRootIsFileDir checks that --root defaults to the directory of the
+// analyzed file, not ".". bm25.go is in internal/note/ so --refs without --root should
+// find BM25Scores references in that same directory.
+func TestAstRefsDefaultRootIsFileDir(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	// No --root flag — should default to internal/note (dir of bm25.go), not cwd.
+	out, err := execute("ast", bm25GoFile, "--refs", "--symbol", "BM25Scores")
+	if err != nil {
+		t.Fatalf("nn ast --refs (no --root): %v", err)
+	}
+	// Must find bm25.go itself (in-file reference).
+	if !strings.Contains(out, "bm25") {
+		t.Errorf("expected bm25.go matches without explicit --root:\n%s", out)
+	}
+	// Summary must show at least 1 file scanned (not 0).
+	if strings.Contains(out, "0 files scanned") {
+		t.Errorf("default root scanned 0 files — not defaulting to file dir:\n%s", out)
+	}
+}
+
+// TestAstRefsRelativeRootDotDot checks that a relative --root with .. traversal works
+// (regression guard for the filepath.Base("..")  == ".." skip bug).
+func TestAstRefsRelativeRootDotDot(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("ast", bm25GoFile, "--refs", "--symbol", "BM25Scores", "--root", "../../../internal/note")
+	if err != nil {
+		t.Fatalf("nn ast --refs --root ../../../internal/note: %v", err)
+	}
+	if !strings.Contains(out, "bm25") {
+		t.Errorf("expected matches with relative .. root:\n%s", out)
+	}
+}
+
 func TestAstFooter(t *testing.T) {
 	_, execute := setupNotebook(t)
 

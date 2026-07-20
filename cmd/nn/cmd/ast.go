@@ -108,7 +108,15 @@ func newAstCmd(state *rootState) *cobra.Command {
 			if refs {
 				root := refsRoot
 				if root == "" {
-					root = "."
+					// Default to the directory of the file being analyzed so that
+					// `nn ast /abs/path/file.go --refs` searches the right tree
+					// regardless of process cwd.
+					root = filepath.Dir(filePath)
+				}
+				// Normalize to absolute path so filepath.Base("..") doesn't trigger
+				// the hidden-dir skip guard inside collectNameMatches.
+				if abs, err := filepath.Abs(root); err == nil {
+					root = abs
 				}
 				// Build filter set from --symbol flags.
 				symbolFilter := make(map[string]bool, len(refsSymbols))
@@ -179,7 +187,7 @@ func collectNameMatches(root, name string) (matches []string, filesScanned int) 
 		}
 		if info.IsDir() {
 			base := filepath.Base(path)
-			if base == ".git" || base == "vendor" || (strings.HasPrefix(base, ".") && base != "..") {
+			if base == ".git" || base == "vendor" || strings.HasPrefix(base, ".") {
 				return filepath.SkipDir
 			}
 			return nil
