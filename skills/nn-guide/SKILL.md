@@ -296,6 +296,30 @@ Resolve each related note before the next action — run `nn show <id>` to open.
 nn ast src/backend/gitlocal.go --refs --root ./
 ```
 
+## nn tee
+
+```
+nn tee
+```
+
+Reads stdin, writes it unchanged to stdout, and prints BM25-matched related notes to stderr. Pipeline-transparent — downstream commands receive stdin byte-for-byte; note output never appears on stdout.
+
+**Use `nn tee` when:**
+- Fetching a web page or API response: `curl <url> | nn tee | jq .`
+- Listing processes or system state: `ps aux | nn tee`
+- Piping any content where you want related notes surfaced without breaking the pipeline
+
+Large inputs are truncated to 4096 bytes for the BM25 search window; stdout receives the full content.
+
+stderr output format:
+```
+## Related notes
+- [[ID|title]] [likely relevant]
+Resolve each related note before the next action...
+```
+
+**LLM usage note:** prefer `nn tee` over manually running `nn list --search` after fetching content — `nn tee` surfaces notes in one step and keeps the pipeline intact for downstream processing.
+
 ## nn trace
 
 ```
