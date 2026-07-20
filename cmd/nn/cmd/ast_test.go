@@ -59,6 +59,56 @@ func TestAstRefs(t *testing.T) {
 	}
 }
 
+const bm25GoFile = "../../../internal/note/bm25.go"
+
+func TestAstRefsSymbolFilter(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	// Only request refs for BM25Scores — a symbol defined in bm25.go with known uses.
+	out, err := execute("ast", bm25GoFile, "--refs", "--symbol", "BM25Scores", "--root", "../../../internal/note")
+	if err != nil {
+		t.Fatalf("nn ast --refs --symbol: %v", err)
+	}
+	if !strings.Contains(out, "BM25Scores") {
+		t.Errorf("expected BM25Scores in output:\n%s", out)
+	}
+	// Should NOT contain refs sections for other symbols.
+	if strings.Contains(out, `references to "tokenize"`) {
+		t.Errorf("--symbol filter should suppress other symbols:\n%s", out)
+	}
+}
+
+func TestAstRefsEmptySectionsSuppressed(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	// Scan a tiny root that won't contain matches for most symbols.
+	out, err := execute("ast", bm25GoFile, "--refs", "--symbol", "BM25Scores", "--root", "../../../internal/note")
+	if err != nil {
+		t.Fatalf("nn ast --refs: %v", err)
+	}
+	// Verify that bm25.go matches are found (non-empty output for BM25Scores).
+	if !strings.Contains(out, "bm25") {
+		t.Errorf("expected bm25.go match in output:\n%s", out)
+	}
+	// Empty sections for other symbols must be suppressed.
+	// Since we only asked for BM25Scores, no other "references to" blocks should appear.
+	if strings.Contains(out, `references to "tokenize"`) {
+		t.Errorf("empty/filtered sections must be suppressed:\n%s", out)
+	}
+}
+
+func TestAstRefsSummaryLine(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("ast", bm25GoFile, "--refs", "--symbol", "BM25Scores", "--root", "../../../internal/note")
+	if err != nil {
+		t.Fatalf("nn ast --refs: %v", err)
+	}
+	if !strings.Contains(out, "files scanned") {
+		t.Errorf("expected summary line with 'files scanned' in output:\n%s", out)
+	}
+}
+
 func TestAstFooter(t *testing.T) {
 	_, execute := setupNotebook(t)
 

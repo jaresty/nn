@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -20,6 +19,7 @@ func newAstCmd(state *rootState) *cobra.Command {
 	var jsonOut bool
 	var refs bool
 	var refsRoot string
+	var refsSymbols []string
 
 	cmd := &cobra.Command{
 		Use:   "ast <file>",
@@ -110,8 +110,15 @@ func newAstCmd(state *rootState) *cobra.Command {
 				if root == "" {
 					root = "."
 				}
-				// Collect unique non-import symbol names.
+				// Build filter set from --symbol flags.
+				symbolFilter := make(map[string]bool, len(refsSymbols))
+				for _, s := range refsSymbols {
+					symbolFilter[s] = true
+				}
+
+				// Collect unique non-import symbol names to query.
 				seen := make(map[string]bool)
+				var targets []string
 				for _, sym := range f.Symbols {
 					if sym.Kind == "import" || sym.Name == "" {
 						continue
@@ -119,12 +126,35 @@ func newAstCmd(state *rootState) *cobra.Command {
 					if seen[sym.Name] {
 						continue
 					}
+					if len(symbolFilter) > 0 && !symbolFilter[sym.Name] {
+						continue
+					}
 					seen[sym.Name] = true
-					fmt.Fprintf(w, "\nreferences to %q (name-match only — not symbol-resolved, may include false positives):\n", sym.Name)
-					if err := traceNameMatch(w, root, sym.Name); err != nil {
-						return fmt.Errorf("ast --refs: %w", err)
+					targets = append(targets, sym.Name)
+				}
+
+				totalMatches := 0
+				withRefs := 0
+				filesScanned := 0
+				for i, name := range targets {
+					var matches []string
+					var scanned int
+					matches, scanned = collectNameMatches(root, name)
+					if i == 0 {
+						filesScanned = scanned
+					}
+					if len(matches) == 0 {
+						continue
+					}
+					withRefs++
+					totalMatches += len(matches)
+					fmt.Fprintf(w, "\nreferences to %q — %d match(es) (name-match only, may include false positives):\n", name, len(matches))
+					for _, m := range matches {
+						fmt.Fprintln(w, m)
 					}
 				}
+				fmt.Fprintf(w, "\nsummary: %d symbol(s) · %d with references · %d match(es) · %d files scanned\n",
+					len(targets), withRefs, totalMatches, filesScanned)
 			}
 			return nil
 
@@ -133,27 +163,31 @@ func newAstCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON array of symbols")
 	cmd.Flags().BoolVar(&refs, "refs", false, "For each symbol in the outline, search for name-match references across --root")
 	cmd.Flags().StringVar(&refsRoot, "root", ".", "Root directory for --refs reference search")
+	cmd.Flags().StringArrayVar(&refsSymbols, "symbol", nil, "Limit --refs to these symbol names (repeatable); default: all symbols")
 	return cmd
 }
 
-// traceNameMatch searches for occurrences of name across all source files under root.
-func traceNameMatch(w io.Writer, root, name string) error {
-	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+// collectNameMatches returns all "path:line  content" strings where name appears,
+// plus the number of files scanned.
+func collectNameMatches(root, name string) (matches []string, filesScanned int) {
+	walkErr := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil // skip inaccessible paths
+			return nil
+		}
+		if err != nil {
+			return nil
 		}
 		if info.IsDir() {
-			// Skip hidden dirs and vendor.
 			base := filepath.Base(path)
-			if base == ".git" || base == "vendor" || strings.HasPrefix(base, ".") {
+			if base == ".git" || base == "vendor" || (strings.HasPrefix(base, ".") && base != "..") {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		// Only scan source-like files.
 		if !isSourceFile(path) {
 			return nil
 		}
+		filesScanned++
 
 		f, err := os.Open(path)
 		if err != nil {
@@ -167,11 +201,13 @@ func traceNameMatch(w io.Writer, root, name string) error {
 			lineNum++
 			line := scanner.Text()
 			if strings.Contains(line, name) {
-				fmt.Fprintf(w, "  %s:%d\t%s\n", path, lineNum, strings.TrimSpace(line))
+				matches = append(matches, fmt.Sprintf("  %s:%d\t%s", path, lineNum, strings.TrimSpace(line)))
 			}
 		}
 		return nil
 	})
+	_ = walkErr
+	return
 }
 
 func isSourceFile(path string) bool {
