@@ -138,7 +138,7 @@ func newListCmd(state *rootState) *cobra.Command {
 				if hasExpires && n.Expires == nil {
 					continue
 				}
-				if search != "" && note.BM25Scores([]*note.Note{n}, search, allInbound)[n.ID] == 0 {
+				if search != "" && note.BM25Scores([]*note.Note{n}, search+" "+gitContextQuery(), allInbound)[n.ID] == 0 {
 					continue
 				}
 				if long && len(n.Body) <= atomicityThreshold {
@@ -193,7 +193,7 @@ func newListCmd(state *rootState) *cobra.Command {
 			var searchScores map[string]float64
 			var normalizedSearchScores map[string]float64
 			if search != "" {
-				searchScores = note.BM25Scores(filtered, search, allInbound)
+				searchScores = note.BM25Scores(filtered, search+" "+gitContextQuery(), allInbound)
 				if boostRecent {
 					now := time.Now()
 					for _, n := range filtered {

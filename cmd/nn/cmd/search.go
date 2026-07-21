@@ -30,7 +30,7 @@ func newSearchCmd(state *rootState) *cobra.Command {
 			}
 
 			// BM25: include any note matching at least one query term.
-			scores := note.BM25Scores(notes, query, nil)
+			scores := note.BM25Scores(notes, query+" "+gitContextQuery(), nil)
 			var filtered []*note.Note
 			for _, n := range notes {
 				if scores[n.ID] > 0 {

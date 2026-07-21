@@ -58,7 +58,7 @@ func runTee(stdin io.Reader, stdout io.Writer, stderr io.Writer, state *rootStat
 		}
 	}
 
-	scores := note.BM25Scores(notes, query, allInbound)
+	scores := note.BM25Scores(notes, query+" "+gitContextQuery(), allInbound)
 
 	type scored struct {
 		n     *note.Note
