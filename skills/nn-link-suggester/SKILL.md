@@ -51,7 +51,7 @@ nn update <id> --tags "..." --no-edit
 
 ## Canonical link types
 
-`refines` | `contradicts` | `source-of` | `extends` | `supports` | `questions` | `governs`
+`refines` | `contradicts` | `source-of` | `extends` | `supports` | `questions` | `governs` | `requires`
 
 ## Success criteria
 

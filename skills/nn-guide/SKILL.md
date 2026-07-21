@@ -149,6 +149,10 @@ nn list --has-expires              # all notes with an expiration date
 nn list --has-expires --json       # machine-readable expiring notes
 ```
 
+`--has-open-items` filters to notes with at least one unchecked checkbox (`- [ ]`). Use to find notes with pending work items.
+
+`--unblocked` filters to notes that have at least one `requires` link and whose required targets are all done (no unchecked checkboxes). A required target with no checkboxes is considered done vacuously — a warning is emitted to stderr in that case. Use to find notes that are now actionable because their prerequisites are complete.
+
 `--no-inbound` filters to notes with zero inbound links. Stricter than `--orphan` (zero links in either direction) — use to find notes nothing references that still have outbound links.
 
 `--unactioned` filters to notes that were accessed via `nn show` but have had no git commit touching their file since the last access. Advisory — requires `access.log`. Use to surface notes the LLM read but never updated. (Previously named `--stale`.)
@@ -184,7 +188,9 @@ nn bulk-link <from-id> --to <id> --annotation "..." --type TYPE [--status draft|
 
 Both `--annotation` and `--type` are required. A bare link is a schema violation.
 
-Canonical types: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `questions`, `governs`.
+Canonical types: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `questions`, `governs`, `requires`.
+
+`requires` — note A requires note B means A cannot be acted on until B is complete. Completion is derived from B's checkbox state: done when all `- [x]` (or no checkboxes, vacuously). Used with `nn list --unblocked` to surface actionable notes.
 
 `--status` defaults to `draft`. Pass `--status reviewed` when a human is explicitly creating and endorsing the link at creation time.
 
@@ -640,7 +646,7 @@ Body text.
 ```
 
 Link format in plain-text `show` output: `- [[target-id|Target Title]] [type] {status} — annotation` (titles resolved at render time). In the raw file on disk, the format remains `- [[target-id]] [type] {status} — annotation`.
-- `[type]` optional: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `questions`, `governs`
+- `[type]` optional: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `questions`, `governs`, `requires`
 - `{status}` optional: `draft` (default for new links), `reviewed` (human-endorsed). Absent = `reviewed` (legacy compat).
 
 ## LLM usage patterns

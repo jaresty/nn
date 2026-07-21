@@ -35,6 +35,8 @@ func newListCmd(state *rootState) *cobra.Command {
 		hasExpires   bool
 		hasURL       bool
 		urlContains  string
+		hasOpenItems bool
+		unblocked    bool
 		limit        int
 		jsonOut      bool
 		rich         bool
@@ -81,6 +83,11 @@ func newListCmd(state *rootState) *cobra.Command {
 				for _, lnk := range n.Links {
 					allInbound[lnk.TargetID] = append(allInbound[lnk.TargetID], lnk.Annotation)
 				}
+			}
+
+			notesByID := make(map[string]*note.Note, len(notes))
+			for _, n := range notes {
+				notesByID[n.ID] = n
 			}
 
 			var filtered []*note.Note
@@ -137,6 +144,14 @@ func newListCmd(state *rootState) *cobra.Command {
 				}
 				if hasExpires && n.Expires == nil {
 					continue
+				}
+				if hasOpenItems && note.IsDone(n.Body) {
+					continue
+				}
+				if unblocked {
+					if !isUnblocked(n, notesByID) {
+						continue
+					}
 				}
 				if search != "" && note.BM25Scores([]*note.Note{n}, search+" "+gitContextQuery(), allInbound)[n.ID] == 0 {
 					continue
@@ -313,6 +328,8 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&hasExpires, "has-expires", false, "Notes with an expires date set (any date)")
 	cmd.Flags().BoolVar(&global, "global", false, "Protocol notes with no outgoing governs links (applies universally)")
 	cmd.Flags().BoolVar(&long, "long", false, "Filter to notes exceeding the atomicity threshold")
+	cmd.Flags().BoolVar(&hasOpenItems, "has-open-items", false, "Notes with at least one unchecked checkbox (- [ ])")
+	cmd.Flags().BoolVar(&unblocked, "unblocked", false, "Notes with requires links whose targets are all done (no unchecked checkboxes)")
 	cmd.Flags().BoolVar(&hasURL, "has-url", false, "Filter to notes containing an http/https URL")
 	cmd.Flags().StringVar(&urlContains, "url-contains", "", "Filter to notes containing a URL that includes this string")
 	cmd.Flags().IntVar(&limit, "limit", 0, "Maximum number of results")

@@ -87,14 +87,14 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn remind** `\"content\" [--for N] [--expires YYYY-MM-DD]` — creates observation tagged 'reminder', permanent, expires today+1d by default; surfaces in nn show --global\n" +
 			"**nn remind --find FRAGMENT** — search reminder titles by substring; prints matching ID; error if ambiguous (multiple matches) or zero matches\n" +
 			"**nn remind \"new body\" --update ID** — replace body of existing reminder in place; preserves expiry; no new note created\n\n" +
-			"**nn list** `--search \"<q>\" --show-first --json [--fields id,title,...]` | `--type <type>` | `--status <status>` | `--orphan` | `--since <ISO>` | `--expired` | `--has-expires`\n" +
+			"**nn list** `--search \"<q>\" --show-first --json [--fields id,title,...]` | `--type <type>` | `--status <status>` | `--orphan` | `--since <ISO>` | `--expired` | `--has-expires` | `--has-open-items` | `--unblocked`\n" +
 			"Valid --fields: id|title|type|status|tags|applies_when|excerpt|score|modified|match_reason|is_protocol|link_count|backlink_count|created|body_preview (requires --json; errors on unknown field)\n" +
 			"`nn list --search` always includes 1-hop graph neighbors in output: plain text shows indented `→`/`←` lines (id, title, type, annotation); `--json` includes a `neighbors` array with direction/id/title/type/annotation fields.\n\n" +
 			"**nn show** `<id>` | `--global`\n" +
 			"`nn show` output must not be piped to `head`, `tail`, `less`, or `more`. Pipe the full output or omit the pipe — the complete note body is required for accurate retrieval.\n" +
 			"Output format: Links and Backlinks sections each render as `[[id|title]] [type] {status} — annotation` (fields omitted when empty).\n\n" +
 			"**nn link** `<from> <to> --type <type> --annotation \"...\"`\n" +
-			"Valid --type: refines|contradicts|source-of|extends|supports|questions|governs\n\n" +
+			"Valid --type: refines|contradicts|source-of|extends|supports|questions|governs|requires\n\n" +
 			"**nn read** `<file> [--lines N-M] [--limit N]` — read file with line numbers; appends `## Related notes` from BM25 search on shown content\n\n" +
 			"**nn grep** `<pattern> [path] [--context N] [--notes-per-match K] [--trace]` — search files for pattern and annotate each match with related nn notes via BM25 on surrounding context; use instead of bare grep when working in a codebase to surface relevant knowledge alongside code locations; `--trace` invokes nn trace inline for each traceable matched file\n\n" +
 			"**nn trace** `<root-dir> --symbol <name> [--symbol <name> ...] [--depth N] [--json] [--show-unresolved]` or `<file>:<line>` — syntax-aware call graph from entry-point symbols using gotreesitter; prefer over nn grep when tracing how a symbol is called or what it calls across files; annotates each resolved node with related nn notes via BM25; emits human-readable tree by default or JSON graph with --json; `file:line` form resolves the symbol at that line automatically\n\n" +

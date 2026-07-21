@@ -41,6 +41,7 @@ var KnownLinkTypes = map[string]bool{
 	"supports":    true,
 	"questions":   true,
 	"governs":     true,
+	"requires":    true,
 }
 
 // IsKnownLinkType reports whether t is in the canonical link type set.
