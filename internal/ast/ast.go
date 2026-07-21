@@ -20,6 +20,7 @@ type Symbol struct {
 	Name      string `json:"name"`
 	Signature string `json:"signature"`
 	Line      int    `json:"line"` // 1-indexed
+	Body      string `json:"-"`    // full source text of the definition span; not serialized
 }
 
 // File holds the parsed outline of a source file.
@@ -199,7 +200,7 @@ func extractSymbols(lang *gotreesitter.Language, root *gotreesitter.Node, src []
 		if !ok {
 			break
 		}
-		var kind, name string
+		var kind, name, body string
 		var line uint32
 		// The first non-@name capture gives us the kind; @name gives name and line.
 		for _, cap := range match.Captures {
@@ -209,6 +210,7 @@ func extractSymbols(lang *gotreesitter.Language, root *gotreesitter.Node, src []
 			} else {
 				// The capture name is the kind (function, method, type, etc.)
 				kind = cap.Name
+				body = cap.Node.Text(src)
 			}
 		}
 		if name == "" {
@@ -223,6 +225,7 @@ func extractSymbols(lang *gotreesitter.Language, root *gotreesitter.Node, src []
 			Name:      name,
 			Signature: sig,
 			Line:      int(line) + 1,
+			Body:      body,
 		})
 	}
 	return results

@@ -73,7 +73,11 @@ func newAstCmd(state *rootState) *cobra.Command {
 					if sym.Kind == "import" || sym.Name == "" {
 						continue
 					}
-					scores := note.BM25Scores(notes, sym.Name, allInbound)
+					query := sym.Body
+					if query == "" {
+						query = sym.Name
+					}
+					scores := note.BM25Scores(notes, query, allInbound)
 					type scored struct {
 						n     *note.Note
 						score float64

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -168,6 +169,39 @@ func TestAstJSONNoFooter(t *testing.T) {
 	}
 	if strings.Contains(out, "Continuing without resolving is a protocol violation.") {
 		t.Errorf("ast --json must not contain resolution footer:\n%s", out)
+	}
+}
+
+// TestAstBM25UsesSymbolBody verifies that BM25 note matching uses the full symbol
+// body, not just the symbol name. A note whose title matches a term in the function
+// body (but not the function name) must surface in ## Related notes.
+func TestAstBM25UsesSymbolBody(t *testing.T) {
+	notebook, execute := setupNotebook(t)
+
+	// Create a note whose title contains a term present only in the function body.
+	if _, err := execute("new", "--title", "distinctivebodytermqrs usage pattern", "--type", "observation", "--no-edit"); err != nil {
+		t.Fatalf("nn new: %v", err)
+	}
+
+	// Write a Go file with a function whose body contains the distinctive term.
+	goFile := notebook + "/subject.go"
+	content := `package main
+
+func MyHandler() {
+	// distinctivebodytermqrs
+	_ = 42
+}
+`
+	if err := os.WriteFile(goFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("ast", goFile)
+	if err != nil {
+		t.Fatalf("nn ast: %v", err)
+	}
+	if !strings.Contains(out, "distinctivebodytermqrs") {
+		t.Errorf("FAIL: TestAstBM25UsesSymbolBody: expected note with body term 'distinctivebodytermqrs' to appear in Related notes, but got:\n%s", out)
 	}
 }
 
