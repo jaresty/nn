@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
@@ -65,10 +68,12 @@ type NoteRef struct {
 }
 
 // BuildIndex walks root, parses all grammar-detected files via gotreesitter, and
-// returns an Index of all definition sites.
+// returns an Index of all definition sites. Files are parsed concurrently using a
+// bounded goroutine pool.
 func BuildIndex(root string) (*Index, error) {
-	idx := &Index{ByName: map[string][]*DefSite{}}
-	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+	// Collect all parseable file paths first (WalkDir is not goroutine-safe).
+	var paths []string
+	if err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -78,38 +83,65 @@ func BuildIndex(root string) (*Index, error) {
 			}
 			return nil
 		}
-		if grammars.DetectLanguage(path) == nil {
-			return nil
-		}
-		src, err := os.ReadFile(path)
-		if err != nil {
-			return nil
-		}
-		entry := grammars.DetectLanguage(path)
-		parser := gotreesitter.NewParser(entry.Language())
-		tree, err := parser.Parse(src)
-		if err != nil || tree == nil {
-			return nil
-		}
-		lines := lineTable(src)
-		for _, span := range gotreesitter.ExtractDefinitionSpans(tree) {
-			name := string(src[span.NameStartByte:span.NameEndByte])
-			def := &DefSite{
-				Name:      name,
-				Kind:      span.Kind,
-				File:      path,
-				StartLine: byteToLine(lines, span.StartByte),
-				EndLine:   byteToLine(lines, span.EndByte),
-				StartByte: span.StartByte,
-				EndByte:   span.EndByte,
-				Source:    src,
-			}
-			idx.All = append(idx.All, def)
-			idx.ByName[name] = append(idx.ByName[name], def)
+		if grammars.DetectLanguage(path) != nil {
+			paths = append(paths, path)
 		}
 		return nil
-	})
-	return idx, err
+	}); err != nil {
+		return nil, err
+	}
+
+	type fileDefs struct {
+		defs []*DefSite
+	}
+	results := make([]fileDefs, len(paths))
+
+	g := new(errgroup.Group)
+	g.SetLimit(runtime.NumCPU())
+	for i, path := range paths {
+		i, path := i, path
+		g.Go(func() error {
+			src, err := os.ReadFile(path)
+			if err != nil {
+				return nil
+			}
+			entry := grammars.DetectLanguage(path)
+			parser := gotreesitter.NewParser(entry.Language())
+			tree, err := parser.Parse(src)
+			if err != nil || tree == nil {
+				return nil
+			}
+			lines := lineTable(src)
+			var defs []*DefSite
+			for _, span := range gotreesitter.ExtractDefinitionSpans(tree) {
+				name := string(src[span.NameStartByte:span.NameEndByte])
+				defs = append(defs, &DefSite{
+					Name:      name,
+					Kind:      span.Kind,
+					File:      path,
+					StartLine: byteToLine(lines, span.StartByte),
+					EndLine:   byteToLine(lines, span.EndByte),
+					StartByte: span.StartByte,
+					EndByte:   span.EndByte,
+					Source:    src,
+				})
+			}
+			results[i] = fileDefs{defs: defs}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	idx := &Index{ByName: map[string][]*DefSite{}}
+	for _, r := range results {
+		for _, def := range r.defs {
+			idx.All = append(idx.All, def)
+			idx.ByName[def.Name] = append(idx.ByName[def.Name], def)
+		}
+	}
+	return idx, nil
 }
 
 func lineTable(src []byte) []uint32 {

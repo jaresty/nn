@@ -136,6 +136,41 @@ func Main() { BuildIndex() }
 	}
 }
 
+// TestBuildIndexParallelCorrectness verifies that a parallelized BuildIndex
+// produces the same symbol count as the serial implementation.
+// The -race flag will catch any mutex gaps introduced during parallelization.
+func TestBuildIndexParallelCorrectness(t *testing.T) {
+	dir := t.TempDir()
+	// Create enough files to exercise the goroutine pool across multiple workers.
+	for i := 0; i < 20; i++ {
+		name := filepath.Join(dir, filepath.Base(t.TempDir())+".go")
+		content := "package main\nfunc Sym" + strings.Repeat("X", i+1) + "() {}\n"
+		if err := os.WriteFile(name, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	idx, err := trace.BuildIndex(dir)
+	if err != nil {
+		t.Fatalf("BuildIndex error: %v", err)
+	}
+	// Each file defines exactly one function; expect 20 symbols.
+	if len(idx.All) != 20 {
+		t.Errorf("FAIL: TestBuildIndexParallelCorrectness: expected 20 symbols, got %d", len(idx.All))
+	}
+}
+
+func BenchmarkBuildIndex(b *testing.B) {
+	// Benchmark against the actual nn source tree — representative real-world workload.
+	dir := "../.."
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := trace.BuildIndex(dir); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func TestJSONOutput(t *testing.T) {
 	dir := t.TempDir()
 	writeTempFile(t, dir, "simple.go", `package main
