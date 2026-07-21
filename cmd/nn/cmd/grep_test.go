@@ -159,7 +159,7 @@ func TestGrepCmdRegex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out, err := execute("grep", "handle(Auth|Login)", f)
+	out, err := execute("grep", "handle(Auth|Login)", f, "--context", "0")
 	if err != nil {
 		t.Fatalf("nn grep regex: %v", err)
 	}
@@ -407,6 +407,59 @@ func TestGrepCmdContextFlag(t *testing.T) {
 	// With context=2, the comment line "validate token expiry" is included, boosting BM25 toward the note.
 	if !strings.Contains(out, "Token validation policy") {
 		t.Errorf("expected 'Token validation policy' note with --context 2; got:\n%s", out)
+	}
+}
+
+// Assertion: TestGrepContextLinesDisplayed — nn grep --context N prints N surrounding lines in the output.
+func TestGrepContextLinesDisplayed(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "auth.go")
+	content := "package main\n// before line\nfunc checkExpiry() bool {\n// after line\n\treturn true\n}\n"
+	if err := os.WriteFile(f, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "checkExpiry", f, "--context", "1")
+	if err != nil {
+		t.Fatalf("nn grep --context: %v", err)
+	}
+	if !strings.Contains(out, "before line") {
+		t.Errorf("FAIL: TestGrepContextLinesDisplayed: expected context line 'before line' in output; got:\n%s", out)
+	}
+	if !strings.Contains(out, "after line") {
+		t.Errorf("FAIL: TestGrepContextLinesDisplayed: expected context line 'after line' in output; got:\n%s", out)
+	}
+}
+
+// Assertion: TestGrepContextSeparator — nn grep --context N prints -- between non-overlapping match groups.
+func TestGrepContextSeparator(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "multi.go")
+	// Two matches far apart so context windows (1 line each) don't overlap.
+	content := "line1\nMATCH_A\nline3\nline4\nline5\nline6\nline7\nMATCH_B\nline9\n"
+	if err := os.WriteFile(f, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "MATCH_", f, "--context", "1")
+	if err != nil {
+		t.Fatalf("nn grep --context separator: %v", err)
+	}
+	// The separator must appear as a line on its own (not inside a URL or suggestion).
+	lines := strings.Split(out, "\n")
+	found := false
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "--" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("FAIL: TestGrepContextSeparator: expected '--' on its own line between non-overlapping match groups; got:\n%s", out)
 	}
 }
 

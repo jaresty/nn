@@ -73,10 +73,11 @@ func newGrepCmd(state *rootState) *cobra.Command {
 
 			// Find matches.
 			type match struct {
-				file    string
-				lineNum int
-				text    string
-				context []string
+				file         string
+				lineNum      int
+				text         string
+				context      []string
+				contextStart int // 1-based line number of context[0]
 			}
 			var matches []match
 			for idx, fl := range allLines {
@@ -96,7 +97,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 				for _, cl := range allLines[start:end] {
 					ctx = append(ctx, cl.text)
 				}
-				matches = append(matches, match{fl.file, fl.lineNum, fl.text, ctx})
+				matches = append(matches, match{fl.file, fl.lineNum, fl.text, ctx, allLines[start].lineNum})
 			}
 
 			if len(matches) == 0 {
@@ -122,8 +123,29 @@ func newGrepCmd(state *rootState) *cobra.Command {
 			}
 
 			traceSuggested := map[string]bool{}
+			prevEnd := -1 // last line number printed in previous group (for separator logic)
 			for _, m := range matches {
+				// Print separator when context windows don't overlap with previous group.
+				if contextLines > 0 && prevEnd >= 0 && m.contextStart > prevEnd+1 {
+					fmt.Fprintln(w, "--")
+				}
+				// Print before-context lines.
+				for i, line := range m.context {
+					lineNum := m.contextStart + i
+					if lineNum == m.lineNum {
+						break
+					}
+					fmt.Fprintf(w, "%s:%d:%s\n", m.file, lineNum, line)
+				}
+				// Print the match line.
 				fmt.Fprintf(w, "%s:%d:%s\n", m.file, m.lineNum, m.text)
+				// Print after-context lines.
+				afterStart := m.lineNum - m.contextStart + 1
+				for i := afterStart; i < len(m.context); i++ {
+					lineNum := m.contextStart + i
+					fmt.Fprintf(w, "%s:%d:%s\n", m.file, lineNum, m.context[i])
+				}
+				prevEnd = m.contextStart + len(m.context) - 1
 
 				if !traceSuggested[m.file] && isTraceableFile(m.file) {
 					traceSuggested[m.file] = true
