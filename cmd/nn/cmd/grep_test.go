@@ -318,6 +318,72 @@ func TestReadFileLinesSkipsBinary(t *testing.T) {
 	}
 }
 
+// Assertion: TestGrepCmdTraceableSuggestion — nn grep emits a trace suggestion for matches in gotreesitter-parseable files.
+func TestGrepCmdTraceableSuggestion(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "server.go")
+	if err := os.WriteFile(f, []byte("package main\n\nfunc fetchCompanyMappings() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "fetchCompanyMappings", f)
+	if err != nil {
+		t.Fatalf("nn grep traceable: %v", err)
+	}
+	if !strings.Contains(out, "nn trace") {
+		t.Errorf("expected 'nn trace' suggestion for match in parseable file; got:\n%s", out)
+	}
+	if !strings.Contains(out, "re-exported symbols") {
+		t.Errorf("expected limit disclosure 're-exported symbols' in trace suggestion; got:\n%s", out)
+	}
+}
+
+// Assertion: TestGrepCmdUnparseableFileNoSuggestion — nn grep does not emit trace suggestion for files with no gotreesitter grammar.
+func TestGrepCmdUnparseableFileNoSuggestion(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "data.bin")
+	if err := os.WriteFile(f, []byte("fetchCompanyMappings value\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "fetchCompanyMappings", f)
+	if err != nil {
+		t.Fatalf("nn grep unparseable: %v", err)
+	}
+	if strings.Contains(out, "nn trace") {
+		t.Errorf("expected no trace suggestion for file with no grammar; got:\n%s", out)
+	}
+}
+
+// Assertion: TestGrepCmdBM25NoiseThreshold — nn grep suppresses notes with score below minimum threshold.
+func TestGrepCmdBM25NoiseThreshold(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	// Create a note with very low BM25 overlap (unrelated vocabulary).
+	noteFile := filepath.Join(nbDir, "20260101000000-0010.md")
+	if err := os.WriteFile(noteFile, []byte("---\nid: 20260101000000-0010\ntitle: Unrelated quantum physics\ntype: concept\nstatus: draft\n---\nquantum entanglement superposition wavefunction collapse.\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "auth.go")
+	if err := os.WriteFile(f, []byte("package main\n\nfunc handleAuth() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "handleAuth", f)
+	if err != nil {
+		t.Fatalf("nn grep noise threshold: %v", err)
+	}
+	if strings.Contains(out, "Unrelated quantum physics") {
+		t.Errorf("expected low-relevance note to be suppressed by threshold; got:\n%s", out)
+	}
+}
+
 // Assertion: TestGrepCmdContextFlag — nn grep --context N includes surrounding lines in BM25 query.
 func TestGrepCmdContextFlag(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
@@ -341,5 +407,28 @@ func TestGrepCmdContextFlag(t *testing.T) {
 	// With context=2, the comment line "validate token expiry" is included, boosting BM25 toward the note.
 	if !strings.Contains(out, "Token validation policy") {
 		t.Errorf("expected 'Token validation policy' note with --context 2; got:\n%s", out)
+	}
+}
+
+// Assertion: TestGrepCmdTraceFlag — nn grep --trace invokes nn trace inline for each traceable matched file.
+func TestGrepCmdTraceFlag(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "server.go")
+	if err := os.WriteFile(f, []byte("package main\n\nfunc fetchCompanyMappings() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "--trace", "fetchCompanyMappings", f)
+	if err != nil {
+		t.Fatalf("nn grep --trace: %v", err)
+	}
+	if !strings.Contains(out, "fetchCompanyMappings") {
+		t.Errorf("expected trace call graph output with symbol name; got:\n%s", out)
+	}
+	// Call graph output includes a kind marker in parens from trace renderer.
+	if !strings.Contains(out, "(function)") && !strings.Contains(out, "(method)") {
+		t.Errorf("expected trace kind marker '(function)' or '(method)' in --trace output; got:\n%s", out)
 	}
 }

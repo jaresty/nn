@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -73,5 +76,26 @@ func TestTraceCmdJSON(t *testing.T) {
 	}
 	if !strings.Contains(out, "nodes") {
 		t.Errorf("expected 'nodes' in JSON output:\n%s", out)
+	}
+}
+
+// Assertion: TestTraceCmdFileLineInput — nn trace accepts file:line as positional arg and resolves to the symbol at that line.
+func TestTraceCmdFileLineInput(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "server.go")
+	content := "package main\n\nfunc fetchCompanyMappings() {\n}\n"
+	if err := os.WriteFile(f, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Line 3 is "func fetchCompanyMappings() {"
+	out, err := execute("trace", fmt.Sprintf("%s:3", f))
+	if err != nil {
+		t.Fatalf("nn trace file:line: %v", err)
+	}
+	if !strings.Contains(out, "fetchCompanyMappings") {
+		t.Errorf("expected symbol 'fetchCompanyMappings' resolved from file:line; got:\n%s", out)
 	}
 }

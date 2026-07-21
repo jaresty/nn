@@ -57,7 +57,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"system appears in the conversation above this action\n" +
 			"- `nn read <file>` — use this instead of a bare Read or cat call; writing `Gate:` before `nn read` is a protocol violation (the call itself satisfies the gate)\n" +
 				"- `nn grep <pattern> [path]` — use this instead of a bare grep or find+read to search code; the call itself satisfies the gate\n" +
-				"- `nn trace <root-dir> --symbol <name>` — use this instead of grep when tracing call graphs or symbol relationships across files; the call itself satisfies the gate\n" +
+				"- `nn trace <root-dir> --symbol <name>` or `nn trace <file>:<line>` — use this instead of grep when tracing call graphs or symbol relationships across files; the call itself satisfies the gate\n" +
 				"- `nn ast <file>` — print structural outline of a source file; the call itself satisfies the gate\n" +
 				"- `nn ast <file> --refs` — also search for name-match references across --root; the call itself satisfies the gate\n" +
 				"- `nn tee` — pipe stdin through unchanged while printing BM25-matched related notes to stderr; the call itself satisfies the gate\n\n" +
@@ -96,8 +96,8 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn link** `<from> <to> --type <type> --annotation \"...\"`\n" +
 			"Valid --type: refines|contradicts|source-of|extends|supports|questions|governs\n\n" +
 			"**nn read** `<file> [--lines N-M] [--limit N]` — read file with line numbers; appends `## Related notes` from BM25 search on shown content\n\n" +
-			"**nn grep** `<pattern> [path] [--context N] [--notes-per-match K]` — search files for pattern and annotate each match with related nn notes via BM25 on surrounding context; use instead of bare grep when working in a codebase to surface relevant knowledge alongside code locations\n\n" +
-			"**nn trace** `<root-dir> --symbol <name> [--symbol <name> ...] [--depth N] [--json] [--show-unresolved]` — syntax-aware call graph from entry-point symbols using gotreesitter; prefer over nn grep when tracing how a symbol is called or what it calls across files; annotates each resolved node with related nn notes via BM25; emits human-readable tree by default or JSON graph with --json\n\n" +
+			"**nn grep** `<pattern> [path] [--context N] [--notes-per-match K] [--trace]` — search files for pattern and annotate each match with related nn notes via BM25 on surrounding context; use instead of bare grep when working in a codebase to surface relevant knowledge alongside code locations; `--trace` invokes nn trace inline for each traceable matched file\n\n" +
+			"**nn trace** `<root-dir> --symbol <name> [--symbol <name> ...] [--depth N] [--json] [--show-unresolved]` or `<file>:<line>` — syntax-aware call graph from entry-point symbols using gotreesitter; prefer over nn grep when tracing how a symbol is called or what it calls across files; annotates each resolved node with related nn notes via BM25; emits human-readable tree by default or JSON graph with --json; `file:line` form resolves the symbol at that line automatically\n\n" +
 			"**nn ast** `<file> [--json] [--refs] [--root <dir>]` — print compact structural outline of a source file (functions, types, imports); `--refs` additionally searches for name-match references across `--root`; text output always appends `## Related notes` via BM25; `--json` emits symbol array only\n\n" +
 			"**nn tee** — reads stdin, writes it unchanged to stdout, and prints BM25-matched related notes to stderr; use in pipelines where stdout must stay clean (e.g. `curl <url> | nn tee | jq .`)\n\n" +
 			"**nn show** `<id> --depth N` — traverse N hops of outgoing links from a note\n\n" +

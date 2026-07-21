@@ -11,12 +11,15 @@ import (
 	"strings"
 
 	"github.com/jaresty/nn/internal/note"
+	"github.com/jaresty/nn/internal/trace"
+	"github.com/odvcencio/gotreesitter/grammars"
 	"github.com/spf13/cobra"
 )
 
 func newGrepCmd(state *rootState) *cobra.Command {
 	var contextLines int
 	var notesPerMatch int
+	var traceFlag bool
 
 	cmd := &cobra.Command{
 		Use:   "grep <pattern> [path...]",
@@ -118,8 +121,28 @@ func newGrepCmd(state *rootState) *cobra.Command {
 				k = 2
 			}
 
+			traceSuggested := map[string]bool{}
 			for _, m := range matches {
 				fmt.Fprintf(w, "%s:%d:%s\n", m.file, m.lineNum, m.text)
+
+				if !traceSuggested[m.file] && isTraceableFile(m.file) {
+					traceSuggested[m.file] = true
+					if traceFlag {
+						dir := filepath.Dir(m.file)
+						if idx, err := trace.BuildIndex(dir); err == nil {
+							if sym, _, ok := resolveFileLineInIndex(idx, m.file, m.lineNum); ok {
+								result := trace.Trace(idx, []string{sym}, 3, notes)
+								fmt.Fprintf(w, "  [trace: %s --symbol %s]\n", dir, sym)
+								for _, n := range result.Nodes {
+									fmt.Fprintf(w, "    %s (%s) [%s:%d]\n", n.Name, n.Kind, n.File, n.Line)
+								}
+							}
+						}
+					} else {
+						fmt.Fprintf(w, "  → To follow the execution path: nn trace %s --symbol <name>\n", filepath.Dir(m.file))
+						fmt.Fprintf(w, "    (trace follows callable syntax but may not resolve TypeScript types, re-exported symbols, or fluent framework composition)\n")
+					}
+				}
 
 				query := strings.Join(m.context, " ")
 				if strings.TrimSpace(query) == "" {
@@ -154,6 +177,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 
 	cmd.Flags().IntVar(&contextLines, "context", 3, "Number of surrounding lines to include in BM25 query")
 	cmd.Flags().IntVar(&notesPerMatch, "notes-per-match", 2, "Maximum related notes to show per match")
+	cmd.Flags().BoolVar(&traceFlag, "trace", false, "Invoke nn trace inline for each traceable matched file")
 	return cmd
 }
 
@@ -221,4 +245,19 @@ func readFileLines(path string) ([]string, error) {
 		lines = append(lines, sc.Text())
 	}
 	return lines, sc.Err()
+}
+
+func isTraceableFile(path string) bool {
+	return grammars.DetectLanguage(path) != nil
+}
+
+func resolveFileLineInIndex(idx *trace.Index, file string, lineNum int) (string, string, bool) {
+	for _, sites := range idx.ByName {
+		for _, s := range sites {
+			if s.File == file && s.StartLine <= lineNum && s.EndLine >= lineNum {
+				return s.Name, filepath.Dir(file), true
+			}
+		}
+	}
+	return "", "", false
 }

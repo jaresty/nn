@@ -3,6 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/jaresty/nn/internal/trace"
@@ -21,6 +23,16 @@ func newTraceCmd(state *rootState) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root := args[0]
+
+			// Detect file:line input: resolve symbol from AST index.
+			if sym, dir, ok := resolveFileLineSymbol(root); ok {
+				root = dir
+				if len(symbols) == 0 {
+					symbols = []string{sym}
+				}
+			} else if len(symbols) == 0 {
+				return fmt.Errorf("required flag(s) \"symbol\" not set")
+			}
 
 			idx, err := trace.BuildIndex(root)
 			if err != nil {
@@ -128,6 +140,33 @@ func newTraceCmd(state *rootState) *cobra.Command {
 	cmd.Flags().IntVar(&depth, "depth", 3, "DFS depth limit")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Emit JSON graph")
 	cmd.Flags().BoolVar(&showUnresolved, "show-unresolved", false, "Show unresolved (stdlib/external) leaves")
-	_ = cmd.MarkFlagRequired("symbol")
 	return cmd
+}
+
+// resolveFileLineSymbol detects "file:line" format in arg, builds an AST index
+// on the file's directory, and returns the symbol name spanning that line.
+func resolveFileLineSymbol(arg string) (symbol, dir string, ok bool) {
+	colon := strings.LastIndex(arg, ":")
+	if colon < 0 {
+		return "", "", false
+	}
+	lineNum, err := strconv.Atoi(arg[colon+1:])
+	if err != nil {
+		return "", "", false
+	}
+	file := arg[:colon]
+	dir = filepath.Dir(file)
+
+	idx, err := trace.BuildIndex(dir)
+	if err != nil {
+		return "", "", false
+	}
+	for _, sites := range idx.ByName {
+		for _, s := range sites {
+			if s.File == file && s.StartLine <= lineNum && s.EndLine >= lineNum {
+				return s.Name, dir, true
+			}
+		}
+	}
+	return "", "", false
 }
