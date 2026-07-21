@@ -179,6 +179,97 @@ func TestTodoListExcludesNotesWithNoOpenItems(t *testing.T) {
 	}
 }
 
+// Assertion: TestTodoListDefaultExcludesBlockedNotes — nn todo list default excludes notes blocked by incomplete requires target
+func TestTodoListDefaultExcludesBlockedNotes(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	// prereq note with open item — blocking
+	out, err := execute("new", "--title", "Prereq", "--type", "observation", "--content", "- [ ] incomplete prereq", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn new prereq: %v", err)
+	}
+	prereqID := strings.Fields(strings.TrimPrefix(strings.TrimSpace(out), "created "))[0]
+
+	// blocked note that requires prereq
+	out, err = execute("new", "--title", "Blocked task", "--type", "observation", "--content", "- [ ] blocked item", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn new blocked: %v", err)
+	}
+	blockedID := strings.Fields(strings.TrimPrefix(strings.TrimSpace(out), "created "))[0]
+
+	_, err = execute("link", blockedID, prereqID, "--type", "requires", "--annotation", "needs prereq first")
+	if err != nil {
+		t.Fatalf("nn link: %v", err)
+	}
+
+	out, err = execute("todo", "list")
+	if err != nil {
+		t.Fatalf("nn todo list: %v", err)
+	}
+
+	// prereq itself has open items and no requires links — should appear
+	if !strings.Contains(out, prereqID) {
+		t.Errorf("expected prereq note %s to appear (it has open items, not blocked)", prereqID)
+	}
+	// blocked note should be excluded by default
+	if strings.Contains(out, blockedID) {
+		t.Errorf("expected blocked note %s to be excluded by default", blockedID)
+	}
+}
+
+// Assertion: TestTodoListAllShowsBlockedNotes — nn todo list --all shows blocked notes too
+func TestTodoListAllShowsBlockedNotes(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("new", "--title", "Prereq", "--type", "observation", "--content", "- [ ] incomplete prereq", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn new prereq: %v", err)
+	}
+	prereqID := strings.Fields(strings.TrimPrefix(strings.TrimSpace(out), "created "))[0]
+
+	out, err = execute("new", "--title", "Blocked task", "--type", "observation", "--content", "- [ ] blocked item", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn new blocked: %v", err)
+	}
+	blockedID := strings.Fields(strings.TrimPrefix(strings.TrimSpace(out), "created "))[0]
+
+	_, err = execute("link", blockedID, prereqID, "--type", "requires", "--annotation", "needs prereq first")
+	if err != nil {
+		t.Fatalf("nn link: %v", err)
+	}
+
+	out, err = execute("todo", "list", "--all")
+	if err != nil {
+		t.Fatalf("nn todo list --all: %v", err)
+	}
+
+	if !strings.Contains(out, prereqID) {
+		t.Errorf("expected prereq note %s in --all output", prereqID)
+	}
+	if !strings.Contains(out, blockedID) {
+		t.Errorf("expected blocked note %s in --all output", blockedID)
+	}
+}
+
+// Assertion: TestTodoListDefaultShowsNoteWithNoRequiresLinks — nn todo list default shows notes with open items and no requires links
+func TestTodoListDefaultShowsNoteWithNoRequiresLinks(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("new", "--title", "Free task", "--type", "observation", "--content", "- [ ] free item", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn new: %v", err)
+	}
+	id := strings.Fields(strings.TrimPrefix(strings.TrimSpace(out), "created "))[0]
+
+	out, err = execute("todo", "list")
+	if err != nil {
+		t.Fatalf("nn todo list: %v", err)
+	}
+	if !strings.Contains(out, id) {
+		t.Errorf("expected note %s with no requires links to appear in default output", id)
+	}
+}
+
 func noteModified(t *testing.T, execute func(...string) (string, error), id string) string {
 	t.Helper()
 	out, err := execute("show", id)

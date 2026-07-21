@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/jaresty/nn/internal/note"
 )
 
 func newTodoCmd(state *rootState) *cobra.Command {
@@ -17,8 +19,27 @@ func newTodoCmd(state *rootState) *cobra.Command {
 	return cmd
 }
 
+// isBlocked reports whether n has at least one requires link pointing to a note
+// that is not done (has unchecked checkboxes or has checkboxes and not all checked).
+func isBlocked(n *note.Note, byID map[string]*note.Note) bool {
+	for _, lnk := range n.Links {
+		if lnk.Type != "requires" {
+			continue
+		}
+		target, ok := byID[lnk.TargetID]
+		if !ok {
+			continue
+		}
+		if !note.IsDone(target.Body) {
+			return true
+		}
+	}
+	return false
+}
+
 func newTodoListCmd(state *rootState) *cobra.Command {
-	return &cobra.Command{
+	var showAll bool
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List open checkboxes grouped by note",
 		Args:  cobra.NoArgs,
@@ -26,6 +47,10 @@ func newTodoListCmd(state *rootState) *cobra.Command {
 			notes, err := state.backend.List()
 			if err != nil {
 				return fmt.Errorf("todo list: %w", err)
+			}
+			byID := make(map[string]*note.Note, len(notes))
+			for _, n := range notes {
+				byID[n.ID] = n
 			}
 			w := outWriter(cmd)
 			first := true
@@ -37,6 +62,9 @@ func newTodoListCmd(state *rootState) *cobra.Command {
 					}
 				}
 				if len(open) == 0 {
+					continue
+				}
+				if !showAll && isBlocked(n, byID) {
 					continue
 				}
 				if !first {
@@ -51,6 +79,8 @@ func newTodoListCmd(state *rootState) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&showAll, "all", false, "Show all notes with open items, including blocked ones")
+	return cmd
 }
 
 func newTodoDoneCmd(state *rootState) *cobra.Command {
