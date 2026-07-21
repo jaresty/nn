@@ -485,3 +485,36 @@ func TestGrepCmdTraceFlag(t *testing.T) {
 		t.Errorf("expected trace kind marker '(function)' or '(method)' in --trace output; got:\n%s", out)
 	}
 }
+
+// Assertion: TestGrepContextDoesNotCrossFileBoundary — nn grep --context N on a match at line 1 of a non-first file must not panic
+func TestGrepContextDoesNotCrossFileBoundary(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	// File A: 10 lines, no match
+	fileA := filepath.Join(dir, "a.go")
+	var sb strings.Builder
+	for i := 0; i < 10; i++ {
+		sb.WriteString("// line\n")
+	}
+	if err := os.WriteFile(fileA, []byte(sb.String()), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// File B: match on line 1
+	fileB := filepath.Join(dir, "b.go")
+	if err := os.WriteFile(fileB, []byte("package main // TARGET\nfunc foo() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "TARGET", dir, "--context", "4", "--notes-per-match", "0")
+	if err != nil {
+		t.Fatalf("nn grep panicked or errored: %v\noutput: %s", err, out)
+	}
+	if !strings.Contains(out, "TARGET") {
+		t.Errorf("expected match 'TARGET' in output; got:\n%s", out)
+	}
+	// Context must not include lines from file A
+	if strings.Contains(out, fileA) {
+		t.Errorf("context must not include lines from file A; got:\n%s", out)
+	}
+}

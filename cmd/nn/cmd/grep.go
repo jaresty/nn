@@ -61,14 +61,19 @@ func newGrepCmd(state *rootState) *cobra.Command {
 				}
 			}
 
+			// fileStartIdx maps file path → first index in allLines for that file.
+			fileStartIdx := make(map[string]int)
+			fileEndIdx := make(map[string]int)
 			for _, f := range files {
 				lines, err := readFileLines(f)
 				if err != nil {
 					continue
 				}
+				fileStartIdx[f] = len(allLines)
 				for i, line := range lines {
 					allLines = append(allLines, fileLine{f, i + 1, line})
 				}
+				fileEndIdx[f] = len(allLines)
 			}
 
 			// Find matches.
@@ -84,14 +89,16 @@ func newGrepCmd(state *rootState) *cobra.Command {
 				if !re.MatchString(fl.text) {
 					continue
 				}
-				// Gather context lines.
+				// Gather context lines, clamped to the current file's boundary.
+				fStart := fileStartIdx[fl.file]
+				fEnd := fileEndIdx[fl.file]
 				start := idx - contextLines
-				if start < 0 {
-					start = 0
+				if start < fStart {
+					start = fStart
 				}
 				end := idx + contextLines + 1
-				if end > len(allLines) {
-					end = len(allLines)
+				if end > fEnd {
+					end = fEnd
 				}
 				var ctx []string
 				for _, cl := range allLines[start:end] {
