@@ -204,7 +204,7 @@ func Trace(idx *Index, symbols []string, maxDepth int, notes []*note.Note) *Resu
 		}
 
 		if len(notes) > 0 {
-			query := def.Name
+			query := string(def.Source[def.StartByte:def.EndByte])
 			scores := note.BM25Scores(notes, query, allInbound)
 			type scored struct {
 				n     *note.Note

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jaresty/nn/internal/note"
 	"github.com/jaresty/nn/internal/trace"
 )
 
@@ -157,6 +158,49 @@ func TestBuildIndexParallelCorrectness(t *testing.T) {
 	// Each file defines exactly one function; expect 20 symbols.
 	if len(idx.All) != 20 {
 		t.Errorf("FAIL: TestBuildIndexParallelCorrectness: expected 20 symbols, got %d", len(idx.All))
+	}
+}
+
+// TestTraceBM25UsesSourceText verifies that BM25 note matching in Trace uses the
+// full symbol source body, not just the symbol name. It does this by creating a
+// note whose title matches a term that appears only in the function body (not the
+// name), and asserting that term surfaces as a matched note on the traced node.
+func TestTraceBM25UsesSourceText(t *testing.T) {
+	dir := t.TempDir()
+	writeTempFile(t, dir, "example.go", `package main
+func MyFunc() {
+	// distinctivequerytermxyz
+	_ = 42
+}
+`)
+	idx, err := trace.BuildIndex(dir)
+	if err != nil {
+		t.Fatalf("BuildIndex error: %v", err)
+	}
+
+	// Synthetic note whose title contains the distinctive body term.
+	notes := []*note.Note{
+		{
+			ID:    "test-note-1",
+			Title: "distinctivequerytermxyz usage pattern",
+			Body:  "This note is about distinctivequerytermxyz.",
+		},
+	}
+
+	result := trace.Trace(idx, []string{"MyFunc"}, 1, notes)
+
+	var myFuncNode *trace.Node
+	for i := range result.Nodes {
+		if result.Nodes[i].Name == "MyFunc" {
+			myFuncNode = &result.Nodes[i]
+			break
+		}
+	}
+	if myFuncNode == nil {
+		t.Fatal("MyFunc node not found in trace result")
+	}
+	if len(myFuncNode.NNNotes) == 0 {
+		t.Errorf("FAIL: TestTraceBM25UsesSourceText: expected BM25 to surface note via body term 'distinctivequerytermxyz', got no notes on MyFunc node")
 	}
 }
 
