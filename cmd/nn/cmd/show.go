@@ -84,6 +84,10 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"--since is required: read 'modified:' from nn show output; update is rejected if the note was changed after that timestamp\n\n" +
 			"**nn promote** `<id> --to <status>` — advance note status (draft→reviewed→permanent); reads note before writing and errors on concurrent modification conflict rather than overwriting\n\n" +
 			"**nn delete** `<id> [--confirm]` — delete a note (warns if linked-to by others); `--from-stdin` reads IDs line-by-line from stdin\n\n" +
+			"**nn todo list** — list all open checkboxes grouped by note: note ID + title as header, then each `- [ ]` line beneath; notes with no open items are excluded\n" +
+			"**nn todo done** `<id> <pattern>` — mark the first `- [ ]` checkbox in note <id> whose line contains <pattern> as done (`- [x]`); error if no match or already checked\n" +
+			"**nn todo reopen** `<id> <pattern>` — mark the first `- [x]` checkbox in note <id> whose line contains <pattern> as not done (`- [ ]`); error if no match or already open\n" +
+			"Todo items in notes must be written as `- [ ]` (open) or `- [x]` (done) so they are discoverable via `nn list --has-open-items`, listed via `nn todo list`, and manageable via `nn todo done`/`nn todo reopen`.\n\n" +
 			"**nn remind** `\"content\" [--for N] [--expires YYYY-MM-DD]` — creates observation tagged 'reminder', permanent, expires today+1d by default; surfaces in nn show --global\n" +
 			"**nn remind --find FRAGMENT** — search reminder titles by substring; prints matching ID; error if ambiguous (multiple matches) or zero matches\n" +
 			"**nn remind \"new body\" --update ID** — replace body of existing reminder in place; preserves expiry; no new note created\n\n" +

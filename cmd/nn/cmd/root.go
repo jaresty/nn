@@ -62,6 +62,7 @@ Workflow guidance is embedded in the binary:
 		newAstCmd(state),
 		newTeeCmd(state),
 		newTraceCmd(state),
+		newTodoCmd(state),
 		newRemindCmd(state),
 		newUpdateCmd(state),
 		newPromoteCmd(state),
