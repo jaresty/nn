@@ -7,7 +7,339 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jaresty/nn/internal/backend/gitlocal"
 )
+
+// TestResolveInstructionSuppressedWhenAllRead verifies that nn grep suppresses the resolve
+// instruction when all related notes are already read this session.
+func TestResolveInstructionSuppressedWhenAllRead(t *testing.T) {
+	_, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+
+	setupSessionRead(t, execute, "suppressmarker unique resolve suppression test")
+
+	f := filepath.Join(t.TempDir(), "suppress.go")
+	if err := os.WriteFile(f, []byte("// suppressmarker unique resolve suppression test\npackage main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "suppressmarker", f)
+	if err != nil {
+		t.Fatalf("grep: %v", err)
+	}
+	if strings.Contains(out, "Resolve each") {
+		t.Fatalf("resolve instruction present despite all notes being read; got:\n%s", out)
+	}
+}
+
+// TestResolveInstructionPresentWhenUnread verifies that nn grep emits the resolve instruction
+// when at least one related note has not been read this session.
+func TestResolveInstructionPresentWhenUnread(t *testing.T) {
+	_, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+
+	// Create note but do NOT show it — it remains unread.
+	out, err := execute("new", "--title", "unreadmarker unique unread resolve test", "--type", "observation", "--no-edit")
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	_ = strings.TrimPrefix(strings.TrimSpace(out), "created ")
+
+	// Fire --global so a session exists, but don't show the note.
+	if _, err := execute("show", "--global"); err != nil {
+		t.Fatalf("show --global: %v", err)
+	}
+
+	f := filepath.Join(t.TempDir(), "unread.go")
+	if err := os.WriteFile(f, []byte("// unreadmarker unique unread resolve test\npackage main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	grepOut, err := execute("grep", "unreadmarker", f)
+	if err != nil {
+		t.Fatalf("grep: %v", err)
+	}
+	if !strings.Contains(grepOut, "Resolve each unread") {
+		t.Fatalf("resolve instruction absent for unread note; got:\n%s", grepOut)
+	}
+}
+
+// TestResolveInstructionTextNamesRead verifies the resolve instruction explicitly states
+// that [read] notes do not require action.
+func TestResolveInstructionTextNamesRead(t *testing.T) {
+	_, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+
+	out, err := execute("new", "--title", "readtextmarker unique instruction text test", "--type", "observation", "--no-edit")
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	_ = strings.TrimPrefix(strings.TrimSpace(out), "created ")
+
+	if _, err := execute("show", "--global"); err != nil {
+		t.Fatalf("show --global: %v", err)
+	}
+
+	f := filepath.Join(t.TempDir(), "readtext.go")
+	if err := os.WriteFile(f, []byte("// readtextmarker unique instruction text test\npackage main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	grepOut, err := execute("grep", "readtextmarker", f)
+	if err != nil {
+		t.Fatalf("grep: %v", err)
+	}
+	if !strings.Contains(grepOut, "Notes marked [read] have already") {
+		t.Fatalf("resolve instruction does not mention [read] notes; got:\n%s", grepOut)
+	}
+}
+
+// TestListResolveInstructionForUnread verifies nn list --search emits resolve instruction
+// for unread BM25 results.
+func TestListResolveInstructionForUnread(t *testing.T) {
+	_, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+
+	out, err := execute("new", "--title", "listresolvemarker unique list resolve test", "--type", "observation", "--no-edit")
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	_ = strings.TrimPrefix(strings.TrimSpace(out), "created ")
+
+	if _, err := execute("show", "--global"); err != nil {
+		t.Fatalf("show --global: %v", err)
+	}
+
+	listOut, err := execute("list", "--search", "listresolvemarker unique list resolve test")
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if !strings.Contains(listOut, "Resolve each unread") {
+		t.Fatalf("list --search resolve instruction absent for unread note; got:\n%s", listOut)
+	}
+}
+
+// TestReadResolveInstructionSuppressedWhenAllRead verifies nn read suppresses resolve when all read.
+func TestReadResolveInstructionSuppressedWhenAllRead(t *testing.T) {
+	_, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+	setupSessionRead(t, execute, "readsuppressmarker unique read suppress test")
+	f := filepath.Join(t.TempDir(), "rs.go")
+	if err := os.WriteFile(f, []byte("// readsuppressmarker unique read suppress test\npackage main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := execute("read", f)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if strings.Contains(out, "Resolve each") {
+		t.Fatalf("resolve instruction present despite all notes being read; got:\n%s", out)
+	}
+}
+
+// TestTeeResolveInstructionSuppressedWhenAllRead verifies nn tee suppresses resolve when all read.
+func TestTeeResolveInstructionSuppressedWhenAllRead(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+	id := setupSessionRead(t, execute, "teesuppressmarker unique tee suppress test")
+	gl, err := gitlocal.New(nbDir)
+	if err != nil {
+		t.Fatalf("backend: %v", err)
+	}
+	state := &rootState{notebookDir: nbDir, backend: gl}
+	sessionReads := map[string]bool{id: true}
+	var stdout, stderrBuf strings.Builder
+	if err := runTee(strings.NewReader("teesuppressmarker unique tee suppress test"), &stdout, &stderrBuf, state, sessionReads); err != nil {
+		t.Fatalf("runTee: %v", err)
+	}
+	if strings.Contains(stderrBuf.String(), "Resolve each") {
+		t.Fatalf("resolve instruction present despite all notes being read; got:\n%s", stderrBuf.String())
+	}
+}
+
+// TestAstResolveInstructionSuppressedWhenAllRead verifies nn ast suppresses resolve when all read.
+func TestAstResolveInstructionSuppressedWhenAllRead(t *testing.T) {
+	_, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+	setupSessionRead(t, execute, "AstSuppressMarker unique ast suppress test")
+	f := filepath.Join(t.TempDir(), "astsup.go")
+	if err := os.WriteFile(f, []byte("package main\n\nfunc AstSuppressMarker() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := execute("ast", f)
+	if err != nil {
+		t.Fatalf("ast: %v", err)
+	}
+	if strings.Contains(out, "Resolve each") {
+		t.Fatalf("resolve instruction present despite all notes being read; got:\n%s", out)
+	}
+}
+
+// TestTraceResolveInstructionSuppressedWhenAllRead verifies nn trace suppresses resolve when all read.
+func TestTraceResolveInstructionSuppressedWhenAllRead(t *testing.T) {
+	_, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+	setupSessionRead(t, execute, "TraceSuppressMarker unique trace suppress test")
+	dir := t.TempDir()
+	f := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(f, []byte("package main\n\nfunc TraceSuppressMarker() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := execute("trace", dir, "--symbol", "TraceSuppressMarker")
+	if err != nil {
+		t.Fatalf("trace: %v", err)
+	}
+	if strings.Contains(out, "Resolve each") {
+		t.Fatalf("resolve instruction present despite all notes being read; got:\n%s", out)
+	}
+}
+
+// setupSessionRead creates a note, fires nn show --global, then nn show <id> to register the
+// note as read this session. Returns the note ID.
+func setupSessionRead(t *testing.T, execute func(...string) (string, error), title string) string {
+	t.Helper()
+	out, err := execute("new", "--title", title, "--type", "observation", "--no-edit")
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	id := strings.TrimPrefix(strings.TrimSpace(out), "created ")
+	if _, err := execute("show", "--global"); err != nil {
+		t.Fatalf("show --global: %v", err)
+	}
+	if _, err := execute("show", id); err != nil {
+		t.Fatalf("show %s: %v", id, err)
+	}
+	return id
+}
+
+// TestGrepShowsReadMarker verifies nn grep annotates related notes with [read] when session-read.
+func TestGrepShowsReadMarker(t *testing.T) {
+	_, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+
+	// Create a note with distinctive content, register it as read.
+	setupSessionRead(t, execute, "grepmarker unique authentication flow")
+
+	// Create a file whose content overlaps the note title to trigger BM25 match.
+	f := filepath.Join(t.TempDir(), "auth.go")
+	if err := os.WriteFile(f, []byte("// grepmarker unique authentication flow\npackage main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "grepmarker", f)
+	if err != nil {
+		t.Fatalf("grep: %v", err)
+	}
+	if !strings.Contains(out, "[read]") {
+		t.Fatalf("nn grep output does not contain [read] marker; got:\n%s", out)
+	}
+}
+
+// TestReadShowsReadMarker verifies nn read annotates related notes with [read] when session-read.
+func TestReadShowsReadMarker(t *testing.T) {
+	_, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+
+	setupSessionRead(t, execute, "readmarker unique token validation")
+
+	f := filepath.Join(t.TempDir(), "token.go")
+	if err := os.WriteFile(f, []byte("// readmarker unique token validation\npackage main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("read", f)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if !strings.Contains(out, "[read]") {
+		t.Fatalf("nn read output does not contain [read] marker; got:\n%s", out)
+	}
+}
+
+// TestTeeShowsReadMarker verifies nn tee annotates related notes with [read] when session-read.
+func TestTeeShowsReadMarker(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+
+	id := setupSessionRead(t, execute, "teemarker unique session pipe flow")
+
+	// Build rootState directly so runTee can query notes.
+	gl, err := gitlocal.New(nbDir)
+	if err != nil {
+		t.Fatalf("backend: %v", err)
+	}
+	state := &rootState{notebookDir: nbDir, backend: gl}
+
+	sessionReads := map[string]bool{id: true}
+
+	var stdout, stderrBuf strings.Builder
+	input := strings.NewReader("teemarker unique session pipe flow")
+	if err := runTee(input, &stdout, &stderrBuf, state, sessionReads); err != nil {
+		t.Fatalf("runTee: %v", err)
+	}
+	if !strings.Contains(stderrBuf.String(), "[read]") {
+		t.Fatalf("nn tee stderr does not contain [read] marker; got:\n%s", stderrBuf.String())
+	}
+}
+
+// TestAstShowsReadMarker verifies nn ast annotates related notes with [read] when session-read.
+func TestAstShowsReadMarker(t *testing.T) {
+	_, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+
+	setupSessionRead(t, execute, "AstmarkerAnalyze unique symbol analysis")
+
+	f := filepath.Join(t.TempDir(), "sym.go")
+	// Function name matches note title for BM25 overlap via ast symbol query.
+	if err := os.WriteFile(f, []byte("package main\n\nfunc AstmarkerAnalyze() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("ast", f)
+	if err != nil {
+		t.Fatalf("ast: %v", err)
+	}
+	if !strings.Contains(out, "[read]") {
+		t.Fatalf("nn ast output does not contain [read] marker; got:\n%s", out)
+	}
+}
+
+// TestTraceShowsReadMarker verifies nn trace annotates related notes with [read] when session-read.
+func TestTraceShowsReadMarker(t *testing.T) {
+	_, execute := setupNotebook(t)
+	cfgDir := t.TempDir()
+	t.Setenv("NN_CONFIG_DIR", cfgDir)
+
+	// Note title matches symbol name so BM25 query on symbol body/name produces a hit.
+	setupSessionRead(t, execute, "TracemarkerEntry unique call graph traversal")
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(f, []byte("package main\n\nfunc TracemarkerEntry() { TracemarkerInner() }\nfunc TracemarkerInner() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("trace", dir, "--symbol", "TracemarkerEntry")
+	if err != nil {
+		t.Fatalf("trace: %v", err)
+	}
+	if !strings.Contains(out, "[read]") {
+		t.Fatalf("nn trace output does not contain [read] marker; got:\n%s", out)
+	}
+}
 
 // TestAccessLogIncludesPPID verifies that nn show <id> writes a PPID field to access.log.
 func TestAccessLogIncludesPPID(t *testing.T) {

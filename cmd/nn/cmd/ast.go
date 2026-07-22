@@ -59,6 +59,7 @@ func newAstCmd(state *rootState) *cobra.Command {
 			}
 
 			// BM25 annotation: query each non-import symbol name against nn notes.
+			sessionReads := loadSessionReads(resolveCfgDir())
 			notes, _ := state.backend.List()
 			if len(notes) > 0 {
 				allInbound := make(map[string][]string)
@@ -100,13 +101,19 @@ func newAstCmd(state *rootState) *cobra.Command {
 					}
 				}
 				fmt.Fprintln(w, "\n## Related notes")
+				hasUnread := false
 				for _, n := range relatedNotes {
-					fmt.Fprintf(w, "- [[%s|%s]] [likely relevant]\n", n.ID, n.Title)
+					readMarker := ""
+					if sessionReads[n.ID] {
+						readMarker = " [read]"
+					} else {
+						hasUnread = true
+					}
+					fmt.Fprintf(w, "- [[%s|%s]] [likely relevant]%s\n", n.ID, n.Title, readMarker)
 				}
-				fmt.Fprintln(w, "Resolve each related note before the next action — run `nn show <id>` to open, or write `skip-related: <id> [<id> ...] — <reason>` to dismiss. Continuing without resolving is a protocol violation.")
+				printResolveInstruction(w, hasUnread)
 			} else {
 				fmt.Fprintln(w, "\n## Related notes")
-				fmt.Fprintln(w, "Resolve each related note before the next action — run `nn show <id>` to open, or write `skip-related: <id> [<id> ...] — <reason>` to dismiss. Continuing without resolving is a protocol violation.")
 			}
 
 			if refs {

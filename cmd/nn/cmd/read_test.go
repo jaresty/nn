@@ -158,8 +158,8 @@ func TestReadCmdRelatedNotesGateHeader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn read: %v", err)
 	}
-	if !strings.Contains(out, "Resolve each related note before the next action") {
-		t.Errorf("expected gate language 'Resolve each related note before the next action' in related notes header; got:\n%s", out)
+	if !strings.Contains(out, "Resolve each unread related note") {
+		t.Errorf("expected gate language 'Resolve each unread related note' in related notes header; got:\n%s", out)
 	}
 }
 

@@ -98,7 +98,7 @@ func TestGrepCmdRelatedNotesGateHeader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn grep: %v", err)
 	}
-	if !strings.Contains(out, "Resolve each related note before the next action") {
+	if !strings.Contains(out, "Resolve each unread related note") {
 		t.Errorf("expected gate language in grep footer; got:\n%s", out)
 	}
 }

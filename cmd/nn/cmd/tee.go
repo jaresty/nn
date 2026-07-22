@@ -19,12 +19,12 @@ func newTeeCmd(state *rootState) *cobra.Command {
 		Short: "Pass stdin to stdout unchanged; print BM25-matched related notes to stderr",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTee(os.Stdin, os.Stdout, os.Stderr, state)
+			return runTee(os.Stdin, os.Stdout, os.Stderr, state, loadSessionReads(resolveCfgDir()))
 		},
 	}
 }
 
-func runTee(stdin io.Reader, stdout io.Writer, stderr io.Writer, state *rootState) error {
+func runTee(stdin io.Reader, stdout io.Writer, stderr io.Writer, state *rootState, sessionReads map[string]bool) error {
 	data, err := io.ReadAll(stdin)
 	if err != nil {
 		return fmt.Errorf("tee: read stdin: %w", err)
@@ -81,9 +81,16 @@ func runTee(stdin io.Reader, stdout io.Writer, stderr io.Writer, state *rootStat
 	}
 
 	fmt.Fprintln(stderr, "\n## Related notes")
-	fmt.Fprintln(stderr, "Resolve each related note before the next action — run `nn show <id>` to open, or write `skip-related: <id> [<id> ...] — <reason>` to dismiss. Continuing without resolving is a protocol violation.")
+	hasUnread := false
 	for _, m := range matches {
-		fmt.Fprintf(stderr, "- %s — %s %s\n", m.n.ID, m.n.Title, scoreLabel(m.score))
+		readMarker := ""
+		if sessionReads[m.n.ID] {
+			readMarker = " [read]"
+		} else {
+			hasUnread = true
+		}
+		fmt.Fprintf(stderr, "- %s — %s %s%s\n", m.n.ID, m.n.Title, scoreLabel(m.score), readMarker)
 	}
+	printResolveInstruction(stderr, hasUnread)
 	return nil
 }

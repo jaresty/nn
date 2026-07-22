@@ -63,6 +63,8 @@ func newReadCmd(state *rootState) *cobra.Command {
 				fmt.Fprintf(w, "%d\t%s\n", start+i, line)
 			}
 
+			sessionReads := loadSessionReads(resolveCfgDir())
+
 			// BM25 search on shown content.
 			query := strings.Join(shown, " ")
 			if strings.TrimSpace(query) == "" {
@@ -105,10 +107,17 @@ func newReadCmd(state *rootState) *cobra.Command {
 			}
 
 			fmt.Fprintln(w, "\n## Related notes")
-			fmt.Fprintln(w, "Resolve each related note before the next action — run `nn show <id>` to open, or write `skip-related: <id> [<id> ...] — <reason>` to dismiss. Continuing without resolving is a protocol violation.")
+			hasUnread := false
 			for _, m := range matches {
-				fmt.Fprintf(w, "- %s — %s %s\n", m.n.ID, m.n.Title, scoreLabel(m.score))
+				readMarker := ""
+				if sessionReads[m.n.ID] {
+					readMarker = " [read]"
+				} else {
+					hasUnread = true
+				}
+				fmt.Fprintf(w, "- %s — %s %s%s\n", m.n.ID, m.n.Title, scoreLabel(m.score), readMarker)
 			}
+			printResolveInstruction(w, hasUnread)
 			return nil
 		},
 	}

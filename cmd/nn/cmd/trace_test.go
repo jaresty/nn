@@ -27,9 +27,6 @@ func TestTraceFooter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn trace: %v", err)
 	}
-	if !strings.Contains(out, "Continuing without resolving is a protocol violation.") {
-		t.Errorf("expected resolution footer in human output:\n%s", out)
-	}
 	if !strings.Contains(out, "## Related notes") {
 		t.Errorf("expected '## Related notes' section in human output:\n%s", out)
 	}
@@ -42,7 +39,7 @@ func TestTraceFooterAbsentInJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn trace --json: %v", err)
 	}
-	if strings.Contains(out, "Continuing without resolving is a protocol violation.") {
+	if strings.Contains(out, "Resolve each unread related note") {
 		t.Errorf("footer must not appear in JSON output:\n%s", out)
 	}
 }

@@ -20,7 +20,7 @@ func TestTeePassthrough(t *testing.T) {
 	// stdout contains exactly the bytes read from stdin
 	input := "hello world\nsome content\n"
 	var stdout, stderr bytes.Buffer
-	err := runTee(strings.NewReader(input), &stdout, &stderr, nil)
+	err := runTee(strings.NewReader(input), &stdout, &stderr, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestTeeRelatedToStderr(t *testing.T) {
 	// Related notes: printed to stderr, not stdout
 	input := "hello world"
 	var stdout, stderr bytes.Buffer
-	_ = runTee(strings.NewReader(input), &stdout, &stderr, nil)
+	_ = runTee(strings.NewReader(input), &stdout, &stderr, nil, nil)
 	// stdout must not contain "Related notes:"
 	if strings.Contains(stdout.String(), "Related notes:") {
 		t.Fatal("Related notes: must not appear on stdout")
@@ -43,13 +43,13 @@ func TestTeeRelatedToStderr(t *testing.T) {
 func TestTeeExitCode(t *testing.T) {
 	// exits 0 when stdin processes without error
 	var stdout, stderr bytes.Buffer
-	err := runTee(strings.NewReader("ok"), &stdout, &stderr, nil)
+	err := runTee(strings.NewReader("ok"), &stdout, &stderr, nil, nil)
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 	// nonzero when stdin returns error
 	errReader := errorReader{err: errors.New("stdin error")}
-	err = runTee(errReader, &stdout, &stderr, nil)
+	err = runTee(errReader, &stdout, &stderr, nil, nil)
 	if err == nil {
 		t.Fatal("expected error from failing stdin")
 	}

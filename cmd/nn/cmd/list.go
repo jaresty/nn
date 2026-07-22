@@ -294,10 +294,13 @@ func newListCmd(state *rootState) *cobra.Command {
 			}
 			w := outWriter(cmd)
 			sessionReads := loadSessionReads(resolveCfgDir())
+			hasUnread := false
 			for _, n := range filtered {
 				readMarker := ""
 				if sessionReads[n.ID] {
 					readMarker = " [read]"
+				} else if search != "" {
+					hasUnread = true
 				}
 				fmt.Fprintf(w, "%s  %s%s\n", n.ID, n.Title, readMarker)
 				if search != "" {
@@ -315,6 +318,9 @@ func newListCmd(state *rootState) *cobra.Command {
 			}
 			if search != "" && totalMatching > len(filtered) {
 				fmt.Fprintf(w, "(%d shown, %d more — use --limit 0 to show all)\n", len(filtered), totalMatching-len(filtered))
+			}
+			if search != "" {
+				printResolveInstruction(w, hasUnread)
 			}
 			return nil
 		},

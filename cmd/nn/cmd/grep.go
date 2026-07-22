@@ -111,6 +111,10 @@ func newGrepCmd(state *rootState) *cobra.Command {
 				return nil
 			}
 
+			// Load session reads once for this invocation.
+			sessionReads := loadSessionReads(resolveCfgDir())
+			hasUnread := false
+
 			// Load notes for BM25.
 			notes, err := state.backend.List()
 			if err != nil {
@@ -196,10 +200,16 @@ func newGrepCmd(state *rootState) *cobra.Command {
 					ranked = ranked[:k]
 				}
 				for _, r := range ranked {
-					fmt.Fprintf(w, "  → [[%s|%s]] %s\n", r.n.ID, r.n.Title, scoreLabel(r.score))
+					readMarker := ""
+					if sessionReads[r.n.ID] {
+						readMarker = " [read]"
+					} else {
+						hasUnread = true
+					}
+					fmt.Fprintf(w, "  → [[%s|%s]] %s%s\n", r.n.ID, r.n.Title, scoreLabel(r.score), readMarker)
 				}
 			}
-			fmt.Fprintln(w, "Resolve each related note before the next action — run `nn show <id>` to open, or write `skip-related: <id> [<id> ...] — <reason>` to dismiss. Continuing without resolving is a protocol violation.")
+			printResolveInstruction(w, hasUnread)
 			return nil
 		},
 	}

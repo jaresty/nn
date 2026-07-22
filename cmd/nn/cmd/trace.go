@@ -39,6 +39,7 @@ func newTraceCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("build index: %w", err)
 			}
 
+			sessionReads := loadSessionReads(resolveCfgDir())
 			notes, _ := state.backend.List()
 
 			result := trace.Trace(idx, symbols, depth, notes)
@@ -127,10 +128,17 @@ func newTraceCmd(state *rootState) *cobra.Command {
 				}
 			}
 			fmt.Fprintln(w, "\n## Related notes")
+			hasUnread := false
 			for _, ref := range allNotes {
-				fmt.Fprintf(w, "- [[%s|%s]] [likely relevant]\n", ref.ID, ref.Title)
+				readMarker := ""
+				if sessionReads[ref.ID] {
+					readMarker = " [read]"
+				} else {
+					hasUnread = true
+				}
+				fmt.Fprintf(w, "- [[%s|%s]] [likely relevant]%s\n", ref.ID, ref.Title, readMarker)
 			}
-			fmt.Fprintln(w, "Resolve each related note before the next action — run `nn show <id>` to open, or write `skip-related: <id> [<id> ...] — <reason>` to dismiss. Continuing without resolving is a protocol violation.")
+			printResolveInstruction(w, hasUnread)
 
 			return nil
 		},

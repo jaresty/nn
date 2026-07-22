@@ -152,9 +152,6 @@ func TestAstFooter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn ast: %v", err)
 	}
-	if !strings.Contains(out, "Continuing without resolving is a protocol violation.") {
-		t.Errorf("ast output missing resolution footer:\n%s", out)
-	}
 	if !strings.Contains(out, "## Related notes") {
 		t.Errorf("ast output missing '## Related notes' section:\n%s", out)
 	}
@@ -167,7 +164,7 @@ func TestAstJSONNoFooter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn ast --json: %v", err)
 	}
-	if strings.Contains(out, "Continuing without resolving is a protocol violation.") {
+	if strings.Contains(out, "Resolve each unread related note") {
 		t.Errorf("ast --json must not contain resolution footer:\n%s", out)
 	}
 }
