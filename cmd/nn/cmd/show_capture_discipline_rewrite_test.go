@@ -39,7 +39,7 @@ func TestVirtualCaptureDisciplineStructuralTrigger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out, "Read tool call or file-reading Bash tool call") {
+	if !strings.Contains(out, "Read tool call, or any Bash call that reads a file from disk") {
 		t.Errorf("expected structural trigger in body; got:\n%s", out)
 	}
 	if strings.Contains(out, "not authored this session") {
