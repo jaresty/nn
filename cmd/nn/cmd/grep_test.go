@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -127,6 +128,26 @@ func TestGrepCmdRelatedNotesInstruction(t *testing.T) {
 	}
 	if !strings.Contains(out, "skip-related:") {
 		t.Errorf("expected skip-related: in related notes output; got:\n%s", out)
+	}
+}
+
+// Assertion: TestReadFileLinesSkipsBinary — readFileLines returns nil for binary files detected by MIME type.
+func TestReadFileLinesSkipsBinary(t *testing.T) {
+	dir := t.TempDir()
+	// MP3 sync frame prefix (0xFF 0xFB) followed by non-null bytes: no null bytes
+	// (passes null-byte heuristic) but http.DetectContentType returns
+	// "application/octet-stream" — not text.
+	binFile := filepath.Join(dir, "data.bin")
+	content := append([]byte{0xFF, 0xFB}, bytes.Repeat([]byte{0x01}, 510)...)
+	if err := os.WriteFile(binFile, content, 0644); err != nil {
+		t.Fatal(err)
+	}
+	lines, err := readFileLines(binFile)
+	if err != nil {
+		t.Fatalf("readFileLines: unexpected error: %v", err)
+	}
+	if lines != nil {
+		t.Errorf("readFileLines: expected nil for binary file, got %d lines", len(lines))
 	}
 }
 
@@ -298,23 +319,6 @@ func TestCollectFilesSkipsGitDir(t *testing.T) {
 		if strings.Contains(f, ".git") {
 			t.Errorf("collectFiles traversed .git directory: found %q", f)
 		}
-	}
-}
-
-// Assertion: TestReadFileLinesSkipsBinary — readFileLines must return nil for binary files.
-func TestReadFileLinesSkipsBinary(t *testing.T) {
-	dir := t.TempDir()
-	binFile := filepath.Join(dir, "data.bin")
-	content := []byte("some text\x00more text\n")
-	if err := os.WriteFile(binFile, content, 0644); err != nil {
-		t.Fatal(err)
-	}
-	lines, err := readFileLines(binFile)
-	if err != nil {
-		t.Fatalf("readFileLines returned error: %v", err)
-	}
-	if lines != nil {
-		t.Errorf("readFileLines should return nil for binary file; got %d lines", len(lines))
 	}
 }
 

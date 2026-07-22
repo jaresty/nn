@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -269,10 +270,8 @@ func readFileLines(path string) ([]string, error) {
 	if err != nil && n == 0 {
 		return nil, err
 	}
-	for _, b := range buf[:n] {
-		if b == 0 {
-			return nil, nil
-		}
+	if !strings.HasPrefix(http.DetectContentType(buf[:n]), "text/") {
+		return nil, nil
 	}
 	if _, err := f.Seek(0, 0); err != nil {
 		return nil, err
