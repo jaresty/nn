@@ -293,8 +293,13 @@ func newListCmd(state *rootState) *cobra.Command {
 				return nil
 			}
 			w := outWriter(cmd)
+			sessionReads := loadSessionReads(resolveCfgDir())
 			for _, n := range filtered {
-				fmt.Fprintf(w, "%s  %s\n", n.ID, n.Title)
+				readMarker := ""
+				if sessionReads[n.ID] {
+					readMarker = " [read]"
+				}
+				fmt.Fprintf(w, "%s  %s%s\n", n.ID, n.Title, readMarker)
 				if search != "" {
 					if ex := extractExcerpt(n.Body, search); ex != "" {
 						fmt.Fprintf(w, "  %s\n", ex)

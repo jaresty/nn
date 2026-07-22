@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -178,6 +179,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 			w := outWriter(cmd)
 
 			if global {
+				appendAccessLog(resolveCfgDir(), "--global")
 				all, err := state.backend.List()
 				if err != nil {
 					return fmt.Errorf("show --global: %w", err)
@@ -342,7 +344,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("show: %w", err)
 				}
-				appendAccessLog(n.ID)
+				appendAccessLog(resolveCfgDir(), n.ID)
 				protos := findGoverningProtocols(n.ID, all)
 
 				if jsonOut {
@@ -420,25 +422,96 @@ func newShowCmd(state *rootState) *cobra.Command {
 	return cmd
 }
 
+// loadSessionReads parses access.log and returns the set of note IDs read after the most recent
+// "--global" sentinel for the current process's parent PID. Returns an empty map on any error.
+func loadSessionReads(cfgDir string) map[string]bool {
+	data, err := os.ReadFile(filepath.Join(cfgDir, "access.log"))
+	if err != nil {
+		return map[string]bool{}
+	}
+	ppid := strconv.Itoa(os.Getppid())
+	var sessionStart int = -1
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	for i, line := range lines {
+		parts := strings.Fields(line)
+		// format: <RFC3339> <PPID> show <id>
+		if len(parts) == 4 && parts[1] == ppid && parts[3] == "--global" {
+			sessionStart = i
+		}
+	}
+	result := map[string]bool{}
+	if sessionStart < 0 {
+		return result
+	}
+	for _, line := range lines[sessionStart+1:] {
+		parts := strings.Fields(line)
+		if len(parts) == 4 && parts[1] == ppid && parts[2] == "show" {
+			result[parts[3]] = true
+		}
+	}
+	return result
+}
+
+// resolveCfgDir returns the nn config directory from NN_CONFIG_DIR, XDG_CONFIG_HOME, or ~/.config/nn.
+func resolveCfgDir() string {
+	if d := os.Getenv("NN_CONFIG_DIR"); d != "" {
+		return d
+	}
+	xdg := os.Getenv("XDG_CONFIG_HOME")
+	if xdg == "" {
+		home, _ := os.UserHomeDir()
+		xdg = filepath.Join(home, ".config")
+	}
+	return filepath.Join(xdg, "nn")
+}
+
 // appendAccessLog records a note retrieval to the advisory access log.
 // Failures are silently ignored — the log is advisory only.
-func appendAccessLog(id string) {
-	cfgDir := os.Getenv("NN_CONFIG_DIR")
-	if cfgDir == "" {
-		xdg := os.Getenv("XDG_CONFIG_HOME")
-		if xdg == "" {
-			home, _ := os.UserHomeDir()
-			xdg = filepath.Join(home, ".config")
-		}
-		cfgDir = filepath.Join(xdg, "nn")
-	}
+// Each entry records the current process's parent PID so concurrent shell sessions
+// can be distinguished when deriving session read-state.
+func appendAccessLog(cfgDir, id string) {
 	_ = os.MkdirAll(cfgDir, 0o755)
-	f, err := os.OpenFile(filepath.Join(cfgDir, "access.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	logPath := filepath.Join(cfgDir, "access.log")
+
+	// Prune entries older than 7 days, but only when file exceeds 50KB and last prune was >1h ago.
+	cutoff := time.Now().UTC().Add(-7 * 24 * time.Hour)
+	markerPath := logPath + ".pruned"
+	if info, statErr := os.Stat(logPath); statErr == nil && info.Size() > 50*1024 {
+		recentlyPruned := false
+		if markerData, merr := os.ReadFile(markerPath); merr == nil {
+			if t, perr := time.Parse(time.RFC3339, strings.TrimSpace(string(markerData))); perr == nil {
+				if time.Since(t) < 24*time.Hour {
+					recentlyPruned = true
+				}
+			}
+		}
+		if !recentlyPruned {
+			if data, err := os.ReadFile(logPath); err == nil {
+				var kept []string
+				for _, line := range strings.Split(strings.TrimRight(string(data), "\n"), "\n") {
+					if line == "" {
+						continue
+					}
+					parts := strings.Fields(line)
+					if len(parts) >= 1 {
+						if t, err := time.Parse(time.RFC3339, parts[0]); err == nil && t.Before(cutoff) {
+							continue
+						}
+					}
+					kept = append(kept, line)
+				}
+				_ = os.WriteFile(logPath, []byte(strings.Join(kept, "\n")+"\n"), 0o644)
+				_ = os.WriteFile(markerPath, []byte(time.Now().UTC().Format(time.RFC3339)), 0o644)
+			}
+		}
+	}
+
+	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return
 	}
 	defer f.Close()
-	fmt.Fprintf(f, "%s show %s\n", time.Now().UTC().Format(time.RFC3339), id)
+	fmt.Fprintf(f, "%s %d show %s\n", time.Now().UTC().Format(time.RFC3339), os.Getppid(), id)
 }
 
 // findGoverningProtocols returns all notes that link to targetID with type "governs".
