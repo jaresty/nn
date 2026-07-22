@@ -96,6 +96,16 @@ var langConfigs = map[string]langConfig{
 (interface_declaration name: (identifier) @name) @interface
 `,
 	},
+	".rb": {
+		name:        "ruby",
+		importQuery: `(call method: (identifier) arguments: (argument_list (string) @import) (#match? @import "."))`,
+		symbolQuery: `
+(method name: [(identifier) (constant)] @name) @method
+(singleton_method name: [(identifier) (constant)] @name) @singleton_method
+(class name: (constant) @name) @class
+(module name: (constant) @name) @module
+`,
+	},
 }
 
 // Parse reads filePath, detects its language, and returns a structural outline.
