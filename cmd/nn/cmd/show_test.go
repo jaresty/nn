@@ -513,3 +513,42 @@ func TestShowGlobalShowsTodayWhenPresent(t *testing.T) {
 		t.Errorf("nn show --global: want today note %q shown even when already present, got:\n%s", todayTitle, out)
 	}
 }
+
+// Assertion: TestShowGlobalIncludesTodosSection — nn show --global includes open todo items from notes
+// and omits the Todos section when no open items exist.
+func TestShowGlobalIncludesTodosSection(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "Work Items", note.TypeObservation)
+	n.Body = "## Open\n- [ ] fix the thing\n- [x] done already"
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global with todos: %v", err)
+	}
+	if !strings.Contains(out, "## Todos") {
+		t.Errorf("nn show --global: want '## Todos' section when open items exist, got:\n%s", out)
+	}
+	if !strings.Contains(out, "- [ ] fix the thing") {
+		t.Errorf("nn show --global: want open todo item in output, got:\n%s", out)
+	}
+	if strings.Contains(out, "done already") {
+		t.Errorf("nn show --global: done items must not appear in Todos section, got:\n%s", out)
+	}
+}
+
+// Assertion: TestShowGlobalOmitsTodosSectionWhenEmpty — nn show --global omits the Todos section when no open items exist.
+func TestShowGlobalOmitsTodosSectionWhenEmpty(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "No Todos", note.TypeObservation)
+	n.Body = "## Open\n- [x] done already"
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global no todos: %v", err)
+	}
+	if strings.Contains(out, "## Todos") {
+		t.Errorf("nn show --global: must not emit '## Todos' when no open items exist, got:\n%s", out)
+	}
+}

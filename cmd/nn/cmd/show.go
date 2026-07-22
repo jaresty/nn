@@ -244,6 +244,16 @@ func newShowCmd(state *rootState) *cobra.Command {
 						fmt.Fprintf(w, "\n%s\n\n", n.Body)
 					}
 				}
+				byIDForTodo := make(map[string]*note.Note, len(all))
+				for _, a := range all {
+					byIDForTodo[a.ID] = a
+				}
+				if todosText := listTodosText(all, byIDForTodo); todosText != "" {
+					fmt.Fprintln(w, "---")
+					fmt.Fprintln(w, "## Todos")
+					fmt.Fprintln(w)
+					fmt.Fprint(w, todosText)
+				}
 				if dn, dnErr := resolveDailyNote(state); dnErr == nil {
 					fmt.Fprintln(w, "---")
 					byID := make(map[string]*note.Note, len(all))

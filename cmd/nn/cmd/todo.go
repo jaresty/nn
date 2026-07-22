@@ -10,6 +10,34 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+func listTodosText(notes []*note.Note, byID map[string]*note.Note) string {
+	var sb strings.Builder
+	first := true
+	for _, n := range notes {
+		var open []string
+		for _, line := range strings.Split(n.Body, "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "- [ ]") {
+				open = append(open, line)
+			}
+		}
+		if len(open) == 0 {
+			continue
+		}
+		if isBlocked(n, byID) {
+			continue
+		}
+		if !first {
+			fmt.Fprintln(&sb)
+		}
+		first = false
+		fmt.Fprintf(&sb, "%s  %s\n", n.ID, n.Title)
+		for _, line := range open {
+			fmt.Fprintf(&sb, "  %s\n", strings.TrimSpace(line))
+		}
+	}
+	return sb.String()
+}
+
 func newTodoCmd(state *rootState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "todo",
