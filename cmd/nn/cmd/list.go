@@ -91,6 +91,14 @@ func newListCmd(state *rootState) *cobra.Command {
 			}
 
 			gitCtx := gitContextQuery()
+
+			// Compute IDF over the full corpus before filtering so that filtered
+			// candidate scoring uses global term rarity, not subset rarity.
+			var globalIDF map[string]float64
+			if search != "" {
+				globalIDF = note.BM25IDF(notes, note.Tokenize(search+" "+gitCtx))
+			}
+
 			var filtered []*note.Note
 			for _, n := range notes {
 				if filterTag != "" && !hasTag(n, filterTag) {
@@ -154,7 +162,7 @@ func newListCmd(state *rootState) *cobra.Command {
 						continue
 					}
 				}
-				if search != "" && note.BM25Scores([]*note.Note{n}, search+" "+gitCtx, allInbound)[n.ID] == 0 {
+				if search != "" && note.BM25ScoresWithIDF([]*note.Note{n}, globalIDF, search+" "+gitCtx, allInbound)[n.ID] == 0 {
 					continue
 				}
 				if long && len(n.Body) <= atomicityThreshold {
@@ -200,7 +208,8 @@ func newListCmd(state *rootState) *cobra.Command {
 					}
 				}
 				filtered = withoutTarget
-				scores := note.BM25Scores(filtered, target.Title+" "+target.Body, allInbound)
+				similarIDF := note.BM25IDF(notes, note.Tokenize(target.Title+" "+target.Body))
+				scores := note.BM25ScoresWithIDF(filtered, similarIDF, target.Title+" "+target.Body, allInbound)
 				sort.SliceStable(filtered, func(i, j int) bool {
 					return scores[filtered[i].ID] > scores[filtered[j].ID]
 				})
@@ -209,7 +218,7 @@ func newListCmd(state *rootState) *cobra.Command {
 			var searchScores map[string]float64
 			var normalizedSearchScores map[string]float64
 			if search != "" {
-				searchScores = note.BM25Scores(filtered, search+" "+gitCtx, allInbound)
+				searchScores = note.BM25ScoresWithIDF(filtered, globalIDF, search+" "+gitCtx, allInbound)
 				if boostRecent {
 					now := time.Now()
 					for _, n := range filtered {

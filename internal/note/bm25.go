@@ -23,21 +23,36 @@ const tagWeight = 3
 // inboundWeight is the fractional body-token weight applied to inbound annotation tokens.
 const inboundWeight = 0.5
 
-// BM25Scores returns BM25 scores for each note against the query terms.
-// inbound maps note ID to annotation strings from notes that link to it;
-// those tokens are included at inboundWeight relative to body tokens.
-// Only notes matching at least one query term are included.
-func BM25Scores(notes []*Note, query string, inbound map[string][]string) map[string]float64 {
-	terms := tokenize(query)
-	if len(terms) == 0 {
-		return nil
-	}
+// propagationFactor is the fraction of a note's score passed to its 1-hop neighbors.
+const propagationFactor = 0.15
 
-	// Build per-note token frequency maps (title weighted).
-	type docInfo struct {
-		tf  map[string]float64
-		len float64
+// inboundWeightForLinkType returns the TF weight for an inbound annotation by link type.
+func inboundWeightForLinkType(linkType string) float64 {
+	switch linkType {
+	case "governs", "supports", "source-of":
+		return 1.0
+	case "refines", "extends":
+		return 0.75
+	case "questions", "contradicts":
+		return 0.25
+	default:
+		return inboundWeight
 	}
+}
+
+// TypedAnnotation pairs an annotation string with the link type that produced it.
+type TypedAnnotation struct {
+	Text     string
+	LinkType string
+}
+
+type docInfo struct {
+	tf  map[string]float64
+	len float64
+}
+
+// buildDocs constructs per-note TF maps and document lengths using flat inbound weight.
+func buildDocs(notes []*Note, inbound map[string][]string) ([]docInfo, float64) {
 	docs := make([]docInfo, len(notes))
 	totalLen := 0.0
 	for i, n := range notes {
@@ -67,22 +82,48 @@ func BM25Scores(notes []*Note, query string, inbound map[string][]string) map[st
 		docs[i] = docInfo{tf: tf, len: dlen}
 		totalLen += dlen
 	}
+	return docs, totalLen
+}
 
-	N := float64(len(notes))
-	avgdl := totalLen / math.Max(N, 1)
-
-	// IDF per term.
-	idf := make(map[string]float64, len(terms))
-	for _, term := range terms {
-		df := 0
-		for _, d := range docs {
-			if d.tf[term] > 0 {
-				df++
+// buildDocsTyped constructs per-note TF maps using link-type-weighted inbound annotations.
+func buildDocsTyped(notes []*Note, inbound map[string][]TypedAnnotation) ([]docInfo, float64) {
+	docs := make([]docInfo, len(notes))
+	totalLen := 0.0
+	for i, n := range notes {
+		tf := make(map[string]float64)
+		titleTokens := tokenize(n.Title)
+		bodyTokens := tokenize(n.Body)
+		for _, t := range titleTokens {
+			tf[t] += titleWeight
+		}
+		for _, t := range bodyTokens {
+			tf[t]++
+		}
+		for _, tag := range n.Tags {
+			for _, t := range tokenize(tag) {
+				tf[t] += tagWeight
 			}
 		}
-		idf[term] = math.Log((N-float64(df)+0.5)/(float64(df)+0.5) + 1)
+		inboundLen := 0.0
+		for _, ann := range inbound[n.ID] {
+			w := inboundWeightForLinkType(ann.LinkType)
+			for _, t := range tokenize(ann.Text) {
+				tf[t] += w
+				inboundLen += w
+			}
+		}
+		tagLen := float64(len(n.Tags) * tagWeight)
+		dlen := float64(len(titleTokens)*titleWeight+len(bodyTokens)) + tagLen + inboundLen
+		docs[i] = docInfo{tf: tf, len: dlen}
+		totalLen += dlen
 	}
+	return docs, totalLen
+}
 
+// scoreDocsWithIDF scores pre-built docs against pre-computed IDF.
+func scoreDocsWithIDF(notes []*Note, docs []docInfo, totalLen float64, idf map[string]float64, terms []string) map[string]float64 {
+	N := float64(len(docs))
+	avgdl := totalLen / math.Max(N, 1)
 	scores := make(map[string]float64)
 	for i, n := range notes {
 		d := docs[i]
@@ -101,6 +142,92 @@ func BM25Scores(notes []*Note, query string, inbound map[string][]string) map[st
 		}
 	}
 	return scores
+}
+
+// BM25IDF computes inverse document frequency for the given terms over the corpus.
+func BM25IDF(notes []*Note, terms []string) map[string]float64 {
+	docs, _ := buildDocs(notes, nil)
+	N := float64(len(notes))
+	idf := make(map[string]float64, len(terms))
+	for _, term := range terms {
+		df := 0
+		for _, d := range docs {
+			if d.tf[term] > 0 {
+				df++
+			}
+		}
+		idf[term] = math.Log((N-float64(df)+0.5)/(float64(df)+0.5) + 1)
+	}
+	return idf
+}
+
+// BM25ScoresWithIDF scores candidates using a pre-computed IDF map.
+// IDF should be computed over the full corpus via BM25IDF; candidates may be a subset.
+func BM25ScoresWithIDF(candidates []*Note, idf map[string]float64, query string, inbound map[string][]string) map[string]float64 {
+	terms := tokenize(query)
+	if len(terms) == 0 {
+		return nil
+	}
+	docs, totalLen := buildDocs(candidates, inbound)
+	return scoreDocsWithIDF(candidates, docs, totalLen, idf, terms)
+}
+
+// BM25Scores returns BM25 scores for each note against the query terms.
+// inbound maps note ID to annotation strings from notes that link to it.
+// IDF is computed over the same corpus as candidates (correct when corpus==candidates).
+// For filtered candidate sets, prefer BM25IDF + BM25ScoresWithIDF.
+func BM25Scores(notes []*Note, query string, inbound map[string][]string) map[string]float64 {
+	terms := tokenize(query)
+	if len(terms) == 0 {
+		return nil
+	}
+	idf := BM25IDF(notes, terms)
+	return BM25ScoresWithIDF(notes, idf, query, inbound)
+}
+
+// BM25ScoresTyped scores notes using link-type-weighted inbound annotations.
+func BM25ScoresTyped(notes []*Note, query string, inbound map[string][]TypedAnnotation) map[string]float64 {
+	terms := tokenize(query)
+	if len(terms) == 0 {
+		return nil
+	}
+	docs, totalLen := buildDocsTyped(notes, inbound)
+	N := float64(len(notes))
+	idf := make(map[string]float64, len(terms))
+	for _, term := range terms {
+		df := 0
+		for _, d := range docs {
+			if d.tf[term] > 0 {
+				df++
+			}
+		}
+		idf[term] = math.Log((N-float64(df)+0.5)/(float64(df)+0.5) + 1)
+	}
+	return scoreDocsWithIDF(notes, docs, totalLen, idf, terms)
+}
+
+// BM25ScoresWithPropagation scores notes then propagates scores 1 hop through links.
+// links maps source note ID to slice of target note IDs.
+func BM25ScoresWithPropagation(notes []*Note, query string, inbound map[string][]string, links map[string][]string) map[string]float64 {
+	base := BM25Scores(notes, query, inbound)
+	if base == nil {
+		return nil
+	}
+	result := make(map[string]float64, len(base))
+	for id, s := range base {
+		result[id] = s
+	}
+	for srcID, targets := range links {
+		srcScore := base[srcID]
+		if srcScore == 0 {
+			continue
+		}
+		boost := srcScore * propagationFactor
+		for _, tgtID := range targets {
+			result[tgtID] += boost
+		}
+	}
+	return result
 }
 
 // statusMultiplier returns a score multiplier based on note status.
