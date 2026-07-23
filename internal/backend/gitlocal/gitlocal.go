@@ -10,9 +10,41 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/jaresty/nn/internal/backend"
 	"github.com/jaresty/nn/internal/note"
 )
+
+const listWorkers = 16
+
+// readFilesConcurrently reads each path using a bounded worker pool and returns
+// the byte slices in the same order as the input slice. Each goroutine writes
+// to a distinct index so no mutex is needed on results.
+func readFilesConcurrently(paths []string) ([][]byte, error) {
+	if len(paths) == 0 {
+		return nil, nil
+	}
+	results := make([][]byte, len(paths))
+	g := new(errgroup.Group)
+	sem := make(chan struct{}, listWorkers)
+	for i, p := range paths {
+		sem <- struct{}{}
+		g.Go(func() error {
+			defer func() { <-sem }()
+			data, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			results[i] = data
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
 
 // atomicWriteFile writes data to path via a temp file + rename so concurrent
 // readers never observe a partially-written file (avoids O_TRUNC visibility window on Linux).
@@ -156,21 +188,43 @@ func (b *Backend) List() ([]*note.Note, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gitlocal.List: %w", err)
 	}
-	var notes []*note.Note
+	var mdNames []string
+	var mdPaths []string
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(b.dir, e.Name()))
+		mdNames = append(mdNames, e.Name())
+		mdPaths = append(mdPaths, filepath.Join(b.dir, e.Name()))
+	}
+	contents, err := readFilesConcurrently(mdPaths)
+	if err != nil {
 		if os.IsNotExist(err) {
-			continue
+			// A file disappeared between ReadDir and ReadFile — skip silently.
+			// Fall back to sequential read to find which files are still present.
+			var notes []*note.Note
+			for i, p := range mdPaths {
+				data, rerr := os.ReadFile(p)
+				if os.IsNotExist(rerr) {
+					continue
+				}
+				if rerr != nil {
+					return nil, fmt.Errorf("gitlocal.List: read %s: %w", mdNames[i], rerr)
+				}
+				n, perr := note.Parse(data)
+				if perr != nil {
+					continue
+				}
+				notes = append(notes, n)
+			}
+			return notes, nil
 		}
-		if err != nil {
-			return nil, fmt.Errorf("gitlocal.List: read %s: %w", e.Name(), err)
-		}
-		n, err := note.Parse(data)
-		if err != nil {
-			// Skip unparseable files (e.g., README.md without frontmatter).
+		return nil, fmt.Errorf("gitlocal.List: %w", err)
+	}
+	var notes []*note.Note
+	for _, data := range contents {
+		n, perr := note.Parse(data)
+		if perr != nil {
 			continue
 		}
 		notes = append(notes, n)
