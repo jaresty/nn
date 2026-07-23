@@ -270,6 +270,81 @@ func TestTodoListDefaultShowsNoteWithNoRequiresLinks(t *testing.T) {
 	}
 }
 
+// Assertion: TestTodoListDefaultExcludesWaitingItems — nn todo list default excludes items tagged [waiting: reason]
+func TestTodoListDefaultExcludesWaitingItems(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("new", "--title", "Waiting task", "--type", "observation", "--content", "- [ ] [waiting: Josh to review] submit the PR\n- [ ] unblocked item", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn new: %v", err)
+	}
+	id := strings.Fields(strings.TrimPrefix(strings.TrimSpace(out), "created "))[0]
+
+	out, err = execute("todo", "list")
+	if err != nil {
+		t.Fatalf("nn todo list: %v", err)
+	}
+	if strings.Contains(out, "submit the PR") {
+		t.Errorf("expected waiting item to be excluded from default output, got:\n%s", out)
+	}
+	if !strings.Contains(out, id) {
+		t.Errorf("expected note %s to appear (has unblocked item)", id)
+	}
+	if !strings.Contains(out, "unblocked item") {
+		t.Errorf("expected unblocked item to appear in output")
+	}
+}
+
+// Assertion: TestTodoListWaitingFlagShowsWaitingItems — nn todo list --waiting shows waiting items with reason
+func TestTodoListWaitingFlagShowsWaitingItems(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("new", "--title", "Waiting task", "--type", "observation", "--content", "- [ ] [waiting: Josh to review] submit the PR", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn new: %v", err)
+	}
+	id := strings.Fields(strings.TrimPrefix(strings.TrimSpace(out), "created "))[0]
+
+	out, err = execute("todo", "list", "--waiting")
+	if err != nil {
+		t.Fatalf("nn todo list --waiting: %v", err)
+	}
+	if !strings.Contains(out, id) {
+		t.Errorf("expected note %s in --waiting output", id)
+	}
+	if !strings.Contains(out, "submit the PR") {
+		t.Errorf("expected waiting item in --waiting output")
+	}
+	if !strings.Contains(out, "Josh to review") {
+		t.Errorf("expected waiting reason 'Josh to review' in --waiting output")
+	}
+}
+
+// Assertion: TestTodoListContextFilterShowsMatchingItems — nn todo list --context filters to matching @context items
+func TestTodoListContextFilterShowsMatchingItems(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("new", "--title", "Context task", "--type", "observation", "--content", "- [ ] @phone call the vendor\n- [ ] @computer write the report", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn new: %v", err)
+	}
+	id := strings.Fields(strings.TrimPrefix(strings.TrimSpace(out), "created "))[0]
+
+	out, err = execute("todo", "list", "--context", "phone")
+	if err != nil {
+		t.Fatalf("nn todo list --context phone: %v", err)
+	}
+	if !strings.Contains(out, id) {
+		t.Errorf("expected note %s in --context phone output", id)
+	}
+	if !strings.Contains(out, "call the vendor") {
+		t.Errorf("expected @phone item in --context phone output")
+	}
+	if strings.Contains(out, "write the report") {
+		t.Errorf("expected @computer item excluded from --context phone output")
+	}
+}
+
 func noteModified(t *testing.T, execute func(...string) (string, error), id string) string {
 	t.Helper()
 	out, err := execute("show", id)

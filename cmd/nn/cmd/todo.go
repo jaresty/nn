@@ -38,6 +38,32 @@ func listTodosText(notes []*note.Note, byID map[string]*note.Note) string {
 	return sb.String()
 }
 
+// isWaiting reports whether a checkbox line contains a [waiting: ...] tag.
+func isWaiting(line string) (bool, string) {
+	trimmed := strings.TrimSpace(line)
+	const prefix = "[waiting:"
+	idx := strings.Index(strings.ToLower(trimmed), prefix)
+	if idx == -1 {
+		return false, ""
+	}
+	rest := trimmed[idx+len(prefix):]
+	end := strings.Index(rest, "]")
+	if end == -1 {
+		return false, ""
+	}
+	return true, strings.TrimSpace(rest[:end])
+}
+
+// todoContext returns the @context value from a checkbox line, or "" if absent.
+func todoContext(line string) string {
+	for _, word := range strings.Fields(line) {
+		if strings.HasPrefix(word, "@") && len(word) > 1 {
+			return strings.ToLower(word[1:])
+		}
+	}
+	return ""
+}
+
 func newTodoCmd(state *rootState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "todo",
@@ -67,6 +93,8 @@ func isBlocked(n *note.Note, byID map[string]*note.Note) bool {
 
 func newTodoListCmd(state *rootState) *cobra.Command {
 	var showAll bool
+	var showWaiting bool
+	var contextFilter string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List open checkboxes grouped by note",
@@ -85,14 +113,30 @@ func newTodoListCmd(state *rootState) *cobra.Command {
 			for _, n := range notes {
 				var open []string
 				for _, line := range strings.Split(n.Body, "\n") {
-					if strings.HasPrefix(strings.TrimSpace(line), "- [ ]") {
-						open = append(open, line)
+					if !strings.HasPrefix(strings.TrimSpace(line), "- [ ]") {
+						continue
 					}
+					waiting, _ := isWaiting(line)
+					if showWaiting {
+						if !waiting {
+							continue
+						}
+					} else {
+						if waiting {
+							continue
+						}
+					}
+					if contextFilter != "" {
+						if todoContext(line) != strings.ToLower(contextFilter) {
+							continue
+						}
+					}
+					open = append(open, line)
 				}
 				if len(open) == 0 {
 					continue
 				}
-				if !showAll && isBlocked(n, byID) {
+				if !showAll && !showWaiting && isBlocked(n, byID) {
 					continue
 				}
 				if !first {
@@ -108,6 +152,8 @@ func newTodoListCmd(state *rootState) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&showAll, "all", false, "Show all notes with open items, including blocked ones")
+	cmd.Flags().BoolVar(&showWaiting, "waiting", false, "Show only items tagged [waiting: reason]")
+	cmd.Flags().StringVar(&contextFilter, "context", "", "Show only items tagged with @context")
 	return cmd
 }
 

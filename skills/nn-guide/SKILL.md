@@ -466,6 +466,47 @@ nn delete --from-stdin --confirm
 nn list --no-inbound --status draft --json | jq -r '.[].id' | nn delete --from-stdin --confirm
 ```
 
+## nn todo
+
+Manage open checkboxes (todo items) across notes.
+
+```
+nn todo list [--all] [--waiting] [--context <name>]
+nn todo done <id> <pattern>
+nn todo reopen <id> <pattern>
+```
+
+**Todo item format** — write checkboxes as standard Markdown:
+```
+- [ ] open item
+- [x] done item
+```
+
+**Inline metadata** (on the same `- [ ]` line):
+
+| Tag | Syntax | Effect |
+|---|---|---|
+| Waiting | `[waiting: reason]` | Hidden from default list; shown with `--waiting` |
+| Context | `@context` | Filterable with `--context <name>` |
+
+Examples:
+```
+- [ ] [waiting: Josh to review] submit the PR
+- [ ] @phone call the vendor
+- [ ] @computer write the report
+```
+
+**nn todo list flags:**
+- Default: shows unblocked items; excludes `[waiting: ...]` items and notes blocked by an incomplete `requires` target
+- `--all`: show all open items including blocked notes
+- `--waiting`: show only `[waiting: reason]` items, with the reason visible in output
+- `--context <name>`: filter to items tagged `@<name>` (case-insensitive)
+
+**nn todo done / reopen:**
+- `nn todo done <id> <pattern>` — marks the first `- [ ]` line containing `<pattern>` as `- [x]`
+- `nn todo reopen <id> <pattern>` — marks the first `- [x]` line containing `<pattern>` as `- [ ]`
+- Pattern match is case-insensitive; errors if no match found
+
 ## nn capture
 
 Quickly capture raw material (articles, quotes, observations) as a draft note.
