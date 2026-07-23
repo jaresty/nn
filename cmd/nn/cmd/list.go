@@ -90,6 +90,7 @@ func newListCmd(state *rootState) *cobra.Command {
 				notesByID[n.ID] = n
 			}
 
+			gitCtx := gitContextQuery()
 			var filtered []*note.Note
 			for _, n := range notes {
 				if filterTag != "" && !hasTag(n, filterTag) {
@@ -153,7 +154,7 @@ func newListCmd(state *rootState) *cobra.Command {
 						continue
 					}
 				}
-				if search != "" && note.BM25Scores([]*note.Note{n}, search+" "+gitContextQuery(), allInbound)[n.ID] == 0 {
+				if search != "" && note.BM25Scores([]*note.Note{n}, search+" "+gitCtx, allInbound)[n.ID] == 0 {
 					continue
 				}
 				if long && len(n.Body) <= atomicityThreshold {
@@ -208,7 +209,7 @@ func newListCmd(state *rootState) *cobra.Command {
 			var searchScores map[string]float64
 			var normalizedSearchScores map[string]float64
 			if search != "" {
-				searchScores = note.BM25Scores(filtered, search+" "+gitContextQuery(), allInbound)
+				searchScores = note.BM25Scores(filtered, search+" "+gitCtx, allInbound)
 				if boostRecent {
 					now := time.Now()
 					for _, n := range filtered {
