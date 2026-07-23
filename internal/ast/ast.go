@@ -76,6 +76,16 @@ var langConfigs = map[string]langConfig{
 (type_alias_declaration name: (type_identifier) @name) @type
 `,
 	},
+	".tsx": {
+		name:        "tsx",
+		importQuery: `(import_statement source: (string) @import)`,
+		symbolQuery: `
+(function_declaration name: (identifier) @name) @function
+(class_declaration name: (identifier) @name) @class
+(interface_declaration name: (type_identifier) @name) @interface
+(type_alias_declaration name: (type_identifier) @name) @type
+`,
+	},
 	".rs": {
 		name:        "rust",
 		importQuery: `(use_declaration argument: (_) @import)`,
