@@ -345,6 +345,102 @@ func TestTodoListContextFilterShowsMatchingItems(t *testing.T) {
 	}
 }
 
+// Assertion: TestTodoSetWaitingAddsTag — nn todo set --waiting adds [waiting: reason] to matching checkbox line
+func TestTodoSetWaitingAddsTag(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("new", "--title", "Set task", "--type", "observation", "--content", "- [ ] submit the PR", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn new: %v", err)
+	}
+	id := strings.Fields(strings.TrimPrefix(strings.TrimSpace(out), "created "))[0]
+
+	_, err = execute("todo", "set", id, "submit the PR", "--waiting", "Josh to review")
+	if err != nil {
+		t.Fatalf("nn todo set --waiting: %v", err)
+	}
+
+	body := noteBody(t, execute, id)
+	if !strings.Contains(body, "[waiting: Josh to review]") {
+		t.Errorf("expected [waiting: Josh to review] in body, got:\n%s", body)
+	}
+	if !strings.Contains(body, "submit the PR") {
+		t.Errorf("expected original text preserved in body, got:\n%s", body)
+	}
+}
+
+// Assertion: TestTodoSetClearWaitingRemovesTag — nn todo set --clear-waiting removes [waiting: ...] from matching line
+func TestTodoSetClearWaitingRemovesTag(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("new", "--title", "Set task", "--type", "observation", "--content", "- [ ] [waiting: Josh to review] submit the PR", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn new: %v", err)
+	}
+	id := strings.Fields(strings.TrimPrefix(strings.TrimSpace(out), "created "))[0]
+
+	_, err = execute("todo", "set", id, "submit the PR", "--clear-waiting")
+	if err != nil {
+		t.Fatalf("nn todo set --clear-waiting: %v", err)
+	}
+
+	body := noteBody(t, execute, id)
+	if strings.Contains(body, "[waiting:") {
+		t.Errorf("expected [waiting: ...] removed from body, got:\n%s", body)
+	}
+	if !strings.Contains(body, "submit the PR") {
+		t.Errorf("expected original text preserved in body, got:\n%s", body)
+	}
+}
+
+// Assertion: TestTodoSetContextAddsTag — nn todo set --context adds @context to matching checkbox line
+func TestTodoSetContextAddsTag(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("new", "--title", "Set task", "--type", "observation", "--content", "- [ ] call the vendor", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn new: %v", err)
+	}
+	id := strings.Fields(strings.TrimPrefix(strings.TrimSpace(out), "created "))[0]
+
+	_, err = execute("todo", "set", id, "call the vendor", "--context", "phone")
+	if err != nil {
+		t.Fatalf("nn todo set --context: %v", err)
+	}
+
+	body := noteBody(t, execute, id)
+	if !strings.Contains(body, "@phone") {
+		t.Errorf("expected @phone in body, got:\n%s", body)
+	}
+	if !strings.Contains(body, "call the vendor") {
+		t.Errorf("expected original text preserved in body, got:\n%s", body)
+	}
+}
+
+// Assertion: TestTodoSetClearContextRemovesTag — nn todo set --clear-context removes @context from matching line
+func TestTodoSetClearContextRemovesTag(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("new", "--title", "Set task", "--type", "observation", "--content", "- [ ] @phone call the vendor", "--no-edit")
+	if err != nil {
+		t.Fatalf("nn new: %v", err)
+	}
+	id := strings.Fields(strings.TrimPrefix(strings.TrimSpace(out), "created "))[0]
+
+	_, err = execute("todo", "set", id, "call the vendor", "--clear-context")
+	if err != nil {
+		t.Fatalf("nn todo set --clear-context: %v", err)
+	}
+
+	body := noteBody(t, execute, id)
+	if strings.Contains(body, "@phone") {
+		t.Errorf("expected @phone removed from body, got:\n%s", body)
+	}
+	if !strings.Contains(body, "call the vendor") {
+		t.Errorf("expected original text preserved in body, got:\n%s", body)
+	}
+}
+
 func noteModified(t *testing.T, execute func(...string) (string, error), id string) string {
 	t.Helper()
 	out, err := execute("show", id)

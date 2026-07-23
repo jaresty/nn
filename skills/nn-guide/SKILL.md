@@ -507,6 +507,16 @@ Examples:
 - `nn todo reopen <id> <pattern>` — marks the first `- [x]` line containing `<pattern>` as `- [ ]`
 - Pattern match is case-insensitive; errors if no match found
 
+**nn todo set** — add, replace, or remove inline metadata tags on a matching open checkbox:
+```
+nn todo set <id> <pattern> --waiting "reason"     # add/replace [waiting: reason]
+nn todo set <id> <pattern> --clear-waiting         # remove [waiting: ...]
+nn todo set <id> <pattern> --context phone         # add/replace @phone
+nn todo set <id> <pattern> --clear-context         # remove @context
+```
+- Matches the first open `- [ ]` line containing `<pattern>` (case-insensitive)
+- Flags can be combined in a single call (e.g. `--waiting "Josh" --context phone`)
+
 ## nn capture
 
 Quickly capture raw material (articles, quotes, observations) as a draft note.
