@@ -26,8 +26,8 @@ func TestGrepCmd(t *testing.T) {
 	if !strings.Contains(out, "handleAuth") {
 		t.Errorf("expected match 'handleAuth' in output; got:\n%s", out)
 	}
-	if !strings.Contains(out, f+":") {
-		t.Errorf("expected file path %q in output; got:\n%s", f, out)
+	if !strings.Contains(out, "==> "+f) {
+		t.Errorf("expected file header '==> %s' in output; got:\n%s", f, out)
 	}
 }
 
@@ -322,8 +322,30 @@ func TestCollectFilesSkipsGitDir(t *testing.T) {
 	}
 }
 
-// Assertion: TestGrepCmdTraceableSuggestion — nn grep emits a trace suggestion for matches in gotreesitter-parseable files.
+// Assertion: TestGrepCmdTraceableSuggestion — nn grep emits a trace suggestion for matches in gotreesitter-parseable files when --trace is passed.
 func TestGrepCmdTraceableSuggestion(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "server.go")
+	if err := os.WriteFile(f, []byte("package main\n\nfunc fetchCompanyMappings() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "--trace", "fetchCompanyMappings", f)
+	if err != nil {
+		t.Fatalf("nn grep traceable: %v", err)
+	}
+	if !strings.Contains(out, "[trace:") {
+		t.Errorf("expected inline trace output for match in parseable file; got:\n%s", out)
+	}
+	if !strings.Contains(out, "--symbol") {
+		t.Errorf("expected '--symbol' in inline trace output; got:\n%s", out)
+	}
+}
+
+// Assertion: TestGrepNoTraceSuggestionWithoutFlag — nn grep does not emit trace suggestion for parseable files when --trace is not passed.
+func TestGrepNoTraceSuggestionWithoutFlag(t *testing.T) {
 	_, execute := setupNotebook(t)
 
 	dir := t.TempDir()
@@ -334,13 +356,56 @@ func TestGrepCmdTraceableSuggestion(t *testing.T) {
 
 	out, err := execute("grep", "fetchCompanyMappings", f)
 	if err != nil {
-		t.Fatalf("nn grep traceable: %v", err)
+		t.Fatalf("nn grep no-trace: %v", err)
 	}
-	if !strings.Contains(out, "nn trace") {
-		t.Errorf("expected 'nn trace' suggestion for match in parseable file; got:\n%s", out)
+	if strings.Contains(out, "nn trace") {
+		t.Errorf("expected no trace suggestion without --trace flag; got:\n%s", out)
 	}
-	if !strings.Contains(out, "re-exported symbols") {
-		t.Errorf("expected limit disclosure 're-exported symbols' in trace suggestion; got:\n%s", out)
+}
+
+// Assertion: TestGrepMatchCap — nn grep truncates output and emits a count line when --max-matches is exceeded.
+func TestGrepMatchCap(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	var content strings.Builder
+	for i := 0; i < 10; i++ {
+		content.WriteString("hello world\n")
+	}
+	f := filepath.Join(dir, "many.go")
+	if err := os.WriteFile(f, []byte(content.String()), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "--max-matches", "3", "hello", f)
+	if err != nil {
+		t.Fatalf("nn grep max-matches: %v", err)
+	}
+	if !strings.Contains(out, "truncated:") {
+		t.Errorf("expected 'truncated:' cap line in output; got:\n%s", out)
+	}
+}
+
+// Assertion: TestGrepGroupsByFile — nn grep groups matches under a file header when multiple files match.
+func TestGrepGroupsByFile(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f1 := filepath.Join(dir, "a.go")
+	f2 := filepath.Join(dir, "b.go")
+	if err := os.WriteFile(f1, []byte("package main\n\nfunc hello() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(f2, []byte("package main\n\nfunc hello() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "hello", dir)
+	if err != nil {
+		t.Fatalf("nn grep grouping: %v", err)
+	}
+	if !strings.Contains(out, "==>") {
+		t.Errorf("expected file group header '==>' in output; got:\n%s", out)
 	}
 }
 

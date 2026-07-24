@@ -21,6 +21,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 	var contextLines int
 	var notesPerMatch int
 	var traceFlag bool
+	var maxMatches int
 
 	cmd := &cobra.Command{
 		Use:   "grep <pattern> [path...]",
@@ -117,6 +118,12 @@ func newGrepCmd(state *rootState) *cobra.Command {
 				return nil
 			}
 
+			truncated := 0
+			if maxMatches > 0 && len(matches) > maxMatches {
+				truncated = len(matches) - maxMatches
+				matches = matches[:maxMatches]
+			}
+
 			// Load session reads once for this invocation.
 			sessionReads := loadSessionReads(resolveCfgDir())
 			hasUnread := false
@@ -141,7 +148,17 @@ func newGrepCmd(state *rootState) *cobra.Command {
 
 			traceSuggested := map[string]bool{}
 			prevEnd := -1 // last line number printed in previous group (for separator logic)
+			currentFile := ""
 			for _, m := range matches {
+				// Print file header when file changes.
+				if m.file != currentFile {
+					if currentFile != "" {
+						fmt.Fprintln(w)
+					}
+					fmt.Fprintf(w, "==> %s <==\n", m.file)
+					currentFile = m.file
+					prevEnd = -1
+				}
 				// Print separator when context windows don't overlap with previous group.
 				if contextLines > 0 && prevEnd >= 0 && m.contextStart > prevEnd+1 {
 					fmt.Fprintln(w, "--")
@@ -152,19 +169,19 @@ func newGrepCmd(state *rootState) *cobra.Command {
 					if lineNum == m.lineNum {
 						break
 					}
-					fmt.Fprintf(w, "%s:%d:%s\n", m.file, lineNum, line)
+					fmt.Fprintf(w, "%d:%s\n", lineNum, line)
 				}
 				// Print the match line.
-				fmt.Fprintf(w, "%s:%d:%s\n", m.file, m.lineNum, m.text)
+				fmt.Fprintf(w, "%d:%s\n", m.lineNum, m.text)
 				// Print after-context lines.
 				afterStart := m.lineNum - m.contextStart + 1
 				for i := afterStart; i < len(m.context); i++ {
 					lineNum := m.contextStart + i
-					fmt.Fprintf(w, "%s:%d:%s\n", m.file, lineNum, m.context[i])
+					fmt.Fprintf(w, "%d:%s\n", lineNum, m.context[i])
 				}
 				prevEnd = m.contextStart + len(m.context) - 1
 
-				if !traceSuggested[m.file] && isTraceableFile(m.file) {
+				if !traceSuggested[m.file] && isTraceableFile(m.file) && traceFlag {
 					traceSuggested[m.file] = true
 					if traceFlag {
 						dir := filepath.Dir(m.file)
@@ -215,6 +232,9 @@ func newGrepCmd(state *rootState) *cobra.Command {
 					fmt.Fprintf(w, "  → [[%s|%s]] %s%s\n", r.n.ID, r.n.Title, scoreLabel(r.score), readMarker)
 				}
 			}
+			if truncated > 0 {
+				fmt.Fprintf(w, "truncated: %d more matches not shown (use --max-matches to adjust)\n", truncated)
+			}
 			printResolveInstruction(w, hasUnread)
 			return nil
 		},
@@ -222,6 +242,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 
 	cmd.Flags().IntVar(&contextLines, "context", 3, "Number of surrounding lines to include in BM25 query")
 	cmd.Flags().IntVar(&notesPerMatch, "notes-per-match", 2, "Maximum related notes to show per match")
+	cmd.Flags().IntVar(&maxMatches, "max-matches", 0, "Maximum number of matches to show (0 = unlimited)")
 	cmd.Flags().BoolVar(&traceFlag, "trace", false, "Invoke nn trace inline for each traceable matched file")
 	return cmd
 }
