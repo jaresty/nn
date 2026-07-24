@@ -242,7 +242,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 
 	cmd.Flags().IntVar(&contextLines, "context", 3, "Number of surrounding lines to include in BM25 query")
 	cmd.Flags().IntVar(&notesPerMatch, "notes-per-match", 2, "Maximum related notes to show per match")
-	cmd.Flags().IntVar(&maxMatches, "max-matches", 0, "Maximum number of matches to show (0 = unlimited)")
+	cmd.Flags().IntVar(&maxMatches, "max-matches", 50, "Maximum number of matches to show (0 = unlimited)")
 	cmd.Flags().BoolVar(&traceFlag, "trace", false, "Invoke nn trace inline for each traceable matched file")
 	return cmd
 }

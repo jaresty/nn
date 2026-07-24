@@ -363,6 +363,29 @@ func TestGrepNoTraceSuggestionWithoutFlag(t *testing.T) {
 	}
 }
 
+// Assertion: TestGrepDefaultMatchCap — nn grep applies a default match cap without requiring --max-matches flag.
+func TestGrepDefaultMatchCap(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	var content strings.Builder
+	for i := 0; i < 60; i++ {
+		content.WriteString("hello world\n")
+	}
+	f := filepath.Join(dir, "many.go")
+	if err := os.WriteFile(f, []byte(content.String()), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "hello", f)
+	if err != nil {
+		t.Fatalf("nn grep default cap: %v", err)
+	}
+	if !strings.Contains(out, "truncated:") {
+		t.Errorf("expected default max-matches 50 to trigger truncation for 60-match file; got:\n%s", out)
+	}
+}
+
 // Assertion: TestGrepMatchCap — nn grep truncates output and emits a count line when --max-matches is exceeded.
 func TestGrepMatchCap(t *testing.T) {
 	_, execute := setupNotebook(t)
