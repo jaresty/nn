@@ -522,3 +522,30 @@ func TestGrepContextDoesNotCrossFileBoundary(t *testing.T) {
 		t.Errorf("context must not include lines from file A; got:\n%s", out)
 	}
 }
+
+// Assertion: TestGrepCmdSkipsLargeFiles — nn grep skips files larger than 1MB and produces no match output for them.
+func TestGrepCmdSkipsLargeFiles(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "large.go")
+	// Build a >1MB file with short newline-delimited lines so bufio.Scanner reads it fine.
+	// The first line contains LARGEMATCH so a match would appear if the file is not skipped.
+	var buf bytes.Buffer
+	buf.WriteString("// LARGEMATCH\n")
+	line := bytes.Repeat([]byte("// padding line of content\n"), 1)
+	for buf.Len() < 1<<20+1 {
+		buf.Write(line)
+	}
+	if err := os.WriteFile(f, buf.Bytes(), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("grep", "LARGEMATCH", f)
+	if err != nil {
+		t.Fatalf("nn grep: %v", err)
+	}
+	if strings.Contains(out, "LARGEMATCH") {
+		t.Errorf("expected large file to be skipped; got match output:\n%s", out)
+	}
+}

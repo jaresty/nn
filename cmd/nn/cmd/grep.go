@@ -65,7 +65,12 @@ func newGrepCmd(state *rootState) *cobra.Command {
 			// fileStartIdx maps file path → first index in allLines for that file.
 			fileStartIdx := make(map[string]int)
 			fileEndIdx := make(map[string]int)
+			const maxFileSize = 1 << 20 // 1 MB
 			for _, f := range files {
+				if fi, err := os.Stat(f); err == nil && fi.Size() > maxFileSize {
+					fmt.Fprintf(cmd.ErrOrStderr(), "nn grep: skipping large file %s (%d bytes)\n", f, fi.Size())
+					continue
+				}
 				lines, err := readFileLines(f)
 				if err != nil {
 					continue
