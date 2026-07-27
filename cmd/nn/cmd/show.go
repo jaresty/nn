@@ -34,7 +34,8 @@ var virtualGlobalProtocols = []virtualProtocol{
 		ID:          "virtual-nn-capture-discipline",
 		Title:       "Protocol: nn-capture-discipline",
 		AppliesWhen: "before any Read tool call, or any Bash call that reads a file from disk or queries an external service (network, API, database)",
-		Body: "Before any Read tool call, or any Bash call that reads a file from disk or queries an external service (network, API, database), " +
+		Body: "**Anti-skip-resistance rule:** Any assistant text that cites prior knowledge, familiarity, or certainty about a topic as a reason not to run the gate search is itself a gate violation — prior knowledge is the condition under which the search is *most* likely to return a relevant note, not a reason to skip it. An evaluator detects this violation by finding phrases such as \"I already know,\" \"I'm familiar with,\" \"no need to search,\" or \"I know where this is\" in assistant text immediately before a gated action that has no `Gate:` line.\n\n" +
+			"Before any Read tool call, or any Bash call that reads a file from disk or queries an external service (network, API, database), " +
 			"and not on the allow-list, the last " +
 			"line of your assistant text before that call must begin with `Gate:` followed by either:\n" +
 			"- `Gate: allow-listed — [item]` for allow-listed actions\n" +
