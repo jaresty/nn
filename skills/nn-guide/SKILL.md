@@ -188,9 +188,19 @@ nn bulk-link <from-id> --to <id> --annotation "..." --type TYPE [--status draft|
 
 Both `--annotation` and `--type` are required. A bare link is a schema violation.
 
-Canonical types: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `questions`, `governs`, `requires`.
+Canonical types: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `grounded-by`, `questions`, `governs`, `requires`.
 
-`requires` — note A requires note B means A cannot be acted on until B is complete. Completion is derived from B's checkbox state: done when all `- [x]` (or no checkboxes, vacuously). Used with `nn list --unblocked` to surface actionable notes.
+Type definitions — choose the type whose definition matches the relationship you intend:
+
+- `refines` — The source sharpens or narrows the target's claim without replacing it. Use when adding precision or a sub-case.
+- `contradicts` — The source directly opposes the target's claim. Use when two notes cannot both be true.
+- `source-of` — The target is derived from or authored by the source. Use for evidence, citations, or origin relationships.
+- `extends` — The source adds structure or scope to the target without replacing it. Use when building on top of an existing model.
+- `supports` — The source corroborates the target's claim. Use for independent evidence that strengthens but is not constitutive of the target.
+- `grounded-by` — The source claim depends on the target observation as its evidential basis. Use when removing the target would make the source claim ungrounded (stronger than `supports`, which is corroborative only).
+- `questions` — The source raises an unresolved challenge to the target. Use when the target's claim is uncertain or contested.
+- `governs` ⚠ — The source is an operating protocol that constrains how the target domain is acted on. Only use when you intend the source note to act as an active protocol that governs LLM behavior.
+- `requires` ⚠ — Note A requires note B means A cannot be acted on until B is complete. Use for task dependency only, not conceptual dependency. Completion is derived from B's checkbox state: done when all `- [x]` (or no checkboxes, vacuously). Used with `nn list --unblocked` to surface actionable notes.
 
 `--status` defaults to `draft`. Pass `--status reviewed` when a human is explicitly creating and endorsing the link at creation time.
 
