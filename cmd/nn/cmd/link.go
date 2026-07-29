@@ -36,7 +36,7 @@ func newLinkCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("link: %w", err)
 			}
 			if !note.IsKnownLinkType(linkType) {
-				fmt.Fprintf(cmd.ErrOrStderr(), "warning: unknown link type %q — known types: refines, contradicts, source-of, extends, supports, questions, governs\n", linkType)
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: unknown link type %q — known types: refines, contradicts, source-of, extends, supports, grounded-by, questions, governs, requires\n", linkType)
 			}
 			if err := state.backend.AddLink(fromNote.ID, toNote.ID, annotation, linkType, linkStatus); err != nil {
 				return fmt.Errorf("link: %w", err)

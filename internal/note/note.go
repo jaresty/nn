@@ -42,6 +42,7 @@ var KnownLinkTypes = map[string]bool{
 	"questions":   true,
 	"governs":     true,
 	"requires":    true,
+	"grounded-by": true,
 }
 
 // LinkTypeDescriptions gives a one-line semantic definition for each known link type.
@@ -54,12 +55,13 @@ var LinkTypeDescriptions = map[string]string{
 	"supports":    "The source corroborates the target's claim — use for independent evidence that strengthens but is not constitutive of the target.",
 	"questions":   "The source raises an unresolved challenge to the target — use when the target's claim is uncertain or contested.",
 	"governs":     "The source is an operating protocol that constrains how the target (or its domain) is acted on — use only for protocol notes.",
-	"requires":    "The source cannot be acted on until the target is complete — use for task dependency, not conceptual dependency.",
+	"requires":     "The source cannot be acted on until the target is complete — use for task dependency, not conceptual dependency.",
+	"grounded-by": "The source claim depends on the target observation as its evidential basis — use when removing the target would make the source claim ungrounded (stronger than supports, which is corroborative only).",
 }
 
 // LinkTypeOrder is the canonical display order for link types.
 var LinkTypeOrder = []string{
-	"refines", "contradicts", "source-of", "extends", "supports", "questions", "governs", "requires",
+	"refines", "contradicts", "source-of", "extends", "supports", "grounded-by", "questions", "governs", "requires",
 }
 
 // LinkTypeWarnings gives a confirmation requirement for link types with semantic hazards.
