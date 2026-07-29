@@ -57,6 +57,18 @@ var LinkTypeDescriptions = map[string]string{
 	"requires":    "The source cannot be acted on until the target is complete — use for task dependency, not conceptual dependency.",
 }
 
+// LinkTypeOrder is the canonical display order for link types.
+var LinkTypeOrder = []string{
+	"refines", "contradicts", "source-of", "extends", "supports", "questions", "governs", "requires",
+}
+
+// LinkTypeWarnings gives a confirmation requirement for link types with semantic hazards.
+// Empty string means no warning.
+var LinkTypeWarnings = map[string]string{
+	"governs":  "governs creates a binding operating constraint visible at session start — only use when you intend the source note to act as an active protocol that governs LLM behavior",
+	"requires": "confirm both notes are action-bearing (have checkboxes or represent a work item) before linking",
+}
+
 // IsKnownLinkType reports whether t is in the canonical link type set.
 func IsKnownLinkType(t string) bool {
 	return t == "" || KnownLinkTypes[t]
