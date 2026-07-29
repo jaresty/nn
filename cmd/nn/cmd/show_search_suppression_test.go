@@ -5,18 +5,21 @@ import (
 	"testing"
 )
 
-// Assertion: Found path clause uses match_reason substring criterion, not numeric score threshold.
+// Assertion: Found path clause uses non-empty array criterion and cites score+match_reason, not a literal substring match.
 func TestCaptureDisciplineMatchReasonSubstringCriterion(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "virtual-nn-capture-discipline")
 	if err != nil {
 		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
 	}
-	if !strings.Contains(out, "match_reason` contains the literal") {
-		t.Errorf("expected match_reason substring criterion in Found path clause; got:\n%s", out)
+	if !strings.Contains(out, "result array is non-empty") {
+		t.Errorf("expected non-empty array criterion in Found path clause; got:\n%s", out)
 	}
-	if strings.Contains(out, "score must be") || strings.Contains(out, ">= 0.3") || strings.Contains(out, "≥ 0.3") {
-		t.Errorf("Found path clause must not use numeric score threshold; got:\n%s", out)
+	if !strings.Contains(out, "score` value and the `match_reason` value verbatim") {
+		t.Errorf("expected Selected because: to require score and match_reason verbatim; got:\n%s", out)
+	}
+	if strings.Contains(out, "match_reason` contains the literal") {
+		t.Errorf("Found path clause must not use old match_reason substring criterion; got:\n%s", out)
 	}
 }
 

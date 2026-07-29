@@ -116,7 +116,7 @@ func TestShowVirtualCLIReferenceBody(t *testing.T) {
 	if !strings.Contains(out, "draft|reviewed|permanent") {
 		t.Errorf("expected valid status values in body:\n%s", out)
 	}
-	if !strings.Contains(out, "refines|contradicts|source-of|extends|supports|questions|governs") {
+	if !strings.Contains(out, "refines|contradicts|source-of|extends|supports|grounded-by|questions|governs|requires") {
 		t.Errorf("expected valid link type values in body:\n%s", out)
 	}
 }
