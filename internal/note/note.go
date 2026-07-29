@@ -44,6 +44,19 @@ var KnownLinkTypes = map[string]bool{
 	"requires":    true,
 }
 
+// LinkTypeDescriptions gives a one-line semantic definition for each known link type.
+// Use these to choose the correct type before calling nn link.
+var LinkTypeDescriptions = map[string]string{
+	"refines":     "The source sharpens or narrows the target's claim without replacing it — use when adding precision or a sub-case.",
+	"contradicts": "The source directly opposes the target's claim — use when two notes cannot both be true.",
+	"source-of":   "The target is derived from or authored by the source — use for evidence, citations, or origin relationships.",
+	"extends":     "The source adds structure or scope to the target without replacing it — use when building on top of an existing model.",
+	"supports":    "The source corroborates the target's claim — use for independent evidence that strengthens but is not constitutive of the target.",
+	"questions":   "The source raises an unresolved challenge to the target — use when the target's claim is uncertain or contested.",
+	"governs":     "The source is an operating protocol that constrains how the target (or its domain) is acted on — use only for protocol notes.",
+	"requires":    "The source cannot be acted on until the target is complete — use for task dependency, not conceptual dependency.",
+}
+
 // IsKnownLinkType reports whether t is in the canonical link type set.
 func IsKnownLinkType(t string) bool {
 	return t == "" || KnownLinkTypes[t]

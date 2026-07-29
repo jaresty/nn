@@ -110,6 +110,15 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"Output format: Links and Backlinks sections each render as `[[id|title]] [type] {status} — annotation` (fields omitted when empty).\n\n" +
 			"**nn link** `<from> <to> --type <type> --annotation \"...\"`\n" +
 			"Valid --type: refines|contradicts|source-of|extends|supports|questions|governs|requires\n\n" +
+			"Link type definitions — choose the type whose definition matches the relationship you intend:\n" +
+			"- `refines`: The source sharpens or narrows the target's claim without replacing it — use when adding precision or a sub-case.\n" +
+			"- `contradicts`: The source directly opposes the target's claim — use when two notes cannot both be true.\n" +
+			"- `source-of`: The target is derived from or authored by the source — use for evidence, citations, or origin relationships.\n" +
+			"- `extends`: The source adds structure or scope to the target without replacing it — use when building on top of an existing model.\n" +
+			"- `supports`: The source corroborates the target's claim — use for independent evidence that strengthens but is not constitutive of the target.\n" +
+			"- `questions`: The source raises an unresolved challenge to the target — use when the target's claim is uncertain or contested.\n" +
+			"- `governs` ⚠: The source is an operating protocol that constrains how the target (or its domain) is acted on — use only for protocol notes; confirm the source note has `type: protocol` before linking.\n" +
+			"- `requires` ⚠: The source cannot be acted on until the target is complete — use for task dependency only, not conceptual dependency; confirm both notes are action-bearing (have checkboxes or represent a work item) before linking.\n\n" +
 			"**nn read** `<file> [--lines N-M] [--limit N]` — read file with line numbers; appends `## Related notes` from BM25 search on shown content\n\n" +
 			"**nn grep** `<pattern> [path] [--context N] [--notes-per-match K] [--max-matches N] [--trace]` — search files for pattern and annotate each match with related nn notes via BM25 on surrounding context; use instead of bare grep when working in a codebase to surface relevant knowledge alongside code locations; `--trace` invokes nn trace inline for each traceable matched file\n\n" +
 			"**nn trace** `<root-dir> --symbol <name> [--symbol <name> ...] [--depth N] [--json] [--show-unresolved]` or `<file>:<line>` — syntax-aware call graph from entry-point symbols using gotreesitter; prefer over nn grep when tracing how a symbol is called or what it calls across files; annotates each resolved node with related nn notes via BM25; emits human-readable tree by default or JSON graph with --json; `file:line` form resolves the symbol at that line automatically\n\n" +
