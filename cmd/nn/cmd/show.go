@@ -44,13 +44,12 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"no additional flags, arguments, or shell operators. " +
 			"The tool result must appear in the transcript. " +
 			"The assistant text immediately following that result must do one of:\n\n" +
-			"**(a) Found path:** If the top result's `match_reason` contains the literal `--search` query string as a verbatim substring, " +
-			"quote the title of the best-fit result, then write one sentence beginning " +
-			"`Selected because:` that cites the `match_reason` value verbatim. " +
+			"**(a) Found path:** If the result array is non-empty, quote the title of the top result (index 0), " +
+			"then write one sentence beginning " +
+			"`Selected because:` that cites both the `score` value and the `match_reason` value verbatim from that result's JSON object. " +
 			"Then run `nn show <id>` on that result before the gated action. " +
 			"The `nn show` tool result must appear in the transcript before the gated action proceeds. " +
-			"`nn show` calls within the search window do not reset it. " +
-			"Otherwise, treat the result as empty and follow the **Empty/truncated path**.\n\n" +
+			"`nn show` calls within the search window do not reset it. Otherwise, treat the result as empty and follow the **Empty/truncated path**.\n\n" +
 			"**(b) Empty/truncated path:** Write `skip-search: <quoted substring>` where `<quoted substring>` " +
 			"is a string that appears verbatim in the tool result (e.g. `[]`, a count string, or a truncation marker). " +
 			"This is the only permitted exit without a `Selected because:` line — " +
