@@ -106,6 +106,19 @@ var langConfigs = map[string]langConfig{
 (interface_declaration name: (identifier) @name) @interface
 `,
 	},
+	".cs": {
+		name:        "c_sharp",
+		importQuery: `(using_directive [(identifier) (qualified_name)] @import)`,
+		symbolQuery: `
+(method_declaration name: (identifier) @name) @method
+(constructor_declaration name: (identifier) @name) @constructor
+(class_declaration name: (identifier) @name) @class
+(interface_declaration name: (identifier) @name) @interface
+(enum_declaration name: (identifier) @name) @enum
+(struct_declaration name: (identifier) @name) @struct
+(record_declaration name: (identifier) @name) @record
+`,
+	},
 	".rb": {
 		name:        "ruby",
 		importQuery: `(call method: (identifier) arguments: (argument_list (string) @import) (#match? @import "."))`,
