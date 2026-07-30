@@ -20,9 +20,10 @@ import (
 
 func newListCmd(state *rootState) *cobra.Command {
 	var (
-		filterTag    string
-		filterType   string
-		filterStatus string
+		filterTag            string
+		filterType           string
+		filterStatus         string
+		filterRepresentation string
 		linkedFrom   string
 		linkedTo     string
 		orphan       bool
@@ -108,6 +109,9 @@ func newListCmd(state *rootState) *cobra.Command {
 					continue
 				}
 				if filterStatus != "" && string(n.Status) != filterStatus {
+					continue
+				}
+				if filterRepresentation != "" && n.Representation != filterRepresentation {
 					continue
 				}
 				if linkedFrom != "" && !linksTo(n, linkedFrom) {
@@ -336,6 +340,7 @@ func newListCmd(state *rootState) *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVar(&filterRepresentation, "representation", "", "Filter by representation type (ontology|taxonomy|axiom)")
 	cmd.Flags().StringVar(&filterTag, "tag", "", "Filter by tag")
 	cmd.Flags().StringVar(&filterType, "type", "", "Filter by type")
 	cmd.Flags().StringVar(&filterStatus, "status", "", "Filter by status")

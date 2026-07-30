@@ -103,7 +103,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 		ID:          "virtual-nn-cli-reference",
 		Title:       "Protocol: nn CLI reference",
 		AppliesWhen: "always — reference for valid nn command flags, types, and statuses",
-		Body: "**nn new** `--title \"...\" --type <type> --content \"...\" --no-edit [--tags \"t1,t2\"] [--link-to <id> --annotation \"...\"] [--applies-when \"...\"] [--expires YYYY-MM-DD] [--expires-when \"condition\"]`\n" +
+		Body: "**nn new** `--title \"...\" --type <type> --content \"...\" --no-edit [--tags \"t1,t2\"] [--link-to <id> --annotation \"...\"] [--applies-when \"...\"] [--representation <rep>] [--expires YYYY-MM-DD] [--expires-when \"condition\"]`\n" +
 			"Valid --type: concept|argument|model|hypothesis|observation|question|protocol\n" +
 			"New notes are always created as draft. Promote with: `nn update <id> --status reviewed`\n" +
 			"**nn new --quick** `--title \"...\" --no-edit` — quick capture: sets type=observation, status=draft, content empty; no --type required\n" +
@@ -122,7 +122,8 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn remind** `\"content\" [--for N] [--expires YYYY-MM-DD]` — creates observation tagged 'reminder', permanent, expires today+1d by default; surfaces in nn show --global\n" +
 			"**nn remind --find FRAGMENT** — search reminder titles by substring; prints matching ID; error if ambiguous (multiple matches) or zero matches\n" +
 			"**nn remind \"new body\" --update ID** — replace body of existing reminder in place; preserves expiry; no new note created\n\n" +
-			"**nn list** `--search \"<q>\" --show-first --json [--fields id,title,...]` | `--type <type>` | `--status <status>` | `--orphan` | `--since <ISO>` | `--expired` | `--has-expires` | `--has-open-items` | `--unblocked`\n" +
+			"**nn check** `<id> [--as <representation>] [--set-representation]` — validate a note's structural contract against its representation type (ontology|taxonomy|axiom); reads `representation:` from frontmatter unless `--as` overrides; exits non-zero if required sections are missing; `--set-representation` stamps the field on the note after passing validation\n\n" +
+			"**nn list** `--search \"<q>\" --show-first --json [--fields id,title,...]` | `--type <type>` | `--status <status>` | `--representation <rep>` | `--orphan` | `--since <ISO>` | `--expired` | `--has-expires` | `--has-open-items` | `--unblocked`\n" +
 			"Valid --fields: id|title|type|status|tags|applies_when|excerpt|score|modified|match_reason|is_protocol|link_count|backlink_count|created|body_preview (requires --json; errors on unknown field)\n" +
 			"`nn list --search` always includes 1-hop graph neighbors in output: plain text shows indented `→`/`←` lines (id, title, type, annotation); `--json` includes a `neighbors` array with direction/id/title/type/annotation fields.\n\n" +
 			"**nn show** `<id>` | `--global`\n" +

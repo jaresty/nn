@@ -66,6 +66,7 @@ Workflow guidance is embedded in the binary:
 		newRemindCmd(state),
 		newUpdateCmd(state),
 		newPromoteCmd(state),
+		newCheckCmd(state),
 		newDeleteCmd(state),
 		newRandomCmd(state),
 		newTagsCmd(state),

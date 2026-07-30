@@ -246,6 +246,45 @@ Body.
 	}
 }
 
+// ── Representation field ──────────────────────────────────────────────────────
+
+var representationMarkdown = `---
+id: 20260411120045-0099
+title: "Domain Ontology"
+type: model
+status: draft
+representation: ontology
+created: 2026-04-11T12:00:00Z
+modified: 2026-04-11T12:00:00Z
+---
+
+Body.
+`
+
+func TestRepresentationParse(t *testing.T) {
+	n, err := note.Parse([]byte(representationMarkdown))
+	if err != nil {
+		t.Fatalf("Parse() error: %v", err)
+	}
+	if n.Representation != "ontology" {
+		t.Errorf("Representation = %q, want %q", n.Representation, "ontology")
+	}
+}
+
+func TestRepresentationMarshal(t *testing.T) {
+	n, err := note.Parse([]byte(representationMarkdown))
+	if err != nil {
+		t.Fatalf("Parse() error: %v", err)
+	}
+	out, err := n.Marshal()
+	if err != nil {
+		t.Fatalf("Marshal() error: %v", err)
+	}
+	if !strings.Contains(string(out), "representation: ontology") {
+		t.Errorf("Marshal() output missing representation field:\n%s", out)
+	}
+}
+
 // ── Filename generation ───────────────────────────────────────────────────────
 
 func TestFilename(t *testing.T) {
