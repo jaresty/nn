@@ -173,11 +173,11 @@ Reads `representation:` from the note's frontmatter and checks that required sec
 
 **Representation types and required sections:**
 
-| Representation | Required sections |
-|---|---|
-| `ontology` | `## Concepts`, `## Relations` |
-| `taxonomy` | `## Categories`, `## Classification` |
-| `axiom` | `## Vocabulary`, `## Invariant` |
+| Representation | Use when… | Required sections |
+|---|---|---|
+| `ontology` | representing a domain's vocabulary and the relationships between its entities — concepts, cardinality, grounded instances, modality boundary | `## Concepts`, `## Relations` |
+| `taxonomy` | partitioning a domain into exhaustive, mutually exclusive classes by a classification dimension | `## Categories`, `## Classification` |
+| `axiom` | asserting a foundational constraint or invariant that other notes depend on — ruling out interpretations, scoping the claim | `## Vocabulary`, `## Invariant` |
 
 ```
 nn check 20260411120045-3821                         # validate using frontmatter representation
