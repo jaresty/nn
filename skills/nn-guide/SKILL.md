@@ -24,6 +24,8 @@ Create a new note.
 ```
 nn new --title TEXT --type TYPE [--tags TEXT] [--content TEXT] [--no-edit]
        [--link-to ID --annotation TEXT]
+       [--applies-when TEXT]
+       [--representation ontology|taxonomy|axiom]
        [--from-stdin]
        [--from-file PATH]
        [--expires YYYY-MM-DD]
@@ -92,7 +94,7 @@ nn show <id> --depth 1 --json          # JSON array with depth field per note
 List and filter notes.
 
 ```
-nn list [--tag TEXT] [--type TYPE] [--status STATUS]
+nn list [--tag TEXT] [--type TYPE] [--status STATUS] [--representation ontology|taxonomy|axiom]
         [--linked-from ID] [--linked-to ID] [--orphan] [--global] [--long]
         [--has-url] [--url-contains STRING]
         [--search TEXT] [--similar ID] [--sort FIELD] [--limit N] [--json]
@@ -158,6 +160,33 @@ nn list --has-expires --json       # machine-readable expiring notes
 `--unactioned` filters to notes that were accessed via `nn show` but have had no git commit touching their file since the last access. Advisory — requires `access.log`. Use to surface notes the LLM read but never updated. (Previously named `--stale`.)
 
 Filters compose: `nn list --search "implicit" --type concept --sort modified` works as expected.
+
+## nn check
+
+Validate a note's structural contract against its representation type.
+
+```
+nn check <id> [--as ontology|taxonomy|axiom] [--set-representation]
+```
+
+Reads `representation:` from the note's frontmatter and checks that required sections are present. Exits non-zero with a descriptive error if validation fails. Use `--as` to override the frontmatter value for ad-hoc validation (useful for notes without the field set). `--set-representation` stamps the `representation` field on the note after passing validation.
+
+**Representation types and required sections:**
+
+| Representation | Required sections |
+|---|---|
+| `ontology` | `## Concepts`, `## Relations` |
+| `taxonomy` | `## Categories`, `## Classification` |
+| `axiom` | `## Vocabulary`, `## Invariant` |
+
+```
+nn check 20260411120045-3821                         # validate using frontmatter representation
+nn check 20260411120045-3821 --as ontology           # validate as ontology regardless of frontmatter
+nn check 20260411120045-3821 --as ontology --set-representation  # validate and stamp field
+nn list --representation ontology                    # find all notes with representation: ontology
+```
+
+**Representation** is an optional orthogonal frontmatter field — independent of `type`. A note's `type` answers "what epistemic role does this play?" while `representation` answers "what structural contract must it satisfy?" Most notes omit it; set it when a note belongs to a formal structure like an ontology or taxonomy tree.
 
 ## nn update-link / nn bulk-update-link
 
