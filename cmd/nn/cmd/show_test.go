@@ -36,6 +36,33 @@ func TestShowDailyCreationEmbedsYesterdayWithoutDone(t *testing.T) {
 	}
 }
 
+// Assertion: TestShowDailyYesterdaySectionDoesNotAccumulate — when yesterday's note already contains a ### Yesterday
+// section (seeded from the day before), that section must not carry forward into today's note.
+func TestShowDailyYesterdaySectionDoesNotAccumulate(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	yesterdayTitle := "Daily: " + yesterday
+	yNote := newTestNoteForCLI(note.GenerateID(), yesterdayTitle, note.TypeObservation)
+	yNote.Tags = []string{"daily"}
+	// Yesterday's note already has a ### Yesterday block from two days ago.
+	yNote.Body = "### Yesterday\n\n- two days ago stuff\n\n## Open\n- current work"
+	writeNoteFile(t, nbDir, yNote)
+
+	out, err := execute("show", "daily")
+	if err != nil {
+		t.Fatalf("nn show daily: %v", err)
+	}
+	if strings.Contains(out, "two days ago stuff") {
+		t.Errorf("nn show daily: ### Yesterday must not carry forward into today's note, got:\n%s", out)
+	}
+	if !strings.Contains(out, "current work") {
+		t.Errorf("nn show daily: non-Yesterday content must carry forward, got:\n%s", out)
+	}
+	if strings.Count(out, "### Yesterday") > 1 {
+		t.Errorf("nn show daily: multiple ### Yesterday sections found, got:\n%s", out)
+	}
+}
+
 // Assertion: TestShowGlobalCreatesTodayWhenAbsent — nn show --global creates and shows today's daily note when none exists.
 func TestShowGlobalCreatesTodayWhenAbsent(t *testing.T) {
 	nbDir, execute := setupNotebook(t)

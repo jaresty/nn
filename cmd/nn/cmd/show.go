@@ -647,23 +647,27 @@ func resolveDailyNote(state *rootState) (*note.Note, error) {
 	return n, nil
 }
 
-// stripDoneSection removes the ## Done section from a daily note body so it is
-// not carried forward when yesterday's note seeds today's note.
+// stripCarryForwardSections removes sections that must not accumulate across days.
+// It strips ## Done (completed work) and ### Yesterday (already-carried content)
+// so each day's seed is clean.
 func stripDoneSection(body string) string {
 	lines := strings.Split(body, "\n")
 	var out []string
-	inDone := false
+	inStripped := false
 	for _, line := range lines {
-		if strings.HasPrefix(line, "## Done") {
-			inDone = true
+		if strings.HasPrefix(line, "## Done") || strings.HasPrefix(line, "### Yesterday") {
+			inStripped = true
 			continue
 		}
-		if inDone && strings.HasPrefix(line, "## ") {
-			inDone = false
+		if inStripped {
+			// A same-or-higher-level heading ends the stripped section.
+			if strings.HasPrefix(line, "## ") || strings.HasPrefix(line, "### ") {
+				inStripped = false
+			} else {
+				continue
+			}
 		}
-		if !inDone {
-			out = append(out, line)
-		}
+		out = append(out, line)
 	}
 	return strings.TrimRight(strings.Join(out, "\n"), "\n")
 }
