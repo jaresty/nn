@@ -24,7 +24,7 @@ func TestRemoveLinkByTypeConcurrentRace(t *testing.T) {
 			{TargetID: dst2.ID, Annotation: "b", Type: "refines", Status: "draft"},
 		}
 		src.Modified = time.Now().UTC().Truncate(time.Second)
-		if err := b.Update(src); err != nil {
+		if err := b.Update(src, nil); err != nil {
 			t.Fatalf("setup: %v", err)
 		}
 		var wg sync.WaitGroup

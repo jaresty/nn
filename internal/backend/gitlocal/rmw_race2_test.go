@@ -46,7 +46,7 @@ func TestAddLinksConcurrentDropsLinksViaAddLinks(t *testing.T) {
 	for range attempts {
 		src.Links = nil
 		src.Modified = time.Now().UTC().Truncate(time.Second)
-		if err := b.Update(src); err != nil {
+		if err := b.Update(src, nil); err != nil {
 			t.Fatalf("reset: %v", err)
 		}
 		var wg sync.WaitGroup
@@ -88,7 +88,7 @@ func TestRemoveLinkConcurrentRace(t *testing.T) {
 			{TargetID: dst2.ID, Annotation: "b", Type: "supports", Status: "draft"},
 		}
 		src.Modified = time.Now().UTC().Truncate(time.Second)
-		if err := b.Update(src); err != nil {
+		if err := b.Update(src, nil); err != nil {
 			t.Fatalf("setup Update: %v", err)
 		}
 		// Concurrently remove each link.
@@ -126,14 +126,14 @@ func TestUpdateConcurrentRace(t *testing.T) {
 			cp := *n
 			cp.Body = "body-A"
 			cp.Modified = time.Now().UTC().Truncate(time.Second)
-			errs[0] = b.Update(&cp)
+			errs[0] = b.Update(&cp, nil)
 		}()
 		go func() {
 			defer wg.Done()
 			cp := *n
 			cp.Body = "body-B"
 			cp.Modified = time.Now().UTC().Truncate(time.Second)
-			errs[1] = b.Update(&cp)
+			errs[1] = b.Update(&cp, nil)
 		}()
 		wg.Wait()
 		for i, e := range errs {
@@ -165,7 +165,7 @@ func TestAddLinkCrossProcessRace(t *testing.T) {
 	for i := range attempts {
 		src.Links = nil
 		src.Modified = time.Now().UTC().Truncate(time.Second)
-		if err := b.Update(src); err != nil {
+		if err := b.Update(src, nil); err != nil {
 			t.Fatalf("reset attempt %d: %v", i, err)
 		}
 		var wg sync.WaitGroup
@@ -257,7 +257,7 @@ func TestRemoveLinkCrossProcessRace(t *testing.T) {
 			{TargetID: dst2.ID, Annotation: "b", Type: "supports", Status: "draft"},
 		}
 		src.Modified = time.Now().UTC().Truncate(time.Second)
-		if err := b.Update(src); err != nil {
+		if err := b.Update(src, nil); err != nil {
 			t.Fatalf("reset attempt %d: %v", i, err)
 		}
 		var wg sync.WaitGroup
@@ -332,7 +332,7 @@ func TestBulkUpdateLinksCrossProcessRace(t *testing.T) {
 			{TargetID: dst2.ID, Annotation: "old-b", Type: "supports", Status: "draft"},
 		}
 		src.Modified = time.Now().UTC().Truncate(time.Second)
-		if err := b.Update(src); err != nil {
+		if err := b.Update(src, nil); err != nil {
 			t.Fatalf("reset attempt %d: %v", i, err)
 		}
 		var wg sync.WaitGroup
@@ -387,7 +387,7 @@ func TestRemoveLinkByTypeCrossProcessRace(t *testing.T) {
 			{TargetID: dst2.ID, Annotation: "b", Type: "extends", Status: "draft"},
 		}
 		src.Modified = time.Now().UTC().Truncate(time.Second)
-		if err := b.Update(src); err != nil {
+		if err := b.Update(src, nil); err != nil {
 			t.Fatalf("reset attempt %d: %v", i, err)
 		}
 		var wg sync.WaitGroup
@@ -429,7 +429,7 @@ func TestUpdateLinkCrossProcessRace(t *testing.T) {
 			{TargetID: dst2.ID, Annotation: "old-b", Type: "supports", Status: "draft"},
 		}
 		src.Modified = time.Now().UTC().Truncate(time.Second)
-		if err := b.Update(src); err != nil {
+		if err := b.Update(src, nil); err != nil {
 			t.Fatalf("reset attempt %d: %v", i, err)
 		}
 		var wg sync.WaitGroup
@@ -539,7 +539,7 @@ func TestAddLinksCrossProcessRace(t *testing.T) {
 	for i := range attempts {
 		src.Links = nil
 		src.Modified = time.Now().UTC().Truncate(time.Second)
-		if err := b.Update(src); err != nil {
+		if err := b.Update(src, nil); err != nil {
 			t.Fatalf("reset attempt %d: %v", i, err)
 		}
 

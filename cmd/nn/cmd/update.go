@@ -71,14 +71,16 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("update: %w", err)
 			}
 
+			var sinceTime *time.Time
 			if sinceStr != "" {
-				since, parseErr := time.Parse(time.RFC3339, sinceStr)
+				t, parseErr := time.Parse(time.RFC3339Nano, sinceStr)
+				if parseErr != nil {
+					t, parseErr = time.Parse(time.RFC3339, sinceStr)
+				}
 				if parseErr != nil {
 					return fmt.Errorf("--since: invalid timestamp %q, want RFC3339", sinceStr)
 				}
-				if n.Modified.Sub(since).Abs() > time.Second {
-					return fmt.Errorf("note was modified since %s; re-read and retry", sinceStr)
-				}
+				sinceTime = &t
 			}
 
 			if fromStdin {
@@ -178,7 +180,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 			n.Modified = updateNowFn()
 			warnIfLarge(cmd, n.Body)
 
-			if err := state.backend.Update(n); err != nil {
+			if err := state.backend.Update(n, sinceTime); err != nil {
 				return fmt.Errorf("update: %w", err)
 			}
 			fmt.Fprintf(outWriter(cmd), "updated %s\nmodified: %s\n", n.ID, n.Modified.Format(time.RFC3339))

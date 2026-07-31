@@ -47,7 +47,7 @@ func TestAddLinksConcurrentDropsLinks(t *testing.T) {
 		// Reset source to no links before each attempt.
 		src.Links = nil
 		src.Modified = time.Now().UTC().Truncate(time.Second)
-		if err := b.Update(src); err != nil {
+		if err := b.Update(src, nil); err != nil {
 			t.Fatalf("reset Update: %v", err)
 		}
 

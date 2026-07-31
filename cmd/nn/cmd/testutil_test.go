@@ -98,9 +98,10 @@ func newTestNoteForCLI(id, title string, typ note.Type) *note.Note {
 	}
 }
 
-// sinceFor returns the --since flag value for a note, formatted as RFC3339.
+// sinceFor returns the --since flag value for a note, using nanosecond precision
+// so it round-trips correctly through the backend's conflict check.
 func sinceFor(n *note.Note) string {
-	return n.Modified.Format(time.RFC3339)
+	return n.Modified.Format(time.RFC3339Nano)
 }
 
 func commitNoteFile(t *testing.T, nbDir string, n *note.Note) {

@@ -120,7 +120,7 @@ func TestUpdateRenameHoldsLock(t *testing.T) {
 		defer wg.Done()
 		n.Title = "Renamed Title"
 		n.Modified = time.Now().UTC().Truncate(time.Second)
-		errs[0] = b.Update(n)
+		errs[0] = b.Update(n, nil)
 	}()
 
 	for i := range writers {

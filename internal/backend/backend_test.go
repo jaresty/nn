@@ -26,7 +26,7 @@ func (m *mockBackend) AddLinks(from string, targets []backend.LinkTarget) error 
 func (m *mockBackend) RemoveLink(from, to string) error                                  { return nil }
 func (m *mockBackend) RemoveLinkByType(from, to, linkType string) error                  { return nil }
 func (m *mockBackend) Promote(id string, from time.Time, to note.Status) error           { return nil }
-func (m *mockBackend) Update(n *note.Note) error                                         { return nil }
+func (m *mockBackend) Update(n *note.Note, since *time.Time) error                       { return nil }
 func (m *mockBackend) UpdateLink(from, to string, ann, typ, status *string) error        { return nil }
 func (m *mockBackend) BulkUpdateLinks(from string, updates []backend.LinkUpdate) error    { return nil }
 func (m *mockBackend) BulkWrite(notes []*note.Note) error                                 { return nil }

@@ -34,7 +34,7 @@ func TestBulkUpdateLinksConcurrentRace(t *testing.T) {
 			got.Links[i].Annotation = "orig"
 		}
 		got.Modified = time.Now().UTC().Truncate(time.Second)
-		if err := b.Update(got); err != nil {
+		if err := b.Update(got, nil); err != nil {
 			t.Fatalf("reset: %v", err)
 		}
 
@@ -92,7 +92,7 @@ func TestUpdateLinkConcurrentRace(t *testing.T) {
 			got.Links[i].Annotation = "orig"
 		}
 		got.Modified = time.Now().UTC().Truncate(time.Second)
-		if err := b.Update(got); err != nil {
+		if err := b.Update(got, nil); err != nil {
 			t.Fatalf("reset: %v", err)
 		}
 

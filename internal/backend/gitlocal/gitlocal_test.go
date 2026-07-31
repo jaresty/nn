@@ -185,7 +185,7 @@ func TestUpdateDeletesOldFileOnRename(t *testing.T) {
 	oldFilename := n.Filename()
 
 	n.Title = "New Title"
-	if err := b.Update(n); err != nil {
+	if err := b.Update(n, nil); err != nil {
 		t.Fatalf("Update: %v", err)
 	}
 

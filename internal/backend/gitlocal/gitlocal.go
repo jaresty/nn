@@ -593,9 +593,29 @@ func (b *Backend) UpdateLink(fromID, toID string, annotation, linkType, linkStat
 }
 
 // Update writes the modified note and commits with an "update" message.
-func (b *Backend) Update(n *note.Note) error {
+// If since is non-nil, the update is rejected if the note was modified after that time.
+// The check is performed under the git lock so it is atomic with the write.
+func (b *Backend) Update(n *note.Note, since *time.Time) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.Update: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
+	if since != nil {
+		current, err := b.Read(n.ID)
+		if err != nil {
+			return fmt.Errorf("gitlocal.Update: re-read for conflict check: %w", err)
+		}
+		if current.Modified.After(*since) {
+			return fmt.Errorf("note was modified since %s; re-read and retry", since.Format(time.RFC3339))
+		}
+		// Stamp a new Modified inside the lock so the next concurrent writer sees a
+		// strictly-later timestamp and fails its own conflict check.
+		// Stamp with nanosecond precision strictly after *since so the next concurrent
+		// writer sees current.Modified.After(*since) = true and fails its conflict check.
+		n.Modified = time.Now().In(time.Local)
+	}
 	oldPath, err := b.findByID(n.ID)
 	if err != nil {
 		return fmt.Errorf("gitlocal.Update: note not found: %w", err)
@@ -616,7 +636,7 @@ func (b *Backend) Update(n *note.Note) error {
 		}
 		return b.commitRenameLocked(oldPath, newPath, msg)
 	}
-	return b.commitLocked(newPath, msg)
+	return b.commitWithLockHeld(newPath, msg)
 }
 
 // Promote updates the status of the note with the given id and commits.

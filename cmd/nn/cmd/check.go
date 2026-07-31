@@ -170,7 +170,7 @@ func newCheckCmd(state *rootState) *cobra.Command {
 			if setRepresentation {
 				n.Representation = rep
 				n.Modified = time.Now()
-				if err := state.backend.Update(n); err != nil {
+				if err := state.backend.Update(n, nil); err != nil {
 					return fmt.Errorf("check: --set-representation: %w", err)
 				}
 				fmt.Fprintf(outWriter(cmd), "ok — set representation: %s on %s\n", rep, id)

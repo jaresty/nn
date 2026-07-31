@@ -35,7 +35,7 @@ type Backend interface {
 	RemoveLink(fromID, toID string) error
 	RemoveLinkByType(fromID, toID, linkType string) error
 	Promote(id string, from time.Time, to note.Status) error
-	Update(n *note.Note) error
+	Update(n *note.Note, since *time.Time) error
 	UpdateLink(fromID, toID string, annotation, linkType, linkStatus *string) error
 	BulkUpdateLinks(fromID string, updates []LinkUpdate) error
 	BulkWrite(notes []*note.Note) error

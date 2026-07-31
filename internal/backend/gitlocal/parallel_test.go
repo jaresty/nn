@@ -275,7 +275,7 @@ func TestParallelUpdates(t *testing.T) {
 			defer wg.Done()
 			nn := notes[idx]
 			nn.Body = fmt.Sprintf("updated body %d", idx)
-			errs[idx] = b.Update(nn)
+			errs[idx] = b.Update(nn, nil)
 		}(i)
 	}
 	wg.Wait()

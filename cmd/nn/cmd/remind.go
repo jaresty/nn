@@ -71,7 +71,7 @@ func newRemindCmd(state *rootState) *cobra.Command {
 				}
 				existing.Body = content
 				existing.Modified = time.Now().UTC()
-				if err := state.backend.Update(existing); err != nil {
+				if err := state.backend.Update(existing, nil); err != nil {
 					return fmt.Errorf("remind --update: %w", err)
 				}
 				fmt.Fprintf(outWriter(cmd), "updated %s\n", existing.ID)
