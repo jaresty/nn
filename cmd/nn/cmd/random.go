@@ -18,6 +18,7 @@ func newRandomCmd(state *rootState) *cobra.Command {
 		filterStatus string
 		jsonOut      bool
 		depth        int
+		maxBacklinks int
 	)
 
 	cmd := &cobra.Command{
@@ -29,6 +30,15 @@ func newRandomCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("random: %w", err)
 			}
 
+			allInbound := make(map[string]int)
+			if maxBacklinks >= 0 {
+				for _, n := range notes {
+					for _, lnk := range n.Links {
+						allInbound[lnk.TargetID]++
+					}
+				}
+			}
+
 			var filtered []*note.Note
 			for _, n := range notes {
 				if filterTag != "" && !hasTag(n, filterTag) {
@@ -38,6 +48,9 @@ func newRandomCmd(state *rootState) *cobra.Command {
 					continue
 				}
 				if filterStatus != "" && string(n.Status) != filterStatus {
+					continue
+				}
+				if maxBacklinks >= 0 && allInbound[n.ID] > maxBacklinks {
 					continue
 				}
 				filtered = append(filtered, n)
@@ -97,5 +110,6 @@ func newRandomCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&filterStatus, "status", "", "Filter by status")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output note as JSON")
 	cmd.Flags().IntVar(&depth, "depth", 0, "Traverse outgoing links to this depth and print all reachable notes")
+	cmd.Flags().IntVar(&maxBacklinks, "max-backlinks", -1, "Only return notes with at most N inbound links (-1 = no filter)")
 	return cmd
 }

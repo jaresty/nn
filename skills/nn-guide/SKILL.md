@@ -30,13 +30,18 @@ nn new --title TEXT --type TYPE [--tags TEXT] [--content TEXT] [--no-edit]
        [--from-file PATH]
        [--expires YYYY-MM-DD]
        [--expires-when "condition text"]
+       [--no-suggest]
+
+nn new --quick --title TEXT [--no-edit]
 ```
 
-- `--type` is required: `concept | argument | model | hypothesis | observation | question | protocol`
+- `--type` is required (except with `--quick`): `concept | argument | model | hypothesis | observation | question | protocol`
 - `--no-edit` skips `$EDITOR` launch (always use in non-TTY/LLM context)
 - `--content TEXT` sets the note body directly
 - `--from-stdin` reads the note body from stdin
 - `--from-file PATH` scaffolds the note body from `nn ast` output for a source file (sets title to filename if not given)
+- `--quick` — shorthand capture: sets type=observation, status=draft, content empty; skips type requirement. Use for fast capture when the note will be refined later.
+- `--no-suggest` — skips the link/tag suggestion prompt after creation. Use in non-interactive or batch contexts.
 
 ### Choosing a type
 
@@ -97,8 +102,19 @@ List and filter notes.
 nn list [--tag TEXT] [--type TYPE] [--status STATUS] [--representation ontology|taxonomy|axiom]
         [--linked-from ID] [--linked-to ID] [--orphan] [--global] [--long]
         [--has-url] [--url-contains STRING]
-        [--search TEXT] [--similar ID] [--sort FIELD] [--limit N] [--json]
+        [--search TEXT] [--boost-recent] [--similar ID] [--sort FIELD] [--limit N] [--json]
+        [--before DATE] [--rich] [--full] [--envelope]
 ```
+
+`--boost-recent` boosts recently-modified notes in search result ranking. Requires `--search`. Use to surface recently-touched notes above older equally-relevant ones.
+
+`--rich` includes `modified`, `link_count`, and `body_preview` fields in JSON output. Requires `--json`. Use when you need structured metadata without requesting specific `--fields`.
+
+`--full` disables truncation of `excerpt` and `annotation` in JSON output. Requires `--json`. Use when full note body context is needed for downstream processing.
+
+`--envelope` wraps search JSON output in a metadata envelope containing `query`, `result_count`, and `total_matching`. Requires `--json --search`. Use when the consumer needs result-set metadata alongside the notes.
+
+`--before DATE` filters to notes modified before the given date (ISO 8601). Composes with `--since` to define a modification date range.
 
 `--search TEXT` performs a ranked case-insensitive search across note title and body. Title matches rank above body matches. Notes with more inbound backlinks receive a log-scale centrality boost on top of BM25, so well-linked notes surface above equal-content orphans. The `score` field in `--json` output reflects both BM25 relevance and centrality.
 
@@ -449,6 +465,8 @@ Create a temporary reminder note that surfaces in `nn show --global` until its e
 
 ```
 nn remind "TEXT" [--for N] [--expires YYYY-MM-DD]
+nn remind --find FRAGMENT
+nn remind "new body" --update ID
 ```
 
 - Creates an `observation` note tagged `reminder` with `permanent` status
@@ -456,11 +474,15 @@ nn remind "TEXT" [--for N] [--expires YYYY-MM-DD]
 - Default expiry: today + 1 day (use `--for N` for N days, or `--expires DATE` for a specific date)
 - Appears in the `## Reminders` block of `nn show --global` until expired
 - Expired reminders are silently omitted from `--global` output
+- `--find FRAGMENT` — search reminder titles by substring; prints matching ID; errors if ambiguous or zero matches
+- `--update ID` — replace body of existing reminder in place; preserves expiry; no new note created
 
 ```bash
 nn remind "Don't merge the auth PR until legal signs off"        # expires tomorrow
 nn remind "Check in with mobile team" --for 3                    # expires in 3 days
 nn remind "Hold off on deploys" --expires 2026-06-01             # expires on date
+nn remind --find "auth PR"                                        # find reminder ID by title fragment
+nn remind "Updated context" --update <id>                         # update existing reminder body
 ```
 
 ## nn promote
@@ -677,17 +699,25 @@ Default limit: 30. `--format json` keys: `topic_notes`, `clusters`
 Return a randomly selected note. Optionally filtered.
 
 ```
-nn random [--tag TEXT] [--type TYPE] [--status STATUS] [--json]
+nn random [--tag TEXT] [--type TYPE] [--status STATUS] [--json] [--depth N]
+          [--max-backlinks N]
 ```
 
 Returns one note at random from the notebook. All filters from `nn list` are supported.
 Use for deliberate serendipity — re-encounter a forgotten note and consider whether it
 connects to current work.
 
+`--depth N` traverses outgoing links from the selected note up to N hops, printing all reachable notes as a concatenated Markdown document. Use to load a random subgraph as context.
+
+`--max-backlinks N` filters candidates to notes with at most N inbound links. Use to surface underlinked notes for integration review — notes that exist but haven't been woven into the graph yet.
+
 ```
 nn random                         # any note
 nn random --status permanent      # a random permanent note
 nn random --tag philosophy --json
+nn random --depth 2               # random note + 2 hops of outgoing links
+nn random --max-backlinks 0       # a note nothing links to yet
+nn random --max-backlinks 2       # a note with few inbound links
 ```
 
 ## nn install-skills

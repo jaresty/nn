@@ -107,6 +107,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"Valid --type: concept|argument|model|hypothesis|observation|question|protocol\n" +
 			"New notes are always created as draft. Promote with: `nn update <id> --status reviewed`\n" +
 			"**nn new --quick** `--title \"...\" --no-edit` — quick capture: sets type=observation, status=draft, content empty; no --type required\n" +
+			"**nn new --no-suggest** — skip link/tag suggestion prompt after creation; use in non-interactive or batch contexts\n" +
 			"Note: `--content` is literal — the shell does not expand `\\n` in double-quoted strings. Use `$'...'` ANSI-C quoting or pipe via stdin for multiline content.\n\n" +
 			"**nn update** `<id> --since <RFC3339> --status <status>` | `--title \"...\"` | `--applies-when \"...\"` | `--expires YYYY-MM-DD` | `--expires-when \"condition\"` | `--content \"...\" --no-edit`\n" +
 			"Valid --status: draft|reviewed|permanent\n" +
@@ -124,7 +125,9 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn remind \"new body\" --update ID** — replace body of existing reminder in place; preserves expiry; no new note created\n\n" +
 			"**nn check** `<id> [--as <representation>] [--set-representation]` — validate a note's structural contract against its representation type; reads `representation:` from frontmatter unless `--as` overrides; exits non-zero if required sections are missing; `--set-representation` stamps the field on the note after passing validation\n" +
 			"Representation types: `ontology` (domain vocabulary + entity relationships; requires ## Concepts, ## Relations) | `taxonomy` (exhaustive classification by a dimension; requires ## Categories, ## Classification) | `axiom` (foundational constraint ruling out interpretations; requires ## Vocabulary, ## Invariant)\n\n" +
-			"**nn list** `--search \"<q>\" --show-first --json [--fields id,title,...]` | `--type <type>` | `--status <status>` | `--representation <rep>` | `--orphan` | `--since <ISO>` | `--expired` | `--has-expires` | `--has-open-items` | `--unblocked`\n" +
+			"**nn list** `--search \"<q>\" --show-first --json [--fields id,title,...]` | `--type <type>` | `--status <status>` | `--representation <rep>` | `--orphan` | `--since <ISO>` | `--before <ISO>` | `--expired` | `--has-expires` | `--has-open-items` | `--unblocked`\n" +
+			"Output shaping (require --json): `--rich` (adds modified/link_count/body_preview) | `--full` (disables excerpt/annotation truncation) | `--envelope` (wraps in metadata envelope with query/result_count/total_matching; requires --search)\n" +
+			"Search ranking: `--boost-recent` boosts recently-modified notes (requires --search)\n" +
 			"Valid --fields: id|title|type|status|tags|applies_when|excerpt|score|modified|match_reason|is_protocol|link_count|backlink_count|created|body_preview (requires --json; errors on unknown field)\n" +
 			"`nn list --search` always includes 1-hop graph neighbors in output: plain text shows indented `→`/`←` lines (id, title, type, annotation); `--json` includes a `neighbors` array with direction/id/title/type/annotation fields.\n\n" +
 			"**nn show** `<id>` | `--global`\n" +
@@ -140,6 +143,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn show** `<id> --depth N` — traverse N hops of outgoing links from a note\n\n" +
 			"**nn path** `<id-a> <id-b>` — shortest path between two notes\n\n" +
 			"**nn clusters** — topological clusters via label propagation\n\n" +
+			"**nn random** `[--tag TEXT] [--type TYPE] [--status STATUS] [--json] [--depth N] [--max-backlinks N]` — return a randomly selected note; `--depth N` traverses outgoing links up to N hops; `--max-backlinks N` filters to notes with at most N inbound links (surface underlinked notes for integration review)\n\n" +
 			"**nn list** `--similar <id>` — BM25 similarity (notes sharing vocabulary but not linked)\n\n" +
 			"**nn graph** `[--json]` — export full graph as JSON `{ \"nodes\": [...], \"edges\": [...] }`\n\n" +
 			"**nn graph show** `--focus <id> [--depth N]` — subgraph centered on a note (LLM-facing; default depth 2)\n\n" +
