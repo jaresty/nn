@@ -240,6 +240,18 @@ For each draft not touched in 14+ days: check outbound link count first.
 - **Zero links in either direction** → true orphan, candidate for deletion; surface for user to decide
 - **No inbound, but has outbound** → dead-end note that hasn't been linked to yet; link it rather than delete it
 
+Then sweep expired ephemeral notes (concrete/time-bound notes flagged by the staleness check in the gate):
+
+```
+nn list --expired --json --fields id,title,modified,type,backlink_count
+```
+
+For each expired note: read its body (`nn show <id>`), then decide:
+- **Abstract principle present** → search for an existing note that captures that principle (`nn list --search "<principle>" --json`); if found, augment it (`nn update <id> --append "..." --since <modified>`), then delete the expired note (`nn delete <id> --confirm`); if not found, abstract the principle into a new note (`nn new --title "<abstract claim>" --type concept --no-edit`), then delete the expired note.
+- **No durable principle** → the note was purely situational; delete it (`nn delete <id> --confirm`).
+
+Do not delete a note with backlinks without first checking whether any linking note depends on its content; if so, inline the key claim into the linking note before deleting.
+
 **Available flags on `nn list` — use these before reaching for workarounds:**
 - `--sort modified` — sort by last-modified date (most-recent first)
 - `--older-than N` — notes not modified in the last N days

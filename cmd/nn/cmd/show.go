@@ -97,6 +97,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"- If the compare: line shows `ephemeral`: the finding describes a transient state that the current session's work will invalidate — write `ephemeral: skip` and stop; do not append to the subject note.\n" +
 			"- If the finding adds a claim absent from that sentence: write `not in note: <claim>`, then run `nn update <id> --append \"<claim>\" --since <modified>` using the `<id>` and `modified:` value from the `nn show` result.\n" +
 			"- If the finding is already represented: write `represented by: <quoted note title>` — no action needed.\n\n" +
+			"**Staleness check (runs after any `nn show` in the gate window, independent of compare outcome):** After reading the note body, assess: is this note *concrete and time-bound* — specific to a named bug, workaround, version, one-time decision, or implementation detail rather than a general principle or model? If yes, check its `modified:` date. If modified >14 days ago: write `stale: concrete+old — flagging ephemeral` and run `nn update <id> --expires <date+14d> --since <modified>` (where `<date+14d>` is today's date plus 14 days in YYYY-MM-DD format). If modified >28 days ago: use `<date+7d>` instead (sooner expiry, higher confidence it's irrelevant). If the note is abstract/principled or recently modified: write `stale: not applicable — [timeless | recent]` and take no expiry action.\n\n" +
 			"**If the quoted result is an existing draft note:** promote it — `nn update <id> --status reviewed` — re-discovery is the usefulness signal.\n",
 	},
 	{
