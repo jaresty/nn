@@ -179,21 +179,39 @@ Filters compose: `nn list --search "implicit" --type concept --sort modified` wo
 
 ## nn check
 
-Validate a note's structural contract against its representation type.
+Validate a note's representation subgraph structure.
 
 ```
 nn check <id> [--as ontology|taxonomy|axiom] [--set-representation]
 ```
 
-Reads `representation:` from the note's frontmatter and checks that required sections are present. Exits non-zero with a descriptive error if validation fails. Use `--as` to override the frontmatter value for ad-hoc validation (useful for notes without the field set). `--set-representation` stamps the `representation` field on the note after passing validation.
+Reads `representation:` from the note's frontmatter and validates the graph structure of the subgraph rooted at that note. Exits non-zero with a descriptive error listing all violations. Use `--as` to override the frontmatter value for ad-hoc validation. `--set-representation` stamps the `representation` field on the note after passing validation.
 
-**Representation types and required sections:**
+**What it validates:**
 
-| Representation | Use when… | Required sections |
-|---|---|---|
-| `ontology` | representing a domain's vocabulary and the relationships between its entities — concepts, cardinality, grounded instances, modality boundary | `## Concepts`, `## Relations` |
-| `taxonomy` | partitioning a domain into exhaustive, mutually exclusive classes by a classification dimension | `## Categories`, `## Classification` |
-| `axiom` | asserting a foundational constraint or invariant that other notes depend on — ruling out interpretations, scoping the claim | `## Vocabulary`, `## Invariant` |
+- Traverses only outgoing links whose targets share the same `representation` value — links to notes with a different or absent representation are treated as leaf boundaries and not traversed
+- Cycle detection — a cycle in the same-representation subgraph is always a violation
+- Root must be `type: model`
+- Non-root nodes must be `type: concept` or `type: argument`
+- All violations are reported, not just the first
+
+**Representation-specific checks:**
+
+| Representation | Additional checks |
+|---|---|
+| `ontology` | connectivity only — no additional link type requirements |
+| `taxonomy` | all outgoing links within the subgraph must use `refines` or `extends` |
+| `axiom` | root must have at least one `grounded-by` link to a same-representation note |
+
+**What it does not check:** section header presence within note bodies; cardinality, modality boundary, or distinguishing attributes (semantic — requires human review); links to notes outside the same-representation subgraph.
+
+**Representation types:**
+
+| Representation | Use when… |
+|---|---|
+| `ontology` | representing a domain's vocabulary and the relationships between its entities |
+| `taxonomy` | partitioning a domain into exhaustive, mutually exclusive classes by a classification dimension |
+| `axiom` | asserting a foundational constraint or invariant that other notes depend on — ruling out interpretations, scoping the claim |
 
 ```
 nn check 20260411120045-3821                         # validate using frontmatter representation

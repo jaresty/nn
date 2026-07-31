@@ -7,13 +7,12 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
-// property [5]: nn check <id> reads representation from frontmatter and validates structural contract.
+// property [5]: nn check <id> reads representation from frontmatter and validates graph structure.
 func TestCheckValidatesRepresentation(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 
 	n := newTestNoteForCLI(note.GenerateID(), "Domain Ontology", note.TypeModel)
 	n.Representation = "ontology"
-	n.Body = "## Concepts\n\n- thing\n\n## Relations\n\n- is-a"
 	writeNoteFile(t, nbDir, n)
 
 	out, err := execute("check", n.ID)
@@ -25,18 +24,17 @@ func TestCheckValidatesRepresentation(t *testing.T) {
 	}
 }
 
-// property [5b]: nn check <id> exits non-zero when note fails validation.
+// property [5b]: nn check <id> exits non-zero when root type is wrong.
 func TestCheckFailsInvalidRepresentation(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 
-	n := newTestNoteForCLI(note.GenerateID(), "Empty Ontology", note.TypeModel)
+	n := newTestNoteForCLI(note.GenerateID(), "Bad Root", note.TypeConcept)
 	n.Representation = "ontology"
-	n.Body = "no required sections here"
 	writeNoteFile(t, nbDir, n)
 
 	_, err := execute("check", n.ID)
 	if err == nil {
-		t.Errorf("nn check expected non-zero exit for invalid ontology, got nil error")
+		t.Errorf("nn check expected non-zero exit when root is not type:model, got nil error")
 	}
 }
 
@@ -44,13 +42,12 @@ func TestCheckFailsInvalidRepresentation(t *testing.T) {
 func TestCheckAsOverride(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 
-	n := newTestNoteForCLI(note.GenerateID(), "Unlabeled Ontology", note.TypeModel)
-	n.Body = "no required sections here"
+	n := newTestNoteForCLI(note.GenerateID(), "Unlabeled Note", note.TypeConcept)
 	writeNoteFile(t, nbDir, n)
 
 	_, err := execute("check", n.ID, "--as", "ontology")
 	if err == nil {
-		t.Errorf("nn check --as ontology expected non-zero exit for invalid body, got nil error")
+		t.Errorf("nn check --as ontology expected non-zero exit when root is type:concept, got nil error")
 	}
 }
 

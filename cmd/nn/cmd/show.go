@@ -123,8 +123,10 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn remind** `\"content\" [--for N] [--expires YYYY-MM-DD]` — creates observation tagged 'reminder', permanent, expires today+1d by default; surfaces in nn show --global\n" +
 			"**nn remind --find FRAGMENT** — search reminder titles by substring; prints matching ID; error if ambiguous (multiple matches) or zero matches\n" +
 			"**nn remind \"new body\" --update ID** — replace body of existing reminder in place; preserves expiry; no new note created\n\n" +
-			"**nn check** `<id> [--as <representation>] [--set-representation]` — validate a note's structural contract against its representation type; reads `representation:` from frontmatter unless `--as` overrides; exits non-zero if required sections are missing; `--set-representation` stamps the field on the note after passing validation\n" +
-			"Representation types: `ontology` (domain vocabulary + entity relationships; requires ## Concepts, ## Relations) | `taxonomy` (exhaustive classification by a dimension; requires ## Categories, ## Classification) | `axiom` (foundational constraint ruling out interpretations; requires ## Vocabulary, ## Invariant)\n\n" +
+			"**nn check** `<id> [--as <representation>] [--set-representation]` — validate the graph structure of a representation subgraph rooted at a note; traverses only same-representation outgoing links; reports all violations\n" +
+			"Graph checks (all representations): root must be type:model; non-root nodes must be type:concept or type:argument; cycles fail\n" +
+			"Representation-specific: ontology = connectivity only; taxonomy = all links must be refines or extends; axiom = root must have ≥1 grounded-by link\n" +
+			"Does NOT check section headers within note bodies — use semantic review for body structure\n\n" +
 			"**nn list** `--search \"<q>\" --show-first --json [--fields id,title,...]` | `--type <type>` | `--status <status>` | `--representation <rep>` | `--orphan` | `--since <ISO>` | `--before <ISO>` | `--expired` | `--has-expires` | `--has-open-items` | `--unblocked`\n" +
 			"Output shaping (require --json): `--rich` (adds modified/link_count/body_preview) | `--full` (disables excerpt/annotation truncation) | `--envelope` (wraps in metadata envelope with query/result_count/total_matching; requires --search)\n" +
 			"Search ranking: `--boost-recent` boosts recently-modified notes (requires --search)\n" +
