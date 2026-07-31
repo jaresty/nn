@@ -24,8 +24,10 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 		typ            string
 		status         string
 		appliesWhen    string
-		expiresWhen    string
-		expiresStr     string
+		expiresWhen      string
+		expiresStr       string
+		clearExpires     bool
+		clearExpiresWhen bool
 		sinceStr       string
 		fromStdin      bool
 		replaceSection string
@@ -55,8 +57,9 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 			willOpenEditor := !noEdit && isTTYFn()
 			if title == "" && tags == "" && content == "" && appendS == "" &&
 				typ == "" && status == "" && appliesWhen == "" && expiresWhen == "" && expiresStr == "" && !fromStdin && replaceSection == "" &&
-				len(tagsAdd) == 0 && len(tagsRemove) == 0 && len(linkTos) == 0 && !willOpenEditor {
-				return fmt.Errorf("at least one of --title, --tags, --tags-add, --tags-remove, --content, --stdin, --append, --type, --status, --applies-when, --expires-when, --expires, --replace-section, --link-to is required")
+				len(tagsAdd) == 0 && len(tagsRemove) == 0 && len(linkTos) == 0 && !willOpenEditor &&
+				!clearExpires && !clearExpiresWhen {
+				return fmt.Errorf("at least one of --title, --tags, --tags-add, --tags-remove, --content, --stdin, --append, --type, --status, --applies-when, --expires-when, --expires, --clear-expires, --clear-expires-when, --replace-section, --link-to is required")
 			}
 			isDailyAlias := strings.ToLower(args[0]) == "daily"
 			if sinceStr == "" && !isDailyAlias {
@@ -142,6 +145,12 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 				}
 				n.Expires = &t
 			}
+			if clearExpires {
+				n.Expires = nil
+			}
+			if clearExpiresWhen {
+				n.ExpiresWhen = ""
+			}
 			if willOpenEditor && content == "" && appendS == "" && replaceSection == "" && !fromStdin {
 				edited, err := openEditorFn(strings.TrimSpace(n.Body))
 				if err != nil {
@@ -192,6 +201,8 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&appliesWhen, "applies-when", "", "Set applies_when field (protocol notes)")
 	cmd.Flags().StringVar(&expiresWhen, "expires-when", "", "Set conditional expiration (plain text condition)")
 	cmd.Flags().StringVar(&expiresStr, "expires", "", "Set expiration date (YYYY-MM-DD)")
+	cmd.Flags().BoolVar(&clearExpires, "clear-expires", false, "Remove the expiration date from the note")
+	cmd.Flags().BoolVar(&clearExpiresWhen, "clear-expires-when", false, "Remove the expires_when condition from the note")
 	cmd.Flags().BoolVar(&fromStdin, "stdin", false, "Read note body from stdin")
 	cmd.Flags().StringVar(&replaceSection, "replace-section", "", "Replace named level-2 section (case-insensitive)")
 	cmd.Flags().BoolVar(&noEdit, "no-edit", false, "Skip opening $EDITOR")

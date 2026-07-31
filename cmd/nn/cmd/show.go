@@ -111,9 +111,10 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn new --no-suggest** — skip link/tag suggestion prompt after creation; use in non-interactive or batch contexts\n" +
 			"Note: `--content` is literal — the shell does not expand `\\n` in double-quoted strings. Use `$'...'` ANSI-C quoting or pipe via stdin for multiline content.\n" +
 			"Note: `--link-to` and `--annotation` are repeatable and must be paired (one `--annotation` per `--link-to`).\n\n" +
-			"**nn update** `<id> --since <RFC3339> --status <status>` | `--title \"...\"` | `--applies-when \"...\"` | `--expires YYYY-MM-DD` | `--expires-when \"condition\"` | `--content \"...\" --no-edit` | `[--link-to <id> --annotation \"...\"] [--check]`\n" +
+			"**nn update** `<id> --since <RFC3339> --status <status>` | `--title \"...\"` | `--applies-when \"...\"` | `--expires YYYY-MM-DD` | `--expires-when \"condition\"` | `--clear-expires` | `--clear-expires-when` | `--content \"...\" --no-edit` | `[--link-to <id> --annotation \"...\"] [--check]`\n" +
 			"Valid --status: draft|reviewed|permanent\n" +
 			"--since is required: read 'modified:' from nn show output; update is rejected if the note was changed after that timestamp\n" +
+			"--clear-expires removes the expiration date; --clear-expires-when removes the expires_when condition.\n" +
 			"--link-to and --annotation are repeatable and must be paired; --check runs representation graph validation after update (no-op if note has no representation).\n\n" +
 			"**nn promote** `<id> --to <status>` — advance note status (draft→reviewed→permanent); reads note before writing and errors on concurrent modification conflict rather than overwriting\n\n" +
 			"**nn delete** `<id> [--confirm]` — delete a note (warns if linked-to by others); `--from-stdin` reads IDs line-by-line from stdin\n\n" +

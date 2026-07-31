@@ -439,6 +439,7 @@ nn trace ./cmd/nn/cmd --symbol newGrepCmd --json
 nn update <id-or-title> [--title TEXT] [--tags TEXT] [--tags-add TAG] [--tags-remove TAG]
          [--content TEXT] [--stdin] [--append TEXT] [--replace-section HEADING]
          [--type TYPE] [--status STATUS] [--no-edit]
+         [--expires YYYY-MM-DD] [--expires-when TEXT] [--clear-expires] [--clear-expires-when]
          [--link-to ID --annotation TEXT]  # repeatable; --annotation must match --link-to count
          [--check]
 ```
@@ -458,6 +459,8 @@ Accepts a note ID **or a title substring** — if the substring matches exactly 
 | `--status STATUS` | Set note status: `draft`, `reviewed`, or `permanent` |
 | `--expires YYYY-MM-DD` | Set expiration date; note appears in `nn list --expired` after this date |
 | `--expires-when TEXT` | Set conditional expiration (plain text condition, e.g. "when the PR is merged") |
+| `--clear-expires` | Remove the expiration date from the note |
+| `--clear-expires-when` | Remove the expires_when condition from the note |
 | `--no-edit` | Skip `$EDITOR` (always use in non-TTY/LLM context) |
 | `--since RFC3339` | **Required.** Reject update if note was modified after this timestamp; read `modified:` from `nn show` output. Omitting returns an error. |
 | `--link-to ID` | Add a link to an existing note ID (repeatable) |
