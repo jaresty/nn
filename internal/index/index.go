@@ -40,6 +40,11 @@ CREATE TABLE IF NOT EXISTS tags (
     tag     TEXT NOT NULL,
     PRIMARY KEY (note_id, tag)
 );
+
+CREATE TABLE IF NOT EXISTS bm25_cache (
+    commit_hash TEXT PRIMARY KEY,
+    idf_json    TEXT NOT NULL
+);
 `
 
 // Index wraps an open SQLite database.

@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	nnindex "github.com/jaresty/nn/internal/index"
 	"github.com/jaresty/nn/internal/note"
 )
 
@@ -95,9 +96,12 @@ func newListCmd(state *rootState) *cobra.Command {
 
 			// Compute IDF over the full corpus before filtering so that filtered
 			// candidate scoring uses global term rarity, not subset rarity.
+			// Results are cached in SQLite keyed by git HEAD commit hash.
 			var globalIDF map[string]float64
 			if search != "" {
-				globalIDF = note.BM25IDF(notes, note.Tokenize(search+" "+gitCtx))
+				terms := note.Tokenize(search + " " + gitCtx)
+				dbPath := filepath.Join(resolveCfgDir(), "index.db")
+				globalIDF, _ = nnindex.GetOrComputeIDFPath(dbPath, state.notebookDir, notes, terms)
 			}
 
 			var filtered []*note.Note
