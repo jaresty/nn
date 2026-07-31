@@ -25,8 +25,9 @@ func newNewCmd(state *rootState) *cobra.Command {
 		expiresStr  string
 		noEdit      bool
 		noSuggest   bool
-		linkTo      string
-		annotation  string
+		check       bool
+		linkTos     []string
+		annotations []string
 		fromStdin   bool
 		fromFile    string
 		quick       bool
@@ -118,11 +119,11 @@ func newNewCmd(state *rootState) *cobra.Command {
 				Body:        content,
 			}
 
-			if linkTo != "" {
-				if annotation == "" {
-					return fmt.Errorf("--annotation is required when using --link-to")
-				}
-				n.Links = []note.Link{{TargetID: linkTo, Annotation: annotation}}
+			if len(linkTos) != len(annotations) {
+				return fmt.Errorf("--link-to and --annotation must be paired: got %d --link-to and %d --annotation", len(linkTos), len(annotations))
+			}
+			for i, id := range linkTos {
+				n.Links = append(n.Links, note.Link{TargetID: id, Annotation: annotations[i]})
 			}
 
 			if !noEdit && isTTYFn() {
@@ -141,6 +142,11 @@ func newNewCmd(state *rootState) *cobra.Command {
 
 			w := outWriter(cmd)
 			fmt.Fprintf(w, "created %s\n", n.ID)
+			if check && n.Representation != "" {
+				if err := runRepresentationCheck(cmd, state, n); err != nil {
+					return err
+				}
+			}
 			if !noSuggest {
 				printSuggestions(w, state, n)
 			}
@@ -154,8 +160,9 @@ func newNewCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&content, "content", "", "Note body (use with --no-edit)")
 	cmd.Flags().BoolVar(&noEdit, "no-edit", false, "Skip opening $EDITOR")
 	cmd.Flags().BoolVar(&noSuggest, "no-suggest", false, "Suppress post-write link and tag suggestions")
-	cmd.Flags().StringVar(&linkTo, "link-to", "", "Immediately link to an existing note ID")
-	cmd.Flags().StringVar(&annotation, "annotation", "", "Link annotation when using --link-to")
+	cmd.Flags().BoolVar(&check, "check", false, "Run representation graph validation after creation (requires representation field)")
+	cmd.Flags().StringArrayVar(&linkTos, "link-to", nil, "Immediately link to an existing note ID (repeatable)")
+	cmd.Flags().StringArrayVar(&annotations, "annotation", nil, "Link annotation paired with --link-to (repeatable, must match count)")
 	cmd.Flags().StringVar(&appliesWhen, "applies-when", "", "Set applies_when field (protocol notes)")
 	cmd.Flags().StringVar(&representation, "representation", "", "Set representation type (ontology|taxonomy|axiom)")
 	cmd.Flags().StringVar(&expiresWhen, "expires-when", "", "Set conditional expiration (plain text condition, e.g. 'when the PR is merged')")

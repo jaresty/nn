@@ -95,6 +95,29 @@ func checkRepresentationGraph(root *note.Note, byID map[string]*note.Note, rep s
 	return violations
 }
 
+// runRepresentationCheck validates n's representation subgraph and prints the result to cmd's output.
+// It loads all notes from state to build the ID map. Returns an error if validation fails.
+func runRepresentationCheck(cmd *cobra.Command, state *rootState, n *note.Note) error {
+	all, err := state.backend.List()
+	if err != nil {
+		return fmt.Errorf("check: %w", err)
+	}
+	byID := make(map[string]*note.Note, len(all))
+	for _, nn := range all {
+		byID[nn.ID] = nn
+	}
+	violations := checkRepresentationGraph(n, byID, n.Representation)
+	if len(violations) > 0 {
+		var msgs []string
+		for _, v := range violations {
+			msgs = append(msgs, v.message)
+		}
+		return fmt.Errorf("check: %s fails %s graph validation:\n  %s", n.ID, n.Representation, strings.Join(msgs, "\n  "))
+	}
+	fmt.Fprintf(outWriter(cmd), "ok — %s passes %s graph validation\n", n.ID, n.Representation)
+	return nil
+}
+
 func newCheckCmd(state *rootState) *cobra.Command {
 	var (
 		as                string

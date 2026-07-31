@@ -98,6 +98,58 @@ func TestUpdateRequiresFlag(t *testing.T) {
 	}
 }
 
+func TestUpdateMultipleLinkTo(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "Source Note", note.TypeConcept)
+	a := newTestNoteForCLI(note.GenerateID(), "Target A", note.TypeConcept)
+	b := newTestNoteForCLI(note.GenerateID(), "Target B", note.TypeConcept)
+	writeNoteFile(t, nbDir, n)
+	writeNoteFile(t, nbDir, a)
+	writeNoteFile(t, nbDir, b)
+
+	_, err := execute("update", n.ID, "--since", sinceFor(n), "--no-edit",
+		"--link-to", a.ID, "--annotation", "link to a",
+		"--link-to", b.ID, "--annotation", "link to b")
+	if err != nil {
+		t.Fatalf("nn update with multiple --link-to: %v", err)
+	}
+
+	out, err := execute("show", n.ID)
+	if err != nil {
+		t.Fatalf("nn show after update: %v", err)
+	}
+	if !strings.Contains(out, a.ID) {
+		t.Errorf("show output does not contain link target %s:\n%s", a.ID, out)
+	}
+	if !strings.Contains(out, b.ID) {
+		t.Errorf("show output does not contain link target %s:\n%s", b.ID, out)
+	}
+}
+
+func TestUpdateLinkToMismatchedAnnotation(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "My Note", note.TypeConcept)
+	writeNoteFile(t, nbDir, n)
+
+	_, err := execute("update", n.ID, "--since", sinceFor(n), "--no-edit",
+		"--link-to", "someid", "--link-to", "otherid", "--annotation", "only one")
+	if err == nil {
+		t.Fatal("nn update with mismatched --link-to/--annotation: want error, got nil")
+	}
+}
+
+func TestUpdateCheckFlagNoRepresentation(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "My Note", note.TypeConcept)
+	writeNoteFile(t, nbDir, n)
+
+	_, err := execute("update", n.ID, "--since", sinceFor(n), "--no-edit",
+		"--title", "My Note Updated", "--check")
+	if err != nil {
+		t.Fatalf("nn update --check with no representation: %v", err)
+	}
+}
+
 // Assertion: TestUpdateDailyUpserts — nn update daily --content replaces body of today's daily note (upsert: creates if absent).
 func TestUpdateDailyUpserts(t *testing.T) {
 	_, execute := setupNotebook(t)

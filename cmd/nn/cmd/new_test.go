@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jaresty/nn/internal/note"
 )
 
 func TestNewNoteCreatesFile(t *testing.T) {
@@ -89,6 +91,64 @@ func TestNewNoteInvalidType(t *testing.T) {
 	_, err := execute("new", "--title", "Bad Type", "--type", "invalid", "--no-edit")
 	if err == nil {
 		t.Fatal("nn new --type invalid: want error, got nil")
+	}
+}
+
+func TestNewMultipleLinkTo(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	a := newTestNoteForCLI(note.GenerateID(), "Note A", note.TypeConcept)
+	b := newTestNoteForCLI(note.GenerateID(), "Note B", note.TypeConcept)
+	writeNoteFile(t, nbDir, a)
+	writeNoteFile(t, nbDir, b)
+
+	_, err := execute("new", "--title", "Linked Note", "--type", "argument", "--no-edit",
+		"--link-to", a.ID, "--annotation", "first link",
+		"--link-to", b.ID, "--annotation", "second link")
+	if err != nil {
+		t.Fatalf("nn new with multiple --link-to: %v", err)
+	}
+
+	out, err := execute("list", "--search", "Linked Note", "--json", "--fields", "id,title")
+	if err != nil {
+		t.Fatalf("nn list: %v", err)
+	}
+	// Find the created note ID from output then check its links via show.
+	entries, _ := os.ReadDir(nbDir)
+	var newFile string
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".md") && strings.Contains(e.Name(), "linked-note") {
+			newFile = filepath.Join(nbDir, e.Name())
+		}
+	}
+	_ = out
+	if newFile == "" {
+		t.Fatal("linked-note file not found")
+	}
+	data, _ := os.ReadFile(newFile)
+	content := string(data)
+	if !strings.Contains(content, a.ID) {
+		t.Errorf("note body does not contain first link target %s:\n%s", a.ID, content)
+	}
+	if !strings.Contains(content, b.ID) {
+		t.Errorf("note body does not contain second link target %s:\n%s", b.ID, content)
+	}
+}
+
+func TestNewLinkToMismatchedAnnotation(t *testing.T) {
+	_, execute := setupNotebook(t)
+	_, err := execute("new", "--title", "Bad Links", "--type", "concept", "--no-edit",
+		"--link-to", "someid", "--link-to", "otherid", "--annotation", "only one annotation")
+	if err == nil {
+		t.Fatal("nn new with mismatched --link-to/--annotation: want error, got nil")
+	}
+}
+
+func TestNewCheckFlag(t *testing.T) {
+	_, execute := setupNotebook(t)
+	// A note with no representation: --check should be a no-op (no error).
+	_, err := execute("new", "--title", "No Rep Note", "--type", "concept", "--no-edit", "--check")
+	if err != nil {
+		t.Fatalf("nn new --check with no representation: %v", err)
 	}
 }
 

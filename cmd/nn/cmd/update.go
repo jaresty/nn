@@ -30,6 +30,9 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 		fromStdin      bool
 		replaceSection string
 		noEdit         bool
+		check          bool
+		linkTos        []string
+		annotations    []string
 	)
 
 	cmd := &cobra.Command{
@@ -46,11 +49,14 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 			if replaceSection != "" && content == "" && !fromStdin {
 				return fmt.Errorf("--replace-section requires --content or --stdin")
 			}
+			if len(linkTos) != len(annotations) {
+				return fmt.Errorf("--link-to and --annotation must be paired: got %d --link-to and %d --annotation", len(linkTos), len(annotations))
+			}
 			willOpenEditor := !noEdit && isTTYFn()
 			if title == "" && tags == "" && content == "" && appendS == "" &&
 				typ == "" && status == "" && appliesWhen == "" && expiresWhen == "" && expiresStr == "" && !fromStdin && replaceSection == "" &&
-				len(tagsAdd) == 0 && len(tagsRemove) == 0 && !willOpenEditor {
-				return fmt.Errorf("at least one of --title, --tags, --tags-add, --tags-remove, --content, --stdin, --append, --type, --status, --applies-when, --expires-when, --expires, --replace-section is required")
+				len(tagsAdd) == 0 && len(tagsRemove) == 0 && len(linkTos) == 0 && !willOpenEditor {
+				return fmt.Errorf("at least one of --title, --tags, --tags-add, --tags-remove, --content, --stdin, --append, --type, --status, --applies-when, --expires-when, --expires, --replace-section, --link-to is required")
 			}
 			isDailyAlias := strings.ToLower(args[0]) == "daily"
 			if sinceStr == "" && !isDailyAlias {
@@ -157,6 +163,9 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 					n.Body = n.Body + "\n\n" + appendS
 				}
 			}
+			for i, id := range linkTos {
+				n.Links = append(n.Links, note.Link{TargetID: id, Annotation: annotations[i]})
+			}
 			n.Modified = updateNowFn()
 			warnIfLarge(cmd, n.Body)
 
@@ -164,6 +173,11 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("update: %w", err)
 			}
 			fmt.Fprintf(outWriter(cmd), "updated %s\nmodified: %s\n", n.ID, n.Modified.Format(time.RFC3339))
+			if check && n.Representation != "" {
+				if err := runRepresentationCheck(cmd, state, n); err != nil {
+					return err
+				}
+			}
 			return nil
 		},
 	}
@@ -182,6 +196,9 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&replaceSection, "replace-section", "", "Replace named level-2 section (case-insensitive)")
 	cmd.Flags().BoolVar(&noEdit, "no-edit", false, "Skip opening $EDITOR")
 	cmd.Flags().StringVar(&sinceStr, "since", "", "Reject update if note was modified after this RFC3339 timestamp")
+	cmd.Flags().BoolVar(&check, "check", false, "Run representation graph validation after update (requires representation field)")
+	cmd.Flags().StringArrayVar(&linkTos, "link-to", nil, "Add a link to an existing note ID (repeatable)")
+	cmd.Flags().StringArrayVar(&annotations, "annotation", nil, "Link annotation paired with --link-to (repeatable, must match count)")
 	return cmd
 }
 

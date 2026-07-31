@@ -103,15 +103,17 @@ var virtualGlobalProtocols = []virtualProtocol{
 		ID:          "virtual-nn-cli-reference",
 		Title:       "Protocol: nn CLI reference",
 		AppliesWhen: "always — reference for valid nn command flags, types, and statuses",
-		Body: "**nn new** `--title \"...\" --type <type> --content \"...\" --no-edit [--tags \"t1,t2\"] [--link-to <id> --annotation \"...\"] [--applies-when \"...\"] [--representation <rep>] [--expires YYYY-MM-DD] [--expires-when \"condition\"]`\n" +
+		Body: "**nn new** `--title \"...\" --type <type> --content \"...\" --no-edit [--tags \"t1,t2\"] [--link-to <id> --annotation \"...\"] [--applies-when \"...\"] [--representation <rep>] [--expires YYYY-MM-DD] [--expires-when \"condition\"] [--check]`\n" +
 			"Valid --type: concept|argument|model|hypothesis|observation|question|protocol\n" +
 			"New notes are always created as draft. Promote with: `nn update <id> --status reviewed`\n" +
 			"**nn new --quick** `--title \"...\" --no-edit` — quick capture: sets type=observation, status=draft, content empty; no --type required\n" +
 			"**nn new --no-suggest** — skip link/tag suggestion prompt after creation; use in non-interactive or batch contexts\n" +
-			"Note: `--content` is literal — the shell does not expand `\\n` in double-quoted strings. Use `$'...'` ANSI-C quoting or pipe via stdin for multiline content.\n\n" +
-			"**nn update** `<id> --since <RFC3339> --status <status>` | `--title \"...\"` | `--applies-when \"...\"` | `--expires YYYY-MM-DD` | `--expires-when \"condition\"` | `--content \"...\" --no-edit`\n" +
+			"Note: `--content` is literal — the shell does not expand `\\n` in double-quoted strings. Use `$'...'` ANSI-C quoting or pipe via stdin for multiline content.\n" +
+			"Note: `--link-to` and `--annotation` are repeatable and must be paired (one `--annotation` per `--link-to`).\n\n" +
+			"**nn update** `<id> --since <RFC3339> --status <status>` | `--title \"...\"` | `--applies-when \"...\"` | `--expires YYYY-MM-DD` | `--expires-when \"condition\"` | `--content \"...\" --no-edit` | `[--link-to <id> --annotation \"...\"] [--check]`\n" +
 			"Valid --status: draft|reviewed|permanent\n" +
-			"--since is required: read 'modified:' from nn show output; update is rejected if the note was changed after that timestamp\n\n" +
+			"--since is required: read 'modified:' from nn show output; update is rejected if the note was changed after that timestamp\n" +
+			"--link-to and --annotation are repeatable and must be paired; --check runs representation graph validation after update (no-op if note has no representation).\n\n" +
 			"**nn promote** `<id> --to <status>` — advance note status (draft→reviewed→permanent); reads note before writing and errors on concurrent modification conflict rather than overwriting\n\n" +
 			"**nn delete** `<id> [--confirm]` — delete a note (warns if linked-to by others); `--from-stdin` reads IDs line-by-line from stdin\n\n" +
 			"**nn todo list** `[--all] [--waiting] [--context <name>]` — list open checkboxes grouped by note (ID + title header, `- [ ]` lines beneath); default excludes notes blocked by an incomplete `requires` target and excludes items tagged `[waiting: reason]`; `--all` shows all notes with open items regardless; `--waiting` shows only items tagged `[waiting: reason]` (surfaces the reason); `--context <name>` filters to items tagged `@<name>`\n" +

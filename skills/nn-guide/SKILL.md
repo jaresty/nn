@@ -23,7 +23,7 @@ Create a new note.
 
 ```
 nn new --title TEXT --type TYPE [--tags TEXT] [--content TEXT] [--no-edit]
-       [--link-to ID --annotation TEXT]
+       [--link-to ID --annotation TEXT]  # repeatable; --annotation must match --link-to count
        [--applies-when TEXT]
        [--representation ontology|taxonomy|axiom]
        [--from-stdin]
@@ -31,6 +31,7 @@ nn new --title TEXT --type TYPE [--tags TEXT] [--content TEXT] [--no-edit]
        [--expires YYYY-MM-DD]
        [--expires-when "condition text"]
        [--no-suggest]
+       [--check]
 
 nn new --quick --title TEXT [--no-edit]
 ```
@@ -42,6 +43,8 @@ nn new --quick --title TEXT [--no-edit]
 - `--from-file PATH` scaffolds the note body from `nn ast` output for a source file (sets title to filename if not given)
 - `--quick` — shorthand capture: sets type=observation, status=draft, content empty; skips type requirement. Use for fast capture when the note will be refined later.
 - `--no-suggest` — skips the link/tag suggestion prompt after creation. Use in non-interactive or batch contexts.
+- `--link-to ID --annotation TEXT` — repeatable; add multiple links at creation time. Each `--link-to` must have a matching `--annotation` (paired by position).
+- `--check` — opt-in; runs representation graph validation after creation. No-op if the note has no `representation` field.
 
 ### Choosing a type
 
@@ -436,6 +439,8 @@ nn trace ./cmd/nn/cmd --symbol newGrepCmd --json
 nn update <id-or-title> [--title TEXT] [--tags TEXT] [--tags-add TAG] [--tags-remove TAG]
          [--content TEXT] [--stdin] [--append TEXT] [--replace-section HEADING]
          [--type TYPE] [--status STATUS] [--no-edit]
+         [--link-to ID --annotation TEXT]  # repeatable; --annotation must match --link-to count
+         [--check]
 ```
 
 Accepts a note ID **or a title substring** — if the substring matches exactly one note it is used; multiple matches returns an error. At least one change flag is required. `--content`/`--stdin`/`--append` are mutually exclusive.
@@ -455,6 +460,9 @@ Accepts a note ID **or a title substring** — if the substring matches exactly 
 | `--expires-when TEXT` | Set conditional expiration (plain text condition, e.g. "when the PR is merged") |
 | `--no-edit` | Skip `$EDITOR` (always use in non-TTY/LLM context) |
 | `--since RFC3339` | **Required.** Reject update if note was modified after this timestamp; read `modified:` from `nn show` output. Omitting returns an error. |
+| `--link-to ID` | Add a link to an existing note ID (repeatable) |
+| `--annotation TEXT` | Link annotation paired with `--link-to` (repeatable, must match count) |
+| `--check` | Opt-in; runs representation graph validation after update. No-op if note has no `representation` field. |
 
 **Preferred LLM patterns:**
 
