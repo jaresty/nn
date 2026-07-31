@@ -749,6 +749,45 @@ nn random --max-backlinks 0       # a note nothing links to yet
 nn random --max-backlinks 2       # a note with few inbound links
 ```
 
+## nn shuf
+
+Sample random units from files (or stdin) and show BM25-matched notes beneath each sample.
+
+```
+nn shuf [<path>...] [--count N] [--unit lines|paragraphs|symbols]
+```
+
+With no paths, reads from stdin. Multiple paths are pooled and sampled uniformly.
+
+`--count N` (default 5) — number of units to sample.
+
+`--unit` options:
+- `lines` — single lines drawn uniformly at random
+- `paragraphs` — blank-line-delimited blocks (default; good for prose and Markdown)
+- `symbols` — treesitter-parsed functions/types/methods; falls back to paragraphs for unsupported file types
+
+Each sampled unit is printed after a `---` separator, followed by a `## Related notes` block with up to 5 BM25-matched notes.
+
+**When to use `nn shuf` vs similar commands:**
+
+| Want | Use |
+|------|-----|
+| Statistical coverage of a corpus — serendipitous note matches with no specific query | `nn shuf` |
+| Targeted search for a pattern or keyword | `nn grep` |
+| Pass content through a pipeline and surface notes without consuming stdin | `nn tee` |
+| Random note from the Zettelkasten (not from files) | `nn random` |
+| Structural outline of a single source file | `nn ast` |
+
+`nn shuf` is the **inverse of grep**: instead of "find content matching this query," it asks "given a random slice of this content, what notes are relevant?" Use it for statistical sampling across a codebase, a set of documents, or any corpus you want to cross-reference against your notes.
+
+```
+nn shuf notes/*.md --count 3             # 3 random paragraphs from notes
+nn shuf src/cmd/*.go --unit symbols      # 5 random functions, treesitter-parsed
+nn shuf --unit lines < corpus.txt        # random lines from stdin
+cat *.go | nn shuf --unit paragraphs     # pipe multiple files
+nn shuf . --count 10 --unit symbols      # won't work — pass file paths, not dirs
+```
+
 ## nn install-skills
 
 ```
