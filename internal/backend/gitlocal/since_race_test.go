@@ -117,6 +117,58 @@ func TestUpdateSinceStaleRejected(t *testing.T) {
 	}
 }
 
+// TestTodoDoneConcurrentCrossProcess proves that two concurrent nn todo done
+// calls on different checkboxes in the same note cannot both succeed — one
+// must exit non-zero with a conflict error.
+func TestTodoDoneConcurrentCrossProcess(t *testing.T) {
+	b, nn := setupCrossProcess(t)
+	n := &note.Note{
+		ID:       note.GenerateID(),
+		Title:    "todo-race-probe",
+		Type:     note.TypeObservation,
+		Status:   note.StatusDraft,
+		Created:  time.Now().UTC().Truncate(time.Second),
+		Modified: time.Now().UTC().Truncate(time.Second),
+		Body:     "- [ ] task-alpha\n- [ ] task-beta",
+	}
+	if err := b.Write(n); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+
+	const attempts = 5
+	for i := range attempts {
+		// Reset both checkboxes for each attempt.
+		cur, err := b.Read(n.ID)
+		if err != nil {
+			t.Fatalf("attempt %d Read: %v", i, err)
+		}
+		cur.Body = "- [ ] task-alpha\n- [ ] task-beta"
+		cur.Modified = time.Now().UTC()
+		if err := b.Update(cur, nil); err != nil {
+			t.Fatalf("attempt %d reset: %v", i, err)
+		}
+		n = cur
+
+		var wg sync.WaitGroup
+		errs := make([]error, 2)
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			errs[0] = nn("todo", "done", n.ID, "task-alpha")
+		}()
+		go func() {
+			defer wg.Done()
+			errs[1] = nn("todo", "done", n.ID, "task-beta")
+		}()
+		wg.Wait()
+
+		if errs[0] == nil && errs[1] == nil {
+			t.Errorf("attempt %d: both concurrent todo done calls exited zero — one must fail with conflict", i)
+			return
+		}
+	}
+}
+
 // TestUpdateNilSinceUnconditional proves property [4]:
 // backend.Update with nil since proceeds unconditionally (existing callers unaffected).
 func TestUpdateNilSinceUnconditional(t *testing.T) {

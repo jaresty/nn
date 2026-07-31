@@ -610,9 +610,14 @@ func (b *Backend) Update(n *note.Note, since *time.Time) error {
 		if current.Modified.After(*since) {
 			return fmt.Errorf("note was modified since %s; re-read and retry", since.Format(time.RFC3339))
 		}
-		// Stamp with nanosecond precision in the caller's timezone so the next concurrent
-		// writer sees current.Modified.After(*since) = true and fails its conflict check.
-		n.Modified = time.Now().In(n.Modified.Location())
+		// Stamp strictly after *since so the next concurrent writer sees
+		// current.Modified.After(*since) = true and fails its conflict check.
+		loc := n.Modified.Location()
+		t := time.Now().In(loc)
+		if !t.After(*since) {
+			t = since.In(loc).Add(time.Nanosecond)
+		}
+		n.Modified = t
 	}
 	oldPath, err := b.findByID(n.ID)
 	if err != nil {
