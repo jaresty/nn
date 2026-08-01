@@ -73,7 +73,7 @@ func TestUpdateModifiedUsesLocalTimezone(t *testing.T) {
 	if err != nil {
 		t.Skip("timezone data unavailable")
 	}
-	fixedTime := time.Date(2026, 6, 11, 10, 0, 0, 0, loc)
+	fixedTime := time.Now().In(loc).Add(time.Hour).Truncate(time.Second)
 	orig := updateNowFn
 	updateNowFn = func() time.Time { return fixedTime }
 	defer func() { updateNowFn = orig }()
