@@ -129,6 +129,30 @@ var langConfigs = map[string]langConfig{
 (module name: (constant) @name) @module
 `,
 	},
+	".html": {
+		name: "html",
+		importQuery: `
+(script_element (start_tag (attribute (attribute_name) @_attr (quoted_attribute_value (attribute_value) @import)) (#eq? @_attr "src")))
+(element (start_tag (tag_name) @_t (attribute (attribute_name) @_attr (quoted_attribute_value (attribute_value) @import)) (#eq? @_attr "href") (#eq? @_t "link")))
+`,
+		symbolQuery: `
+(element (start_tag (attribute (attribute_name) @_attr (quoted_attribute_value (attribute_value) @name)) (#eq? @_attr "id"))) @element
+(script_element (start_tag (tag_name) @name)) @script
+(style_element (start_tag (tag_name) @name)) @style
+`,
+	},
+	".htm": {
+		name: "html",
+		importQuery: `
+(script_element (start_tag (attribute (attribute_name) @_attr (quoted_attribute_value (attribute_value) @import)) (#eq? @_attr "src")))
+(element (start_tag (tag_name) @_t (attribute (attribute_name) @_attr (quoted_attribute_value (attribute_value) @import)) (#eq? @_attr "href") (#eq? @_t "link")))
+`,
+		symbolQuery: `
+(element (start_tag (attribute (attribute_name) @_attr (quoted_attribute_value (attribute_value) @name)) (#eq? @_attr "id"))) @element
+(script_element (start_tag (tag_name) @name)) @script
+(style_element (start_tag (tag_name) @name)) @style
+`,
+	},
 	".ex": {
 		name: "elixir",
 		importQuery: `(call target: (identifier) @_kw (arguments (alias) @import) (#any-of? @_kw "alias" "import" "use" "require"))`,
