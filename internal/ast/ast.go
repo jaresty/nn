@@ -129,6 +129,22 @@ var langConfigs = map[string]langConfig{
 (module name: (constant) @name) @module
 `,
 	},
+	".ex": {
+		name: "elixir",
+		importQuery: `(call target: (identifier) @_kw (arguments (alias) @import) (#any-of? @_kw "alias" "import" "use" "require"))`,
+		symbolQuery: `
+(call target: (identifier) @_kw (arguments (alias) @name) (#eq? @_kw "defmodule")) @module
+(call target: (identifier) @_kw (arguments (call target: (identifier) @name)) (#any-of? @_kw "def" "defp" "defmacro" "defmacrop")) @function
+`,
+	},
+	".exs": {
+		name: "elixir",
+		importQuery: `(call target: (identifier) @_kw (arguments (alias) @import) (#any-of? @_kw "alias" "import" "use" "require"))`,
+		symbolQuery: `
+(call target: (identifier) @_kw (arguments (alias) @name) (#eq? @_kw "defmodule")) @module
+(call target: (identifier) @_kw (arguments (call target: (identifier) @name)) (#any-of? @_kw "def" "defp" "defmacro" "defmacrop")) @function
+`,
+	},
 }
 
 // Parse reads filePath, detects its language, and returns a structural outline.
@@ -213,7 +229,9 @@ func runQuery(lang *gotreesitter.Language, root *gotreesitter.Node, src []byte, 
 			break
 		}
 		for _, cap := range match.Captures {
-			results = append(results, cap.Node.Text(src))
+			if cap.Name == captureName {
+				results = append(results, cap.Node.Text(src))
+			}
 		}
 	}
 	return results
@@ -240,8 +258,9 @@ func extractSymbols(lang *gotreesitter.Language, root *gotreesitter.Node, src []
 			if cap.Name == "name" {
 				name = cap.Node.Text(src)
 				line = cap.Node.StartPoint().Row
-			} else {
+			} else if !strings.HasPrefix(cap.Name, "_") {
 				// The capture name is the kind (function, method, type, etc.)
+				// Captures prefixed with _ are predicate-only and not structural kinds.
 				kind = cap.Name
 				body = cap.Node.Text(src)
 			}
