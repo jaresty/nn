@@ -414,8 +414,48 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(out)
 			}
-			for _, n := range resultNodes {
-				fmt.Fprintf(w, "%s  %s\n", n.ID, n.Title)
+			if focus != "" {
+				// Build adjacency: from → []edge for tree rendering.
+				adj := make(map[string][]showEdge, len(resultEdges))
+				for _, e := range resultEdges {
+					adj[e.From] = append(adj[e.From], e)
+				}
+				rendered := make(map[string]bool)
+				var renderTree func(id, indent string)
+				renderTree = func(id, indent string) {
+					n, ok := byID[id]
+					if !ok {
+						return
+					}
+					if indent == "" {
+						fmt.Fprintf(w, "%s  %s\n", id, n.Title)
+					}
+					rendered[id] = true
+					for _, e := range adj[id] {
+						if rendered[e.To] {
+							continue
+						}
+						target, ok := byID[e.To]
+						if !ok {
+							continue
+						}
+						linkLabel := e.LinkType
+						if linkLabel == "" {
+							linkLabel = "link"
+						}
+						if e.Annotation != "" {
+							fmt.Fprintf(w, "%s  → [%s] %s  %s — %s\n", indent, linkLabel, e.To, target.Title, e.Annotation)
+						} else {
+							fmt.Fprintf(w, "%s  → [%s] %s  %s\n", indent, linkLabel, e.To, target.Title)
+						}
+						renderTree(e.To, indent+"  ")
+					}
+				}
+				renderTree(focus, "")
+			} else {
+				for _, n := range resultNodes {
+					fmt.Fprintf(w, "%s  %s\n", n.ID, n.Title)
+				}
 			}
 			return nil
 		},

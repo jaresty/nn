@@ -154,7 +154,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn random** `[--tag TEXT] [--type TYPE] [--status STATUS] [--json] [--depth N] [--max-backlinks N]` — return a randomly selected note; `--depth N` traverses outgoing links up to N hops; `--max-backlinks N` filters to notes with at most N inbound links (surface underlinked notes for integration review)\n\n" +
 			"**nn list** `--similar <id>` — BM25 similarity (notes sharing vocabulary but not linked)\n\n" +
 			"**nn graph** `[--json]` — export full graph as JSON `{ \"nodes\": [...], \"edges\": [...] }`\n\n" +
-			"**nn graph show** `--focus <id> [--depth N]` — subgraph centered on a note (LLM-facing; default depth 2)\n\n" +
+			"**nn graph show** `--focus <id> [--depth N]` — subgraph centered on a note (LLM-facing; default depth 2); text output renders a tree: focus note at root, children indented with `→ [link-type] id  title — annotation`\n\n" +
 			"For the full command reference, invoke `/nn-guide`.\n",
 	},
 	{
