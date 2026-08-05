@@ -135,7 +135,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn list** `--search \"<q>\" --show-first --json [--fields id,title,...]` | `--type <type>` | `--status <status>` | `--representation <rep>` | `--orphan` | `--since <ISO>` | `--before <ISO>` | `--expired` | `--has-expires` | `--has-open-items` | `--unblocked`\n" +
 			"Output shaping (require --json): `--rich` (adds modified/link_count/body_preview) | `--full` (disables excerpt/annotation truncation) | `--envelope` (wraps in metadata envelope with query/result_count/total_matching; requires --search)\n" +
 			"Search ranking: `--boost-recent` boosts recently-modified notes (requires --search)\n" +
-			"Valid --fields: id|title|type|status|tags|applies_when|excerpt|score|modified|match_reason|is_protocol|link_count|backlink_count|created|body_preview (requires --json; errors on unknown field)\n" +
+			"Valid --fields: id|title|type|status|tags|applies_when|excerpt|score|modified|match_reason|is_protocol|link_count|backlink_count|created|body_preview|representation (requires --json; errors on unknown field)\n" +
 			"`nn list --search` always includes 1-hop graph neighbors in output: plain text shows indented `→`/`←` lines (id, title, type, annotation); `--json` includes a `neighbors` array with direction/id/title/type/annotation fields.\n\n" +
 			"**nn show** `<id>` | `--global`\n" +
 			"`nn show` output must not be piped to `head`, `tail`, `less`, or `more`. Pipe the full output or omit the pipe — the complete note body is required for accurate retrieval.\n" +

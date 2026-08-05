@@ -374,7 +374,7 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&showFirst, "show-first", false, "Append full body of top search result after JSON output (requires --json)")
 	cmd.Flags().StringVar(&similarTo, "similar", "", "Rank notes by BM25 similarity to this note ID (excludes the note itself)")
 	cmd.Flags().BoolVar(&envelope, "envelope", false, "Wrap search JSON in envelope with query, result_count, total_matching (requires --json --search)")
-	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in --json output (id,title,type,status,tags,applies_when,excerpt,score,modified,match_reason,is_protocol,link_count,backlink_count,created,body_preview)")
+	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in --json output (id,title,type,status,tags,applies_when,excerpt,score,modified,match_reason,is_protocol,link_count,backlink_count,created,body_preview,representation)")
 	return cmd
 }
 
@@ -438,12 +438,13 @@ func linkedToNote(notes []*note.Note, fromID, targetID string) bool {
 }
 
 type noteJSON struct {
-	ID          string   `json:"id"`
-	Title       string   `json:"title"`
-	Type        string   `json:"type"`
-	Status      string   `json:"status"`
-	Tags        []string `json:"tags"`
-	AppliesWhen string   `json:"applies_when,omitempty"`
+	ID             string   `json:"id"`
+	Title          string   `json:"title"`
+	Type           string   `json:"type"`
+	Status         string   `json:"status"`
+	Tags           []string `json:"tags"`
+	AppliesWhen    string   `json:"applies_when,omitempty"`
+	Representation string   `json:"representation,omitempty"`
 }
 
 type neighborJSON struct {
@@ -455,20 +456,21 @@ type neighborJSON struct {
 }
 
 type noteSearchJSON struct {
-	ID            string         `json:"id"`
-	Title         string         `json:"title"`
-	Type          string         `json:"type"`
-	Status        string         `json:"status"`
-	Tags          []string       `json:"tags"`
-	Excerpt       string         `json:"excerpt"`
-	Score         float64        `json:"score"`
-	Modified      string         `json:"modified"`
-	MatchReason   string         `json:"match_reason"`
-	IsProtocol    bool           `json:"is_protocol"`
-	LinkCount     int            `json:"link_count"`
-	BacklinkCount int            `json:"backlink_count"`
-	Neighbors     []neighborJSON `json:"neighbors"`
-	AppliesWhen   string         `json:"applies_when,omitempty"`
+	ID             string         `json:"id"`
+	Title          string         `json:"title"`
+	Type           string         `json:"type"`
+	Status         string         `json:"status"`
+	Tags           []string       `json:"tags"`
+	Excerpt        string         `json:"excerpt"`
+	Score          float64        `json:"score"`
+	Modified       string         `json:"modified"`
+	MatchReason    string         `json:"match_reason"`
+	IsProtocol     bool           `json:"is_protocol"`
+	LinkCount      int            `json:"link_count"`
+	BacklinkCount  int            `json:"backlink_count"`
+	Neighbors      []neighborJSON `json:"neighbors"`
+	AppliesWhen    string         `json:"applies_when,omitempty"`
+	Representation string         `json:"representation,omitempty"`
 }
 
 // centralityMultiplier returns a score boost based on backlink count.
@@ -552,20 +554,21 @@ func printSearchJSON(cmd *cobra.Command, notes []*note.Note, allNotes []*note.No
 			}
 		}
 		out[i] = noteSearchJSON{
-			ID:            n.ID,
-			Title:         n.Title,
-			Type:          string(n.Type),
-			Status:        string(n.Status),
-			Tags:          tags,
-			Excerpt:       ex,
-			Score:         normalizedScore,
-			Modified:      n.Modified.UTC().Format(time.RFC3339),
-			MatchReason:   computeMatchReason(n, query),
-			IsProtocol:    isProtocol,
-			LinkCount:     len(n.Links),
-			BacklinkCount: len(inbound[n.ID]),
-			Neighbors:     neighbors,
-			AppliesWhen:   n.AppliesWhen,
+			ID:             n.ID,
+			Title:          n.Title,
+			Type:           string(n.Type),
+			Status:         string(n.Status),
+			Tags:           tags,
+			Excerpt:        ex,
+			Score:          normalizedScore,
+			Modified:       n.Modified.UTC().Format(time.RFC3339),
+			MatchReason:    computeMatchReason(n, query),
+			IsProtocol:     isProtocol,
+			LinkCount:      len(n.Links),
+			BacklinkCount:  len(inbound[n.ID]),
+			Neighbors:      neighbors,
+			AppliesWhen:    n.AppliesWhen,
+			Representation: n.Representation,
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
@@ -604,19 +607,20 @@ func printSearchEnvelopeJSON(cmd *cobra.Command, notes []*note.Note, query strin
 			}
 		}
 		results[i] = noteSearchJSON{
-			ID:            n.ID,
-			Title:         n.Title,
-			Type:          string(n.Type),
-			Status:        string(n.Status),
-			Tags:          tags,
-			AppliesWhen:   n.AppliesWhen,
-			Excerpt:       extractExcerpt(n.Body, query),
-			Score:         normalizedScore,
-			Modified:      n.Modified.UTC().Format(time.RFC3339),
-			MatchReason:   computeMatchReason(n, query),
-			IsProtocol:    isProtocol,
-			LinkCount:     len(n.Links),
-			BacklinkCount: len(inbound[n.ID]),
+			ID:             n.ID,
+			Title:          n.Title,
+			Type:           string(n.Type),
+			Status:         string(n.Status),
+			Tags:           tags,
+			AppliesWhen:    n.AppliesWhen,
+			Excerpt:        extractExcerpt(n.Body, query),
+			Score:          normalizedScore,
+			Modified:       n.Modified.UTC().Format(time.RFC3339),
+			MatchReason:    computeMatchReason(n, query),
+			IsProtocol:     isProtocol,
+			LinkCount:      len(n.Links),
+			BacklinkCount:  len(inbound[n.ID]),
+			Representation: n.Representation,
 		}
 	}
 	env := searchEnvelope{
@@ -677,6 +681,7 @@ var validFields = map[string]bool{
 	"applies_when": true, "excerpt": true, "score": true, "modified": true,
 	"match_reason": true, "is_protocol": true, "link_count": true,
 	"backlink_count": true, "created": true, "body_preview": true,
+	"representation": true,
 }
 
 func parseFields(raw string) ([]string, error) {
@@ -688,7 +693,7 @@ func parseFields(raw string) ([]string, error) {
 			continue
 		}
 		if !validFields[p] {
-			return nil, fmt.Errorf("unknown field %q; valid fields: id,title,type,status,tags,applies_when,excerpt,score,modified,match_reason,is_protocol,link_count,backlink_count,created,body_preview", p)
+			return nil, fmt.Errorf("unknown field %q; valid fields: id,title,type,status,tags,applies_when,excerpt,score,modified,match_reason,is_protocol,link_count,backlink_count,created,body_preview,representation", p)
 		}
 		out = append(out, p)
 	}
@@ -719,12 +724,13 @@ func printNotesJSON(cmd *cobra.Command, notes []*note.Note, requestedFields []st
 			tags = []string{}
 		}
 		out[i] = noteJSON{
-			ID:          n.ID,
-			Title:       n.Title,
-			Type:        string(n.Type),
-			Status:      string(n.Status),
-			Tags:        tags,
-			AppliesWhen: n.AppliesWhen,
+			ID:             n.ID,
+			Title:          n.Title,
+			Type:           string(n.Type),
+			Status:         string(n.Status),
+			Tags:           tags,
+			AppliesWhen:    n.AppliesWhen,
+			Representation: n.Representation,
 		}
 	}
 	enc := json.NewEncoder(outWriter(cmd))
