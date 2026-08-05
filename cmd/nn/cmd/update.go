@@ -183,7 +183,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 			if err := state.backend.Update(n, sinceTime); err != nil {
 				return fmt.Errorf("update: %w", err)
 			}
-			fmt.Fprintf(outWriter(cmd), "updated %s\nmodified: %s\n", n.ID, n.Modified.Format(time.RFC3339))
+			fmt.Fprintf(outWriter(cmd), "updated %s\nmodified: %s\n", n.ID, n.Modified.Format(time.RFC3339Nano))
 			if check && n.Representation != "" {
 				if err := runRepresentationCheck(cmd, state, n); err != nil {
 					return err
