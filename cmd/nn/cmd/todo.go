@@ -64,6 +64,15 @@ func todoContext(line string) string {
 	return ""
 }
 
+func hasDailyTag(n *note.Note) bool {
+	for _, t := range n.Tags {
+		if t == "daily" {
+			return true
+		}
+	}
+	return false
+}
+
 func newTodoCmd(state *rootState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "todo",
@@ -108,9 +117,19 @@ func newTodoListCmd(state *rootState) *cobra.Command {
 			for _, n := range notes {
 				byID[n.ID] = n
 			}
+			loc := time.Now().Location()
+			today := time.Now().In(loc).Truncate(24 * time.Hour)
+
 			w := outWriter(cmd)
 			first := true
 			for _, n := range notes {
+				// Always exclude daily notes from previous days — their todos are carried forward.
+				if hasDailyTag(n) {
+					createdDay := n.Created.In(loc).Truncate(24 * time.Hour)
+					if createdDay.Before(today) {
+						continue
+					}
+				}
 				var open []string
 				for _, line := range strings.Split(n.Body, "\n") {
 					if !strings.HasPrefix(strings.TrimSpace(line), "- [ ]") {
