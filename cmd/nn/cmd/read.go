@@ -32,42 +32,60 @@ func newReadCmd(state *rootState) *cobra.Command {
 				allLines = allLines[:len(allLines)-1]
 			}
 
-			start, end := 1, len(allLines)
+			// Parse comma-separated ranges into selected line numbers (1-based, sorted, deduplicated).
+			var selectedLines []int
 			if linesFlag != "" {
-				parts := strings.SplitN(linesFlag, "-", 2)
-				if len(parts) != 2 {
-					return fmt.Errorf("--lines must be N-M (e.g. 10-20)")
+				seen := make(map[int]bool)
+				for _, seg := range strings.Split(linesFlag, ",") {
+					seg = strings.TrimSpace(seg)
+					parts := strings.SplitN(seg, "-", 2)
+					if len(parts) != 2 {
+						return fmt.Errorf("--lines: each range must be N-M (e.g. 10-20), got %q", seg)
+					}
+					s, err1 := strconv.Atoi(parts[0])
+					e, err2 := strconv.Atoi(parts[1])
+					if err1 != nil || err2 != nil || s < 1 || e < s {
+						return fmt.Errorf("--lines: invalid range %q", seg)
+					}
+					if s > len(allLines) {
+						continue
+					}
+					if e > len(allLines) {
+						e = len(allLines)
+					}
+					for i := s; i <= e; i++ {
+						if !seen[i] {
+							seen[i] = true
+							selectedLines = append(selectedLines, i)
+						}
+					}
 				}
-				s, err1 := strconv.Atoi(parts[0])
-				e, err2 := strconv.Atoi(parts[1])
-				if err1 != nil || err2 != nil || s < 1 || e < s {
-					return fmt.Errorf("--lines: invalid range %q", linesFlag)
-				}
-				start, end = s, e
-				if end > len(allLines) {
-					end = len(allLines)
-				}
-				if start > len(allLines) {
-					start = len(allLines) + 1
+				sort.Ints(selectedLines)
+			} else {
+				for i := 1; i <= len(allLines); i++ {
+					selectedLines = append(selectedLines, i)
 				}
 			}
 
-			shown := allLines[start-1 : end]
-			if limitFlag > 0 && limitFlag < len(shown) {
-				shown = shown[:limitFlag]
-				end = start + limitFlag - 1
+			if limitFlag > 0 && limitFlag < len(selectedLines) {
+				selectedLines = selectedLines[:limitFlag]
+			}
+
+			var shown []string
+			for _, ln := range selectedLines {
+				shown = append(shown, allLines[ln-1])
 			}
 
 			w := outWriter(cmd)
 			for i, line := range shown {
-				fmt.Fprintf(w, "%d\t%s\n", start+i, line)
+				fmt.Fprintf(w, "%d\t%s\n", selectedLines[i], line)
 			}
 
 			sessionReads := loadSessionReads(resolveCfgDir())
 
 			// BM25 search on shown content.
 			query := strings.Join(shown, " ")
-			if strings.TrimSpace(query) == "" {
+			if strings.TrimSpace(query) == "" || state.backend == nil {
 				return nil
 			}
 
@@ -122,7 +140,7 @@ func newReadCmd(state *rootState) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&linesFlag, "lines", "", "Line range to show (e.g. 10-20)")
+	cmd.Flags().StringVar(&linesFlag, "lines", "", "Line range(s) to show — single (e.g. 10-20) or comma-delimited (e.g. 1-5,10-20)")
 	cmd.Flags().IntVar(&limitFlag, "limit", 0, "Maximum number of lines to show")
 	return cmd
 }
