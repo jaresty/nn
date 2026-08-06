@@ -104,6 +104,20 @@ func DefaultConfigPath() string {
 	return filepath.Join(cfgDir, "nn", "config.toml")
 }
 
+// DefaultIndexDBPath returns the default path to the nn SQLite index database.
+// Respects NN_CONFIG_DIR environment variable for testability (same as DefaultConfigPath).
+func DefaultIndexDBPath() string {
+	if dir := os.Getenv("NN_CONFIG_DIR"); dir != "" {
+		return filepath.Join(dir, "index.db")
+	}
+	cfgDir := os.Getenv("XDG_CONFIG_HOME")
+	if cfgDir == "" {
+		home, _ := os.UserHomeDir()
+		cfgDir = filepath.Join(home, ".config")
+	}
+	return filepath.Join(cfgDir, "nn", "index.db")
+}
+
 func expandHome(p string) string {
 	if strings.HasPrefix(p, "~/") {
 		home, _ := os.UserHomeDir()

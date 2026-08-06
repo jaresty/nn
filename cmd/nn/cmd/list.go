@@ -15,6 +15,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jaresty/nn/internal/config"
+	"github.com/jaresty/nn/internal/index"
 	"github.com/jaresty/nn/internal/note"
 )
 
@@ -220,7 +222,7 @@ func newListCmd(state *rootState) *cobra.Command {
 			var searchScores map[string]float64
 			var normalizedSearchScores map[string]float64
 			if search != "" {
-				fieldIDF := note.BM25FieldIDF(notes, allInbound)
+				fieldIDF, _ := index.GetOrComputeFieldIDFPath(config.DefaultIndexDBPath(), state.notebookDir, notes, allInbound)
 				searchScores = note.BM25RRFPerField(filtered, fieldIDF, search, allInbound)
 				if boostRecent && searchScores != nil {
 					now := time.Now()
