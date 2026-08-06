@@ -58,7 +58,7 @@ func runTee(stdin io.Reader, stdout io.Writer, stderr io.Writer, state *rootStat
 		}
 	}
 
-	scores := note.BM25Scores(notes, query, allInbound)
+	scores := RankedByQuery(notes, allInbound, query, state.notebookDir)
 
 	type scored struct {
 		n     *note.Note

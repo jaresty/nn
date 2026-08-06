@@ -63,7 +63,7 @@ func runShuf(stdin io.Reader, paths []string, out io.Writer, state *rootState, c
 		fmt.Fprintln(out, u)
 
 		if len(notes) > 0 && strings.TrimSpace(u) != "" {
-			printShufRelated(out, notes, allInbound, u)
+			printShufRelated(out, notes, allInbound, u, state.notebookDir)
 		}
 	}
 	return nil
@@ -186,8 +186,8 @@ func extractSymbolBodies(filePath string) []string {
 	return bodies
 }
 
-func printShufRelated(out io.Writer, notes []*note.Note, allInbound map[string][]string, query string) {
-	scores := note.BM25Scores(notes, query, allInbound)
+func printShufRelated(out io.Writer, notes []*note.Note, allInbound map[string][]string, query, repoDir string) {
+	scores := RankedByQuery(notes, allInbound, query, repoDir)
 	type scored struct {
 		n     *note.Note
 		score float64

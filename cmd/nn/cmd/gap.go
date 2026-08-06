@@ -35,7 +35,7 @@ but do not answer.`,
 			}
 
 			// BM25 search for topic notes.
-			scores := note.BM25Scores(notes, topic, nil)
+			scores := RankedByQuery(notes, nil, topic, state.notebookDir)
 			var topicNotes []*note.Note
 			for _, n := range notes {
 				if scores[n.ID] > 0 {

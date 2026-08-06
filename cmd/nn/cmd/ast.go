@@ -78,7 +78,7 @@ func newAstCmd(state *rootState) *cobra.Command {
 					if query == "" {
 						query = sym.Name
 					}
-					scores := note.BM25Scores(notes, query, allInbound)
+					scores := RankedByQuery(notes, allInbound, query, state.notebookDir)
 					type scored struct {
 						n     *note.Note
 						score float64

@@ -101,7 +101,7 @@ func newReadCmd(state *rootState) *cobra.Command {
 				}
 			}
 
-			scores := note.BM25Scores(notes, query, allInbound)
+			scores := RankedByQuery(notes, allInbound, query, state.notebookDir)
 
 			type scored struct {
 				n     *note.Note
