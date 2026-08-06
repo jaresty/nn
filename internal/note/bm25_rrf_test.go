@@ -162,3 +162,38 @@ func TestBM25RRF_TitleCoverageBeatsBodyOnly(t *testing.T) {
 		t.Errorf("property [P2]: title-match note (%.4f) should rank above body-only note (%.4f)", titleScore, bodyScore)
 	}
 }
+
+// property [F1]: BM25RRFPerField returns non-empty results when query terms appear only in note titles.
+// With the shared-IDF bug, a title-only match can produce IDF=0 for the field and score 0.
+func TestBM25RRFPerField_TitleOnlyMatch(t *testing.T) {
+	titleOnly := &Note{ID: "title-only", Title: "xyloquartz resonance", Body: "unrelated body content here", Status: StatusDraft}
+	distractor := &Note{ID: "distractor", Title: "something else entirely", Body: "more unrelated content", Status: StatusDraft}
+	notes := []*Note{titleOnly, distractor}
+
+	fieldIDF := BM25FieldIDF(notes, nil)
+	scores := BM25RRFPerField(notes, fieldIDF, "xyloquartz resonance", nil)
+
+	if len(scores) == 0 {
+		t.Fatal("property [F1]: BM25RRFPerField returned no results for title-only match")
+	}
+	if scores["title-only"] == 0 {
+		t.Errorf("property [F1]: title-only note scored 0; scores=%v", scores)
+	}
+}
+
+// property [F2]: note matching query only in title ranks above note matching only in body,
+// when per-field IDF is used. Title IDF is computed over the title corpus only.
+func TestBM25RRFPerField_TitleBeatsBody(t *testing.T) {
+	titleNote := &Note{ID: "title-note", Title: "xyloquartz resonance phenomenon", Body: "unrelated", Status: StatusDraft}
+	bodyNote := &Note{ID: "body-note", Title: "general overview", Body: "xyloquartz resonance phenomenon xyloquartz resonance phenomenon xyloquartz resonance phenomenon", Status: StatusDraft}
+	notes := []*Note{titleNote, bodyNote}
+
+	fieldIDF := BM25FieldIDF(notes, nil)
+	scores := BM25RRFPerField(notes, fieldIDF, "xyloquartz resonance phenomenon", nil)
+
+	titleScore := scores["title-note"]
+	bodyScore := scores["body-note"]
+	if titleScore <= bodyScore {
+		t.Errorf("property [F2]: title-match (%.4f) should beat body-only (%.4f) with per-field IDF", titleScore, bodyScore)
+	}
+}

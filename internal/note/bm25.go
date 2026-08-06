@@ -233,6 +233,189 @@ func BM25ScoresWithPropagation(notes []*Note, query string, inbound map[string][
 // rrfK is the RRF rank constant — standard value is 60.
 const rrfK = 60.0
 
+// FieldIDF holds per-field IDF maps, each computed over only that field's token corpus.
+// Using field-specific IDF ensures BM25 scores within each field are self-consistent.
+type FieldIDF struct {
+	Title   map[string]float64
+	Body    map[string]float64
+	Tags    map[string]float64
+	Inbound map[string]float64
+}
+
+// fieldIDF computes IDF for a set of token slices (one per document) over N total documents.
+func fieldIDF(fieldTokens [][]string, N int, terms []string) map[string]float64 {
+	idf := make(map[string]float64, len(terms))
+	for _, term := range terms {
+		df := 0
+		for _, tokens := range fieldTokens {
+			for _, t := range tokens {
+				if t == term {
+					df++
+					break
+				}
+			}
+		}
+		idf[term] = math.Log((float64(N)-float64(df)+0.5)/(float64(df)+0.5) + 1)
+	}
+	return idf
+}
+
+// BM25FieldIDF computes per-field IDF maps for the given notes corpus and query terms.
+// inbound maps note ID to annotation strings from notes that link to it.
+func BM25FieldIDF(notes []*Note, inbound map[string][]string) FieldIDF {
+	// Collect all corpus terms across all fields for full-corpus field IDFs.
+	seen := make(map[string]struct{})
+	titleField := make([][]string, len(notes))
+	bodyField := make([][]string, len(notes))
+	tagField := make([][]string, len(notes))
+	inboundField := make([][]string, len(notes))
+	for i, n := range notes {
+		titleField[i] = tokenize(n.Title)
+		bodyField[i] = tokenize(n.Body)
+		var tagToks []string
+		for _, tag := range n.Tags {
+			tagToks = append(tagToks, tokenize(tag)...)
+		}
+		tagField[i] = tagToks
+		var ibToks []string
+		for _, ann := range inbound[n.ID] {
+			ibToks = append(ibToks, tokenize(ann)...)
+		}
+		inboundField[i] = ibToks
+		for _, t := range titleField[i] {
+			seen[t] = struct{}{}
+		}
+		for _, t := range bodyField[i] {
+			seen[t] = struct{}{}
+		}
+		for _, t := range tagField[i] {
+			seen[t] = struct{}{}
+		}
+		for _, t := range inboundField[i] {
+			seen[t] = struct{}{}
+		}
+	}
+	allTerms := make([]string, 0, len(seen))
+	for t := range seen {
+		allTerms = append(allTerms, t)
+	}
+	N := len(notes)
+	return FieldIDF{
+		Title:   fieldIDF(titleField, N, allTerms),
+		Body:    fieldIDF(bodyField, N, allTerms),
+		Tags:    fieldIDF(tagField, N, allTerms),
+		Inbound: fieldIDF(inboundField, N, allTerms),
+	}
+}
+
+// BM25RRFPerField scores notes using reciprocal rank fusion where each field uses
+// its own IDF computed over only that field's token corpus. This corrects the
+// mismatch in BM25RRF where a single shared IDF was used across all fields.
+func BM25RRFPerField(candidates []*Note, fidf FieldIDF, query string, inbound map[string][]string) map[string]float64 {
+	terms := tokenize(query)
+	if len(terms) == 0 {
+		return nil
+	}
+
+	scoreField := func(getTokens func(*Note) []string, idf map[string]float64) []string {
+		type fs struct {
+			id    string
+			score float64
+		}
+		N := float64(len(candidates))
+		type docF struct {
+			tf  map[string]float64
+			len float64
+		}
+		docs := make([]docF, len(candidates))
+		totalLen := 0.0
+		for i, n := range candidates {
+			tokens := getTokens(n)
+			tf := make(map[string]float64, len(tokens))
+			for _, t := range tokens {
+				tf[t]++
+			}
+			dl := float64(len(tokens))
+			docs[i] = docF{tf: tf, len: dl}
+			totalLen += dl
+		}
+		avgdl := totalLen / math.Max(N, 1)
+		var ranked []fs
+		for i, n := range candidates {
+			d := docs[i]
+			score := 0.0
+			for _, term := range terms {
+				tf := d.tf[term]
+				if tf == 0 {
+					continue
+				}
+				score += idf[term] * (tf * (bm25K1 + 1)) /
+					(tf + bm25K1*(1-bm25B+bm25B*d.len/avgdl))
+			}
+			if score > 0 {
+				ranked = append(ranked, fs{id: n.ID, score: score})
+			}
+		}
+		for i := 0; i < len(ranked)-1; i++ {
+			for j := i + 1; j < len(ranked); j++ {
+				if ranked[j].score > ranked[i].score {
+					ranked[i], ranked[j] = ranked[j], ranked[i]
+				}
+			}
+		}
+		ids := make([]string, len(ranked))
+		for i, r := range ranked {
+			ids[i] = r.id
+		}
+		return ids
+	}
+
+	type weightedField struct {
+		weight float64
+		ranked []string
+	}
+	fields := []weightedField{
+		{titleWeight, scoreField(func(n *Note) []string { return tokenize(n.Title) }, fidf.Title)},
+		{1, scoreField(func(n *Note) []string { return tokenize(n.Body) }, fidf.Body)},
+		{float64(tagWeight), scoreField(func(n *Note) []string {
+			var all []string
+			for _, tag := range n.Tags {
+				all = append(all, tokenize(tag)...)
+			}
+			return all
+		}, fidf.Tags)},
+		{1, scoreField(func(n *Note) []string {
+			var all []string
+			for _, ann := range inbound[n.ID] {
+				all = append(all, tokenize(ann)...)
+			}
+			return all
+		}, fidf.Inbound)},
+	}
+
+	rrf := make(map[string]float64)
+	for _, f := range fields {
+		for rank, id := range f.ranked {
+			rrf[id] += f.weight / (rrfK + float64(rank+1))
+		}
+	}
+
+	idToNote := make(map[string]*Note, len(candidates))
+	for _, n := range candidates {
+		idToNote[n.ID] = n
+	}
+	result := make(map[string]float64, len(rrf))
+	for id, s := range rrf {
+		if s > 0 {
+			result[id] = s * statusMultiplier(idToNote[id].Status)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
 // BM25RRF scores notes using reciprocal rank fusion across per-field BM25 rankings.
 // Each field (title, body, tags, inbound) is scored independently; the four rankings
 // are fused: score(n) = Σ_f 1/(rrfK + rank_f(n)), where rank is 1-based and

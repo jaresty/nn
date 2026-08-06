@@ -15,7 +15,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	nnindex "github.com/jaresty/nn/internal/index"
 	"github.com/jaresty/nn/internal/note"
 )
 
@@ -92,14 +91,11 @@ func newListCmd(state *rootState) *cobra.Command {
 				notesByID[n.ID] = n
 			}
 
-			// Compute IDF over the full corpus before filtering so that filtered
-			// candidate scoring uses global term rarity, not subset rarity.
-			// Results are cached in SQLite keyed by git HEAD commit hash.
-			var globalIDF map[string]float64
+			// Pre-compute a quick filter pass using plain BM25Scores to avoid
+			// scoring every note in the heavy per-field RRF pass.
+			var preFilterScores map[string]float64
 			if search != "" {
-				terms := note.Tokenize(search)
-				dbPath := filepath.Join(resolveCfgDir(), "index.db")
-				globalIDF, _ = nnindex.GetOrComputeIDFPath(dbPath, state.notebookDir, notes, terms)
+				preFilterScores = note.BM25Scores(notes, search, allInbound)
 			}
 
 			var filtered []*note.Note
@@ -168,7 +164,7 @@ func newListCmd(state *rootState) *cobra.Command {
 						continue
 					}
 				}
-				if search != "" && note.BM25ScoresWithIDF([]*note.Note{n}, globalIDF, search, allInbound)[n.ID] == 0 {
+				if search != "" && preFilterScores[n.ID] == 0 {
 					continue
 				}
 				if long && len(n.Body) <= atomicityThreshold {
@@ -224,7 +220,8 @@ func newListCmd(state *rootState) *cobra.Command {
 			var searchScores map[string]float64
 			var normalizedSearchScores map[string]float64
 			if search != "" {
-				searchScores = note.BM25RRF(filtered, globalIDF, search, allInbound)
+				fieldIDF := note.BM25FieldIDF(notes, allInbound)
+				searchScores = note.BM25RRFPerField(filtered, fieldIDF, search, allInbound)
 				if boostRecent && searchScores != nil {
 					now := time.Now()
 					for _, n := range filtered {
