@@ -400,14 +400,10 @@ func BM25RRFPerField(candidates []*Note, fidf FieldIDF, query string, inbound ma
 		}
 	}
 
-	idToNote := make(map[string]*Note, len(candidates))
-	for _, n := range candidates {
-		idToNote[n.ID] = n
-	}
 	result := make(map[string]float64, len(rrf))
 	for id, s := range rrf {
 		if s > 0 {
-			result[id] = s * statusMultiplier(idToNote[id].Status)
+			result[id] = s
 		}
 	}
 	if len(result) == 0 {
@@ -520,14 +516,10 @@ func BM25RRF(candidates []*Note, idf map[string]float64, query string, inbound m
 		}
 	}
 
-	idToNote := make(map[string]*Note, len(candidates))
-	for _, n := range candidates {
-		idToNote[n.ID] = n
-	}
 	result := make(map[string]float64, len(rrf))
 	for id, s := range rrf {
 		if s > 0 {
-			result[id] = s * statusMultiplier(idToNote[id].Status)
+			result[id] = s
 		}
 	}
 	if len(result) == 0 {

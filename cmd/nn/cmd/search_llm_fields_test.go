@@ -94,29 +94,5 @@ func TestSearchJSONMatchReasonTitle(t *testing.T) {
 	}
 }
 
-// D9: status weighting — permanent note ranks above draft for same body content.
-func TestSearchStatusWeightingPermanentAboveDraft(t *testing.T) {
-	nbDir, execute := setupNotebook(t)
-	draft := newTestNoteForCLI("20260101000000-0030", "Caching Strategy Draft", note.TypeConcept)
-	draft.Body = "Discusses caching eviction policies."
-	draft.Status = note.StatusDraft
-
-	permanent := newTestNoteForCLI("20260101000000-0031", "Caching Strategy Permanent", note.TypeConcept)
-	permanent.Body = "Discusses caching eviction policies."
-	permanent.Status = note.StatusPermanent
-
-	writeNoteFile(t, nbDir, draft)
-	writeNoteFile(t, nbDir, permanent)
-
-	out, err := execute("list", "--search", "caching eviction", "--json")
-	if err != nil {
-		t.Fatalf("nn list --search --json: %v", err)
-	}
-	titles := orderedTitles(t, out)
-	if len(titles) < 2 {
-		t.Fatalf("expected 2 results, got %d: %v", len(titles), titles)
-	}
-	if titles[0] != "Caching Strategy Permanent" {
-		t.Errorf("status weighting: first = %q, want Caching Strategy Permanent (permanent should rank above draft)", titles[0])
-	}
-}
+// D9 removed: status-based ranking was removed — permanent notes no longer receive
+// a score boost over draft notes with identical content.

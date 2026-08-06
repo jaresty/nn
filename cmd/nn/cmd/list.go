@@ -241,7 +241,7 @@ func newListCmd(state *rootState) *cobra.Command {
 				normalizedSearchScores = make(map[string]float64, len(filtered))
 				for _, n := range filtered {
 					if maxScore > 0 {
-						normalizedSearchScores[n.ID] = searchScores[n.ID] / maxScore * centralityMultiplier(len(allInbound[n.ID]))
+						normalizedSearchScores[n.ID] = searchScores[n.ID] / maxScore
 					}
 				}
 				sort.SliceStable(filtered, func(i, j int) bool {
@@ -470,12 +470,6 @@ type noteSearchJSON struct {
 	Representation string         `json:"representation,omitempty"`
 }
 
-// centralityMultiplier returns a score boost based on backlink count.
-// A note with more inbound links (notebook consensus) ranks above an
-// otherwise equal note with fewer, without overwhelming content relevance.
-func centralityMultiplier(backlinkCount int) float64 {
-	return 1.0 + 0.2*math.Log1p(float64(backlinkCount))
-}
 
 func truncateStr(s string, max int) string {
 	if len(s) <= max {

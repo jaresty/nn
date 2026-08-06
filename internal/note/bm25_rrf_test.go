@@ -1,6 +1,7 @@
 package note
 
 import (
+	"math"
 	"testing"
 )
 
@@ -195,5 +196,37 @@ func TestBM25RRFPerField_TitleBeatsBody(t *testing.T) {
 	bodyScore := scores["body-note"]
 	if titleScore <= bodyScore {
 		t.Errorf("property [F2]: title-match (%.4f) should beat body-only (%.4f) with per-field IDF", titleScore, bodyScore)
+	}
+}
+
+// property [2]: BM25RRFPerField score for a single note equals the raw weighted RRF sum
+// with no status multiplier. For a one-note corpus matching query in title only (rank 0),
+// the expected score is titleWeight/(60+1) = 5/61. If statusMultiplier were applied
+// to a permanent note, the result would be 5/61 * 1.05.
+func TestBM25RRFPerField_NoStatusMultiplier(t *testing.T) {
+	n := &Note{
+		ID: "n1", Title: "xyloquartz resonance phenomenon",
+		Body: "unrelated body here", Status: StatusPermanent,
+	}
+	notes := []*Note{n}
+	fidf := BM25FieldIDF(notes, nil)
+	scores := BM25RRFPerField(notes, fidf, "xyloquartz resonance", nil)
+
+	got := scores["n1"]
+	if got == 0 {
+		t.Fatal("property [2]: note scored 0")
+	}
+	// With statusMultiplier(permanent)=1.05, score = 5/61 * 1.05 ≈ 0.08607.
+	// Without multiplier, score = 5/61 ≈ 0.08197.
+	// Both title terms match → title rank 0 → RRF = 5/(60+1).
+	// (Body, tags, inbound contribute 0 since no query terms there.)
+	withoutMultiplier := 5.0 / 61.0
+	withMultiplier := withoutMultiplier * 1.05
+	const eps = 0.0001
+	if math.Abs(got-withMultiplier) < eps {
+		t.Errorf("property [2]: score %.6f matches statusMultiplier=1.05 value %.6f — multiplier still applied", got, withMultiplier)
+	}
+	if math.Abs(got-withoutMultiplier) > eps {
+		t.Errorf("property [2]: score %.6f does not match expected raw RRF value %.6f (eps=%.4f)", got, withoutMultiplier, eps)
 	}
 }

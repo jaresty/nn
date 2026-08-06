@@ -192,3 +192,55 @@ func TestSearchBenchmark(t *testing.T) {
 		t.Errorf("NDCG@5 %.3f below threshold %.2f — ranker regression detected", ndcg5, threshNDCG5)
 	}
 }
+
+// property [1]: centrality does not influence scores — adding a backlink to a note
+// must not change that note's search score relative to an otherwise identical note.
+// We test this by measuring hub's score before and after a linker is added.
+func TestListSearch_NoCentralityBias(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	body := "quantum entanglement is a core phenomenon in physics"
+	_, err := execute("new", "--title", "quantum entanglement phenomenon", "--type", "concept", "--content", body, "--no-edit", "--no-suggest")
+	if err != nil {
+		t.Fatalf("new hub: %v", err)
+	}
+	// Get hub ID and baseline score before any linker exists.
+	out1, err := execute("list", "--search", "quantum entanglement phenomenon", "--json", "--fields", "id,score")
+	if err != nil {
+		t.Fatalf("list before linker: %v", err)
+	}
+	var r1 []map[string]any
+	json.Unmarshal([]byte(out1), &r1) //nolint:errcheck
+	if len(r1) == 0 {
+		t.Fatalf("no results before linker: %s", out1)
+	}
+	hubID, _ := r1[0]["id"].(string)
+	scoreBefore, _ := r1[0]["score"].(float64)
+
+	// Add a linker that gives hub one backlink.
+	_, err = execute("new", "--title", "linker note", "--type", "concept", "--content", "unrelated content", "--no-edit", "--no-suggest", "--link-to", hubID, "--annotation", "refines hub")
+	if err != nil {
+		t.Fatalf("new linker: %v", err)
+	}
+
+	// Score after linker — hub now has one backlink.
+	out2, err := execute("list", "--search", "quantum entanglement phenomenon", "--json", "--fields", "id,score")
+	if err != nil {
+		t.Fatalf("list after linker: %v", err)
+	}
+	var r2 []map[string]any
+	json.Unmarshal([]byte(out2), &r2) //nolint:errcheck
+	scoreAfter := 0.0
+	for _, r := range r2 {
+		if id, _ := r["id"].(string); id == hubID {
+			scoreAfter, _ = r["score"].(float64)
+			break
+		}
+	}
+	if scoreAfter == 0 {
+		t.Fatalf("hub note not found in results after linker; results: %s", out2)
+	}
+	if scoreAfter != scoreBefore {
+		t.Errorf("property [1]: hub score changed %.6f→%.6f after adding backlink — centrality bias detected", scoreBefore, scoreAfter)
+	}
+}
