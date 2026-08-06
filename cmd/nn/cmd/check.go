@@ -118,11 +118,11 @@ func runRepresentationCheck(cmd *cobra.Command, state *rootState, n *note.Note) 
 	return nil
 }
 
-// findRepresentationRoot traverses same-representation outgoing links from start,
-// walking toward a type=model node. In representation subgraphs, non-root nodes
-// link outward toward the root (e.g. child refines root), so following outgoing
-// same-rep links from any child reaches the root.
-func findRepresentationRoot(start *note.Note, byID map[string]*note.Note, rep string) (*note.Note, error) {
+// findRepresentationRoot traverses same-representation inbound links from start,
+// walking toward a type=model node. In representation subgraphs, the root links
+// TO children (root.Links contains children), so to reach root from a child we
+// follow inbound links — notes that have a same-rep link whose target is start.
+func findRepresentationRoot(start *note.Note, byID map[string]*note.Note, inbound map[string][]*note.Note, rep string) (*note.Note, error) {
 	visited := map[string]bool{}
 	cur := start
 	for {
@@ -135,17 +135,16 @@ func findRepresentationRoot(start *note.Note, byID map[string]*note.Note, rep st
 			return cur, nil
 		}
 
-		// Follow the first same-rep outgoing link.
+		// Follow the first same-rep inbound link (a note that links TO cur).
 		var next *note.Note
-		for _, lnk := range cur.Links {
-			target, ok := byID[lnk.TargetID]
-			if ok && target.Representation == rep {
-				next = target
+		for _, parent := range inbound[cur.ID] {
+			if parent.Representation == rep {
+				next = parent
 				break
 			}
 		}
 		if next == nil {
-			return nil, fmt.Errorf("check: no type:model root reachable via same-representation links from %s", start.ID)
+			return nil, fmt.Errorf("check: no type:model root reachable via same-representation inbound links from %s", start.ID)
 		}
 		cur = next
 	}
@@ -163,6 +162,10 @@ func newCheckCmd(state *rootState) *cobra.Command {
 		Short: "Validate a note's representation subgraph structure",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if root != "" && root != "auto" {
+				return fmt.Errorf("check: --root only accepts \"auto\" (got %q)", root)
+			}
+
 			id := args[0]
 			n, err := state.backend.Read(id)
 			if err != nil {
@@ -193,7 +196,13 @@ func newCheckCmd(state *rootState) *cobra.Command {
 			}
 
 			if root == "auto" {
-				found, findErr := findRepresentationRoot(n, byID, rep)
+				inboundMap := make(map[string][]*note.Note, len(all))
+				for _, nn := range all {
+					for _, lnk := range nn.Links {
+						inboundMap[lnk.TargetID] = append(inboundMap[lnk.TargetID], nn)
+					}
+				}
+				found, findErr := findRepresentationRoot(n, byID, inboundMap, rep)
 				if findErr != nil {
 					return findErr
 				}

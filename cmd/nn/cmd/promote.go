@@ -18,9 +18,14 @@ func newPromoteCmd(state *rootState) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "promote <id>",
+		Use:   "promote [<id>]",
 		Short: "Advance note status: draft → reviewed → permanent",
-		Args:  cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if subgraph != "" {
+				return nil
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if to == "" {
 				return fmt.Errorf("--to is required (reviewed|permanent)")

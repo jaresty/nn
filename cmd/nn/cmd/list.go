@@ -227,7 +227,7 @@ func newListCmd(state *rootState) *cobra.Command {
 			var normalizedSearchScores map[string]float64
 			if search != "" {
 				searchScores = note.BM25RRF(filtered, globalIDF, search+" "+gitCtx, allInbound)
-				if boostRecent {
+				if boostRecent && searchScores != nil {
 					now := time.Now()
 					for _, n := range filtered {
 						ageDays := now.Sub(n.Modified).Hours() / 24
