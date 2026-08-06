@@ -88,6 +88,7 @@ func newGraphCmd(state *rootState) *cobra.Command {
 		newGraphBridgesCmd(state),
 		newGraphShowCmd(state),
 		newGraphExportCmd(state),
+		newGraphApplyCmd(state),
 	)
 	return cmd
 }
