@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -82,11 +83,34 @@ func collectUnits(stdin io.Reader, paths []string, unit string) ([]string, error
 
 	var all []string
 	for _, p := range paths {
-		data, err := os.ReadFile(p)
+		info, err := os.Stat(p)
 		if err != nil {
-			return nil, fmt.Errorf("shuf: read %s: %w", p, err)
+			return nil, fmt.Errorf("shuf: stat %s: %w", p, err)
 		}
-		all = append(all, splitUnits(string(data), unit, p)...)
+		if info.IsDir() {
+			if err := filepath.WalkDir(p, func(path string, d os.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				if d.IsDir() {
+					return nil
+				}
+				data, err := os.ReadFile(path)
+				if err != nil {
+					return fmt.Errorf("shuf: read %s: %w", path, err)
+				}
+				all = append(all, splitUnits(string(data), unit, path)...)
+				return nil
+			}); err != nil {
+				return nil, err
+			}
+		} else {
+			data, err := os.ReadFile(p)
+			if err != nil {
+				return nil, fmt.Errorf("shuf: read %s: %w", p, err)
+			}
+			all = append(all, splitUnits(string(data), unit, p)...)
+		}
 	}
 	return all, nil
 }

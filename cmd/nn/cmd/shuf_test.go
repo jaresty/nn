@@ -89,6 +89,48 @@ func TestShufCountCapsOutput(t *testing.T) {
 	}
 }
 
+func TestShufDirectoryRecurse(t *testing.T) {
+	root := t.TempDir()
+	sub := filepath.Join(root, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "a.txt"), []byte("alpha\nbeta\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sub, "b.txt"), []byte("gamma\ndelta\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	err := runShuf(nil, []string{root}, &out, nil, 10, "lines")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "alpha") && !strings.Contains(got, "beta") {
+		t.Fatalf("expected content from root file (alpha/beta), got:\n%s", got)
+	}
+	if !strings.Contains(got, "gamma") && !strings.Contains(got, "delta") {
+		t.Fatalf("expected content from subdir file (gamma/delta), got:\n%s", got)
+	}
+}
+
+func TestShufDirectoryOnlyRegularFiles(t *testing.T) {
+	root := t.TempDir()
+	sub := filepath.Join(root, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "a.txt"), []byte("hello\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	err := runShuf(nil, []string{root}, &out, nil, 10, "lines")
+	if err != nil {
+		t.Fatalf("expected no error (dir entry should be skipped), got: %v", err)
+	}
+}
+
 func TestShufEmptyInput(t *testing.T) {
 	var out bytes.Buffer
 	err := runShuf(strings.NewReader(""), nil, &out, nil, 3, "lines")
