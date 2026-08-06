@@ -111,7 +111,9 @@ nn graph show --focus <id> --depth N
 nn suggest-links <id> [--limit N]
 nn backlinks <id> [--json]
 nn bulk-new --json '[{"title":"...","type":"...","content":"...","applies_when":"..."}]'
+nn bulk-update --json '[{"id":"...","applies_when":"...","title":"...","content":"..."}]'
 nn new --title "..." --type <type> --content "..." --no-edit
+nn graph apply <manifest.yaml> [--dry-run|--commit]
 nn link <from> <to> --annotation "..." --type TYPE
 nn bulk-link <from> --to <id> --annotation "..." --type TYPE [--to <id> ...]
 nn bulk-update-link <from> --to <id> [--type TYPE] [--annotation "..."] [--status reviewed] [--to ...]

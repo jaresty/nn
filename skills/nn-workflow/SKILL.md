@@ -33,7 +33,7 @@ Invoke it with `/nn-workflow`.
    ```
    nn new --title "..." --type <type> --content "..." --no-edit
    ```
-   For multiple new notes in one session, prefer `nn bulk-new` to create them all in a single git commit. Include `applies_when` in specs for protocol notes.
+   For multiple new notes in one session, prefer `nn bulk-new` to create them all in a single git commit. Include `applies_when` in specs for protocol notes. To update existing notes in batch (including `applies_when`), use `nn bulk-update`.
    Print a summary **once per coherent batch** — not after each individual operation. A coherent batch is a create+link+promote sequence for a related set of notes. Summarise what the batch accomplished and why (e.g. "Captured 3 concept notes and linked them to the taxonomy root — they cover the missing evidence tier.").
 
 3. **Link**: For each relevant existing note, add annotated links. `--type` is required. New links default to `--status draft`.
@@ -99,6 +99,8 @@ Invoke it with `/nn-workflow`.
 | `nn review [--format json]` | Notebook health report: growth, connectivity, dead-ends, drafts |
 | `nn gap <topic> [--limit N] [--depth N] [--format json]` | Topic + neighborhood context for LLM gap analysis |
 | `nn index <topic> [--limit N] [--format json]` | Topic notes grouped by cluster for Map of Content creation |
+| `nn bulk-update --json '[{"id":"<id>","applies_when":"...","title":"..."}]'` | Update multiple existing notes (title, type, content, status, tags, applies_when) |
+| `nn graph apply <manifest.yaml> [--dry-run\|--commit]` | Declarative YAML changeset: create notes + edges atomically; use `key:` for cross-refs, `existing:<id>` for pre-existing notes |
 | `nn new` | Create a note |
 | `nn show <id>` | Read a note |
 | `nn list [--search TEXT] [--sort modified|title|created] [--type TYPE]` | List/filter/rank notes |
