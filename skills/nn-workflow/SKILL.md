@@ -33,7 +33,8 @@ Invoke it with `/nn-workflow`.
    ```
    nn new --title "..." --type <type> --content "..." --no-edit
    ```
-   After each `nn new`, `nn update`, or `nn link`, print one sentence to the user summarising what was recorded and why (e.g. "Captured *X* as a concept note — it defines the core invariant driving Y.").
+   For multiple new notes in one session, prefer `nn bulk-new` to create them all in a single git commit. Include `applies_when` in specs for protocol notes.
+   Print a summary **once per coherent batch** — not after each individual operation. A coherent batch is a create+link+promote sequence for a related set of notes. Summarise what the batch accomplished and why (e.g. "Captured 3 concept notes and linked them to the taxonomy root — they cover the missing evidence tier.").
 
 3. **Link**: For each relevant existing note, add annotated links. `--type` is required. New links default to `--status draft`.
    ```
@@ -41,11 +42,17 @@ Invoke it with `/nn-workflow`.
    nn link <existing-id> <new-id> --annotation "..." --type <type>
    ```
    Pass `--status reviewed` when you (as a human) are explicitly creating and endorsing the link.
-   For multiple targets at once (single commit):
+   For multiple targets at once (single commit), always prefer bulk-link over repeated nn link:
    ```
    nn bulk-link <new-id> \
      --to <id1> --annotation "..." --type <type> \
      --to <id2> --annotation "..." --type <type>
+   ```
+   To correct existing link types or annotations in batch, use bulk-update-link (one commit per source note):
+   ```
+   nn bulk-update-link <from> \
+     --to <id1> --type <corrected-type> --annotation "..." \
+     --to <id2> --annotation "..." --status reviewed
    ```
    Annotations must explain the relationship — never bare links.
 
@@ -59,6 +66,12 @@ Invoke it with `/nn-workflow`.
    Candidates are BM25-ranked; zero-score notes excluded with count reported. Already-linked notes are marked so additional link types can be suggested.
 
 5. **Review**: Run `nn status` to check for orphans, broken links, long notes (candidates for splitting), and hub notes (high-connectivity anchors). Draft links count is also reported.
+   After a batch that touches a representation subgraph, validate and promote the whole subgraph in one command:
+   ```
+   nn check <root-id>                                         # validate graph structure
+   nn check <any-child-id> --root auto                       # resolve root from any child, then validate
+   nn promote --subgraph <root-id> --to reviewed --if-valid  # validate then promote all nodes
+   ```
    - **Notebook health report**: `nn review` — growth stats, connectivity (orphans, dead-ends), draft notes. Paste into LLM session for recommendations.
    - Triage unendorsed links: `nn links <id> --status draft` — review each and run `nn update-link <from> <to> --status reviewed` once verified.
    - Find notes that have grown too large: `nn list --long`
