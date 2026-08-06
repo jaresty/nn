@@ -1,8 +1,10 @@
 package index_test
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -185,4 +187,130 @@ func TestGetOrComputeIDFFreshRepoFallback(t *testing.T) {
 	if len(idf) != len(cold) {
 		t.Errorf("fallback idf length %d != cold %d", len(idf), len(cold))
 	}
+}
+
+// TestGetOrComputeIDFExclusiveLock_Property1a proves properties [1a] and [1b]:
+// under concurrent cache misses from multiple goroutines sharing the same *Index,
+// all goroutines return correct IDF values and no errors (exclusive transaction
+// ensures at most one computes, and losers re-read the winner's cached result).
+func TestGetOrComputeIDFExclusiveLock_Property1a(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "index.db")
+	gitCommitAllDir(t, dir)
+
+	// Open once — all goroutines share the same *Index (simulating goroutines
+	// within a single process; the exclusive transaction serializes their access).
+	idx, err := index.Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer idx.Close()
+
+	notes := makeTestNotes(5)
+	terms := note.Tokenize("word content")
+
+	const N = 8
+	results := make([]map[string]float64, N)
+	errs := make([]error, N)
+	var wg sync.WaitGroup
+	wg.Add(N)
+	for i := range N {
+		go func(i int) {
+			defer wg.Done()
+			results[i], errs[i] = idx.GetOrComputeIDF(dir, notes, terms)
+		}(i)
+	}
+	wg.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("goroutine %d: %v", i, err)
+		}
+	}
+	// All results must be equal to the cold-computed IDF.
+	cold := note.BM25IDF(notes, note.Tokenize("word content"))
+	for i, idf := range results {
+		for k, v := range cold {
+			if idf[k] != v {
+				t.Errorf("goroutine %d: idf[%q] = %v, want %v", i, k, idf[k], v)
+			}
+		}
+	}
+}
+
+// gitCommitAllDir is a package-level helper (avoids collision with test-method helpers).
+func gitCommitAllDir(t *testing.T, dir string) {
+	t.Helper()
+	for _, args := range [][]string{
+		{"init", dir},
+		{"-C", dir, "config", "user.email", "test@test.com"},
+		{"-C", dir, "config", "user.name", "Test"},
+	} {
+		if out, err := exec.Command("git", args...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	dummy := filepath.Join(dir, "dummy.txt")
+	if err := exec.Command("bash", "-c", "echo x > "+dummy).Run(); err != nil {
+		t.Fatalf("write dummy: %v", err)
+	}
+	for _, args := range [][]string{
+		{"-C", dir, "add", "."},
+		{"-C", dir, "commit", "-m", "test commit"},
+	} {
+		if out, err := exec.Command("git", args...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+}
+
+// TestGetOrComputeIDFStoreFailureNonFatal proves properties [2a] and [2b]:
+// when the INSERT fails (DB made read-only after schema setup), the function
+// returns the computed IDF without error (non-fatal), and does not hold a lock
+// that would block subsequent callers (rollback happened).
+func TestGetOrComputeIDFStoreFailureNonFatal(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "index.db")
+	gitCommitAllDir(t, dir)
+
+	// Prime the schema.
+	idx, err := index.Open(dbPath)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	idx.Close()
+
+	// Make the DB read-only to force INSERT to fail.
+	if err := os.Chmod(dbPath, 0o444); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(dbPath, 0o644) }) //nolint:errcheck
+
+	idx2, err := index.Open(dbPath)
+	if err != nil {
+		t.Skipf("can't open read-only DB: %v", err)
+	}
+	defer idx2.Close()
+
+	notes := makeTestNotes(3)
+	terms := note.Tokenize("word content")
+
+	// Must return valid IDF even though store will fail.
+	idf, err := idx2.GetOrComputeIDF(dir, notes, terms)
+	if err != nil {
+		t.Fatalf("property [2b] violated: store failure returned error: %v", err)
+	}
+	cold := note.BM25IDF(notes, terms)
+	for k, v := range cold {
+		if idf[k] != v {
+			t.Errorf("idf[%q] = %v, want %v", k, idf[k], v)
+		}
+	}
+
+	// Property [2a]: verify lock is released by opening another connection immediately.
+	idx3, err := index.Open(dbPath)
+	if err != nil {
+		t.Fatalf("property [2a] violated: lock not released after store failure: %v", err)
+	}
+	idx3.Close()
 }

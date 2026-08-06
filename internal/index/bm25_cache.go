@@ -1,6 +1,8 @@
 package index
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -33,18 +35,41 @@ func (idx *Index) GetOrComputeIDF(repoDir string, notes []*note.Note, terms []st
 		// Corrupt JSON — fall through to recompute.
 	}
 
-	// Cache miss or corrupt — compute full-corpus IDF and store it.
+	// Cache miss or corrupt — acquire exclusive lock, double-check, then compute and store.
+	// LevelSerializable maps to BEGIN EXCLUSIVE in modernc.org/sqlite, blocking concurrent writers.
+	tx, txErr := idx.db.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if txErr != nil {
+		// Can't acquire transaction — compute without caching.
+		return note.BM25IDF(notes, terms), nil
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	// Double-check: another process may have stored the result while we waited.
+	var raw2 string
+	if scanErr := tx.QueryRow(`SELECT idf_json FROM bm25_cache WHERE commit_hash = ?`, hash).Scan(&raw2); scanErr == nil {
+		fullIDF2 := make(map[string]float64)
+		if jsonErr := json.Unmarshal([]byte(raw2), &fullIDF2); jsonErr == nil {
+			tx.Rollback() //nolint:errcheck
+			return subsetIDF(fullIDF2, terms), nil
+		}
+	}
+
+	// Compute full-corpus IDF and store it under the exclusive lock.
 	allTerms := corpusTerms(notes)
 	fullIDF := note.BM25IDF(notes, allTerms)
 	b, jsonErr := json.Marshal(fullIDF)
 	if jsonErr != nil {
 		return subsetIDF(fullIDF, terms), fmt.Errorf("index.GetOrComputeIDF: marshal: %w", jsonErr)
 	}
-	if _, storeErr := idx.db.Exec(
+	if _, storeErr := tx.Exec(
 		`INSERT OR REPLACE INTO bm25_cache (commit_hash, idf_json) VALUES (?, ?)`,
 		hash, string(b),
 	); storeErr != nil {
 		// Non-fatal — return computed IDF even if we can't cache it.
+		return subsetIDF(fullIDF, terms), nil
+	}
+	if commitErr := tx.Commit(); commitErr != nil {
+		// Non-fatal — IDF is correct, just not cached.
 		return subsetIDF(fullIDF, terms), nil
 	}
 	return subsetIDF(fullIDF, terms), nil

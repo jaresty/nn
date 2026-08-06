@@ -53,11 +53,18 @@ type Index struct {
 }
 
 // Open opens (or creates) the index database at dbPath and ensures the schema exists.
+// SetMaxOpenConns(1) serializes all writes within a process; WAL mode allows concurrent
+// readers from other processes. busy_timeout lets writers from other processes wait
+// rather than failing immediately on lock contention.
 func Open(dbPath string) (*Index, error) {
-	db, err := sql.Open("sqlite", dbPath)
+	// busy_timeout must come before journal_mode in _pragma ordering; the driver
+	// sorts busy_timeout first per its documented behavior.
+	dsn := dbPath + "?_pragma=busy_timeout(10000)&_pragma=journal_mode(WAL)"
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("index.Open: %w", err)
 	}
+	db.SetMaxOpenConns(1)
 	if _, err := db.Exec(schema); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("index.Open: schema: %w", err)
