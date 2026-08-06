@@ -13,11 +13,12 @@ import (
 
 // bulkNewSpec is the JSON schema for each note in a bulk-new batch.
 type bulkNewSpec struct {
-	Title   string          `json:"title"`
-	Type    string          `json:"type"`
-	Content string          `json:"content"`
-	Tags    []string        `json:"tags"`
-	Links   []bulkNewLink   `json:"links"`
+	Title       string        `json:"title"`
+	Type        string        `json:"type"`
+	Content     string        `json:"content"`
+	Tags        []string      `json:"tags"`
+	Links       []bulkNewLink `json:"links"`
+	AppliesWhen string        `json:"applies_when"`
 }
 
 // bulkNewLink declares a link from this note to another note in the batch by index.
@@ -63,14 +64,15 @@ func newBulkNewCmd(state *rootState) *cobra.Command {
 					}
 				}
 				notes[i] = &note.Note{
-					ID:       note.GenerateID(),
-					Title:    s.Title,
-					Type:     typ,
-					Status:   note.StatusDraft,
-					Tags:     parsedTags,
-					Created:  now,
-					Modified: now,
-					Body:     s.Content,
+					ID:          note.GenerateID(),
+					Title:       s.Title,
+					Type:        typ,
+					Status:      note.StatusDraft,
+					Tags:        parsedTags,
+					Created:     now,
+					Modified:    now,
+					Body:        s.Content,
+					AppliesWhen: s.AppliesWhen,
 				}
 			}
 
