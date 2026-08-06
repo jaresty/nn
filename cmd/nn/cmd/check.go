@@ -118,10 +118,44 @@ func runRepresentationCheck(cmd *cobra.Command, state *rootState, n *note.Note) 
 	return nil
 }
 
+// findRepresentationRoot traverses same-representation outgoing links from start,
+// walking toward a type=model node. In representation subgraphs, non-root nodes
+// link outward toward the root (e.g. child refines root), so following outgoing
+// same-rep links from any child reaches the root.
+func findRepresentationRoot(start *note.Note, byID map[string]*note.Note, rep string) (*note.Note, error) {
+	visited := map[string]bool{}
+	cur := start
+	for {
+		if visited[cur.ID] {
+			return nil, fmt.Errorf("check: cycle detected — cannot resolve root from %s", start.ID)
+		}
+		visited[cur.ID] = true
+
+		if cur.Type == note.TypeModel {
+			return cur, nil
+		}
+
+		// Follow the first same-rep outgoing link.
+		var next *note.Note
+		for _, lnk := range cur.Links {
+			target, ok := byID[lnk.TargetID]
+			if ok && target.Representation == rep {
+				next = target
+				break
+			}
+		}
+		if next == nil {
+			return nil, fmt.Errorf("check: no type:model root reachable via same-representation links from %s", start.ID)
+		}
+		cur = next
+	}
+}
+
 func newCheckCmd(state *rootState) *cobra.Command {
 	var (
 		as                string
 		setRepresentation bool
+		root              string
 	)
 
 	cmd := &cobra.Command{
@@ -148,7 +182,7 @@ func newCheckCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("check: unknown representation %q (known: ontology, taxonomy, axiom)", rep)
 			}
 
-			// Load all notes to build the ID lookup map.
+			// Load all notes to build the ID lookup map and inbound map.
 			all, err := state.backend.List()
 			if err != nil {
 				return fmt.Errorf("check: %w", err)
@@ -156,6 +190,15 @@ func newCheckCmd(state *rootState) *cobra.Command {
 			byID := make(map[string]*note.Note, len(all))
 			for _, nn := range all {
 				byID[nn.ID] = nn
+			}
+
+			if root == "auto" {
+				found, findErr := findRepresentationRoot(n, byID, rep)
+				if findErr != nil {
+					return findErr
+				}
+				n = found
+				id = found.ID
 			}
 
 			violations := checkRepresentationGraph(n, byID, rep)
@@ -184,5 +227,6 @@ func newCheckCmd(state *rootState) *cobra.Command {
 
 	cmd.Flags().StringVar(&as, "as", "", "Override representation type for validation (ontology|taxonomy|axiom)")
 	cmd.Flags().BoolVar(&setRepresentation, "set-representation", false, "Stamp representation field on note after passing validation")
+	cmd.Flags().StringVar(&root, "root", "", "Resolve representation root automatically via backlinks before validating (use: --root auto)")
 	return cmd
 }
