@@ -6,12 +6,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"sort"
 
 	"github.com/jaresty/nn/internal/note"
 )
 
-const fieldIDFCacheVersion = "field-idf-v2"
+const fieldIDFCacheVersion = "field-idf-v3"
+const fieldIDFCacheEntriesPerRepo = 8
 
 // GetOrComputeFieldIDF returns the per-field BM25 IDF struct for the given notes corpus.
 // It caches the result in SQLite using a versioned HEAD and corpus fingerprint.
@@ -25,7 +27,8 @@ func (idx *Index) GetOrComputeFieldIDF(repoDir string, notes []*note.Note, inbou
 	if err != nil {
 		return note.BM25FieldIDF(notes, inbound), nil
 	}
-	cacheKey := fieldIDFCacheKey(head, notes, inbound)
+	repoPrefix := fieldIDFRepoPrefix(repoDir)
+	cacheKey := fieldIDFCacheKey(repoDir, head, notes, inbound)
 
 	// Fast path: try cache without a lock.
 	if fidf, err := idx.getFieldIDFFromCache(cacheKey); err == nil {
@@ -61,13 +64,25 @@ func (idx *Index) GetOrComputeFieldIDF(repoDir string, notes []*note.Note, inbou
 	); storeErr != nil {
 		return fidf, nil
 	}
+	if pruneErr := pruneFieldIDFCacheTx(tx, repoPrefix); pruneErr != nil {
+		return fidf, nil
+	}
 	if commitErr := tx.Commit(); commitErr != nil {
 		return fidf, nil
 	}
 	return fidf, nil
 }
 
-func fieldIDFCacheKey(head string, notes []*note.Note, inbound map[string][]string) string {
+func fieldIDFRepoPrefix(repoDir string) string {
+	absolute, err := filepath.Abs(repoDir)
+	if err != nil {
+		absolute = filepath.Clean(repoDir)
+	}
+	repoHash := sha256.Sum256([]byte(absolute))
+	return fmt.Sprintf("%s:%x:", fieldIDFCacheVersion, repoHash)
+}
+
+func fieldIDFCacheKey(repoDir, head string, notes []*note.Note, inbound map[string][]string) string {
 	type cacheDocument struct {
 		ID      string   `json:"id"`
 		Title   string   `json:"title"`
@@ -89,7 +104,32 @@ func fieldIDFCacheKey(head string, notes []*note.Note, inbound map[string][]stri
 	}
 	encoded, _ := json.Marshal(documents)
 	fingerprint := sha256.Sum256(encoded)
-	return fmt.Sprintf("%s:%s:%x", fieldIDFCacheVersion, head, fingerprint)
+	return fmt.Sprintf("%s%s:%x", fieldIDFRepoPrefix(repoDir), head, fingerprint)
+}
+
+// pruneFieldIDFCacheTx retains the newest bounded set for one repository
+// namespace; rows belonging to other repositories and legacy formats remain untouched.
+func pruneFieldIDFCacheTx(tx *sql.Tx, repoPrefix string) error {
+	_, err := tx.Exec(`DELETE FROM bm25_field_cache
+		WHERE commit_hash LIKE ?
+		AND rowid NOT IN (
+			SELECT rowid FROM bm25_field_cache
+			WHERE commit_hash LIKE ?
+			ORDER BY rowid DESC LIMIT ?
+		)`, repoPrefix+"%", repoPrefix+"%", fieldIDFCacheEntriesPerRepo)
+	return err
+}
+
+func (idx *Index) pruneFieldIDFCache(repoPrefix string) error {
+	tx, err := idx.db.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	if err := pruneFieldIDFCacheTx(tx, repoPrefix); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // GetOrComputeFieldIDFPath is a convenience wrapper that opens the index at dbPath,

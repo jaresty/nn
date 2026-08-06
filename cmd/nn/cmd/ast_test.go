@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -46,7 +47,6 @@ func TestAstJSON(t *testing.T) {
 		t.Error("expected at least one symbol in JSON output")
 	}
 }
-
 
 func TestAstRefs(t *testing.T) {
 	_, execute := setupNotebook(t)
@@ -126,7 +126,7 @@ func TestAstRefsDefaultRootIsFileDir(t *testing.T) {
 		t.Errorf("expected bm25.go matches without explicit --root:\n%s", out)
 	}
 	// Summary must show at least 1 file scanned (not 0).
-	if strings.Contains(out, "0 files scanned") {
+	if regexp.MustCompile(`\b0 files scanned\b`).MatchString(out) {
 		t.Errorf("default root scanned 0 files — not defaulting to file dir:\n%s", out)
 	}
 }

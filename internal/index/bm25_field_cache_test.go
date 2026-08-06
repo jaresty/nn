@@ -1,6 +1,8 @@
 package index
 
 import (
+	"fmt"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -117,25 +119,124 @@ func TestGetOrComputeFieldIDF_TransactionRoundtrip(t *testing.T) {
 // property [5]: empty repoDir (no git HEAD) returns correct value without caching.
 func TestFieldIDFCacheKeyIncludesVersionCorpusAndInbound(t *testing.T) {
 	notes := makeTestNotes()
-	base := fieldIDFCacheKey("head", notes, nil)
+	base := fieldIDFCacheKey("/repo", "head", notes, nil)
 	if base == "head" {
 		t.Fatal("cache key must invalidate legacy commit-only rows")
 	}
 
 	changedNotes := makeTestNotes()
 	changedNotes[0].Title = "dirty working tree title"
-	if got := fieldIDFCacheKey("head", changedNotes, nil); got == base {
+	if got := fieldIDFCacheKey("/repo", "head", changedNotes, nil); got == base {
 		t.Fatal("cache key ignored dirty corpus content")
 	}
 
 	inbound := map[string][]string{"n1": {"new annotation"}}
-	if got := fieldIDFCacheKey("head", notes, inbound); got == base {
+	if got := fieldIDFCacheKey("/repo", "head", notes, inbound); got == base {
 		t.Fatal("cache key ignored inbound annotations")
 	}
 
 	subset := notes[:1]
-	if got := fieldIDFCacheKey("head", subset, nil); got == base {
+	if got := fieldIDFCacheKey("/repo", "head", subset, nil); got == base {
 		t.Fatal("cache key ignored corpus identity")
+	}
+}
+
+func TestFieldIDFCacheRejectsLegacyAndChangedCorpusRows(t *testing.T) {
+	idx, err := Open(filepath.Join(t.TempDir(), "idx.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer idx.Close()
+	notes := makeTestNotes()
+	fidf := note.BM25FieldIDF(notes, nil)
+	if err := idx.storeFieldIDF("head", fidf); err != nil {
+		t.Fatal(err)
+	}
+	current := fieldIDFCacheKey("/repo", "head", notes, nil)
+	if _, err := idx.getFieldIDFFromCache(current); err == nil {
+		t.Fatal("legacy commit-only row satisfied current cache key")
+	}
+	if err := idx.storeFieldIDF(current, fidf); err != nil {
+		t.Fatal(err)
+	}
+	changed := makeTestNotes()
+	changed[0].Body = "dirty body"
+	if _, err := idx.getFieldIDFFromCache(fieldIDFCacheKey("/repo", "head", changed, nil)); err == nil {
+		t.Fatal("changed corpus reused stale cache row")
+	}
+}
+
+func TestGetOrComputeFieldIDFRejectsLegacyAndTracksDirtyCorpus(t *testing.T) {
+	repo := t.TempDir()
+	for _, args := range [][]string{{"init"}, {"config", "user.email", "test@example.com"}, {"config", "user.name", "Test"}, {"commit", "--allow-empty", "-m", "initial"}} {
+		cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v: %s", args, err, out)
+		}
+	}
+	idx, err := Open(filepath.Join(t.TempDir(), "idx.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer idx.Close()
+	head, err := headCommitHash(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := idx.storeFieldIDF(head, note.FieldIDF{Title: map[string]float64{"legacy": 99}}); err != nil {
+		t.Fatal(err)
+	}
+
+	notes := makeTestNotes()
+	first, err := idx.GetOrComputeFieldIDF(repo, notes, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Title["alpha"] == 0 || first.Title["legacy"] != 0 {
+		t.Fatalf("legacy cache row reused: %#v", first.Title)
+	}
+
+	notes[0].Title = "dirtyterm"
+	second, err := idx.GetOrComputeFieldIDF(repo, notes, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.Title["dirtyterm"] == 0 || second.Title["alpha"] == first.Title["alpha"] {
+		t.Fatalf("dirty corpus did not recompute IDF: %#v", second.Title)
+	}
+}
+
+func TestPruneFieldIDFCacheIsBoundedAndRepositoryScoped(t *testing.T) {
+	idx, err := Open(filepath.Join(t.TempDir(), "idx.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer idx.Close()
+	prefixA := fieldIDFRepoPrefix("/repo/a")
+	prefixB := fieldIDFRepoPrefix("/repo/b")
+	for i := 0; i < fieldIDFCacheEntriesPerRepo+3; i++ {
+		if err := idx.storeFieldIDF(fmt.Sprintf("%sentry-%02d", prefixA, i), note.FieldIDF{}); err != nil {
+			t.Fatal(err)
+		}
+		if err := idx.storeFieldIDF(fmt.Sprintf("%sentry-%02d", prefixB, i), note.FieldIDF{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := idx.pruneFieldIDFCache(prefixA); err != nil {
+		t.Fatal(err)
+	}
+	var countA, countB int
+	if err := idx.db.QueryRow(`SELECT COUNT(*) FROM bm25_field_cache WHERE commit_hash LIKE ?`, prefixA+"%").Scan(&countA); err != nil {
+		t.Fatal(err)
+	}
+	if err := idx.db.QueryRow(`SELECT COUNT(*) FROM bm25_field_cache WHERE commit_hash LIKE ?`, prefixB+"%").Scan(&countB); err != nil {
+		t.Fatal(err)
+	}
+	if countA != fieldIDFCacheEntriesPerRepo {
+		t.Fatalf("repo A rows=%d want=%d", countA, fieldIDFCacheEntriesPerRepo)
+	}
+	if countB != fieldIDFCacheEntriesPerRepo+3 {
+		t.Fatalf("pruning repo A changed repo B rows: %d", countB)
 	}
 }
 

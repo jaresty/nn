@@ -365,6 +365,8 @@ func bm25RRFPerField(corpus, candidates []*Note, fidf FieldIDF, query string, in
 				ranked = append(ranked, fs{id: n.ID, score: score})
 			}
 		}
+		// Preserve the historical candidate-sequence-dependent permutation for
+		// equal scores. Changing tie semantics is intentionally a separate decision.
 		for i := 0; i < len(ranked)-1; i++ {
 			for j := i + 1; j < len(ranked); j++ {
 				if ranked[j].score > ranked[i].score {

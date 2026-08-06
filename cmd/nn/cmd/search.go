@@ -2,13 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"sort"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/spf13/cobra"
-
-	"github.com/jaresty/nn/internal/note"
 )
 
 // newSearchCmd searches notes using BM25 ranking.
@@ -20,67 +18,43 @@ func newSearchCmd(state *rootState) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "search <query>",
-		Short: "Search notes by title and body with BM25 ranking",
+		Short: "Alias for list --search",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			query := args[0]
-			notes, err := state.backend.List()
-			if err != nil {
-				return fmt.Errorf("search: %w", err)
-			}
-
-			// Apply explicit filters before shared relevance scoring.
-			var candidates []*note.Note
-			for _, n := range notes {
-				if filterStatus != "" && string(n.Status) != filterStatus {
-					continue
+			listCmd := newListCmd(state)
+			listCmd.SetOut(cmd.OutOrStdout())
+			listCmd.SetErr(cmd.ErrOrStderr())
+			listCmd.SetContext(cmd.Context())
+			setFlag := func(name, value string) error {
+				if err := listCmd.Flags().Set(name, value); err != nil {
+					return fmt.Errorf("search: set --%s: %w", name, err)
 				}
-				candidates = append(candidates, n)
+				return nil
 			}
-
-			scores := RankedByQuery(notes, candidates, query, state.notebookDir)
-			filtered := make([]*note.Note, 0, len(candidates))
-			for _, n := range candidates {
-				if scores[n.ID] > 0 {
-					filtered = append(filtered, n)
-				}
+			if err := setFlag("search", args[0]); err != nil {
+				return err
 			}
-
-			// Default: sort by RRF score descending.
-			sort.SliceStable(filtered, func(i, j int) bool {
-				return scores[filtered[i].ID] > scores[filtered[j].ID]
-			})
-
-			switch sortBy {
-			case "modified":
-				sort.Slice(filtered, func(i, j int) bool {
-					return filtered[i].Modified.After(filtered[j].Modified)
-				})
-			case "title":
-				sort.Slice(filtered, func(i, j int) bool {
-					return filtered[i].Title < filtered[j].Title
-				})
-			case "created":
-				sort.Slice(filtered, func(i, j int) bool {
-					return filtered[i].Created.After(filtered[j].Created)
-				})
-			}
-
-			if limit > 0 && len(filtered) > limit {
-				filtered = filtered[:limit]
-			}
-
 			if jsonOut {
-				return printSearchJSON(cmd, filtered, notes, query, scores, nil, nil, false)
-			}
-			w := outWriter(cmd)
-			for _, n := range filtered {
-				fmt.Fprintf(w, "%s  %s\n", n.ID, n.Title)
-				if ex := extractExcerpt(n.Body, query); ex != "" {
-					fmt.Fprintf(w, "  %s\n", ex)
+				if err := setFlag("json", "true"); err != nil {
+					return err
 				}
 			}
-			return nil
+			if cmd.Flags().Changed("sort") {
+				if err := setFlag("sort", sortBy); err != nil {
+					return err
+				}
+			}
+			if cmd.Flags().Changed("limit") {
+				if err := setFlag("limit", strconv.Itoa(limit)); err != nil {
+					return err
+				}
+			}
+			if cmd.Flags().Changed("status") {
+				if err := setFlag("status", filterStatus); err != nil {
+					return err
+				}
+			}
+			return listCmd.RunE(listCmd, nil)
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Machine-readable JSON output")
