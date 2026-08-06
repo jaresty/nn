@@ -22,6 +22,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 	var notesPerMatch int
 	var traceFlag bool
 	var maxMatches int
+	var contextReport bool
 
 	cmd := &cobra.Command{
 		Use:   "grep <pattern> [path...]",
@@ -115,6 +116,9 @@ func newGrepCmd(state *rootState) *cobra.Command {
 			}
 
 			if len(matches) == 0 {
+				if contextReport {
+					fmt.Fprintln(outWriter(cmd), "Context report:\ncontext blocks: 0\ngross context lines: 0\nunique context lines: 0\noverlap context lines: 0")
+				}
 				return nil
 			}
 
@@ -229,6 +233,21 @@ func newGrepCmd(state *rootState) *cobra.Command {
 			if truncated > 0 {
 				fmt.Fprintf(w, "truncated: %d more matches not shown (use --max-matches to adjust)\n", truncated)
 			}
+			if contextReport {
+				type sourceLine struct {
+					file string
+					line int
+				}
+				grossLines := 0
+				uniqueLines := make(map[sourceLine]struct{})
+				for _, m := range matches {
+					grossLines += len(m.context)
+					for i := range m.context {
+						uniqueLines[sourceLine{file: m.file, line: m.contextStart + i}] = struct{}{}
+					}
+				}
+				fmt.Fprintf(w, "\nContext report:\ncontext blocks: %d\ngross context lines: %d\nunique context lines: %d\noverlap context lines: %d\n", len(matches), grossLines, len(uniqueLines), grossLines-len(uniqueLines))
+			}
 			printResolveInstruction(w, hasUnread)
 			return nil
 		},
@@ -238,6 +257,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 	cmd.Flags().IntVar(&notesPerMatch, "notes-per-match", 2, "Maximum related notes to show per match")
 	cmd.Flags().IntVar(&maxMatches, "max-matches", 50, "Maximum number of matches to show (0 = unlimited)")
 	cmd.Flags().BoolVar(&traceFlag, "trace", false, "Invoke nn trace inline for each traceable matched file")
+	cmd.Flags().BoolVar(&contextReport, "context-report", false, "Report source context block and overlap metrics")
 	return cmd
 }
 

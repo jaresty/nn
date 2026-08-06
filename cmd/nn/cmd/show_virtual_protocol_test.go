@@ -7,6 +7,14 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+func TestShowVirtualCLIReferenceDocumentsGrepContextReport(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil || !strings.Contains(out, "nn grep") || !strings.Contains(out, "--context-report") {
+		t.Fatalf("virtual CLI reference missing grep context report: err=%v output=%q", err, out)
+	}
+}
+
 // Assertion: nn show --global always includes virtual protocols even when notebook is empty.
 func TestShowGlobalVirtualAlwaysPresent(t *testing.T) {
 	_, execute := setupNotebook(t)
