@@ -1,0 +1,133 @@
+# Search benchmark fixture.
+# Each note has a stable ID, controlled vocabulary, and a known status.
+# Queries have graded relevance judgments: 3=exact answer, 2=useful, 1=related, 0=irrelevant.
+
+notes:
+  - id: bench-001
+    title: "negative zero denominator behavior"
+    type: concept
+    body: "When the denominator is negative or zero, division produces undefined results. Special handling required."
+    tags: ["math", "arithmetic"]
+    status: draft
+
+  - id: bench-002
+    title: "division edge cases overview"
+    type: concept
+    body: "This note surveys division edge cases including negative denominators, zero denominators, overflow, and precision loss. See bench-001 for the definitive denominator behavior note."
+    tags: ["math", "arithmetic", "division", "negative", "zero", "denominator", "behavior"]
+    status: permanent
+
+  - id: bench-003
+    title: "formal representation batch graph edits"
+    type: concept
+    body: "Batch graph edits allow multiple notes and edges to be written in one atomic commit using a YAML manifest."
+    tags: ["graph", "batch", "representation"]
+    status: reviewed
+
+  - id: bench-004
+    title: "graph apply manifest format"
+    type: concept
+    body: "The graph apply command accepts a YAML manifest with notes and edges sections. Keys resolve to IDs within the batch."
+    tags: ["graph", "manifest"]
+    status: draft
+
+  - id: bench-005
+    title: "migration authority holder domain assignment"
+    type: concept
+    body: "The migration authority holder is responsible for domain assignment. Holders must be confirmed before migration begins."
+    tags: ["migration", "authority", "domain"]
+    status: draft
+
+  - id: bench-006
+    title: "migration process overview"
+    type: concept
+    body: "Migration involves authority, domain, and holder coordination. See bench-005 for the definitive authority holder note."
+    tags: ["migration", "authority", "holder", "domain"]
+    status: permanent
+
+  - id: bench-007
+    title: "saved variables custom reports user trust"
+    type: concept
+    body: "Users can save custom report variables. Trust levels control which saved variables are visible."
+    tags: ["reports", "variables", "trust"]
+    status: reviewed
+
+  - id: bench-008
+    title: "report configuration and saved state"
+    type: concept
+    body: "Reports can be configured with saved variables. User trust determines access to custom report fields."
+    tags: ["reports", "configuration", "saved", "variables", "custom", "user", "trust"]
+    status: permanent
+
+  - id: bench-009
+    title: "LaTeX Mermaid rendering protocol"
+    type: protocol
+    body: "LaTeX formulas and Mermaid diagrams are rendered inline. Use the render flag to enable. Mermaid blocks require fenced code with mermaid language tag."
+    tags: ["latex", "mermaid", "rendering"]
+    status: reviewed
+
+  - id: bench-010
+    title: "diagram and formula rendering notes"
+    type: concept
+    body: "Various rendering notes for LaTeX and Mermaid. Covers setup and configuration."
+    tags: ["rendering", "latex", "mermaid", "diagrams", "formulas"]
+    status: permanent
+
+  - id: bench-011
+    title: "session cadence follow-up documentation backup"
+    type: observation
+    body: "John handles session cadence, follow-up items, documentation, and backup procedures."
+    tags: ["cadence", "followup", "documentation", "backup"]
+    status: draft
+
+  - id: bench-012
+    title: "team coordination and documentation"
+    type: concept
+    body: "Team coordination covers cadence, follow-up, documentation, and backup. John leads these sessions."
+    tags: ["team", "cadence", "documentation", "backup", "followup"]
+    status: permanent
+
+  - id: bench-013
+    title: "unrelated topic about network configuration"
+    type: concept
+    body: "Network configuration involves routing tables, firewall rules, and DNS settings."
+    tags: ["network", "configuration"]
+    status: draft
+
+  - id: bench-014
+    title: "another unrelated note about calendar scheduling"
+    type: observation
+    body: "Calendar scheduling involves time zones, recurring events, and conflict detection."
+    tags: ["calendar", "scheduling"]
+    status: draft
+
+queries:
+  - query: "negative zero denominator behavior"
+    judgments:
+      bench-001: 3  # exact title match
+      bench-002: 1  # related but broad
+
+  - query: "formal representation batch graph edits"
+    judgments:
+      bench-003: 3  # exact title match
+      bench-004: 2  # related
+
+  - query: "migration authority holder domain"
+    judgments:
+      bench-005: 3  # exact title match
+      bench-006: 1  # related but broad
+
+  - query: "saved variables custom reports user trust"
+    judgments:
+      bench-007: 3  # exact title match
+      bench-008: 1  # related but broad
+
+  - query: "LaTeX Mermaid"
+    judgments:
+      bench-009: 3  # protocol note — exact match
+      bench-010: 2  # related rendering note
+
+  - query: "John cadence follow-up documentation backup"
+    judgments:
+      bench-011: 3  # exact match
+      bench-012: 1  # related but broad
