@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -566,17 +567,37 @@ func appendAccessLog(cfgDir, id string) {
 	fmt.Fprintf(f, "%s %d show %s\n", time.Now().UTC().Format(time.RFC3339), os.Getppid(), id)
 }
 
-// findGoverningProtocols returns all notes that link to targetID with type "governs".
+// findGoverningProtocols returns protocols that directly govern targetID plus
+// protocols inherited from its uniquely resolvable representation root.
 func findGoverningProtocols(targetID string, all []*note.Note) []*note.Note {
+	byID := make(map[string]*note.Note, len(all))
+	inbound := make(map[string][]*note.Note)
+	for _, n := range all {
+		byID[n.ID] = n
+		for _, lnk := range n.Links {
+			inbound[lnk.TargetID] = append(inbound[lnk.TargetID], n)
+		}
+	}
+
+	targets := map[string]bool{targetID: true}
+	if target := byID[targetID]; target != nil && target.Representation != "" {
+		if root, err := findRepresentationRoot(target, byID, inbound, target.Representation); err == nil {
+			targets[root.ID] = true
+		}
+	}
+
+	seen := make(map[string]bool)
 	var result []*note.Note
 	for _, n := range all {
 		for _, lnk := range n.Links {
-			if lnk.TargetID == targetID && lnk.Type == "governs" {
+			if targets[lnk.TargetID] && lnk.Type == "governs" && !seen[n.ID] {
 				result = append(result, n)
+				seen[n.ID] = true
 				break
 			}
 		}
 	}
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
 	return result
 }
 

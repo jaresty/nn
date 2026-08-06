@@ -131,22 +131,30 @@ func findRepresentationRoot(start *note.Note, byID map[string]*note.Note, inboun
 		}
 		visited[cur.ID] = true
 
-		if cur.Type == note.TypeModel {
-			return cur, nil
-		}
-
-		// Follow the first same-rep inbound link (a note that links TO cur).
-		var next *note.Note
+		// A representation node has at most one same-representation parent. A model
+		// is a root only when it has none; an inbound parent would make it an
+		// intermediate model or part of a cycle, neither of which is a unique root.
+		parents := make(map[string]*note.Note)
 		for _, parent := range inbound[cur.ID] {
 			if parent.Representation == rep {
-				next = parent
-				break
+				parents[parent.ID] = parent
 			}
 		}
-		if next == nil {
+		if cur.Type == note.TypeModel {
+			if len(parents) == 0 {
+				return cur, nil
+			}
+			return nil, fmt.Errorf("check: type:model %s has same-representation inbound ancestry", cur.ID)
+		}
+		if len(parents) == 0 {
 			return nil, fmt.Errorf("check: no type:model root reachable via same-representation inbound links from %s", start.ID)
 		}
-		cur = next
+		if len(parents) > 1 {
+			return nil, fmt.Errorf("check: ambiguous representation ancestry at %s — %d same-representation parents", cur.ID, len(parents))
+		}
+		for _, parent := range parents {
+			cur = parent
+		}
 	}
 }
 

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -105,7 +106,94 @@ func TestShowNoGoverningProtocolsJSON(t *testing.T) {
 	}
 }
 
-// Assertion: --linked-from shows governing protocols for each note displayed.
+// Assertion: governing protocols include a uniquely resolved representation root only.
+func TestFindGoverningProtocolsIncludesUniqueRepresentationRoot(t *testing.T) {
+	root := newTestNoteForCLI("root", "Root", note.TypeModel)
+	root.Representation = "ontology"
+	child := newTestNoteForCLI("child", "Child", note.TypeConcept)
+	child.Representation = "ontology"
+	root.Links = []note.Link{{TargetID: child.ID, Type: "extends", Annotation: "contains child"}}
+
+	direct := newTestNoteForCLI("proto-a", "Direct", note.TypeProtocol)
+	direct.Links = []note.Link{{TargetID: child.ID, Type: "governs", Annotation: "direct"}}
+	inherited := newTestNoteForCLI("proto-b", "Inherited", note.TypeProtocol)
+	inherited.Links = []note.Link{{TargetID: root.ID, Type: "governs", Annotation: "root"}}
+	both := newTestNoteForCLI("proto-c", "Both", note.TypeProtocol)
+	both.Links = []note.Link{
+		{TargetID: child.ID, Type: "governs", Annotation: "direct"},
+		{TargetID: root.ID, Type: "governs", Annotation: "root"},
+	}
+
+	plain := newTestNoteForCLI("plain", "Plain", note.TypeConcept)
+	plainDirect := newTestNoteForCLI("proto-d", "Plain direct", note.TypeProtocol)
+	plainDirect.Links = []note.Link{{TargetID: plain.ID, Type: "governs", Annotation: "plain"}}
+
+	rootless := newTestNoteForCLI("rootless", "Rootless", note.TypeConcept)
+	rootless.Representation = "ontology"
+	rootlessDirect := newTestNoteForCLI("proto-e", "Rootless direct", note.TypeProtocol)
+	rootlessDirect.Links = []note.Link{{TargetID: rootless.ID, Type: "governs", Annotation: "rootless"}}
+
+	ambiguous := newTestNoteForCLI("ambiguous", "Ambiguous", note.TypeConcept)
+	ambiguous.Representation = "ontology"
+	parentA := newTestNoteForCLI("parent-a", "Parent A", note.TypeModel)
+	parentA.Representation = "ontology"
+	parentA.Links = []note.Link{{TargetID: ambiguous.ID, Type: "extends", Annotation: "parent A"}}
+	parentB := newTestNoteForCLI("parent-b", "Parent B", note.TypeModel)
+	parentB.Representation = "ontology"
+	parentB.Links = []note.Link{{TargetID: ambiguous.ID, Type: "extends", Annotation: "parent B"}}
+	ambiguousInherited := newTestNoteForCLI("proto-f", "Ambiguous inherited", note.TypeProtocol)
+	ambiguousInherited.Links = []note.Link{{TargetID: parentA.ID, Type: "governs", Annotation: "ambiguous root"}}
+	ambiguousDirect := newTestNoteForCLI("proto-g", "Ambiguous direct", note.TypeProtocol)
+	ambiguousDirect.Links = []note.Link{{TargetID: ambiguous.ID, Type: "governs", Annotation: "direct"}}
+
+	cycleA := newTestNoteForCLI("cycle-a", "Cycle A", note.TypeConcept)
+	cycleA.Representation = "ontology"
+	cycleB := newTestNoteForCLI("cycle-b", "Cycle B", note.TypeConcept)
+	cycleB.Representation = "ontology"
+	cycleA.Links = []note.Link{{TargetID: cycleB.ID, Type: "extends", Annotation: "cycle"}}
+	cycleB.Links = []note.Link{{TargetID: cycleA.ID, Type: "extends", Annotation: "cycle"}}
+	cycleDirect := newTestNoteForCLI("proto-h", "Cycle direct", note.TypeProtocol)
+	cycleDirect.Links = []note.Link{{TargetID: cycleA.ID, Type: "governs", Annotation: "direct"}}
+
+	modelCycleRoot := newTestNoteForCLI("model-cycle-root", "Model cycle root", note.TypeModel)
+	modelCycleRoot.Representation = "ontology"
+	modelCycleChild := newTestNoteForCLI("model-cycle-child", "Model cycle child", note.TypeConcept)
+	modelCycleChild.Representation = "ontology"
+	modelCycleRoot.Links = []note.Link{{TargetID: modelCycleChild.ID, Type: "extends", Annotation: "down"}}
+	modelCycleChild.Links = []note.Link{{TargetID: modelCycleRoot.ID, Type: "extends", Annotation: "back"}}
+	modelCycleInherited := newTestNoteForCLI("proto-i", "Model cycle inherited", note.TypeProtocol)
+	modelCycleInherited.Links = []note.Link{{TargetID: modelCycleRoot.ID, Type: "governs", Annotation: "root"}}
+	modelCycleDirect := newTestNoteForCLI("proto-j", "Model cycle direct", note.TypeProtocol)
+	modelCycleDirect.Links = []note.Link{{TargetID: modelCycleChild.ID, Type: "governs", Annotation: "direct"}}
+
+	ids := func(protocols []*note.Note) []string {
+		result := make([]string, len(protocols))
+		for i, protocol := range protocols {
+			result[i] = protocol.ID
+		}
+		return result
+	}
+	got := map[string][]string{
+		"unique root": ids(findGoverningProtocols(child.ID, []*note.Note{both, inherited, child, root, direct})),
+		"plain":       ids(findGoverningProtocols(plain.ID, []*note.Note{root, inherited, plain, plainDirect})),
+		"rootless":    ids(findGoverningProtocols(rootless.ID, []*note.Note{rootlessDirect, rootless})),
+		"ambiguous":   ids(findGoverningProtocols(ambiguous.ID, []*note.Note{ambiguousInherited, parentA, ambiguousDirect, ambiguous, parentB})),
+		"cycle":       ids(findGoverningProtocols(cycleA.ID, []*note.Note{cycleB, cycleDirect, cycleA})),
+		"model cycle": ids(findGoverningProtocols(modelCycleChild.ID, []*note.Note{modelCycleRoot, modelCycleInherited, modelCycleChild, modelCycleDirect})),
+	}
+	want := map[string][]string{
+		"unique root": {"proto-a", "proto-b", "proto-c"},
+		"plain":       {"proto-d"},
+		"rootless":    {"proto-e"},
+		"ambiguous":   {"proto-g"},
+		"cycle":       {"proto-h"},
+		"model cycle": {"proto-j"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("governing protocols = %#v, want %#v", got, want)
+	}
+}
+
 func TestShowLinkedFromGoverningProtocols(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	proto := newTestNoteForCLI(note.GenerateID(), "Linked-From Protocol", note.TypeProtocol)
