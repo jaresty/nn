@@ -39,4 +39,7 @@ type Backend interface {
 	UpdateLink(fromID, toID string, annotation, linkType, linkStatus *string) error
 	BulkUpdateLinks(fromID string, updates []LinkUpdate) error
 	BulkWrite(notes []*note.Note) error
+	// BulkApply writes newNotes (creating them) and updateNotes (overwriting existing)
+	// in a single git commit. Use when notes and cross-note link edits must be atomic.
+	BulkApply(newNotes []*note.Note, updateNotes []*note.Note) error
 }

@@ -30,3 +30,4 @@ func (m *mockBackend) Update(n *note.Note, since *time.Time) error              
 func (m *mockBackend) UpdateLink(from, to string, ann, typ, status *string) error        { return nil }
 func (m *mockBackend) BulkUpdateLinks(from string, updates []backend.LinkUpdate) error    { return nil }
 func (m *mockBackend) BulkWrite(notes []*note.Note) error                                 { return nil }
+func (m *mockBackend) BulkApply(newNotes []*note.Note, updateNotes []*note.Note) error    { return nil }

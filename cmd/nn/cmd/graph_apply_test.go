@@ -232,6 +232,34 @@ edges:
 	}
 }
 
+// property [1b]: graph apply --commit with an existing-source edge produces exactly one git commit
+func TestGraphApplyExistingEdgeIsAtomic(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	existing := newTestNoteForCLI(note.GenerateID(), "Pre-existing", note.TypeConcept)
+	writeNoteFile(t, nbDir, existing)
+	commitNoteFile(t, nbDir, existing)
+
+	before := gitCommitCount(t, nbDir)
+
+	manifest := "notes:\n  - key: fresh\n    title: \"Fresh Note\"\n    type: concept\n    content: \"body\"\nedges:\n  - from: \"existing:" + existing.ID + "\"\n    to: fresh\n    type: supports\n    annotation: \"pre-existing supports fresh\"\n"
+	mf := filepath.Join(t.TempDir(), "manifest.yaml")
+	if err := os.WriteFile(mf, []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("graph", "apply", mf, "--commit")
+	if err != nil {
+		t.Fatalf("graph apply --commit: %v\noutput: %s", err, out)
+	}
+
+	after := gitCommitCount(t, nbDir)
+	if after-before != 1 {
+		t.Errorf("property [1b]: expected exactly 1 new commit, got %d (before=%d after=%d)", after-before, before, after)
+	}
+}
+
+
 // property [4]: missing --dry-run and --commit returns error
 func TestGraphApplyRequiresMode(t *testing.T) {
 	_, execute := setupNotebook(t)

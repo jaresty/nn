@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -115,6 +116,17 @@ func commitNoteFile(t *testing.T, nbDir string, n *note.Note) {
 	}
 	run("add", n.Filename())
 	run("commit", "-m", "test: commit note "+n.ID)
+}
+
+func gitCommitCount(t *testing.T, dir string) int {
+	t.Helper()
+	cmd := exec.Command("git", "log", "--oneline")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git log: %v", err)
+	}
+	return strings.Count(string(out), "\n")
 }
 
 func mustJSON(t *testing.T, s string, v any) {

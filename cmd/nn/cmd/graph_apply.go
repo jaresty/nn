@@ -130,14 +130,13 @@ func newGraphApplyCmd(state *rootState) *cobra.Command {
 				return nil
 			}
 
-			// Commit: write notes, then add links.
-			// Attach outgoing links to the note objects so BulkWrite commits them together.
-			fromIDToNote := make(map[string]*note.Note, len(notes))
+			// Attach new-batch edges to their source note objects.
+			newIDToNote := make(map[string]*note.Note, len(notes))
 			for _, n := range notes {
-				fromIDToNote[n.ID] = n
+				newIDToNote[n.ID] = n
 			}
 			for _, e := range edges {
-				if src, ok := fromIDToNote[e.fromID]; ok {
+				if src, ok := newIDToNote[e.fromID]; ok {
 					src.Links = append(src.Links, note.Link{
 						TargetID:   e.toID,
 						Type:       e.linkType,
@@ -147,22 +146,35 @@ func newGraphApplyCmd(state *rootState) *cobra.Command {
 				}
 			}
 
-			if err := state.backend.BulkWrite(notes); err != nil {
-				return fmt.Errorf("graph apply: %w", err)
+			// Read and mutate existing-source notes so all writes land in one commit.
+			existingUpdates := make(map[string]*note.Note)
+			for _, e := range edges {
+				if newIDToNote[e.fromID] != nil {
+					continue // handled above
+				}
+				src, ok := existingUpdates[e.fromID]
+				if !ok {
+					var err error
+					src, err = state.backend.Read(e.fromID)
+					if err != nil {
+						return fmt.Errorf("graph apply: read existing note %s: %w", e.fromID, err)
+					}
+					existingUpdates[e.fromID] = src
+				}
+				src.Links = append(src.Links, note.Link{
+					TargetID:   e.toID,
+					Type:       e.linkType,
+					Annotation: e.annotation,
+					Status:     "draft",
+				})
+			}
+			updateNotes := make([]*note.Note, 0, len(existingUpdates))
+			for _, n := range existingUpdates {
+				updateNotes = append(updateNotes, n)
 			}
 
-			// Add edges whose from is an existing note (not in this batch).
-			newIDs := make(map[string]bool, len(notes))
-			for _, n := range notes {
-				newIDs[n.ID] = true
-			}
-			for _, e := range edges {
-				if newIDs[e.fromID] {
-					continue // already embedded in BulkWrite above
-				}
-				if err := state.backend.AddLink(e.fromID, e.toID, e.annotation, e.linkType, "draft"); err != nil {
-					return fmt.Errorf("graph apply: add link %s→%s: %w", e.fromID, e.toID, err)
-				}
+			if err := state.backend.BulkApply(notes, updateNotes); err != nil {
+				return fmt.Errorf("graph apply: %w", err)
 			}
 
 			for _, n := range notes {

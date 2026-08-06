@@ -698,3 +698,43 @@ func (b *Backend) BulkWrite(notes []*note.Note) error {
 	}
 	return b.commitBulkLocked(paths, fmt.Sprintf("note: bulk-new %d notes", len(notes)))
 }
+
+// BulkApply writes newNotes (with collision-avoidance) and updateNotes (overwriting existing)
+// in a single git commit. Use when notes and cross-note link edits must be atomic.
+func (b *Backend) BulkApply(newNotes []*note.Note, updateNotes []*note.Note) error {
+	if len(newNotes) == 0 && len(updateNotes) == 0 {
+		return nil
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	var paths []string
+	for _, n := range newNotes {
+		for {
+			if _, err := b.findByID(n.ID); err != nil {
+				break // no collision
+			}
+			n.ID = note.GenerateID()
+		}
+		data, err := n.Marshal()
+		if err != nil {
+			return fmt.Errorf("gitlocal.BulkApply: marshal new %s: %w", n.ID, err)
+		}
+		path := filepath.Join(b.dir, n.Filename())
+		if err := atomicWriteFile(path, data); err != nil {
+			return fmt.Errorf("gitlocal.BulkApply: write new %s: %w", n.ID, err)
+		}
+		paths = append(paths, path)
+	}
+	for _, n := range updateNotes {
+		data, err := n.Marshal()
+		if err != nil {
+			return fmt.Errorf("gitlocal.BulkApply: marshal update %s: %w", n.ID, err)
+		}
+		path := filepath.Join(b.dir, n.Filename())
+		if err := atomicWriteFile(path, data); err != nil {
+			return fmt.Errorf("gitlocal.BulkApply: write update %s: %w", n.ID, err)
+		}
+		paths = append(paths, path)
+	}
+	return b.commitBulkLocked(paths, fmt.Sprintf("note: graph apply %d note(s) %d update(s)", len(newNotes), len(updateNotes)))
+}
