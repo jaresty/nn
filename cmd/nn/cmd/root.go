@@ -49,6 +49,7 @@ Workflow guidance is embedded in the binary:
 		newSearchCmd(state),
 		newLinkCmd(state),
 		newBulkNewCmd(state),
+		newBulkUpdateCmd(state),
 		newBulkLinkCmd(state),
 		newUpdateLinkCmd(state),
 		newBulkUpdateLinkCmd(state),
