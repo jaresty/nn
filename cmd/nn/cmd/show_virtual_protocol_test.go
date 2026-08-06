@@ -155,6 +155,27 @@ func TestShowVirtualCLIReferenceGraphCommands(t *testing.T) {
 	}
 }
 
+func TestShowVirtualCLIReferenceGraphShowFilters(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-cli-reference: %v", err)
+	}
+	start := strings.Index(out, "**nn graph show**")
+	if start < 0 {
+		t.Fatal("virtual CLI reference missing graph show entry")
+	}
+	entry := out[start:]
+	if end := strings.Index(entry, "\n\n"); end >= 0 {
+		entry = entry[:end]
+	}
+	for _, flag := range []string{"--direction", "--links", "--status", "--representation"} {
+		if !strings.Contains(entry, flag) {
+			t.Fatalf("virtual graph show reference missing flag %s: %s", flag, entry)
+		}
+	}
+}
+
 // Assertion: virtual-nn-cli-reference surfaces nn trace as symbol-discovery alternative to grep.
 func TestShowVirtualCLIReferenceTrace(t *testing.T) {
 	_, execute := setupNotebook(t)

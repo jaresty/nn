@@ -324,11 +324,26 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	var focus string
 	var depth int
 	var format string
+	var direction string
+	var links string
+	var statuses string
+	var representation string
 
 	cmd := &cobra.Command{
 		Use:   "show",
 		Short: "Subgraph as structured data (LLM-facing)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			opts, err := newGraphShowTraversalOptions(direction, links, statuses, representation)
+			if err != nil {
+				return err
+			}
+			if focus == "" {
+				for _, flag := range []string{"direction", "links", "status", "representation"} {
+					if cmd.Flags().Changed(flag) {
+						return fmt.Errorf("graph show: --%s requires --focus", flag)
+					}
+				}
+			}
 			notes, err := state.backend.List()
 			if err != nil {
 				return fmt.Errorf("graph show: %w", err)
@@ -360,7 +375,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				if !ok {
 					return fmt.Errorf("graph show: note %q not found", focus)
 				}
-				entries := bfsDepth(root, byID, depth)
+				entries := graphShowBFS(root, byID, depth, opts)
 				visited := make(map[string]bool, len(entries))
 				for _, e := range entries {
 					visited[e.n.ID] = true
@@ -373,7 +388,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				sort.Slice(resultNodes, func(i, j int) bool { return resultNodes[i].ID < resultNodes[j].ID })
 				for _, e := range entries {
 					for _, lnk := range e.n.Links {
-						if visited[lnk.TargetID] {
+						if visited[lnk.TargetID] && opts.allowsLink(lnk.Type) {
 							resultEdges = append(resultEdges, showEdge{e.n.ID, lnk.TargetID, lnk.Annotation, lnk.Type})
 						}
 					}
@@ -416,10 +431,19 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				return enc.Encode(out)
 			}
 			if focus != "" {
-				// Build adjacency: from → []edge for tree rendering.
-				adj := make(map[string][]showEdge, len(resultEdges))
+				type treeEdge struct {
+					neighbor string
+					edge     showEdge
+					arrow    string
+				}
+				adj := make(map[string][]treeEdge, len(resultEdges))
 				for _, e := range resultEdges {
-					adj[e.From] = append(adj[e.From], e)
+					if opts.direction != "incoming" {
+						adj[e.From] = append(adj[e.From], treeEdge{e.To, e, "→"})
+					}
+					if opts.direction != "outgoing" {
+						adj[e.To] = append(adj[e.To], treeEdge{e.From, e, "←"})
+					}
 				}
 				rendered := make(map[string]bool)
 				var renderTree func(id, indent string)
@@ -432,11 +456,12 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 						fmt.Fprintf(w, "%s  %s\n", id, n.Title)
 					}
 					rendered[id] = true
-					for _, e := range adj[id] {
-						if rendered[e.To] {
+					for _, tree := range adj[id] {
+						if rendered[tree.neighbor] {
 							continue
 						}
-						target, ok := byID[e.To]
+						e := tree.edge
+						target, ok := byID[tree.neighbor]
 						if !ok {
 							continue
 						}
@@ -445,11 +470,11 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 							linkLabel = "link"
 						}
 						if e.Annotation != "" {
-							fmt.Fprintf(w, "%s  → [%s] %s  %s — %s\n", indent, linkLabel, e.To, target.Title, e.Annotation)
+							fmt.Fprintf(w, "%s  %s [%s] %s  %s — %s\n", indent, tree.arrow, linkLabel, tree.neighbor, target.Title, e.Annotation)
 						} else {
-							fmt.Fprintf(w, "%s  → [%s] %s  %s\n", indent, linkLabel, e.To, target.Title)
+							fmt.Fprintf(w, "%s  %s [%s] %s  %s\n", indent, tree.arrow, linkLabel, tree.neighbor, target.Title)
 						}
-						renderTree(e.To, indent+"  ")
+						renderTree(tree.neighbor, indent+"  ")
 					}
 				}
 				renderTree(focus, "")
@@ -464,6 +489,10 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&focus, "focus", "", "Center note ID for ego-graph")
 	cmd.Flags().IntVar(&depth, "depth", 2, "BFS depth from focus note")
 	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json")
+	cmd.Flags().StringVar(&direction, "direction", "outgoing", "Traversal direction: outgoing, incoming, or both")
+	cmd.Flags().StringVar(&links, "links", "", "Comma-separated link types to traverse")
+	cmd.Flags().StringVar(&statuses, "status", "", "Comma-separated note statuses to traverse")
+	cmd.Flags().StringVar(&representation, "representation", "", "Representation required for traversed notes")
 	return cmd
 }
 
@@ -657,7 +686,7 @@ func buildHTML(nodes []dotNode, edges []dotEdge, notesByID map[string]*note.Note
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, map[string]template.JS{
-		"D3":       template.JS(d3Bundle),
+		"D3":        template.JS(d3Bundle),
 		"GraphJSON": template.JS(graphData),
 	}); err != nil {
 		return nil, fmt.Errorf("execute graph template: %w", err)

@@ -86,12 +86,12 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"- Live machine-generated output (JSON, log, status) where a resource identifier for that " +
 			"system appears in the conversation above this action\n" +
 			"- `nn read <file>` — use this instead of a bare Read or cat call; writing `Gate:` before `nn read` is a protocol violation (the call itself satisfies the gate)\n" +
-				"- `nn grep <pattern> [path]` — use this instead of a bare grep or find+read to search code; the call itself satisfies the gate\n" +
-				"- `nn trace <root-dir> --symbol <name>` or `nn trace <file>:<line>` — use this instead of grep when tracing call graphs or symbol relationships across files; the call itself satisfies the gate\n" +
-				"- `nn ast <file>` — print structural outline of a source file; the call itself satisfies the gate\n" +
-				"- `nn ast <file> --refs` — also search for name-match references across --root; the call itself satisfies the gate\n" +
-				"- `nn tee` — pipe stdin through unchanged while printing BM25-matched related notes to stderr; the call itself satisfies the gate\n" +
-				"- `nn shuf [<path>...]` — sample random units from files or directories (recurses) (or stdin) and show BM25-matched notes; the call itself satisfies the gate\n\n" +
+			"- `nn grep <pattern> [path]` — use this instead of a bare grep or find+read to search code; the call itself satisfies the gate\n" +
+			"- `nn trace <root-dir> --symbol <name>` or `nn trace <file>:<line>` — use this instead of grep when tracing call graphs or symbol relationships across files; the call itself satisfies the gate\n" +
+			"- `nn ast <file>` — print structural outline of a source file; the call itself satisfies the gate\n" +
+			"- `nn ast <file> --refs` — also search for name-match references across --root; the call itself satisfies the gate\n" +
+			"- `nn tee` — pipe stdin through unchanged while printing BM25-matched related notes to stderr; the call itself satisfies the gate\n" +
+			"- `nn shuf [<path>...]` — sample random units from files or directories (recurses) (or stdin) and show BM25-matched notes; the call itself satisfies the gate\n\n" +
 			"After the gated action, quote a verbatim excerpt from the result (minimum: one complete clause or value).\n\n" +
 			"**If `skip-search:` appeared above this action:** before capturing, apply the durable-claim test: ask — *is this finding a durable, non-derivable claim about the codebase or domain?* A finding is durable if it would not be invalidated by routine code changes; it is non-derivable if a future reader could not recover it by running `find`, `grep`, or reading source files. If the finding fails either condition — e.g. a file's location, a symbol's name, a config value, a lookup answer — write `ephemeral: skip` and stop; do not capture. If the finding passes, run `nn new --quick --title \"<finding>\"` where `<finding>` is the excerpt restated as a claim.\n\n" +
 			"**If `Selected because:` appeared above this action:** the gate found a relevant note. Quote a sentence from the `nn show` result — the sentence must appear verbatim in the preceding `nn show` tool-result block. Then write: `compare: note sentence = \"<verbatim sentence from nn show>\" / finding = \"<claim>\" — [same topic | different topic] / [present | absent] / [durable | ephemeral]`. Then:\n" +
@@ -155,7 +155,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn random** `[--tag TEXT] [--type TYPE] [--status STATUS] [--json] [--depth N] [--max-backlinks N]` — return a randomly selected note; `--depth N` traverses outgoing links up to N hops; `--max-backlinks N` filters to notes with at most N inbound links (surface underlinked notes for integration review)\n\n" +
 			"**nn list** `--similar <id>` — BM25 similarity (notes sharing vocabulary but not linked)\n\n" +
 			"**nn graph** `[--json]` — export full graph as JSON `{ \"nodes\": [...], \"edges\": [...] }`\n\n" +
-			"**nn graph show** `--focus <id> [--depth N]` — subgraph centered on a note (LLM-facing; default depth 2); text output renders a tree: focus note at root, children indented with `→ [link-type] id  title — annotation`\n\n" +
+			"**nn graph show** `--focus <id> [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--format text|json]` — traversal-filtered subgraph centered on a note (LLM-facing; default depth 2 and direction outgoing); link, status, and representation filters constrain BFS expansion rather than hiding nodes after traversal; explicitly supplied traversal flags require `--focus`\n\n" +
 			"For the full command reference, invoke `/nn-guide`.\n",
 	},
 	{
@@ -173,21 +173,21 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"the lookup is not required. " +
 			"Write: `Skipping lookup: self-evident — \"<quoted error substring>\"` quoting the exact substring from the tool output verbatim. " +
 			"Absence of either skip declaration means the lookup is required.\n",
-		},
-		{
-			ID:          "virtual-nn-skills",
-			Title:       "Protocol: load nn skills via nn skills list",
-			AppliesWhen: "at session start, and before any nn workflow operation",
-			Body: "If you have not yet run `nn skills list` this session, run it before any `nn skills get` " +
-				"or nn workflow operation — its output tells you which skill to load and when:\n\n" +
-				"```bash\n" +
-				"nn skills list\n" +
-				"```\n\n" +
-				"Then load the matching skill before responding:\n\n" +
-				"```bash\n" +
-				"nn skills get <name>\n" +
-				"```\n",
-		},
+	},
+	{
+		ID:          "virtual-nn-skills",
+		Title:       "Protocol: load nn skills via nn skills list",
+		AppliesWhen: "at session start, and before any nn workflow operation",
+		Body: "If you have not yet run `nn skills list` this session, run it before any `nn skills get` " +
+			"or nn workflow operation — its output tells you which skill to load and when:\n\n" +
+			"```bash\n" +
+			"nn skills list\n" +
+			"```\n\n" +
+			"Then load the matching skill before responding:\n\n" +
+			"```bash\n" +
+			"nn skills get <name>\n" +
+			"```\n",
+	},
 }
 
 // protocolDerivationBlock is appended to every protocol note in plain-text display.
@@ -406,15 +406,15 @@ func newShowCmd(state *rootState) *cobra.Command {
 						Title string `json:"title"`
 					}
 					type showJSON struct {
-						ID                  string     `json:"id"`
-						Title               string     `json:"title"`
-						Type                string     `json:"type"`
-						Status              string     `json:"status"`
-						Tags                []string   `json:"tags"`
-						Created             string     `json:"created"`
-						Modified            string     `json:"modified"`
-						Body                string     `json:"body"`
-						GoverningProtocols  []protoRef `json:"governing_protocols"`
+						ID                 string     `json:"id"`
+						Title              string     `json:"title"`
+						Type               string     `json:"type"`
+						Status             string     `json:"status"`
+						Tags               []string   `json:"tags"`
+						Created            string     `json:"created"`
+						Modified           string     `json:"modified"`
+						Body               string     `json:"body"`
+						GoverningProtocols []protoRef `json:"governing_protocols"`
 					}
 					refs := make([]protoRef, len(protos))
 					for j, p := range protos {

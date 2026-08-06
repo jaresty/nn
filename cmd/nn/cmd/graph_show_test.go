@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -81,6 +82,37 @@ func TestGraphShow_TreeHierarchy(t *testing.T) {
 }
 
 // property [3]: cycle guard — note appearing in multiple paths only rendered once
+func TestGraphShow_DepthBound(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	root := newTestNoteForCLI(note.GenerateID(), "Depth root", note.TypeModel)
+	child1 := newTestNoteForCLI(note.GenerateID(), "Depth child", note.TypeConcept)
+	child2 := newTestNoteForCLI(note.GenerateID(), "Depth grandchild", note.TypeArgument)
+	root.Links = []note.Link{{TargetID: child1.ID, Type: "supports"}}
+	child1.Links = []note.Link{{TargetID: child2.ID, Type: "extends"}}
+	for _, n := range []*note.Note{root, child1, child2} {
+		writeNoteFile(t, nbDir, n)
+	}
+	out, err := execute("graph", "show", "--focus", root.ID, "--depth", "1", "--format", "json")
+	if err != nil {
+		t.Fatalf("graph show depth bound: %v", err)
+	}
+	var result struct {
+		Nodes []struct {
+			ID string `json:"id"`
+		} `json:"nodes"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("graph show depth JSON: %v\n%s", err, out)
+	}
+	seen := make(map[string]bool)
+	for _, n := range result.Nodes {
+		seen[n.ID] = true
+	}
+	if !seen[root.ID] || !seen[child1.ID] || seen[child2.ID] || len(seen) != 2 {
+		t.Fatalf("depth 1 nodes = %v, want root and child1 but not child2", result.Nodes)
+	}
+}
+
 func TestGraphShow_CycleGuard(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	now := time.Now().UTC().Truncate(time.Second)
@@ -97,15 +129,27 @@ func TestGraphShow_CycleGuard(t *testing.T) {
 	writeNoteFile(t, nbDir, a)
 	writeNoteFile(t, nbDir, b)
 
-	out, err := execute("graph", "show", "--focus", a.ID, "--depth", "3")
+	out, err := execute("graph", "show", "--focus", a.ID, "--depth", "3", "--format", "json")
 	if err != nil {
 		t.Fatalf("graph show cycle: %v", err)
 	}
-
-	// A should appear exactly once as root
-	count := strings.Count(out, a.ID)
-	if count != 1 {
-		t.Errorf("property [3]: expected note A to appear once, got %d times:\n%s", count, out)
+	var result struct {
+		Nodes []struct {
+			ID string `json:"id"`
+		} `json:"nodes"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("graph show cycle JSON: %v\n%s", err, out)
+	}
+	seen := make(map[string]bool)
+	for _, n := range result.Nodes {
+		if seen[n.ID] {
+			t.Fatalf("property [3]: duplicate cycle node %s in %v", n.ID, result.Nodes)
+		}
+		seen[n.ID] = true
+	}
+	if len(result.Nodes) != 2 {
+		t.Errorf("property [3]: cycle nodes = %v, want exactly A and B", result.Nodes)
 	}
 }
 
