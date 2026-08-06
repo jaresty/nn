@@ -283,10 +283,10 @@ JSON output: `{ "nodes": [...], "edges": [...] }`
 ### nn graph show (LLM-facing subgraph)
 
 ```
-nn graph show --focus <id> [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--format text|json]
+nn graph show [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--format text|json|mermaid]
 ```
 
-Renders a subgraph centered on `<id>`. BFS depth defaults to 2 and direction defaults to `outgoing`. `--links` accepts canonical link types, `--status` accepts `draft`, `reviewed`, or `permanent`, and `--representation` accepts one representation value. Filters constrain BFS expansion, so traversal does not pass through an ineligible intermediate note. Explicitly supplied traversal flags require `--focus`. Use `--format json` for structured output. Prefer this over `nn graph` when exploring a note's neighborhood — it scopes the result to the relevant region rather than exporting the whole graph.
+With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 and direction defaults to `outgoing`. `--links` accepts canonical link types, `--status` accepts `draft`, `reviewed`, or `permanent`, and `--representation` accepts one representation value. Filters constrain BFS expansion, so traversal does not pass through an ineligible intermediate note. Without --focus, graph show renders the full graph; explicitly supplied traversal flags, including `--depth`, require `--focus`. Mermaid output preserves stored edge orientation, includes link type and annotation labels, represents missing edge endpoints as deterministic placeholder nodes, and emits deterministic provenance comments for the normalized traversal options. Use `--format json` for structured output or `--format mermaid` for Markdown-compatible diagrams. Prefer focused output when exploring a note's neighborhood.
 
 ## nn status
 

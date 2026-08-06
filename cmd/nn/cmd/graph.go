@@ -333,12 +333,17 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 		Use:   "show",
 		Short: "Subgraph as structured data (LLM-facing)",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			switch format {
+			case "text", "json", "mermaid":
+			default:
+				return fmt.Errorf("graph show: unsupported format %q (want text, json, or mermaid)", format)
+			}
 			opts, err := newGraphShowTraversalOptions(direction, links, statuses, representation)
 			if err != nil {
 				return err
 			}
 			if focus == "" {
-				for _, flag := range []string{"direction", "links", "status", "representation"} {
+				for _, flag := range []string{"depth", "direction", "links", "status", "representation"} {
 					if cmd.Flags().Changed(flag) {
 						return fmt.Errorf("graph show: --%s requires --focus", flag)
 					}
@@ -411,6 +416,73 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 			}
 
 			w := outWriter(cmd)
+			if format == "mermaid" {
+				normalizeCSV := func(value string) string {
+					if strings.TrimSpace(value) == "" {
+						return "-"
+					}
+					values := strings.Split(value, ",")
+					for i := range values {
+						values[i] = strings.TrimSpace(values[i])
+					}
+					sort.Strings(values)
+					unique := values[:0]
+					for _, value := range values {
+						if len(unique) == 0 || unique[len(unique)-1] != value {
+							unique = append(unique, value)
+						}
+					}
+					return escapeMermaidLabel(strings.Join(unique, ","))
+				}
+				if focus == "" {
+					fmt.Fprintln(w, "%% nn graph show scope=full")
+				} else {
+					metadataRepresentation := representation
+					if metadataRepresentation == "" {
+						metadataRepresentation = "-"
+					}
+					fmt.Fprintf(w, "%%%% nn graph show focus=%s depth=%d direction=%s links=%s status=%s representation=%s\n",
+						escapeMermaidLabel(focus), depth, direction, normalizeCSV(links), normalizeCSV(statuses), escapeMermaidLabel(metadataRepresentation))
+				}
+				fmt.Fprintln(w, "flowchart TD")
+				aliases := make(map[string]string, len(resultNodes))
+				for i, n := range resultNodes {
+					alias := fmt.Sprintf("n%d", i)
+					aliases[n.ID] = alias
+					fmt.Fprintf(w, "  %s[\"%s\"]\n", alias, escapeMermaidLabel(n.ID+"  "+n.Title))
+				}
+				missingSet := make(map[string]bool)
+				for _, e := range resultEdges {
+					if _, ok := aliases[e.From]; !ok {
+						missingSet[e.From] = true
+					}
+					if _, ok := aliases[e.To]; !ok {
+						missingSet[e.To] = true
+					}
+				}
+				missingIDs := make([]string, 0, len(missingSet))
+				for id := range missingSet {
+					missingIDs = append(missingIDs, id)
+				}
+				sort.Strings(missingIDs)
+				for _, id := range missingIDs {
+					alias := fmt.Sprintf("n%d", len(aliases))
+					aliases[id] = alias
+					fmt.Fprintf(w, "  %s[\"%s\"]\n", alias, escapeMermaidLabel(id+"  [missing]"))
+				}
+				for _, e := range resultEdges {
+					from, fromOK := aliases[e.From]
+					to, toOK := aliases[e.To]
+					if fromOK && toOK {
+						label := e.LinkType
+						if e.Annotation != "" {
+							label += " — " + e.Annotation
+						}
+						fmt.Fprintf(w, "  %s -->|\"%s\"| %s\n", from, escapeMermaidLabel(label), to)
+					}
+				}
+				return nil
+			}
 			if format == "json" {
 				if focus != "" {
 					out := struct {
@@ -488,7 +560,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&focus, "focus", "", "Center note ID for ego-graph")
 	cmd.Flags().IntVar(&depth, "depth", 2, "BFS depth from focus note")
-	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json")
+	cmd.Flags().StringVar(&format, "format", "text", "Output format: text, json, or mermaid")
 	cmd.Flags().StringVar(&direction, "direction", "outgoing", "Traversal direction: outgoing, incoming, or both")
 	cmd.Flags().StringVar(&links, "links", "", "Comma-separated link types to traverse")
 	cmd.Flags().StringVar(&statuses, "status", "", "Comma-separated note statuses to traverse")
