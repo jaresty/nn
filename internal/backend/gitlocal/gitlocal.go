@@ -55,17 +55,15 @@ func atomicWriteFile(path string, data []byte) error {
 		return err
 	}
 	tmpName := tmp.Name()
+	defer os.Remove(tmpName)
 	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
-		os.Remove(tmpName)
 		return err
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpName)
 		return err
 	}
 	if err := os.Chmod(tmpName, 0o644); err != nil {
-		os.Remove(tmpName)
 		return err
 	}
 	return os.Rename(tmpName, path)
@@ -301,13 +299,9 @@ func (b *Backend) commitDeleteLocked(path, msg string) error {
 	return nil
 }
 
-// commitRenameLocked runs git rm+add+commit under the cross-process git lock.
-// Caller must hold b.mu.
-func (b *Backend) commitRenameLocked(oldPath, newPath, msg string) error {
-	if err := acquireGitLock(b.configDir); err != nil {
-		return fmt.Errorf("gitlocal.commitRename: %w", err)
-	}
-	defer releaseGitLock(b.configDir)
+// commitRenameWithLockHeld runs git rm+add+commit. Caller must hold b.mu and
+// the cross-process git lock.
+func (b *Backend) commitRenameWithLockHeld(oldPath, newPath, msg string) error {
 	if out, err := gitCmdIn(b.dir, "rm", "--cached", "--ignore-unmatch", oldPath); err != nil {
 		return fmt.Errorf("gitlocal.commitRename: git rm: %w\n%s", err, out)
 	}
@@ -327,16 +321,22 @@ func (b *Backend) commitBulkLocked(paths []string, msg string) error {
 		return fmt.Errorf("gitlocal.commitBulk: %w", err)
 	}
 	defer releaseGitLock(b.configDir)
-	addArgs := append([]string{"add"}, paths...)
-	if out, err := gitCmdIn(b.dir, addArgs...); err != nil {
-		return fmt.Errorf("gitlocal.commitBulk: git add: %w\n%s", err, out)
+	return b.commitBulkWithLockHeld(paths, msg)
+}
+
+// commitBulkWithLockHeld runs git add (all paths)+commit. Caller must hold both
+// b.mu and the cross-process git lock.
+func (b *Backend) commitBulkWithLockHeld(paths []string, msg string) error {
+	intentArgs := append([]string{"add", "-N", "--"}, paths...)
+	if out, err := gitCmdIn(b.dir, intentArgs...); err != nil {
+		return fmt.Errorf("gitlocal.commitBulk: git add intent: %w\n%s", err, out)
 	}
-	if out, err := gitCmdIn(b.dir, "commit", "-m", msg); err != nil {
+	commitArgs := append([]string{"commit", "--only", "-m", msg, "--"}, paths...)
+	if out, err := gitCmdIn(b.dir, commitArgs...); err != nil {
 		return fmt.Errorf("gitlocal.commitBulk: git commit: %w\n%s", err, out)
 	}
 	return nil
 }
-
 
 // AddLink adds an annotated link from fromID to toID and commits.
 func (b *Backend) AddLink(fromID, toID, annotation, linkType, linkStatus string) error {
@@ -637,7 +637,7 @@ func (b *Backend) Update(n *note.Note, since *time.Time) error {
 		if err := os.Remove(oldPath); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("gitlocal.Update: remove old file: %w", err)
 		}
-		return b.commitRenameLocked(oldPath, newPath, msg)
+		return b.commitRenameWithLockHeld(oldPath, newPath, msg)
 	}
 	return b.commitWithLockHeld(newPath, msg)
 }
@@ -699,42 +699,232 @@ func (b *Backend) BulkWrite(notes []*note.Note) error {
 	return b.commitBulkLocked(paths, fmt.Sprintf("note: bulk-new %d notes", len(notes)))
 }
 
-// BulkApply writes newNotes (with collision-avoidance) and updateNotes (overwriting existing)
-// in a single git commit. Use when notes and cross-note link edits must be atomic.
+type bulkApplyFileSnapshot struct {
+	path   string
+	exists bool
+	mode   os.FileMode
+	data   []byte
+}
+
+func snapshotBulkApplyFile(path string) (bulkApplyFileSnapshot, error) {
+	snapshot := bulkApplyFileSnapshot{path: path}
+	info, err := os.Lstat(path)
+	if os.IsNotExist(err) {
+		return snapshot, nil
+	}
+	if err != nil {
+		return snapshot, err
+	}
+	if !info.Mode().IsRegular() {
+		return snapshot, fmt.Errorf("path is not a regular file: %s", path)
+	}
+	snapshot.exists = true
+	snapshot.mode = info.Mode()
+	snapshot.data, err = os.ReadFile(path)
+	return snapshot, err
+}
+
+func restoreBulkApplyFile(snapshot bulkApplyFileSnapshot) error {
+	if !snapshot.exists {
+		if err := os.Remove(snapshot.path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+	if err := atomicWriteFile(snapshot.path, snapshot.data); err != nil {
+		return err
+	}
+	return os.Chmod(snapshot.path, snapshot.mode)
+}
+
+type bulkApplyHeadSnapshot struct {
+	ref    string
+	commit string
+	refs   map[string]string
+}
+
+func (b *Backend) bulkApplyRefs() (map[string]string, error) {
+	output, err := gitCmdIn(b.dir, "for-each-ref", "--format=%(refname)%00%(objectname)")
+	if err != nil {
+		return nil, fmt.Errorf("list refs: %w\n%s", err, output)
+	}
+	refs := make(map[string]string)
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "\x00", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("parse ref row %q", line)
+		}
+		refs[parts[0]] = parts[1]
+	}
+	return refs, nil
+}
+
+func (b *Backend) snapshotBulkApplyHead() (bulkApplyHeadSnapshot, error) {
+	snapshot := bulkApplyHeadSnapshot{}
+	if refOutput, err := gitCmdIn(b.dir, "symbolic-ref", "-q", "HEAD"); err == nil {
+		snapshot.ref = strings.TrimSpace(string(refOutput))
+	}
+	if commitOutput, err := gitCmdIn(b.dir, "rev-parse", "--verify", "HEAD"); err == nil {
+		snapshot.commit = strings.TrimSpace(string(commitOutput))
+	}
+	refs, err := b.bulkApplyRefs()
+	if err != nil {
+		return bulkApplyHeadSnapshot{}, err
+	}
+	snapshot.refs = refs
+	return snapshot, nil
+}
+
+func (b *Backend) restoreBulkApplyHead(snapshot bulkApplyHeadSnapshot) error {
+	currentRefs, err := b.bulkApplyRefs()
+	if err != nil {
+		return err
+	}
+	for ref := range currentRefs {
+		if _, existed := snapshot.refs[ref]; !existed {
+			if out, err := gitCmdIn(b.dir, "update-ref", "-d", ref); err != nil {
+				return fmt.Errorf("delete new ref %s: %w\n%s", ref, err, out)
+			}
+		}
+	}
+	for ref, commit := range snapshot.refs {
+		if out, err := gitCmdIn(b.dir, "update-ref", ref, commit); err != nil {
+			return fmt.Errorf("restore ref %s: %w\n%s", ref, err, out)
+		}
+	}
+	if snapshot.ref != "" {
+		if out, err := gitCmdIn(b.dir, "symbolic-ref", "HEAD", snapshot.ref); err != nil {
+			return fmt.Errorf("restore symbolic HEAD: %w\n%s", err, out)
+		}
+		return nil
+	}
+	if snapshot.commit != "" {
+		if out, err := gitCmdIn(b.dir, "update-ref", "--no-deref", "HEAD", snapshot.commit); err != nil {
+			return fmt.Errorf("restore detached HEAD: %w\n%s", err, out)
+		}
+	}
+	return nil
+}
+
+func validBulkApplyID(id string) bool {
+	return id != "" && id != "." && id != ".." && filepath.Base(id) == id && !strings.ContainsAny(id, `/\\`)
+}
+
+// BulkApply writes newNotes and updateNotes in one commit. Any write, stage, or
+// commit failure restores every touched path and the Git index before returning.
 func (b *Backend) BulkApply(newNotes []*note.Note, updateNotes []*note.Note) error {
 	if len(newNotes) == 0 && len(updateNotes) == 0 {
 		return nil
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.BulkApply: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
+
+	headSnapshot, err := b.snapshotBulkApplyHead()
+	if err != nil {
+		return fmt.Errorf("gitlocal.BulkApply: snapshot HEAD: %w", err)
+	}
+	indexOutput, err := gitCmdIn(b.dir, "rev-parse", "--git-path", "index")
+	if err != nil {
+		return fmt.Errorf("gitlocal.BulkApply: locate index: %w\n%s", err, indexOutput)
+	}
+	indexPath := strings.TrimSpace(string(indexOutput))
+	if !filepath.IsAbs(indexPath) {
+		indexPath = filepath.Join(b.dir, indexPath)
+	}
+	indexSnapshot, err := snapshotBulkApplyFile(indexPath)
+	if err != nil {
+		return fmt.Errorf("gitlocal.BulkApply: snapshot index: %w", err)
+	}
+
 	var paths []string
-	for _, n := range newNotes {
-		for {
-			if _, err := b.findByID(n.ID); err != nil {
-				break // no collision
+	var snapshots []bulkApplyFileSnapshot
+	snapshotted := make(map[string]bool)
+	capturePath := func(path string) error {
+		if snapshotted[path] {
+			return nil
+		}
+		snapshot, err := snapshotBulkApplyFile(path)
+		if err != nil {
+			return err
+		}
+		snapshots = append(snapshots, snapshot)
+		snapshotted[path] = true
+		return nil
+	}
+	rollback := func(cause error) error {
+		var rollbackErrors []string
+		if err := b.restoreBulkApplyHead(headSnapshot); err != nil {
+			rollbackErrors = append(rollbackErrors, fmt.Sprintf("restore HEAD: %v", err))
+		}
+		for i := len(snapshots) - 1; i >= 0; i-- {
+			if err := restoreBulkApplyFile(snapshots[i]); err != nil {
+				rollbackErrors = append(rollbackErrors, fmt.Sprintf("restore %s: %v", snapshots[i].path, err))
 			}
-			n.ID = note.GenerateID()
+		}
+		if err := restoreBulkApplyFile(indexSnapshot); err != nil {
+			rollbackErrors = append(rollbackErrors, fmt.Sprintf("restore index: %v", err))
+		}
+		if len(rollbackErrors) > 0 {
+			return fmt.Errorf("%w; rollback failed: %s", cause, strings.Join(rollbackErrors, "; "))
+		}
+		return cause
+	}
+
+	for _, n := range newNotes {
+		if n == nil {
+			return rollback(fmt.Errorf("gitlocal.BulkApply: nil new note"))
+		}
+		if !validBulkApplyID(n.ID) {
+			return rollback(fmt.Errorf("gitlocal.BulkApply: invalid new note ID %q", n.ID))
+		}
+		if _, err := b.findByID(n.ID); err == nil {
+			return rollback(fmt.Errorf("gitlocal.BulkApply: new note ID %q already exists", n.ID))
 		}
 		data, err := n.Marshal()
 		if err != nil {
-			return fmt.Errorf("gitlocal.BulkApply: marshal new %s: %w", n.ID, err)
+			return rollback(fmt.Errorf("gitlocal.BulkApply: marshal new %s: %w", n.ID, err))
 		}
 		path := filepath.Join(b.dir, n.Filename())
+		if err := capturePath(path); err != nil {
+			return rollback(fmt.Errorf("gitlocal.BulkApply: snapshot new %s: %w", n.ID, err))
+		}
 		if err := atomicWriteFile(path, data); err != nil {
-			return fmt.Errorf("gitlocal.BulkApply: write new %s: %w", n.ID, err)
+			return rollback(fmt.Errorf("gitlocal.BulkApply: write new %s: %w", n.ID, err))
 		}
 		paths = append(paths, path)
 	}
 	for _, n := range updateNotes {
+		if n == nil {
+			return rollback(fmt.Errorf("gitlocal.BulkApply: nil update note"))
+		}
+		if !validBulkApplyID(n.ID) {
+			return rollback(fmt.Errorf("gitlocal.BulkApply: invalid update note ID %q", n.ID))
+		}
+		path, err := b.findByID(n.ID)
+		if err != nil {
+			return rollback(fmt.Errorf("gitlocal.BulkApply: resolve update %s: %w", n.ID, err))
+		}
 		data, err := n.Marshal()
 		if err != nil {
-			return fmt.Errorf("gitlocal.BulkApply: marshal update %s: %w", n.ID, err)
+			return rollback(fmt.Errorf("gitlocal.BulkApply: marshal update %s: %w", n.ID, err))
 		}
-		path := filepath.Join(b.dir, n.Filename())
+		if err := capturePath(path); err != nil {
+			return rollback(fmt.Errorf("gitlocal.BulkApply: snapshot update %s: %w", n.ID, err))
+		}
 		if err := atomicWriteFile(path, data); err != nil {
-			return fmt.Errorf("gitlocal.BulkApply: write update %s: %w", n.ID, err)
+			return rollback(fmt.Errorf("gitlocal.BulkApply: write update %s: %w", n.ID, err))
 		}
 		paths = append(paths, path)
 	}
-	return b.commitBulkLocked(paths, fmt.Sprintf("note: graph apply %d note(s) %d update(s)", len(newNotes), len(updateNotes)))
+	if err := b.commitBulkWithLockHeld(paths, fmt.Sprintf("note: graph apply %d note(s) %d update(s)", len(newNotes), len(updateNotes))); err != nil {
+		return rollback(err)
+	}
+	return nil
 }

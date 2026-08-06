@@ -185,8 +185,15 @@ func TestUpdateDeletesOldFileOnRename(t *testing.T) {
 	oldFilename := n.Filename()
 
 	n.Title = "New Title"
-	if err := b.Update(n, nil); err != nil {
-		t.Fatalf("Update: %v", err)
+	updateDone := make(chan error, 1)
+	go func() { updateDone <- b.Update(n, nil) }()
+	select {
+	case err := <-updateDone:
+		if err != nil {
+			t.Fatalf("Update: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Update deadlocked while renaming a note")
 	}
 
 	if _, err := os.Stat(filepath.Join(dir, oldFilename)); !os.IsNotExist(err) {

@@ -7,12 +7,46 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
 
+type processGitLockEntry struct {
+	mu   sync.Mutex
+	refs int
+}
+
+var processGitLockRegistry = struct {
+	sync.Mutex
+	entries map[string]*processGitLockEntry
+}{entries: make(map[string]*processGitLockEntry)}
+
+func canonicalGitLockDir(configDir string) string {
+	absolute, err := filepath.Abs(configDir)
+	if err != nil {
+		absolute = filepath.Clean(configDir)
+	}
+	current := absolute
+	var unresolved []string
+	for {
+		if resolved, err := filepath.EvalSymlinks(current); err == nil {
+			for i := len(unresolved) - 1; i >= 0; i-- {
+				resolved = filepath.Join(resolved, unresolved[i])
+			}
+			return filepath.Clean(resolved)
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return filepath.Clean(absolute)
+		}
+		unresolved = append(unresolved, filepath.Base(current))
+		current = parent
+	}
+}
+
 func gitLockPath(configDir string) string {
-	return filepath.Join(configDir, "git-commit.lock")
+	return filepath.Join(canonicalGitLockDir(configDir), "git-commit.lock")
 }
 
 // acquireGitLock spins until it wins an O_EXCL lock file, stealing stale locks
@@ -23,7 +57,39 @@ func AcquireGitLock(configDir string) error { return acquireGitLock(configDir) }
 // ReleaseGitLock is the exported form for use in tests.
 func ReleaseGitLock(configDir string) { releaseGitLock(configDir) }
 
+func retainProcessGitLock(configDir string) *processGitLockEntry {
+	lockPath := filepath.Clean(gitLockPath(configDir))
+	processGitLockRegistry.Lock()
+	defer processGitLockRegistry.Unlock()
+	entry := processGitLockRegistry.entries[lockPath]
+	if entry == nil {
+		entry = &processGitLockEntry{}
+		processGitLockRegistry.entries[lockPath] = entry
+	}
+	entry.refs++
+	return entry
+}
+
+func releaseProcessGitLock(configDir string, entry *processGitLockEntry) {
+	entry.mu.Unlock()
+	lockPath := filepath.Clean(gitLockPath(configDir))
+	processGitLockRegistry.Lock()
+	defer processGitLockRegistry.Unlock()
+	entry.refs--
+	if entry.refs == 0 {
+		delete(processGitLockRegistry.entries, lockPath)
+	}
+}
+
 func acquireGitLock(configDir string) error {
+	processLock := retainProcessGitLock(configDir)
+	processLock.mu.Lock()
+	acquired := false
+	defer func() {
+		if !acquired {
+			releaseProcessGitLock(configDir, processLock)
+		}
+	}()
 	lock := gitLockPath(configDir)
 	if err := os.MkdirAll(filepath.Dir(lock), 0o755); err != nil {
 		return fmt.Errorf("gitlock: mkdir: %w", err)
@@ -36,6 +102,7 @@ func acquireGitLock(configDir string) error {
 				os.Remove(lock)
 				return fmt.Errorf("gitlock: write pid: %w", err)
 			}
+			acquired = true
 			return nil
 		}
 		if !os.IsExist(err) {
@@ -54,7 +121,9 @@ func acquireGitLock(configDir string) error {
 			continue
 		}
 		if pid == os.Getpid() {
-			// We already hold the lock (re-entrant call, e.g. from a git hook).
+			// A stale same-process lock cannot belong to another active backend:
+			// the lock-path mutex serializes all matching acquisitions in this process.
+			acquired = true
 			return nil
 		}
 		// Live holder — wait and retry.
@@ -64,6 +133,13 @@ func acquireGitLock(configDir string) error {
 
 func releaseGitLock(configDir string) {
 	os.Remove(gitLockPath(configDir))
+	lockPath := filepath.Clean(gitLockPath(configDir))
+	processGitLockRegistry.Lock()
+	entry := processGitLockRegistry.entries[lockPath]
+	processGitLockRegistry.Unlock()
+	if entry != nil {
+		releaseProcessGitLock(configDir, entry)
+	}
 }
 
 func readGitLockPid(lock string) (int, error) {

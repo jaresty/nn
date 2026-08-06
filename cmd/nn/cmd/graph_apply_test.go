@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -257,8 +258,58 @@ func TestGraphApplyExistingEdgeIsAtomic(t *testing.T) {
 	if after-before != 1 {
 		t.Errorf("property [1b]: expected exactly 1 new commit, got %d (before=%d after=%d)", after-before, before, after)
 	}
+	listOut, err := execute("list", "--json")
+	if err != nil {
+		t.Fatalf("list after graph apply: %v", err)
+	}
+	var listed []struct {
+		ID    string `json:"id"`
+		Title string `json:"title"`
+	}
+	if err := json.Unmarshal([]byte(listOut), &listed); err != nil {
+		t.Fatalf("parse list after graph apply: %v", err)
+	}
+	freshID := ""
+	for _, n := range listed {
+		if n.Title == "Fresh Note" {
+			freshID = n.ID
+		}
+	}
+	if freshID == "" {
+		t.Fatalf("property [1b]: graph is missing Fresh Note: %s", listOut)
+	}
+	linksOut, err := execute("links", existing.ID, "--json")
+	if err != nil {
+		t.Fatalf("links after graph apply: %v", err)
+	}
+	var links []struct {
+		Title string `json:"title"`
+	}
+	if err := json.Unmarshal([]byte(linksOut), &links); err != nil {
+		t.Fatalf("parse links after graph apply: %v", err)
+	}
+	if len(links) != 1 || links[0].Title != "Fresh Note" {
+		t.Errorf("property [1b]: graph is missing existing-to-fresh edge: %s", linksOut)
+	}
+	gitShow := func(filename string) string {
+		t.Helper()
+		cmd := exec.Command("git", "show", "HEAD:"+filename)
+		cmd.Dir = nbDir
+		data, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git show HEAD:%s: %v\n%s", filename, err, data)
+		}
+		return string(data)
+	}
+	freshAtHead := gitShow((&note.Note{ID: freshID, Title: "Fresh Note"}).Filename())
+	if !strings.Contains(freshAtHead, "body") {
+		t.Errorf("property [1b]: Fresh Note content is missing from HEAD: %s", freshAtHead)
+	}
+	existingAtHead := gitShow(existing.Filename())
+	if !strings.Contains(existingAtHead, freshID) {
+		t.Errorf("property [1b]: existing-to-fresh edge is missing from HEAD: %s", existingAtHead)
+	}
 }
-
 
 // property [4]: missing --dry-run and --commit returns error
 func TestGraphApplyRequiresMode(t *testing.T) {
