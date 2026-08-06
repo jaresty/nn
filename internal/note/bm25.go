@@ -308,10 +308,19 @@ func BM25FieldIDF(notes []*Note, inbound map[string][]string) FieldIDF {
 	}
 }
 
-// BM25RRFPerField scores notes using reciprocal rank fusion where each field uses
-// its own IDF computed over only that field's token corpus. This corrects the
-// mismatch in BM25RRF where a single shared IDF was used across all fields.
+// BM25RRFPerField preserves the original four-field scorer for callers that
+// intentionally use one slice as both the statistics corpus and candidate set.
 func BM25RRFPerField(candidates []*Note, fidf FieldIDF, query string, inbound map[string][]string) map[string]float64 {
+	return bm25RRFPerField(candidates, candidates, fidf, query, inbound, nil, float64(tagWeight), 1, 0)
+}
+
+// BM25RRFPerFieldForCorpus scores candidates while deriving document-length
+// statistics and outbound query-term IDF from the full corpus.
+func BM25RRFPerFieldForCorpus(corpus, candidates []*Note, fidf FieldIDF, query string, inbound, outbound map[string][]string) map[string]float64 {
+	return bm25RRFPerField(corpus, candidates, fidf, query, inbound, outbound, 1, 0, 1)
+}
+
+func bm25RRFPerField(corpus, candidates []*Note, fidf FieldIDF, query string, inbound, outbound map[string][]string, tagFieldWeight, inboundFieldWeight, outboundFieldWeight float64) map[string]float64 {
 	terms := tokenize(query)
 	if len(terms) == 0 {
 		return nil
@@ -322,24 +331,24 @@ func BM25RRFPerField(candidates []*Note, fidf FieldIDF, query string, inbound ma
 			id    string
 			score float64
 		}
-		N := float64(len(candidates))
+		totalLen := 0.0
+		for _, n := range corpus {
+			totalLen += float64(len(getTokens(n)))
+		}
+		avgdl := totalLen / math.Max(float64(len(corpus)), 1)
 		type docF struct {
 			tf  map[string]float64
 			len float64
 		}
 		docs := make([]docF, len(candidates))
-		totalLen := 0.0
 		for i, n := range candidates {
 			tokens := getTokens(n)
 			tf := make(map[string]float64, len(tokens))
 			for _, t := range tokens {
 				tf[t]++
 			}
-			dl := float64(len(tokens))
-			docs[i] = docF{tf: tf, len: dl}
-			totalLen += dl
+			docs[i] = docF{tf: tf, len: float64(len(tokens))}
 		}
-		avgdl := totalLen / math.Max(N, 1)
 		var ranked []fs
 		for i, n := range candidates {
 			d := docs[i]
@@ -370,6 +379,28 @@ func BM25RRFPerField(candidates []*Note, fidf FieldIDF, query string, inbound ma
 		return ids
 	}
 
+	tagTokens := func(n *Note) []string {
+		var all []string
+		for _, tag := range n.Tags {
+			all = append(all, tokenize(tag)...)
+		}
+		return all
+	}
+	inboundTokens := func(n *Note) []string {
+		var all []string
+		for _, ann := range inbound[n.ID] {
+			all = append(all, tokenize(ann)...)
+		}
+		return all
+	}
+	outboundTokens := func(n *Note) []string {
+		var all []string
+		for _, ann := range outbound[n.ID] {
+			all = append(all, tokenize(ann)...)
+		}
+		return all
+	}
+
 	type weightedField struct {
 		weight float64
 		ranked []string
@@ -377,20 +408,18 @@ func BM25RRFPerField(candidates []*Note, fidf FieldIDF, query string, inbound ma
 	fields := []weightedField{
 		{titleWeight, scoreField(func(n *Note) []string { return tokenize(n.Title) }, fidf.Title)},
 		{1, scoreField(func(n *Note) []string { return tokenize(n.Body) }, fidf.Body)},
-		{float64(tagWeight), scoreField(func(n *Note) []string {
-			var all []string
-			for _, tag := range n.Tags {
-				all = append(all, tokenize(tag)...)
-			}
-			return all
-		}, fidf.Tags)},
-		{1, scoreField(func(n *Note) []string {
-			var all []string
-			for _, ann := range inbound[n.ID] {
-				all = append(all, tokenize(ann)...)
-			}
-			return all
-		}, fidf.Inbound)},
+		{tagFieldWeight, scoreField(tagTokens, fidf.Tags)},
+	}
+	if inboundFieldWeight > 0 {
+		fields = append(fields, weightedField{inboundFieldWeight, scoreField(inboundTokens, fidf.Inbound)})
+	}
+	if outboundFieldWeight > 0 {
+		outboundField := make([][]string, len(corpus))
+		for i, n := range corpus {
+			outboundField[i] = outboundTokens(n)
+		}
+		outboundIDF := fieldIDF(outboundField, len(corpus), terms)
+		fields = append(fields, weightedField{outboundFieldWeight, scoreField(outboundTokens, outboundIDF)})
 	}
 
 	rrf := make(map[string]float64)
@@ -399,17 +428,10 @@ func BM25RRFPerField(candidates []*Note, fidf FieldIDF, query string, inbound ma
 			rrf[id] += f.weight / (rrfK + float64(rank+1))
 		}
 	}
-
-	result := make(map[string]float64, len(rrf))
-	for id, s := range rrf {
-		if s > 0 {
-			result[id] = s
-		}
-	}
-	if len(result) == 0 {
+	if len(rrf) == 0 {
 		return nil
 	}
-	return result
+	return rrf
 }
 
 // BM25RRF scores notes using reciprocal rank fusion across per-field BM25 rankings.

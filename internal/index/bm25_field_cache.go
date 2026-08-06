@@ -2,28 +2,33 @@ package index
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/jaresty/nn/internal/note"
 )
 
+const fieldIDFCacheVersion = "field-idf-v2"
+
 // GetOrComputeFieldIDF returns the per-field BM25 IDF struct for the given notes corpus.
-// It caches the result in SQLite keyed by the git HEAD commit hash of repoDir.
+// It caches the result in SQLite using a versioned HEAD and corpus fingerprint.
 // If git rev-parse HEAD fails (fresh repo or non-git dir), the IDF is computed and
 // returned without caching.
 func (idx *Index) GetOrComputeFieldIDF(repoDir string, notes []*note.Note, inbound map[string][]string) (note.FieldIDF, error) {
 	if repoDir == "" {
 		return note.BM25FieldIDF(notes, inbound), nil
 	}
-	hash, err := headCommitHash(repoDir)
+	head, err := headCommitHash(repoDir)
 	if err != nil {
 		return note.BM25FieldIDF(notes, inbound), nil
 	}
+	cacheKey := fieldIDFCacheKey(head, notes, inbound)
 
 	// Fast path: try cache without a lock.
-	if fidf, err := idx.getFieldIDFFromCache(hash); err == nil {
+	if fidf, err := idx.getFieldIDFFromCache(cacheKey); err == nil {
 		return fidf, nil
 	}
 
@@ -36,7 +41,7 @@ func (idx *Index) GetOrComputeFieldIDF(repoDir string, notes []*note.Note, inbou
 
 	// Double-check under lock.
 	var raw string
-	if scanErr := tx.QueryRow(`SELECT field_idf_json FROM bm25_field_cache WHERE commit_hash = ?`, hash).Scan(&raw); scanErr == nil {
+	if scanErr := tx.QueryRow(`SELECT field_idf_json FROM bm25_field_cache WHERE commit_hash = ?`, cacheKey).Scan(&raw); scanErr == nil {
 		var fidf note.FieldIDF
 		if jsonErr := json.Unmarshal([]byte(raw), &fidf); jsonErr == nil {
 			tx.Rollback() //nolint:errcheck
@@ -52,7 +57,7 @@ func (idx *Index) GetOrComputeFieldIDF(repoDir string, notes []*note.Note, inbou
 	}
 	if _, storeErr := tx.Exec(
 		`INSERT OR REPLACE INTO bm25_field_cache (commit_hash, field_idf_json) VALUES (?, ?)`,
-		hash, string(b),
+		cacheKey, string(b),
 	); storeErr != nil {
 		return fidf, nil
 	}
@@ -60,6 +65,31 @@ func (idx *Index) GetOrComputeFieldIDF(repoDir string, notes []*note.Note, inbou
 		return fidf, nil
 	}
 	return fidf, nil
+}
+
+func fieldIDFCacheKey(head string, notes []*note.Note, inbound map[string][]string) string {
+	type cacheDocument struct {
+		ID      string   `json:"id"`
+		Title   string   `json:"title"`
+		Body    string   `json:"body"`
+		Tags    []string `json:"tags"`
+		Inbound []string `json:"inbound"`
+	}
+	ordered := append([]*note.Note(nil), notes...)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].ID < ordered[j].ID })
+	documents := make([]cacheDocument, 0, len(ordered))
+	for _, n := range ordered {
+		tags := append([]string(nil), n.Tags...)
+		annotations := append([]string(nil), inbound[n.ID]...)
+		sort.Strings(tags)
+		sort.Strings(annotations)
+		documents = append(documents, cacheDocument{
+			ID: n.ID, Title: n.Title, Body: n.Body, Tags: tags, Inbound: annotations,
+		})
+	}
+	encoded, _ := json.Marshal(documents)
+	fingerprint := sha256.Sum256(encoded)
+	return fmt.Sprintf("%s:%s:%x", fieldIDFCacheVersion, head, fingerprint)
 }
 
 // GetOrComputeFieldIDFPath is a convenience wrapper that opens the index at dbPath,

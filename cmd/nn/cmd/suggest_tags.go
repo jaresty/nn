@@ -50,7 +50,7 @@ func newSuggestTagsCmd(state *rootState) *cobra.Command {
 				}
 			}
 			query := focal.Title + " " + focal.Body
-			scores := RankedByQuery(others, nil, query, state.notebookDir)
+			scores := RankedByQuery(notes, others, query, state.notebookDir)
 
 			// Collect top similar notes (non-zero score).
 			var similar []*note.Note

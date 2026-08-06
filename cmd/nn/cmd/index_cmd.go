@@ -30,7 +30,7 @@ create an index (Map of Content) note via 'nn new'.`,
 			}
 
 			// BM25 search for topic notes.
-			scores := RankedByQuery(notes, nil, topic, state.notebookDir)
+			scores := RankedByQuery(notes, notes, topic, state.notebookDir)
 			var topicNotes []*note.Note
 			for _, n := range notes {
 				if scores[n.ID] > 0 {

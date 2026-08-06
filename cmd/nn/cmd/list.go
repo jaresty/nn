@@ -15,8 +15,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jaresty/nn/internal/config"
-	"github.com/jaresty/nn/internal/index"
 	"github.com/jaresty/nn/internal/note"
 )
 
@@ -93,13 +91,6 @@ func newListCmd(state *rootState) *cobra.Command {
 				notesByID[n.ID] = n
 			}
 
-			// Pre-compute a quick filter pass using plain BM25Scores to avoid
-			// scoring every note in the heavy per-field RRF pass.
-			var preFilterScores map[string]float64
-			if search != "" {
-				preFilterScores = note.BM25Scores(notes, search, allInbound)
-			}
-
 			var filtered []*note.Note
 			for _, n := range notes {
 				if filterTag != "" && !hasTag(n, filterTag) {
@@ -166,9 +157,6 @@ func newListCmd(state *rootState) *cobra.Command {
 						continue
 					}
 				}
-				if search != "" && preFilterScores[n.ID] == 0 {
-					continue
-				}
 				if long && len(n.Body) <= atomicityThreshold {
 					continue
 				}
@@ -222,8 +210,14 @@ func newListCmd(state *rootState) *cobra.Command {
 			var searchScores map[string]float64
 			var normalizedSearchScores map[string]float64
 			if search != "" {
-				fieldIDF, _ := index.GetOrComputeFieldIDFPath(config.DefaultIndexDBPath(), state.notebookDir, notes, allInbound)
-				searchScores = note.BM25RRFPerField(filtered, fieldIDF, search, allInbound)
+				searchScores = RankedByQuery(notes, filtered, search, state.notebookDir)
+				positiveResults := make([]*note.Note, 0, len(filtered))
+				for _, n := range filtered {
+					if searchScores[n.ID] > 0 {
+						positiveResults = append(positiveResults, n)
+					}
+				}
+				filtered = positiveResults
 				if boostRecent && searchScores != nil {
 					now := time.Now()
 					for _, n := range filtered {
@@ -394,7 +388,6 @@ func parseDateTime(s string) (time.Time, error) {
 	return time.Time{}, fmt.Errorf("cannot parse %q: use 2006-01-02 or 2006-01-02T15:04:05Z", s)
 }
 
-
 var reURL = regexp.MustCompile(`https?://\S+`)
 
 // containsURL returns true if body contains an http/https URL that includes substr.
@@ -469,7 +462,6 @@ type noteSearchJSON struct {
 	AppliesWhen    string         `json:"applies_when,omitempty"`
 	Representation string         `json:"representation,omitempty"`
 }
-
 
 func truncateStr(s string, max int) string {
 	if len(s) <= max {
@@ -644,9 +636,15 @@ func computeMatchReason(n *note.Note, query string) string {
 			tagSet[t] = true
 		}
 	}
+	outboundSet := make(map[string]bool)
+	for _, lnk := range n.Links {
+		for _, t := range note.Tokenize(lnk.Annotation) {
+			outboundSet[t] = true
+		}
+	}
 
 	var fields []string
-	seenTitle, seenBody, seenTag := false, false, false
+	seenTitle, seenBody, seenTag, seenOutbound := false, false, false, false
 	for _, term := range terms {
 		if !seenTitle && titleSet[term] {
 			fields = append(fields, "title")
@@ -660,9 +658,10 @@ func computeMatchReason(n *note.Note, query string) string {
 			fields = append(fields, "tag")
 			seenTag = true
 		}
-	}
-	if len(fields) == 0 {
-		return "inbound"
+		if !seenOutbound && outboundSet[term] {
+			fields = append(fields, "outbound")
+			seenOutbound = true
+		}
 	}
 	return strings.Join(fields, ", ")
 }

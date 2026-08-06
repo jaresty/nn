@@ -62,12 +62,6 @@ func newAstCmd(state *rootState) *cobra.Command {
 			sessionReads := loadSessionReads(resolveCfgDir())
 			notes, _ := state.backend.List()
 			if len(notes) > 0 {
-				allInbound := make(map[string][]string)
-				for _, n := range notes {
-					for _, lnk := range n.Links {
-						allInbound[lnk.TargetID] = append(allInbound[lnk.TargetID], lnk.Annotation)
-					}
-				}
 				seenNotes := map[string]bool{}
 				var relatedNotes []*note.Note
 				for _, sym := range f.Symbols {
@@ -78,7 +72,7 @@ func newAstCmd(state *rootState) *cobra.Command {
 					if query == "" {
 						query = sym.Name
 					}
-					scores := RankedByQuery(notes, allInbound, query, state.notebookDir)
+					scores := RankedByQuery(notes, notes, query, state.notebookDir)
 					type scored struct {
 						n     *note.Note
 						score float64

@@ -115,6 +115,30 @@ func TestGetOrComputeFieldIDF_TransactionRoundtrip(t *testing.T) {
 }
 
 // property [5]: empty repoDir (no git HEAD) returns correct value without caching.
+func TestFieldIDFCacheKeyIncludesVersionCorpusAndInbound(t *testing.T) {
+	notes := makeTestNotes()
+	base := fieldIDFCacheKey("head", notes, nil)
+	if base == "head" {
+		t.Fatal("cache key must invalidate legacy commit-only rows")
+	}
+
+	changedNotes := makeTestNotes()
+	changedNotes[0].Title = "dirty working tree title"
+	if got := fieldIDFCacheKey("head", changedNotes, nil); got == base {
+		t.Fatal("cache key ignored dirty corpus content")
+	}
+
+	inbound := map[string][]string{"n1": {"new annotation"}}
+	if got := fieldIDFCacheKey("head", notes, inbound); got == base {
+		t.Fatal("cache key ignored inbound annotations")
+	}
+
+	subset := notes[:1]
+	if got := fieldIDFCacheKey("head", subset, nil); got == base {
+		t.Fatal("cache key ignored corpus identity")
+	}
+}
+
 func TestGetOrComputeFieldIDF_FreshRepo(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "idx.db")

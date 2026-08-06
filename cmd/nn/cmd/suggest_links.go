@@ -68,7 +68,7 @@ to create accepted suggestions.`,
 
 			// BM25 score candidates against focal note's content.
 			query := focal.Title + " " + focal.Body
-			scores := RankedByQuery(others, nil, query, state.notebookDir)
+			scores := RankedByQuery(notes, others, query, state.notebookDir)
 
 			// Variant F: exclude zero-score notes, report excluded count.
 			var scored []*note.Note

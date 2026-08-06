@@ -29,7 +29,7 @@ func printSuggestions(w io.Writer, state *rootState, n *note.Note) {
 		return
 	}
 
-	scores := RankedByQuery(others, nil, query, state.notebookDir)
+	scores := RankedByQuery(notes, others, query, state.notebookDir)
 
 	// Top similar notes (non-zero score, cap at 5).
 	var similar []*note.Note

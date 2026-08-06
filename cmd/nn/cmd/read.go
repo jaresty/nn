@@ -94,14 +94,7 @@ func newReadCmd(state *rootState) *cobra.Command {
 				return err
 			}
 
-			allInbound := make(map[string][]string)
-			for _, n := range notes {
-				for _, lnk := range n.Links {
-					allInbound[lnk.TargetID] = append(allInbound[lnk.TargetID], lnk.Annotation)
-				}
-			}
-
-			scores := RankedByQuery(notes, allInbound, query, state.notebookDir)
+			scores := RankedByQuery(notes, notes, query, state.notebookDir)
 
 			type scored struct {
 				n     *note.Note

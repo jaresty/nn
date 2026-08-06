@@ -47,14 +47,8 @@ func runShuf(stdin io.Reader, paths []string, out io.Writer, state *rootState, c
 	}
 
 	var notes []*note.Note
-	allInbound := make(map[string][]string)
 	if state != nil && state.backend != nil {
 		notes, _ = state.backend.List()
-		for _, n := range notes {
-			for _, lnk := range n.Links {
-				allInbound[lnk.TargetID] = append(allInbound[lnk.TargetID], lnk.Annotation)
-			}
-		}
 	}
 
 	for _, idx := range indices {
@@ -63,7 +57,7 @@ func runShuf(stdin io.Reader, paths []string, out io.Writer, state *rootState, c
 		fmt.Fprintln(out, u)
 
 		if len(notes) > 0 && strings.TrimSpace(u) != "" {
-			printShufRelated(out, notes, allInbound, u, state.notebookDir)
+			printShufRelated(out, notes, u, state.notebookDir)
 		}
 	}
 	return nil
@@ -186,8 +180,8 @@ func extractSymbolBodies(filePath string) []string {
 	return bodies
 }
 
-func printShufRelated(out io.Writer, notes []*note.Note, allInbound map[string][]string, query, repoDir string) {
-	scores := RankedByQuery(notes, allInbound, query, repoDir)
+func printShufRelated(out io.Writer, notes []*note.Note, query, repoDir string) {
+	scores := RankedByQuery(notes, notes, query, repoDir)
 	type scored struct {
 		n     *note.Note
 		score float64

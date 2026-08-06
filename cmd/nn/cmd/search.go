@@ -8,8 +8,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/jaresty/nn/internal/config"
-	"github.com/jaresty/nn/internal/index"
 	"github.com/jaresty/nn/internal/note"
 )
 
@@ -31,21 +29,22 @@ func newSearchCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("search: %w", err)
 			}
 
-			// Pre-filter: include any note matching at least one query term.
-			preFilter := note.BM25Scores(notes, query, nil)
-			var filtered []*note.Note
+			// Apply explicit filters before shared relevance scoring.
+			var candidates []*note.Note
 			for _, n := range notes {
-				if preFilter[n.ID] > 0 {
-					if filterStatus != "" && string(n.Status) != filterStatus {
-						continue
-					}
+				if filterStatus != "" && string(n.Status) != filterStatus {
+					continue
+				}
+				candidates = append(candidates, n)
+			}
+
+			scores := RankedByQuery(notes, candidates, query, state.notebookDir)
+			filtered := make([]*note.Note, 0, len(candidates))
+			for _, n := range candidates {
+				if scores[n.ID] > 0 {
 					filtered = append(filtered, n)
 				}
 			}
-
-			// Rank with per-field BM25 RRF (same ranker as nn list --search).
-			fieldIDF, _ := index.GetOrComputeFieldIDFPath(config.DefaultIndexDBPath(), state.notebookDir, notes, nil)
-			scores := note.BM25RRFPerField(filtered, fieldIDF, query, nil)
 
 			// Default: sort by RRF score descending.
 			sort.SliceStable(filtered, func(i, j int) bool {

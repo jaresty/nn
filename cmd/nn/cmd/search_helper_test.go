@@ -6,28 +6,55 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
-// property [1]: RankedByQuery returns same scores as BM25RRFPerField with BM25FieldIDF.
-func TestRankedByQuery_Correctness(t *testing.T) {
-	notes := []*note.Note{
-		{ID: "n1", Title: "alpha beta gamma", Body: "delta epsilon", Tags: []string{"zeta"}, Status: note.StatusDraft},
-		{ID: "n2", Title: "epsilon zeta", Body: "alpha gamma omega", Tags: []string{"beta"}, Status: note.StatusPermanent},
+// property [1]: the shared ranker uses the full corpus while scoring only candidates.
+func TestRankedByQuery_UsesCorpusAndCandidateSubset(t *testing.T) {
+	corpus := []*note.Note{
+		{ID: "candidate", Title: "alpha"},
+		{ID: "excluded", Title: "alpha"},
+		{ID: "background", Title: "omega"},
 	}
-	inbound := map[string][]string{"n1": {"n2"}}
-	query := "alpha gamma"
+	candidates := []*note.Note{corpus[0]}
 
-	got := RankedByQuery(notes, inbound, query, "")
+	scores := RankedByQuery(corpus, candidates, "alpha", "")
 
-	fidf := note.BM25FieldIDF(notes, inbound)
-	want := note.BM25RRFPerField(notes, fidf, query, inbound)
-
-	for id, wantScore := range want {
-		if gotScore := got[id]; gotScore != wantScore {
-			t.Errorf("RankedByQuery[%q]: got %.6f want %.6f", id, gotScore, wantScore)
-		}
+	if scores["candidate"] <= 0 {
+		t.Fatal("candidate should have a positive score")
 	}
-	for id := range got {
-		if _, ok := want[id]; !ok {
-			t.Errorf("RankedByQuery returned extra key %q not in BM25RRFPerField result", id)
-		}
+	if _, ok := scores["excluded"]; ok {
+		t.Fatal("excluded corpus note must not be scored")
+	}
+}
+
+// property [3]: outbound annotations retrieve their source note, while unknown queries stay empty.
+func TestRankedByQuery_OutboundOnlyAndUnknownEligibility(t *testing.T) {
+	corpus := []*note.Note{
+		{ID: "source", Links: []note.Link{{TargetID: "target", Annotation: "quasar marmalade"}}},
+		{ID: "target"},
+		{ID: "other", Title: "ordinary note"},
+	}
+
+	scores := RankedByQuery(corpus, corpus, "quasar", "")
+	if scores["source"] <= 0 {
+		t.Fatal("outbound-only source note should have a positive score")
+	}
+	if scores["target"] > 0 {
+		t.Fatal("inbound annotation must not contribute when inbound weight is zero")
+	}
+	if got := RankedByQuery(corpus, corpus, "xylophone-unknown", ""); len(got) != 0 {
+		t.Fatalf("unknown query returned %d scores, want 0", len(got))
+	}
+}
+
+func TestComputeMatchReason_OutboundAnnotation(t *testing.T) {
+	n := &note.Note{
+		ID:    "source",
+		Title: "Quasar source",
+		Links: []note.Link{{TargetID: "target", Annotation: "marmalade evidence"}},
+	}
+	if got := computeMatchReason(n, "marmalade"); got != "outbound" {
+		t.Fatalf("outbound-only reason = %q, want outbound", got)
+	}
+	if got := computeMatchReason(n, "quasar marmalade"); got != "title, outbound" {
+		t.Fatalf("mixed reason = %q, want title, outbound", got)
 	}
 }
