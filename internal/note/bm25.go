@@ -358,9 +358,9 @@ func BM25RRF(candidates []*Note, idf map[string]float64, query string, inbound m
 func statusMultiplier(s Status) float64 {
 	switch s {
 	case StatusPermanent:
-		return 1.3
+		return 1.05
 	case StatusReviewed:
-		return 1.15
+		return 1.02
 	default:
 		return 1.0
 	}

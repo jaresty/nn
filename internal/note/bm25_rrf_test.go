@@ -64,3 +64,101 @@ func TestBM25RRF_NoResults(t *testing.T) {
 		t.Errorf("expected empty scores for non-matching query, got %v", scores)
 	}
 }
+
+// property [P1]: exact full-title match ranks above broad multi-field partial match.
+// atomicNote has all query terms only in the title.
+// broadNote has query terms spread across title, body, and tags — currently wins via multi-field RRF.
+func TestBM25RRF_ExactTitleBeatsMultiField(t *testing.T) {
+	atomicNote := &Note{
+		ID:    "atomic",
+		Title: "negative zero denominator behavior",
+		Body:  "unrelated content here",
+		Tags:  []string{"math"},
+		Status: StatusDraft,
+	}
+	broadNote := &Note{
+		ID:    "broad",
+		Title: "division edge cases",
+		Body:  "negative zero denominator behavior in division routines affects all callers",
+		Tags:  []string{"negative", "zero", "denominator", "behavior"},
+		Status: StatusPermanent,
+	}
+	notes := []*Note{atomicNote, broadNote}
+	query := "negative zero denominator behavior"
+
+	idf := BM25IDF(notes, Tokenize(query))
+	scores := BM25RRF(notes, idf, query, nil)
+
+	atomicScore := scores["atomic"]
+	broadScore := scores["broad"]
+
+	if atomicScore <= broadScore {
+		t.Errorf("property [P1]: exact-title note (%.4f) should rank above broad multi-field note (%.4f)", atomicScore, broadScore)
+	}
+}
+
+// property [P3]: when two notes have identical relevance, the permanent one may score slightly higher
+// but must not exceed the draft score by more than 6%% (statusMultiplier <= 1.06).
+func TestBM25RRF_StatusMultiplierDoesNotOverpower(t *testing.T) {
+	// Both notes have identical content — only status differs.
+	draftNote := &Note{
+		ID:     "draft-note",
+		Title:  "migration authority holder domain",
+		Body:   "migration authority holder domain rules",
+		Status: StatusDraft,
+	}
+	permanentNote := &Note{
+		ID:     "permanent-note",
+		Title:  "migration authority holder domain",
+		Body:   "migration authority holder domain rules",
+		Status: StatusPermanent,
+	}
+	notes := []*Note{draftNote, permanentNote}
+	query := "migration authority holder domain"
+
+	idf := BM25IDF(notes, Tokenize(query))
+	scores := BM25RRF(notes, idf, query, nil)
+
+	draftScore := scores["draft-note"]
+	permanentScore := scores["permanent-note"]
+
+	// permanent may score higher but only by the statusMultiplier — must be <= 6%%.
+	if draftScore == 0 {
+		t.Fatal("property [P3]: draft note scored 0")
+	}
+	ratio := permanentScore / draftScore
+	if ratio > 1.06 {
+		t.Errorf("property [P3]: permanent/draft score ratio %.4f exceeds 1.06 — statusMultiplier too large", ratio)
+	}
+}
+
+// property [P2]: note with all query terms in title ranks above note with query terms only in body.
+// titleNote: all terms in title, minimal body.
+// bodyNote: no query terms in title, all terms repeated heavily in body (simulates a long synthesis note).
+func TestBM25RRF_TitleCoverageBeatsBodyOnly(t *testing.T) {
+	titleNote := &Note{
+		ID:     "title-note",
+		Title:  "negative zero denominator behavior",
+		Body:   "unrelated content",
+		Status: StatusDraft,
+	}
+	// bodyNote has many body repetitions to maximize its body BM25 score.
+	bodyNote := &Note{
+		ID:    "body-note",
+		Title: "division arithmetic",
+		Body:  "negative zero denominator behavior negative zero denominator behavior negative zero denominator behavior negative zero denominator behavior",
+		Status: StatusDraft,
+	}
+	notes := []*Note{titleNote, bodyNote}
+	query := "negative zero denominator behavior"
+
+	idf := BM25IDF(notes, Tokenize(query))
+	scores := BM25RRF(notes, idf, query, nil)
+
+	titleScore := scores["title-note"]
+	bodyScore := scores["body-note"]
+
+	if titleScore <= bodyScore {
+		t.Errorf("property [P2]: title-match note (%.4f) should rank above body-only note (%.4f)", titleScore, bodyScore)
+	}
+}
