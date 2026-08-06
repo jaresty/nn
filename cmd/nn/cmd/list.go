@@ -226,7 +226,7 @@ func newListCmd(state *rootState) *cobra.Command {
 			var searchScores map[string]float64
 			var normalizedSearchScores map[string]float64
 			if search != "" {
-				searchScores = note.BM25ScoresWithIDF(filtered, globalIDF, search+" "+gitCtx, allInbound)
+				searchScores = note.BM25RRF(filtered, globalIDF, search+" "+gitCtx, allInbound)
 				if boostRecent {
 					now := time.Now()
 					for _, n := range filtered {
