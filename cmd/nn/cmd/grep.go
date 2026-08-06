@@ -204,7 +204,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 				if strings.TrimSpace(query) == "" {
 					continue
 				}
-				scores := note.BM25Scores(notes, query+" "+gitContextQuery(), allInbound)
+				scores := note.BM25Scores(notes, query, allInbound)
 
 				type scored struct {
 					n     *note.Note

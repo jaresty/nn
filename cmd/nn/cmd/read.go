@@ -101,7 +101,7 @@ func newReadCmd(state *rootState) *cobra.Command {
 				}
 			}
 
-			scores := note.BM25Scores(notes, query+" "+gitContextQuery(), allInbound)
+			scores := note.BM25Scores(notes, query, allInbound)
 
 			type scored struct {
 				n     *note.Note

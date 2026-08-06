@@ -10,8 +10,9 @@ import (
 )
 
 // GetOrComputeIDF returns the BM25 IDF map for the given notes corpus and query terms.
-// It caches the result in SQLite keyed by the git HEAD commit hash of repoDir.
-// On a cache hit the IDF is decoded from JSON without re-stemming the corpus.
+// It caches the full-corpus IDF (all tokens) in SQLite keyed by the git HEAD commit
+// hash of repoDir, then returns the subset relevant to terms. This makes the cache
+// query-independent: different queries against the same commit share one cached entry.
 // If git rev-parse HEAD fails (e.g. fresh repo with no commits), the IDF is
 // computed and returned without being stored.
 func (idx *Index) GetOrComputeIDF(repoDir string, notes []*note.Note, terms []string) (map[string]float64, error) {
@@ -21,31 +22,64 @@ func (idx *Index) GetOrComputeIDF(repoDir string, notes []*note.Note, terms []st
 		return note.BM25IDF(notes, terms), nil
 	}
 
-	// Try cache hit.
+	// Try cache hit — stored as full-corpus IDF.
 	var raw string
 	err = idx.db.QueryRow(`SELECT idf_json FROM bm25_cache WHERE commit_hash = ?`, hash).Scan(&raw)
 	if err == nil {
-		idf := make(map[string]float64)
-		if jsonErr := json.Unmarshal([]byte(raw), &idf); jsonErr == nil {
-			return idf, nil
+		fullIDF := make(map[string]float64)
+		if jsonErr := json.Unmarshal([]byte(raw), &fullIDF); jsonErr == nil {
+			return subsetIDF(fullIDF, terms), nil
 		}
 		// Corrupt JSON — fall through to recompute.
 	}
 
-	// Cache miss or corrupt — compute and store.
-	idf := note.BM25IDF(notes, terms)
-	b, jsonErr := json.Marshal(idf)
+	// Cache miss or corrupt — compute full-corpus IDF and store it.
+	allTerms := corpusTerms(notes)
+	fullIDF := note.BM25IDF(notes, allTerms)
+	b, jsonErr := json.Marshal(fullIDF)
 	if jsonErr != nil {
-		return idf, fmt.Errorf("index.GetOrComputeIDF: marshal: %w", jsonErr)
+		return subsetIDF(fullIDF, terms), fmt.Errorf("index.GetOrComputeIDF: marshal: %w", jsonErr)
 	}
 	if _, storeErr := idx.db.Exec(
 		`INSERT OR REPLACE INTO bm25_cache (commit_hash, idf_json) VALUES (?, ?)`,
 		hash, string(b),
 	); storeErr != nil {
 		// Non-fatal — return computed IDF even if we can't cache it.
-		return idf, nil
+		return subsetIDF(fullIDF, terms), nil
 	}
-	return idf, nil
+	return subsetIDF(fullIDF, terms), nil
+}
+
+// corpusTerms returns all unique tokens present in the notes corpus.
+func corpusTerms(notes []*note.Note) []string {
+	seen := make(map[string]struct{})
+	for _, n := range notes {
+		for _, t := range note.Tokenize(n.Title) {
+			seen[t] = struct{}{}
+		}
+		for _, t := range note.Tokenize(n.Body) {
+			seen[t] = struct{}{}
+		}
+		for _, tag := range n.Tags {
+			for _, t := range note.Tokenize(tag) {
+				seen[t] = struct{}{}
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for t := range seen {
+		out = append(out, t)
+	}
+	return out
+}
+
+// subsetIDF extracts only the requested terms from a full-corpus IDF map.
+func subsetIDF(full map[string]float64, terms []string) map[string]float64 {
+	out := make(map[string]float64, len(terms))
+	for _, t := range terms {
+		out[t] = full[t]
+	}
+	return out
 }
 
 // GetOrComputeIDFPath is a convenience wrapper that opens the index at dbPath,

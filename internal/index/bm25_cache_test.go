@@ -139,6 +139,36 @@ func TestGetOrComputeIDFCacheMissOnNewCommit(t *testing.T) {
 	}
 }
 
+// TestGetOrComputeIDFDifferentTermsSameCommit proves the cache is query-independent:
+// a second call with different query terms on the same commit must return non-zero
+// IDF for those new terms (not the stale IDF from the first call's terms).
+func TestGetOrComputeIDFDifferentTermsSameCommit(t *testing.T) {
+	idx, dir := setupIndexWithGit(t)
+	notes := []*note.Note{
+		{ID: note.GenerateID(), Title: "cobra command", Body: "cobra is a CLI framework", Type: note.TypeConcept, Status: note.StatusDraft, Created: time.Now().UTC(), Modified: time.Now().UTC()},
+		{ID: note.GenerateID(), Title: "daily note", Body: "daily session log", Type: note.TypeObservation, Status: note.StatusDraft, Created: time.Now().UTC(), Modified: time.Now().UTC()},
+	}
+	gitCommitAll(t, dir)
+
+	// First call: terms from "cobra command" (stemmed)
+	cobraTerms := note.Tokenize("cobra command")
+	_, err := idx.GetOrComputeIDF(dir, notes, cobraTerms)
+	if err != nil {
+		t.Fatalf("first call: %v", err)
+	}
+
+	// Second call: different terms from "daily session" — must get non-zero IDF
+	dailyTerms := note.Tokenize("daily session")
+	idf2, err := idx.GetOrComputeIDF(dir, notes, dailyTerms)
+	if err != nil {
+		t.Fatalf("second call: %v", err)
+	}
+	stemmedDaily := dailyTerms[0] // "daili"
+	if idf2[stemmedDaily] == 0 {
+		t.Errorf("property [2]: IDF for %q is 0 on second call — cache returned stale terms from first call", stemmedDaily)
+	}
+}
+
 // TestGetOrComputeIDFFreshRepoFallback proves behavior [4]:
 // when git rev-parse HEAD fails (no commits), returns cold IDF without error.
 func TestGetOrComputeIDFFreshRepoFallback(t *testing.T) {

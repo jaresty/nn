@@ -92,14 +92,12 @@ func newListCmd(state *rootState) *cobra.Command {
 				notesByID[n.ID] = n
 			}
 
-			gitCtx := gitContextQuery()
-
 			// Compute IDF over the full corpus before filtering so that filtered
 			// candidate scoring uses global term rarity, not subset rarity.
 			// Results are cached in SQLite keyed by git HEAD commit hash.
 			var globalIDF map[string]float64
 			if search != "" {
-				terms := note.Tokenize(search + " " + gitCtx)
+				terms := note.Tokenize(search)
 				dbPath := filepath.Join(resolveCfgDir(), "index.db")
 				globalIDF, _ = nnindex.GetOrComputeIDFPath(dbPath, state.notebookDir, notes, terms)
 			}
@@ -170,7 +168,7 @@ func newListCmd(state *rootState) *cobra.Command {
 						continue
 					}
 				}
-				if search != "" && note.BM25ScoresWithIDF([]*note.Note{n}, globalIDF, search+" "+gitCtx, allInbound)[n.ID] == 0 {
+				if search != "" && note.BM25ScoresWithIDF([]*note.Note{n}, globalIDF, search, allInbound)[n.ID] == 0 {
 					continue
 				}
 				if long && len(n.Body) <= atomicityThreshold {
@@ -226,7 +224,7 @@ func newListCmd(state *rootState) *cobra.Command {
 			var searchScores map[string]float64
 			var normalizedSearchScores map[string]float64
 			if search != "" {
-				searchScores = note.BM25RRF(filtered, globalIDF, search+" "+gitCtx, allInbound)
+				searchScores = note.BM25RRF(filtered, globalIDF, search, allInbound)
 				if boostRecent && searchScores != nil {
 					now := time.Now()
 					for _, n := range filtered {
