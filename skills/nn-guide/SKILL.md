@@ -822,7 +822,7 @@ Fetches a URL via HTTP GET, strips HTML to plaintext, and prints the result to s
 nn search-web <query> [--results N]
 ```
 
-Performs a keyless web search via DuckDuckGo's HTML endpoint (no API key required). Fetches the top N result pages, strips HTML, and prints a `## Result N:` header + 500-character preview + `## Related notes` from your notebook for each result.
+Web search via DuckDuckGo (no API key required). Fetches the top N result pages, strips HTML, and prints a `## Result N:` header + 500-character preview + `## Related notes` from your notebook for each result.
 
 **Flags:**
 - `--results N` — number of results to fetch and display (default 3)
