@@ -43,7 +43,7 @@ func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stde
 	if err != nil {
 		return fmt.Errorf("search-web: build request: %w", err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; nn-search-web/1.0)")
+	req.Header.Set("User-Agent", nnUserAgent)
 	resp, err := http.DefaultClient.Do(req) //nolint:gosec
 	if err != nil {
 		return fmt.Errorf("search-web: DDG request: %w", err)
@@ -67,9 +67,18 @@ func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stde
 	}
 
 	for i, u := range urls {
+		if !robotsAllowed(u, nnUserAgent) {
+			continue
+		}
 		fmt.Fprintf(stdout, "\n## Result %d: %s\n\n", i+1, u)
 
-		pageResp, pageErr := http.Get(u) //nolint:gosec
+		pageReq, pageReqErr := http.NewRequest(http.MethodGet, u, nil)
+		if pageReqErr != nil {
+			fmt.Fprintf(stdout, "(request error: %v)\n", pageReqErr)
+			continue
+		}
+		pageReq.Header.Set("User-Agent", nnUserAgent)
+		pageResp, pageErr := http.DefaultClient.Do(pageReq)
 		if pageErr != nil {
 			fmt.Fprintf(stdout, "(fetch error: %v)\n", pageErr)
 			continue

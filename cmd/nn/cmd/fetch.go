@@ -15,6 +15,8 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+const nnUserAgent = "Mozilla/5.0 (compatible; nn/1.0; +https://github.com/jaresty/nn)"
+
 var (
 	reHTMLTag     = regexp.MustCompile(`<[^>]+>`)
 	reHTMLEntity  = regexp.MustCompile(`&[a-zA-Z]+;|&#[0-9]+;`)
@@ -46,7 +48,12 @@ func runFetch(rawURL string, capture bool, stdout, stderr io.Writer, state *root
 		return fmt.Errorf("fetch: URL must begin with http:// or https://")
 	}
 
-	resp, err := http.Get(rawURL) //nolint:gosec
+	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
+	if err != nil {
+		return fmt.Errorf("fetch: build request: %w", err)
+	}
+	req.Header.Set("User-Agent", nnUserAgent)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("fetch: GET %s: %w", rawURL, err)
 	}

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -79,6 +80,32 @@ func TestSearchWebUserAgentSent(t *testing.T) {
 
 	if receivedUA == "" {
 		t.Fatal("property [3d]: no User-Agent header sent to DDG endpoint")
+	}
+}
+
+func TestSearchWebPerResultUserAgent(t *testing.T) {
+	// property [1b]: per-result page fetches also send the nn User-Agent
+	var resultUA string
+	resultSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resultUA = r.Header.Get("User-Agent")
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><body><p>content</p></body></html>`))
+	}))
+	defer resultSrv.Close()
+
+	ddgSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprintf(w, `<html><body><a href="%s">Result</a></body></html>`, resultSrv.URL)
+	}))
+	defer ddgSrv.Close()
+
+	_ = runSearchWeb("test", 1, ddgSrv.URL+"?q=%s", nil, nil, nil)
+
+	if resultUA == "" {
+		t.Fatal("property [1b]: per-result fetch sent no User-Agent header")
+	}
+	if resultUA == "Go-http-client/1.1" || resultUA == "Go-http-client/2.0" {
+		t.Fatalf("property [1b]: per-result fetch sent default Go UA %q", resultUA)
 	}
 }
 
