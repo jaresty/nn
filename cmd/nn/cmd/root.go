@@ -86,6 +86,8 @@ Workflow guidance is embedded in the binary:
 		newInstallExtensionsCmd(),
 		newGuideCmd(),
 		newLogCmd(state),
+		newFetchCmd(state),
+		newSearchWebCmd(state),
 	)
 	return root
 }
