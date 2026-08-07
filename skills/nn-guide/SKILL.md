@@ -798,6 +798,41 @@ cat *.go | nn shuf --unit paragraphs     # pipe multiple files
 nn shuf . --count 10 --unit symbols      # recursively sample symbols from a directory
 ```
 
+## nn fetch
+
+```
+nn fetch <url> [--capture]
+```
+
+Fetches a URL via HTTP GET, strips HTML to plaintext, and prints the result to stdout with a `## Related notes` section ranked by BM25 against your notebook.
+
+**Flags:**
+- `--capture` — create a draft observation note whose body is the fetched plaintext; prints the note ID to stderr
+
+**Use `nn fetch` when:**
+- You want to pull in a web page and immediately see which notebook notes relate to it
+- You want to capture a URL's content as a note (`--capture`)
+- You want to pipe fetched text into further processing: `nn fetch <url> | nn tee`
+
+**LLM usage note:** prefer `nn fetch` over `curl <url> | nn tee` when you want the HTML stripped automatically — `nn fetch` removes tags, script/style blocks, and entities before running BM25.
+
+## nn search-web
+
+```
+nn search-web <query> [--results N]
+```
+
+Performs a keyless web search via DuckDuckGo's HTML endpoint (no API key required). Fetches the top N result pages, strips HTML, and prints a `## Result N:` header + 500-character preview + `## Related notes` from your notebook for each result.
+
+**Flags:**
+- `--results N` — number of results to fetch and display (default 3)
+
+**Use `nn search-web` when:**
+- You want to surface external context on a topic and compare it against your existing notes
+- You want a quick literature scan without leaving the terminal
+
+**LLM usage note:** DDG occasionally wraps results in JS-challenge pages; results quality varies. Use `nn fetch <url>` directly when you have a specific URL.
+
 ## nn install-skills
 
 ```
