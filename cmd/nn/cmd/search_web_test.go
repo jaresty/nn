@@ -42,6 +42,46 @@ func TestDDGExtractURLs(t *testing.T) {
 	}
 }
 
+func TestDDGExtractURLs_RedirectFormat(t *testing.T) {
+	// property [3c]: extractDDGURLs decodes DDG uddg= redirect links to actual destination URLs.
+	// DDG wraps results as: //duckduckgo.com/l/?uddg=<url-encoded-target>&rut=...
+	ddgHTML := `<html><body>
+<a href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fgithub.com%2Flenaxia%2Fbm25-golang&amp;rut=abc123">BM25 Go</a>
+<a href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fpkg.go.dev%2Fgithub.com%2Fcrawlab-team%2Fbm25&amp;rut=def456">BM25 pkg</a>
+</body></html>`
+
+	urls := extractDDGURLs(ddgHTML, 5)
+	if len(urls) == 0 {
+		t.Fatal("property [3c]: extractDDGURLs returned no URLs from DDG redirect-format HTML")
+	}
+	found := false
+	for _, u := range urls {
+		if u == "https://github.com/lenaxia/bm25-golang" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("property [3c]: expected decoded URL https://github.com/lenaxia/bm25-golang, got %v", urls)
+	}
+}
+
+func TestSearchWebUserAgentSent(t *testing.T) {
+	// property [3d]: runSearchWeb sends a User-Agent header to DDG — without it DDG returns no results.
+	var receivedUA string
+	ddgSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedUA = r.Header.Get("User-Agent")
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte(`<html><body></body></html>`))
+	}))
+	defer ddgSrv.Close()
+
+	_ = runSearchWeb("test", 1, ddgSrv.URL+"?q=%s", nil, nil, nil)
+
+	if receivedUA == "" {
+		t.Fatal("property [3d]: no User-Agent header sent to DDG endpoint")
+	}
+}
+
 func TestSearchWebCommandRunsWithMockDDG(t *testing.T) {
 	// property [3a]: search-web hits DDG endpoint when given a query
 	var ddgCalled bool

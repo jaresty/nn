@@ -39,7 +39,12 @@ func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stde
 		stdout = io.Discard
 	}
 	searchURL := fmt.Sprintf(endpointFmt, url.QueryEscape(query))
-	resp, err := http.Get(searchURL) //nolint:gosec
+	req, err := http.NewRequest(http.MethodGet, searchURL, nil)
+	if err != nil {
+		return fmt.Errorf("search-web: build request: %w", err)
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; nn-search-web/1.0)")
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec
 	if err != nil {
 		return fmt.Errorf("search-web: DDG request: %w", err)
 	}
@@ -115,7 +120,11 @@ func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stde
 }
 
 // extractDDGURLs parses URLs from DuckDuckGo HTML result page.
-// DDG HTML results use anchor tags with class "result__a" pointing directly to result URLs.
+// DDG wraps result URLs in redirect links of the form:
+//
+//	//duckduckgo.com/l/?uddg=<url-encoded-target>&rut=...
+//
+// We decode the uddg= parameter to extract the actual destination URL.
 func extractDDGURLs(html string, max int) []string {
 	var urls []string
 	seen := make(map[string]bool)
@@ -126,11 +135,25 @@ func extractDDGURLs(html string, max int) []string {
 			continue
 		}
 		href := m[1]
-		// Skip DDG-internal links and ad redirects.
-		if strings.HasPrefix(href, "/") || strings.Contains(href, "duckduckgo.com") {
+
+		// Handle DDG redirect links: extract uddg= parameter.
+		if strings.Contains(href, "uddg=") {
+			parsed, err := url.Parse(strings.TrimPrefix(strings.TrimPrefix(href, "//"), "https:"))
+			if err == nil {
+				if target := parsed.Query().Get("uddg"); target != "" {
+					// uddg value is itself URL-encoded.
+					decoded, decErr := url.QueryUnescape(target)
+					if decErr == nil {
+						href = decoded
+					}
+				}
+			}
+		}
+
+		if !strings.HasPrefix(href, "http://") && !strings.HasPrefix(href, "https://") {
 			continue
 		}
-		if !strings.HasPrefix(href, "http://") && !strings.HasPrefix(href, "https://") {
+		if strings.Contains(href, "duckduckgo.com") {
 			continue
 		}
 		if seen[href] {
