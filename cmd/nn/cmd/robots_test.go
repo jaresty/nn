@@ -51,7 +51,7 @@ func TestSearchWebSkipsDisallowedURL(t *testing.T) {
 	}))
 	defer ddgSrv.Close()
 
-	_ = runSearchWeb("test", 1, ddgSrv.URL+"?q=%s", nil, nil, nil)
+	_ = runSearchWeb("test", 1, ddgSrv.URL+"?q=%s", nil, nil, nil, false)
 
 	if resultFetched {
 		t.Error("property [2b]: result page was fetched despite robots.txt Disallow: /")

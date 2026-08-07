@@ -26,7 +26,7 @@ func TestSearchWebPerResultOutput(t *testing.T) {
 	defer ddgSrv.Close()
 
 	var stdout bytes.Buffer
-	err := runSearchWeb("machine learning", 1, ddgSrv.URL+"?q=%s", &stdout, nil, nil)
+	err := runSearchWeb("machine learning", 1, ddgSrv.URL+"?q=%s", &stdout, nil, nil, false)
 	if err != nil {
 		t.Fatalf("runSearchWeb: %v", err)
 	}

@@ -20,6 +20,7 @@ var reAnchorHref = regexp.MustCompile(`(?i)<a[^>]+href=["']([^"']+)["'][^>]*>`)
 
 func newSearchWebCmd(state *rootState) *cobra.Command {
 	var results int
+	var listOnly bool
 
 	cmd := &cobra.Command{
 		Use:   "search-web <query>",
@@ -27,14 +28,15 @@ func newSearchWebCmd(state *rootState) *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query := strings.Join(args, " ")
-			return runSearchWeb(query, results, ddgEndpoint, cmd.OutOrStdout(), cmd.ErrOrStderr(), state)
+			return runSearchWeb(query, results, ddgEndpoint, cmd.OutOrStdout(), cmd.ErrOrStderr(), state, listOnly)
 		},
 	}
 	cmd.Flags().IntVar(&results, "results", 3, "Number of results to fetch and display")
+	cmd.Flags().BoolVar(&listOnly, "list", false, "Print result URLs only, one per line (no fetching)")
 	return cmd
 }
 
-func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stderr io.Writer, state *rootState) error {
+func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stderr io.Writer, state *rootState, listOnly bool) error {
 	if stdout == nil {
 		stdout = io.Discard
 	}
@@ -58,6 +60,13 @@ func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stde
 	urls := extractDDGURLs(string(body), maxResults)
 	if len(urls) == 0 {
 		fmt.Fprintln(stdout, "(no results found)")
+		return nil
+	}
+
+	if listOnly {
+		for _, u := range urls {
+			fmt.Fprintln(stdout, u)
+		}
 		return nil
 	}
 

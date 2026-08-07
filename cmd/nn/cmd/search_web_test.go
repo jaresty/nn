@@ -76,7 +76,7 @@ func TestSearchWebUserAgentSent(t *testing.T) {
 	}))
 	defer ddgSrv.Close()
 
-	_ = runSearchWeb("test", 1, ddgSrv.URL+"?q=%s", nil, nil, nil)
+	_ = runSearchWeb("test", 1, ddgSrv.URL+"?q=%s", nil, nil, nil, false)
 
 	if receivedUA == "" {
 		t.Fatal("property [3d]: no User-Agent header sent to DDG endpoint")
@@ -99,7 +99,7 @@ func TestSearchWebPerResultUserAgent(t *testing.T) {
 	}))
 	defer ddgSrv.Close()
 
-	_ = runSearchWeb("test", 1, ddgSrv.URL+"?q=%s", nil, nil, nil)
+	_ = runSearchWeb("test", 1, ddgSrv.URL+"?q=%s", nil, nil, nil, false)
 
 	if resultUA == "" {
 		t.Fatal("property [1b]: per-result fetch sent no User-Agent header")
@@ -127,7 +127,7 @@ func TestSearchWebCommandRunsWithMockDDG(t *testing.T) {
 	defer resultSrv.Close()
 	_ = resultSrv
 
-	err := runSearchWeb("test query", 3, ddgSrv.URL+"?q=%s", nil, nil, nil)
+	err := runSearchWeb("test query", 3, ddgSrv.URL+"?q=%s", nil, nil, nil, false)
 	if err != nil {
 		t.Fatalf("runSearchWeb: %v", err)
 	}
