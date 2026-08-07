@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	readability "codeberg.org/readeck/go-readability/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/jaresty/nn/internal/note"
@@ -64,7 +65,7 @@ func runFetch(rawURL string, capture bool, stdout, stderr io.Writer, state *root
 		return fmt.Errorf("fetch: read body: %w", err)
 	}
 
-	plain := htmlToText(string(body))
+	plain := extractReadable(string(body), rawURL)
 	fmt.Fprintln(stdout, plain)
 
 	if state == nil || state.backend == nil {
@@ -124,6 +125,24 @@ func runFetch(rawURL string, capture bool, stdout, stderr io.Writer, state *root
 	}
 
 	return nil
+}
+
+// extractReadable attempts to extract the main article content using go-readability.
+// Falls back to htmlToText if readability returns empty content.
+func extractReadable(html, pageURL string) string {
+	parsed, err := url.Parse(pageURL)
+	if err == nil {
+		article, readErr := readability.FromReader(strings.NewReader(html), parsed)
+		if readErr == nil && article.Node != nil {
+			var buf strings.Builder
+			if renderErr := article.RenderText(&buf); renderErr == nil {
+				if text := strings.TrimSpace(buf.String()); text != "" {
+					return text
+				}
+			}
+		}
+	}
+	return htmlToText(html)
 }
 
 // htmlToText strips HTML tags and decodes common entities, returning readable plaintext.

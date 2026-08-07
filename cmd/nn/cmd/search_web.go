@@ -90,7 +90,7 @@ func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stde
 			continue
 		}
 
-		plain := htmlToText(string(pageBody))
+		plain := extractReadable(string(pageBody), u)
 		// Print a preview (first 500 chars).
 		preview := plain
 		if len(preview) > 500 {
