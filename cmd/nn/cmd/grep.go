@@ -298,6 +298,10 @@ func collectFiles(dir string, out *[]string) error {
 	return nil
 }
 
+func isTextContent(data []byte) bool {
+	return strings.HasPrefix(http.DetectContentType(data), "text/")
+}
+
 func readFileLines(path string) ([]string, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -310,7 +314,7 @@ func readFileLines(path string) ([]string, error) {
 	if err != nil && n == 0 {
 		return nil, err
 	}
-	if !strings.HasPrefix(http.DetectContentType(buf[:n]), "text/") {
+	if !isTextContent(buf[:n]) {
 		return nil, nil
 	}
 	if _, err := f.Seek(0, 0); err != nil {

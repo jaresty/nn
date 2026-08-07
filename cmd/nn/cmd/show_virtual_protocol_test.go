@@ -7,6 +7,30 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+func TestShowVirtualCLIReferenceDocumentsShufBinaryFiltering(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil || !strings.Contains(out, "nn shuf") || !strings.Contains(strings.ToLower(out), "binary files") {
+		t.Fatalf("virtual CLI reference missing shuf binary filtering: err=%v output=%q", err, out)
+	}
+}
+
+func TestShowVirtualCLIReferenceDocumentsShufUnitLimit(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil || !strings.Contains(out, "nn shuf") || !strings.Contains(out, "65536") {
+		t.Fatalf("virtual CLI reference missing shuf unit limit: err=%v output=%q", err, out)
+	}
+}
+
+func TestShowVirtualCLIReferenceDocumentsShufStdinException(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil || !strings.Contains(out, "nn shuf") || !strings.Contains(out, "stdin is not MIME-filtered") {
+		t.Fatalf("virtual CLI reference missing shuf stdin exception: err=%v output=%q", err, out)
+	}
+}
+
 func TestShowVirtualCLIReferenceDocumentsGrepContextReport(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "virtual-nn-cli-reference")

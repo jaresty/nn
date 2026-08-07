@@ -767,7 +767,7 @@ Sample random units from files (or stdin) and show BM25-matched notes beneath ea
 nn shuf [<path>...] [--count N] [--unit lines|paragraphs|symbols]
 ```
 
-With no paths, reads from stdin. Multiple paths are pooled and sampled uniformly.
+With no paths, reads from stdin. Piped stdin is not MIME-filtered, but its sampled units use the same size limit. Multiple paths are pooled and sampled uniformly. Files classified as non-text are skipped before sampling; `nn shuf` reports an aggregate count of skipped binary files on stderr. Sample units larger than 65536 bytes are also skipped and reported as an aggregate stderr count.
 
 `--count N` (default 5) — number of units to sample.
 
@@ -795,7 +795,7 @@ nn shuf notes/*.md --count 3             # 3 random paragraphs from notes
 nn shuf src/cmd/*.go --unit symbols      # 5 random functions, treesitter-parsed
 nn shuf --unit lines < corpus.txt        # random lines from stdin
 cat *.go | nn shuf --unit paragraphs     # pipe multiple files
-nn shuf . --count 10 --unit symbols      # won't work — pass file paths, not dirs
+nn shuf . --count 10 --unit symbols      # recursively sample symbols from a directory
 ```
 
 ## nn install-skills

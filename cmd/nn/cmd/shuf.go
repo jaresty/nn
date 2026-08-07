@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"math/rand"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jaresty/nn/internal/ast"
 	"github.com/jaresty/nn/internal/note"
@@ -22,8 +24,9 @@ func newShufCmd(state *rootState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "shuf [<path>...]",
 		Short: "Sample random units from files (or stdin) and show BM25-matched notes",
+		Long:  "Sample random units from files (or stdin) and show BM25-matched notes. Binary files are skipped and summarized on stderr. Sample units larger than 65536 bytes are also skipped and summarized. Piped stdin is not MIME-filtered, but its sampled units use the same size limit.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runShuf(cmd.InOrStdin(), args, cmd.OutOrStdout(), state, count, unit)
+			return runShufWithDiagnostics(cmd.InOrStdin(), args, cmd.OutOrStdout(), cmd.ErrOrStderr(), state, count, unit)
 		},
 	}
 	cmd.Flags().IntVar(&count, "count", 5, "Number of units to sample")
@@ -32,9 +35,39 @@ func newShufCmd(state *rootState) *cobra.Command {
 }
 
 func runShuf(stdin io.Reader, paths []string, out io.Writer, state *rootState, count int, unit string) error {
-	units, err := collectUnits(stdin, paths, unit)
+	return runShufWithDiagnostics(stdin, paths, out, io.Discard, state, count, unit)
+}
+
+const maxShufUnitBytes = 64 << 10
+
+func runShufWithDiagnostics(stdin io.Reader, paths []string, out, errOut io.Writer, state *rootState, count int, unit string) error {
+	units, binarySkips, err := collectUnits(stdin, paths, unit)
 	if err != nil {
 		return err
+	}
+	if binarySkips > 0 {
+		noun := "files"
+		if binarySkips == 1 {
+			noun = "file"
+		}
+		fmt.Fprintf(errOut, "nn shuf: skipped %d binary %s\n", binarySkips, noun)
+	}
+	safeUnits := units[:0]
+	oversizedSkips := 0
+	for _, candidate := range units {
+		if len([]byte(candidate)) > maxShufUnitBytes {
+			oversizedSkips++
+			continue
+		}
+		safeUnits = append(safeUnits, candidate)
+	}
+	units = safeUnits
+	if oversizedSkips > 0 {
+		noun := "units"
+		if oversizedSkips == 1 {
+			noun = "unit"
+		}
+		fmt.Fprintf(errOut, "nn shuf: skipped %d oversized %s (>65536 bytes)\n", oversizedSkips, noun)
 	}
 	if len(units) == 0 {
 		return nil
@@ -63,23 +96,24 @@ func runShuf(stdin io.Reader, paths []string, out io.Writer, state *rootState, c
 	return nil
 }
 
-func collectUnits(stdin io.Reader, paths []string, unit string) ([]string, error) {
+func collectUnits(stdin io.Reader, paths []string, unit string) ([]string, int, error) {
 	if len(paths) == 0 {
 		if stdin == nil {
-			return nil, nil
+			return nil, 0, nil
 		}
 		data, err := io.ReadAll(stdin)
 		if err != nil {
-			return nil, fmt.Errorf("shuf: read stdin: %w", err)
+			return nil, 0, fmt.Errorf("shuf: read stdin: %w", err)
 		}
-		return splitUnits(string(data), unit, ""), nil
+		return splitUnits(string(data), unit, ""), 0, nil
 	}
 
 	var all []string
+	binarySkips := 0
 	for _, p := range paths {
 		info, err := os.Stat(p)
 		if err != nil {
-			return nil, fmt.Errorf("shuf: stat %s: %w", p, err)
+			return nil, 0, fmt.Errorf("shuf: stat %s: %w", p, err)
 		}
 		if info.IsDir() {
 			if err := filepath.WalkDir(p, func(path string, d os.DirEntry, err error) error {
@@ -93,20 +127,42 @@ func collectUnits(stdin io.Reader, paths []string, unit string) ([]string, error
 				if err != nil {
 					return fmt.Errorf("shuf: read %s: %w", path, err)
 				}
+				if !isShufTextContent(data) {
+					binarySkips++
+					return nil
+				}
 				all = append(all, splitUnits(string(data), unit, path)...)
 				return nil
 			}); err != nil {
-				return nil, err
+				return nil, 0, err
 			}
 		} else {
 			data, err := os.ReadFile(p)
 			if err != nil {
-				return nil, fmt.Errorf("shuf: read %s: %w", p, err)
+				return nil, 0, fmt.Errorf("shuf: read %s: %w", p, err)
+			}
+			if !isShufTextContent(data) {
+				binarySkips++
+				continue
 			}
 			all = append(all, splitUnits(string(data), unit, p)...)
 		}
 	}
-	return all, nil
+	return all, binarySkips, nil
+}
+
+func isShufTextContent(data []byte) bool {
+	trimmed := bytes.TrimLeft(data, " \t\n\f\r")
+	return utf8.Valid(data) && !hasForbiddenShufControl(data) && isTextContent(trimmed)
+}
+
+func hasForbiddenShufControl(data []byte) bool {
+	for _, b := range data {
+		if b == 0x7f || (b < 0x20 && b != '\t' && b != '\n' && b != '\f' && b != '\r') {
+			return true
+		}
+	}
+	return false
 }
 
 func splitUnits(content, unit, filePath string) []string {
@@ -128,6 +184,7 @@ func splitUnits(content, unit, filePath string) []string {
 func splitLines(content string) []string {
 	var lines []string
 	scanner := bufio.NewScanner(strings.NewReader(content))
+	scanner.Buffer(make([]byte, 64<<10), len(content)+1)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.TrimSpace(line) != "" {
@@ -141,6 +198,7 @@ func splitParagraphs(content string) []string {
 	var paras []string
 	var cur strings.Builder
 	scanner := bufio.NewScanner(strings.NewReader(content))
+	scanner.Buffer(make([]byte, 64<<10), len(content)+1)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.TrimSpace(line) == "" {
