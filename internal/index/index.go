@@ -41,11 +41,6 @@ CREATE TABLE IF NOT EXISTS tags (
     PRIMARY KEY (note_id, tag)
 );
 
-CREATE TABLE IF NOT EXISTS bm25_cache (
-    commit_hash TEXT PRIMARY KEY,
-    idf_json    TEXT NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS bm25_field_cache (
     commit_hash    TEXT PRIMARY KEY,
     field_idf_json TEXT NOT NULL
