@@ -66,6 +66,15 @@ var langConfigs = map[string]langConfig{
 (variable_declarator name: (identifier) @name) @variable
 `,
 	},
+	".mjs": {
+		name:        "javascript",
+		importQuery: `(import_statement source: (string) @import)`,
+		symbolQuery: `
+(function_declaration name: (identifier) @name) @function
+(class_declaration name: (identifier) @name) @class
+(variable_declarator name: (identifier) @name) @variable
+`,
+	},
 	".ts": {
 		name:        "typescript",
 		importQuery: `(import_statement source: (string) @import)`,
