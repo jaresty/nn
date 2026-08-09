@@ -480,14 +480,34 @@ func TestGraphExportHTMLLayoutToggle(t *testing.T) {
 // ── search/click interaction [P1a P1b P2a P2b] ───────────────────────────────
 
 func TestGraphExportHTMLSearchClearsHighlight(t *testing.T) {
-	// [P1a] search handler must call clearHighlight() before applying search-dim
+	// [P1a] search handler must call clearHighlight() before applying search-dim,
+	// specifically within the search input handler (after the search-input listener marker)
 	html, err := buildHTML(nil, nil, nil, true)
 	if err != nil {
 		t.Fatalf("buildHTML: %v", err)
 	}
 	out := string(html)
-	if !strings.Contains(out, `clearHighlight()`) {
-		t.Errorf("[P1a] search handler must call clearHighlight() before applying search-dim")
+	marker := `search-input").addEventListener("input"`
+	idx := strings.Index(out, marker)
+	if idx == -1 {
+		t.Fatalf("[P1a] search input listener not found in HTML")
+	}
+	searchBlock := out[idx:]
+	// clearHighlight() must appear before the dimming classed call (not the clearing one)
+	// find clearHighlight() position
+	clearIdx := strings.Index(searchBlock, "clearHighlight()")
+	if clearIdx == -1 {
+		t.Errorf("[P1a] clearHighlight() not called inside search handler")
+		return
+	}
+	// find the search-dim *application* (not removal): classed("search-dim", d =>
+	dimApplyIdx := strings.Index(searchBlock, `classed("search-dim", d =>`)
+	if dimApplyIdx == -1 {
+		t.Errorf("[P1a] search-dim application not found in search handler")
+		return
+	}
+	if clearIdx > dimApplyIdx {
+		t.Errorf("[P1a] clearHighlight() must appear before search-dim application in search handler")
 	}
 }
 
@@ -509,7 +529,7 @@ func TestGraphExportHTMLClickClearsSearch(t *testing.T) {
 // ── node size by degree [P3a P3b] ────────────────────────────────────────────
 
 func TestGraphExportHTMLNodeSizeByDegree(t *testing.T) {
-	// [P3a] node radius must scale with degree — d3.scaleSqrt or similar degree-based scale
+	// [P3a] node radius must scale with degree — scaleSqrt/scaleLinear with non-degenerate range
 	html, err := buildHTML(nil, nil, nil, false)
 	if err != nil {
 		t.Fatalf("buildHTML: %v", err)
@@ -518,18 +538,28 @@ func TestGraphExportHTMLNodeSizeByDegree(t *testing.T) {
 	if !strings.Contains(out, `scaleSqrt`) && !strings.Contains(out, `scaleLinear`) {
 		t.Errorf("[P3a] node radius must use a D3 scale (scaleSqrt/scaleLinear) based on degree")
 	}
+	// range must be non-degenerate: [a, b] where a != b (flat range defeats scaling)
+	if strings.Contains(out, `.range([10, 10])`) || strings.Contains(out, `.range([0, 0])`) {
+		t.Errorf("[P3a] radius scale has a degenerate range — all nodes would be the same size")
+	}
+	// range minimum must appear and be a positive number (non-zero floor)
+	if !strings.Contains(out, `.range([`) {
+		t.Errorf("[P3a] radius scale missing explicit range")
+	}
 }
 
 func TestGraphExportHTMLNodeSizeMinRadius(t *testing.T) {
-	// [P3b] degree-0 nodes must have a non-zero minimum radius in the scale range
+	// [P3b] degree-0 nodes must have a non-zero minimum radius: range([N, M]) where N > 0
 	html, err := buildHTML(nil, nil, nil, false)
 	if err != nil {
 		t.Fatalf("buildHTML: %v", err)
 	}
 	out := string(html)
-	// range([minRadius, maxRadius]) — minRadius must be > 0
+	if strings.Contains(out, `.range([0,`) || strings.Contains(out, `.range([0, `) {
+		t.Errorf("[P3b] radius scale minimum is 0 — degree-0 nodes would be invisible")
+	}
 	if !strings.Contains(out, `.range([`) {
-		t.Errorf("[P3b] radius scale must have an explicit range with non-zero minimum")
+		t.Errorf("[P3b] radius scale must have an explicit range")
 	}
 }
 
@@ -558,6 +588,24 @@ func TestGraphExportHTMLStatusToggleCycles(t *testing.T) {
 		if !strings.Contains(out, label) {
 			t.Errorf("[P4a] status cycle label %q missing from HTML", label)
 		}
+	}
+}
+
+func TestGraphExportHTMLStatusDimmingLogic(t *testing.T) {
+	// [P4b][P4c] status toggle must apply search-dim to non-matching nodes;
+	// when All selected, search-dim must be cleared
+	html, err := buildHTML(nil, nil, nil, false)
+	if err != nil {
+		t.Fatalf("buildHTML: %v", err)
+	}
+	out := string(html)
+	// handler must apply search-dim class based on status
+	if !strings.Contains(out, `classed("search-dim"`) {
+		t.Errorf("[P4b] status handler must apply search-dim class")
+	}
+	// must have a branch that calls classed("search-dim", false) for All
+	if !strings.Contains(out, `classed("search-dim", false)`) {
+		t.Errorf("[P4c] status handler must call classed(\"search-dim\", false) when All is selected")
 	}
 }
 
@@ -610,17 +658,25 @@ func TestGraphExportHTMLTrayPresent(t *testing.T) {
 }
 
 func TestGraphExportHTMLTrayShiftClick(t *testing.T) {
-	// [P5a P5b] shift-click handler must toggle node in/out of tray and update count
+	// [P5a P5b] shift-click handler must toggle node in/out of tray and update count,
+	// specifically within the node click handler block
 	html, err := buildHTML(nil, nil, nil, false)
 	if err != nil {
 		t.Fatalf("buildHTML: %v", err)
 	}
 	out := string(html)
-	if !strings.Contains(out, `shiftKey`) {
-		t.Errorf("[P5a/5b] shift-click handler (shiftKey) missing from HTML")
+	// locate the node click handler
+	marker := `node.on("click"`
+	idx := strings.Index(out, marker)
+	if idx == -1 {
+		t.Fatalf("[P5a/5b] node click handler not found in HTML")
 	}
-	if !strings.Contains(out, `tray-count`) {
-		t.Errorf("[P5a/5b] tray count update missing from shift-click handler")
+	clickBlock := out[idx:]
+	if !strings.Contains(clickBlock, `shiftKey`) {
+		t.Errorf("[P5a/5b] shiftKey check missing from node click handler")
+	}
+	if !strings.Contains(clickBlock, `updateTrayUI()`) {
+		t.Errorf("[P5a/5b] updateTrayUI() not called from shift-click branch")
 	}
 }
 
@@ -637,14 +693,15 @@ func TestGraphExportHTMLExportCopiesContent(t *testing.T) {
 }
 
 func TestGraphExportHTMLExportDisabledWhenEmpty(t *testing.T) {
-	// [P5e] Export button must be disabled when tray is empty
+	// [P5e] Export button must carry the disabled attribute in initial HTML (tray starts empty)
 	html, err := buildHTML(nil, nil, nil, false)
 	if err != nil {
 		t.Fatalf("buildHTML: %v", err)
 	}
 	out := string(html)
-	if !strings.Contains(out, `btn-export`) || !strings.Contains(out, `disabled`) {
-		t.Errorf("[P5e] Export button must be disabled when tray is empty")
+	// must find btn-export with disabled attribute on the element itself
+	if !strings.Contains(out, `id="btn-export" disabled`) {
+		t.Errorf("[P5e] Export button (id=btn-export) must carry disabled attribute in initial HTML")
 	}
 }
 
