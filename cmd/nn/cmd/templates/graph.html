@@ -46,15 +46,19 @@ svg:active { cursor: grabbing; }
 #legend .leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 #legend .leg-label { color: #aaa; }
 
+/* ── right column (note panel + chat panel) ── */
+#right-col {
+  width: 0; min-width: 0; display: flex; flex-direction: column;
+  transition: width .2s ease; overflow: hidden;
+  background: #13192e; border-left: 1px solid #2a3a5e;
+}
+#right-col.open { width: 360px; min-width: 360px; }
+
 /* ── side panel ── */
 #panel {
-  width: 360px; min-width: 360px;
-  background: #13192e; border-left: 1px solid #2a3a5e;
+  flex: 1; min-height: 0;
   display: flex; flex-direction: column;
-  transform: translateX(100%); transition: transform .2s ease;
-  position: absolute; right: 0; top: 0; bottom: 0; z-index: 15;
 }
-#panel.open { transform: translateX(0); position: relative; }
 #panel-header {
   padding: 14px 16px 10px; border-bottom: 1px solid #2a3a5e;
   display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
@@ -115,15 +119,13 @@ svg:active { cursor: grabbing; }
 #btn-layout:hover { background: #2a3a5e; color: #fff; }
 #btn-layout.active { background: #2a3a5e; border-color: #7eb8f7; color: #7eb8f7; }
 
-/* ── message panel (serve mode) ── */
+/* ── message panel (chat mode, docked in right column) ── */
 #msg-panel {
-  position: absolute; bottom: 18px; right: 18px; z-index: 20;
-  width: 320px; max-height: 260px; overflow-y: auto;
-  background: rgba(10,10,30,.93); border: 1px solid #3a4a6a;
-  border-radius: 8px; padding: 10px 12px;
-  display: none; flex-direction: column; gap: 8px;
+  height: 260px; min-height: 260px; flex-shrink: 0;
+  border-top: 1px solid #2a3a5e;
+  padding: 10px 12px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 8px;
 }
-#msg-panel.visible { display: flex; }
 .msg-bubble {
   background: #1e2a4a; border-radius: 6px; padding: 7px 10px;
   font-size: 12px; line-height: 1.5; color: #dde; word-break: break-word;
@@ -169,24 +171,26 @@ svg:active { cursor: grabbing; }
   </div>
   <svg></svg>
 </div>
-<div id="msg-panel">
-  {{if .ServeMode}}
-  <div id="msg-input-row">
-    <textarea id="msg-input" placeholder="Ask about the graph…"></textarea>
-    <button id="msg-send">Send</button>
+<div id="right-col">
+  <div id="panel">
+    <div id="panel-header">
+      <div>
+        <div id="panel-title"></div>
+        <div id="panel-type"></div>
+      </div>
+      <button id="panel-close" title="Close">✕</button>
+    </div>
+    <div id="panel-tags"></div>
+    <div id="panel-body"></div>
+  </div>
+  {{if .ChatMode}}
+  <div id="msg-panel">
+    <div id="msg-input-row">
+      <textarea id="msg-input" placeholder="Ask about the graph…"></textarea>
+      <button id="msg-send">Send</button>
+    </div>
   </div>
   {{end}}
-</div>
-<div id="panel">
-  <div id="panel-header">
-    <div>
-      <div id="panel-title"></div>
-      <div id="panel-type"></div>
-    </div>
-    <button id="panel-close" title="Close">✕</button>
-  </div>
-  <div id="panel-tags"></div>
-  <div id="panel-body"></div>
 </div>
 <script>
 // ── D3 bundle ──────────────────────────────────────────────────────────────
@@ -274,6 +278,7 @@ document.getElementById("btn-zoom-out").onclick = () => zoomBy(1/1.4);
 document.getElementById("btn-zoom-fit").onclick = zoomFit;
 
 // ── Panel ──────────────────────────────────────────────────────────────────
+const rightCol   = document.getElementById("right-col");
 const panel      = document.getElementById("panel");
 const panelTitle = document.getElementById("panel-title");
 const panelType  = document.getElementById("panel-type");
@@ -291,10 +296,10 @@ function openPanel(d) {
   } else {
     panelBody.innerHTML = '<span id="panel-empty">No body.</span>';
   }
-  panel.classList.add("open");
+  rightCol.classList.add("open");
 }
 function closePanel() {
-  panel.classList.remove("open");
+  rightCol.classList.remove("open");
   clearHighlight(); selected = null;
 }
 
@@ -495,10 +500,9 @@ document.getElementById("search-input").addEventListener("input", e => {
 });
 {{end}}
 
-// ── Message panel polling (serve mode only) ───────────────────────────────
-{{if .ServeMode}}
+// ── Message panel polling (chat mode only) ───────────────────────────────
+{{if .ChatMode}}
 const msgPanel = document.getElementById("msg-panel");
-msgPanel.classList.add("visible");
 const msgInputRow = document.getElementById("msg-input-row");
 const msgEmpty = document.createElement("div");
 msgEmpty.id = "msg-empty";

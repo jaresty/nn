@@ -449,7 +449,7 @@ func TestGraphExportHTMLServeModeNoEmbeddedData(t *testing.T) {
 	// Verify by calling buildHTML(serveMode=true) and asserting that the embedded-data
 	// marker is absent, meaning the browser must fetch graph data rather than reading
 	// it from a static variable.
-	html, err := buildHTML(nil, nil, nil, true)
+	html, err := buildHTML(nil, nil, nil, true, false)
 	if err != nil {
 		t.Fatalf("buildHTML serveMode=true: %v", err)
 	}
@@ -475,26 +475,61 @@ func TestGraphExportHTMLLayoutToggle(t *testing.T) {
 }
 
 func TestGraphExportHTMLServeModeMessagePanel(t *testing.T) {
-	// property [2a]: message panel, input, and send button must be present in serve mode HTML
-	html, err := buildHTML(nil, nil, nil, true)
+	// property [2a]: message panel, input, and send button present only when chatMode=true
+	html, err := buildHTML(nil, nil, nil, true, true)
 	if err != nil {
-		t.Fatalf("buildHTML serveMode=true: %v", err)
+		t.Fatalf("buildHTML serveMode=true chatMode=true: %v", err)
 	}
 	out := string(html)
 	if !strings.Contains(out, `id="msg-panel"`) {
-		t.Errorf("serve mode: message panel element (id=msg-panel) missing")
+		t.Errorf("chatMode=true: message panel element (id=msg-panel) missing")
 	}
 	if !strings.Contains(out, "/messages") {
-		t.Errorf("serve mode: GET /messages polling not present")
+		t.Errorf("chatMode=true: GET /messages polling not present")
 	}
 	if !strings.Contains(out, `id="msg-input"`) {
-		t.Errorf("serve mode: chat textarea (id=msg-input) missing from msg-panel")
+		t.Errorf("chatMode=true: chat textarea (id=msg-input) missing from msg-panel")
 	}
 	if !strings.Contains(out, `id="msg-send"`) {
-		t.Errorf("serve mode: send button (id=msg-send) missing from msg-panel")
+		t.Errorf("chatMode=true: send button (id=msg-send) missing from msg-panel")
 	}
 	if !strings.Contains(out, "/chat") {
-		t.Errorf("serve mode: POST /chat not referenced in template")
+		t.Errorf("chatMode=true: POST /chat not referenced in template")
+	}
+}
+
+func TestGraphExportChatFlagGating(t *testing.T) {
+	// property [3a]: chatMode=false must not render msg-panel
+	// property [3b]: chatMode=true must render msg-panel
+	htmlNochat, err := buildHTML(nil, nil, nil, true, false)
+	if err != nil {
+		t.Fatalf("buildHTML serveMode=true chatMode=false: %v", err)
+	}
+	if strings.Contains(string(htmlNochat), `id="msg-panel"`) {
+		t.Errorf("chatMode=false: msg-panel must not be present")
+	}
+
+	htmlChat, err := buildHTML(nil, nil, nil, true, true)
+	if err != nil {
+		t.Fatalf("buildHTML serveMode=true chatMode=true: %v", err)
+	}
+	if !strings.Contains(string(htmlChat), `id="msg-panel"`) {
+		t.Errorf("chatMode=true: msg-panel must be present")
+	}
+}
+
+func TestGraphExportChatFlag(t *testing.T) {
+	// property [2]: --chat must be a recognized flag
+	nbDir, execute := setupNotebook(t)
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	writeNoteFile(t, nbDir, a)
+
+	out, err := execute("graph", "export", "--help")
+	if err != nil && !strings.Contains(out, "--chat") {
+		t.Fatalf("graph export --help: %v", err)
+	}
+	if !strings.Contains(out, "--chat") {
+		t.Errorf("graph export --help: --chat flag not listed")
 	}
 }
 
