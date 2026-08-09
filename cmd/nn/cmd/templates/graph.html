@@ -393,11 +393,12 @@ function rebuildSim(data) {
   svg.on("click", () => { closePanel(); });
 
   // ── Simulation ────────────────────────────────────────────────────────────
+  const chargeStrength = Math.max(-800, -350 - data.nodes.length * 0.8);
   simulation = d3.forceSimulation(data.nodes)
-    .force("link",      d3.forceLink(data.edges).id(d => d.id).distance(140))
-    .force("charge",    d3.forceManyBody().strength(-350))
+    .force("link",      d3.forceLink(data.edges).id(d => d.id).distance(80))
+    .force("charge",    d3.forceManyBody().strength(chargeStrength))
     .force("center",    d3.forceCenter(0, 0))
-    .force("collision", d3.forceCollide(36));
+    .force("collision", d3.forceCollide(18));
 
   if (groupingMode) {
     // per-tick centroid force: attract each node toward its type's mean position
@@ -471,12 +472,20 @@ document.getElementById("search-input").addEventListener("input", e => {
 // ── Message panel polling (serve mode only) ───────────────────────────────
 {{if .ServeMode}}
 const msgPanel = document.getElementById("msg-panel");
+msgPanel.classList.add("visible");
+const msgEmpty = document.createElement("div");
+msgEmpty.id = "msg-empty";
+msgEmpty.style.cssText = "color:#334;font-size:11px;font-style:italic;text-align:center;padding:8px 0";
+msgEmpty.textContent = "LLM messages appear here";
+msgPanel.appendChild(msgEmpty);
+
 async function pollMessages() {
   try {
     const resp = await fetch('/messages');
     const msgs = await resp.json();
     if (msgs && msgs.length) {
-      msgPanel.classList.add("visible");
+      const empty = document.getElementById("msg-empty");
+      if (empty) empty.remove();
       msgs.forEach(m => {
         const bubble = document.createElement("div");
         bubble.className = "msg-bubble";
