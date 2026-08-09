@@ -142,8 +142,9 @@ svg:active { cursor: grabbing; }
 #brief-modal {
   background: #13192e; border: 1px solid #3a4a6a; border-radius: 8px;
   color: #e0e0e0; padding: 0; width: 520px; max-width: 95vw; max-height: 80vh;
-  display: flex; flex-direction: column; overflow: hidden;
+  flex-direction: column; overflow: hidden;
 }
+#brief-modal[open] { display: flex; }
 #brief-modal::backdrop { background: rgba(0,0,10,.75); }
 #brief-modal-header {
   padding: 14px 16px 10px; border-bottom: 1px solid #2a3a5e;
