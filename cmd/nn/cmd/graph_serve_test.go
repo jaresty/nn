@@ -89,25 +89,6 @@ func TestGraphServeGetGraphFocus(t *testing.T) {
 	}
 }
 
-func TestGraphServePostChat(t *testing.T) {
-	// property [3]: POST /chat with {text} must return 204 and write JSON to stdout
-	nbDir, cfgFile := setupNotebookWithCfg(t)
-	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
-	writeNoteFile(t, nbDir, a)
-
-	port := 17346
-	startServeForTest(t, port, cfgFile)
-
-	body := strings.NewReader(`{"text":"what is this graph about?"}`)
-	resp, err := http.Post(fmt.Sprintf("http://localhost:%d/chat", port), "application/json", body)
-	if err != nil {
-		t.Fatalf("POST /chat: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent {
-		t.Errorf("POST /chat: status = %d, want 204", resp.StatusCode)
-	}
-}
 
 func TestGraphServePostEvent(t *testing.T) {
 	// property [3]: POST /event with {id, title} must succeed (204) — event is logged to stdout
@@ -182,6 +163,44 @@ func TestGraphServePostSearch(t *testing.T) {
 		if _, ok := r["score"]; !ok {
 			t.Errorf("POST /search: result missing 'score' field: %v", r)
 		}
+	}
+}
+
+func TestGraphServeChatEndpointRemoved(t *testing.T) {
+	// [P18] POST /chat must return 404 or 405 after chat removal
+	nbDir, cfgFile := setupNotebookWithCfg(t)
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	writeNoteFile(t, nbDir, a)
+
+	port := 17347
+	startServeForTest(t, port, cfgFile)
+
+	resp, err := http.Post(fmt.Sprintf("http://localhost:%d/chat", port), "application/json", strings.NewReader(`{"text":"hello"}`))
+	if err != nil {
+		t.Fatalf("POST /chat: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("[P18] POST /chat: status = %d, want 404 or 405 after removal", resp.StatusCode)
+	}
+}
+
+func TestGraphServeMessagesEndpointRemoved(t *testing.T) {
+	// [P19] GET /messages must return 404 or 405 after chat removal
+	nbDir, cfgFile := setupNotebookWithCfg(t)
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	writeNoteFile(t, nbDir, a)
+
+	port := 17348
+	startServeForTest(t, port, cfgFile)
+
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/messages", port))
+	if err != nil {
+		t.Fatalf("GET /messages: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Errorf("[P19] GET /messages: status = %d, want 404 or 405 after removal", resp.StatusCode)
 	}
 }
 

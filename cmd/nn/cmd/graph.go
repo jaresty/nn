@@ -579,8 +579,6 @@ func newGraphExportCmd(state *rootState) *cobra.Command {
 	var serve bool
 	var port int
 	var verbose bool
-	var chat bool
-
 	cmd := &cobra.Command{
 		Use:   "export",
 		Short: "Export the graph as DOT or SVG",
@@ -643,7 +641,7 @@ func newGraphExportCmd(state *rootState) *cobra.Command {
 				fmt.Fprint(w, svg)
 				return nil
 			case "html":
-				htmlBytes, err := buildHTML(enodes, eedges, byID, serve, chat)
+				htmlBytes, err := buildHTML(enodes, eedges, byID, serve)
 				if err != nil {
 					return fmt.Errorf("graph export html: %w", err)
 				}
@@ -677,7 +675,6 @@ func newGraphExportCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&serve, "serve", false, "Serve the HTML graph interactively on a local HTTP server (html only)")
 	cmd.Flags().IntVar(&port, "port", 7734, "Port for --serve mode")
 	cmd.Flags().BoolVar(&verbose, "verbose", false, "Log server activity to stderr (--serve mode)")
-	cmd.Flags().BoolVar(&chat, "chat", false, "Enable chat panel in --serve mode (requires LLM listening on stdout)")
 	return cmd
 }
 
@@ -704,7 +701,7 @@ func buildDOT(nodes []dotNode, edges []dotEdge) string {
 	return sb.String()
 }
 
-func buildHTML(nodes []dotNode, edges []dotEdge, notesByID map[string]*note.Note, serveMode bool, chatMode bool) ([]byte, error) {
+func buildHTML(nodes []dotNode, edges []dotEdge, notesByID map[string]*note.Note, serveMode bool) ([]byte, error) {
 	type jsonNode struct {
 		ID    string   `json:"id"`
 		Title string   `json:"title"`
@@ -772,12 +769,10 @@ func buildHTML(nodes []dotNode, edges []dotEdge, notesByID map[string]*note.Note
 		D3        template.JS
 		GraphJSON template.JS
 		ServeMode bool
-		ChatMode  bool
 	}{
 		D3:        template.JS(d3Bundle),
 		GraphJSON: template.JS(graphData),
 		ServeMode: serveMode,
-		ChatMode:  chatMode,
 	}); err != nil {
 		return nil, fmt.Errorf("execute graph template: %w", err)
 	}

@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -449,7 +451,7 @@ func TestGraphExportHTMLServeModeNoEmbeddedData(t *testing.T) {
 	// Verify by calling buildHTML(serveMode=true) and asserting that the embedded-data
 	// marker is absent, meaning the browser must fetch graph data rather than reading
 	// it from a static variable.
-	html, err := buildHTML(nil, nil, nil, true, false)
+	html, err := buildHTML(nil, nil, nil, true)
 	if err != nil {
 		t.Fatalf("buildHTML serveMode=true: %v", err)
 	}
@@ -474,62 +476,205 @@ func TestGraphExportHTMLLayoutToggle(t *testing.T) {
 	}
 }
 
-func TestGraphExportHTMLServeModeMessagePanel(t *testing.T) {
-	// property [2a]: message panel, input, and send button present only when chatMode=true
-	html, err := buildHTML(nil, nil, nil, true, true)
+
+// ── search/click interaction [P1a P1b P2a P2b] ───────────────────────────────
+
+func TestGraphExportHTMLSearchClearsHighlight(t *testing.T) {
+	// [P1a] search handler must call clearHighlight() before applying search-dim
+	html, err := buildHTML(nil, nil, nil, true)
 	if err != nil {
-		t.Fatalf("buildHTML serveMode=true chatMode=true: %v", err)
+		t.Fatalf("buildHTML: %v", err)
 	}
 	out := string(html)
-	if !strings.Contains(out, `id="msg-panel"`) {
-		t.Errorf("chatMode=true: message panel element (id=msg-panel) missing")
-	}
-	if !strings.Contains(out, "/messages") {
-		t.Errorf("chatMode=true: GET /messages polling not present")
-	}
-	if !strings.Contains(out, `id="msg-input"`) {
-		t.Errorf("chatMode=true: chat textarea (id=msg-input) missing from msg-panel")
-	}
-	if !strings.Contains(out, `id="msg-send"`) {
-		t.Errorf("chatMode=true: send button (id=msg-send) missing from msg-panel")
-	}
-	if !strings.Contains(out, "/chat") {
-		t.Errorf("chatMode=true: POST /chat not referenced in template")
+	if !strings.Contains(out, `clearHighlight()`) {
+		t.Errorf("[P1a] search handler must call clearHighlight() before applying search-dim")
 	}
 }
 
-func TestGraphExportChatFlagGating(t *testing.T) {
-	// property [3a]: chatMode=false must not render msg-panel
-	// property [3b]: chatMode=true must render msg-panel
-	htmlNochat, err := buildHTML(nil, nil, nil, true, false)
+func TestGraphExportHTMLClickClearsSearch(t *testing.T) {
+	// [P1b] node click handler must clear the search input and search-dim on click
+	html, err := buildHTML(nil, nil, nil, true)
 	if err != nil {
-		t.Fatalf("buildHTML serveMode=true chatMode=false: %v", err)
+		t.Fatalf("buildHTML: %v", err)
 	}
-	if strings.Contains(string(htmlNochat), `id="msg-panel"`) {
-		t.Errorf("chatMode=false: msg-panel must not be present")
+	out := string(html)
+	if !strings.Contains(out, `si.value = ""`) {
+		t.Errorf("[P1b] node click handler must clear search input (si.value = \"\")")
 	}
-
-	htmlChat, err := buildHTML(nil, nil, nil, true, true)
-	if err != nil {
-		t.Fatalf("buildHTML serveMode=true chatMode=true: %v", err)
-	}
-	if !strings.Contains(string(htmlChat), `id="msg-panel"`) {
-		t.Errorf("chatMode=true: msg-panel must be present")
+	if !strings.Contains(out, `classed("search-dim", false)`) {
+		t.Errorf("[P1b] node click handler must clear search-dim class")
 	}
 }
 
-func TestGraphExportChatFlag(t *testing.T) {
-	// property [2]: --chat must be a recognized flag
+// ── node size by degree [P3a P3b] ────────────────────────────────────────────
+
+func TestGraphExportHTMLNodeSizeByDegree(t *testing.T) {
+	// [P3a] node radius must scale with degree — d3.scaleSqrt or similar degree-based scale
+	html, err := buildHTML(nil, nil, nil, false)
+	if err != nil {
+		t.Fatalf("buildHTML: %v", err)
+	}
+	out := string(html)
+	if !strings.Contains(out, `scaleSqrt`) && !strings.Contains(out, `scaleLinear`) {
+		t.Errorf("[P3a] node radius must use a D3 scale (scaleSqrt/scaleLinear) based on degree")
+	}
+}
+
+func TestGraphExportHTMLNodeSizeMinRadius(t *testing.T) {
+	// [P3b] degree-0 nodes must have a non-zero minimum radius in the scale range
+	html, err := buildHTML(nil, nil, nil, false)
+	if err != nil {
+		t.Fatalf("buildHTML: %v", err)
+	}
+	out := string(html)
+	// range([minRadius, maxRadius]) — minRadius must be > 0
+	if !strings.Contains(out, `.range([`) {
+		t.Errorf("[P3b] radius scale must have an explicit range with non-zero minimum")
+	}
+}
+
+// ── status overlay [P4a P4b P4c] ─────────────────────────────────────────────
+
+func TestGraphExportHTMLStatusTogglePresent(t *testing.T) {
+	// [P4a] status toggle button must be present in the HTML
+	html, err := buildHTML(nil, nil, nil, false)
+	if err != nil {
+		t.Fatalf("buildHTML: %v", err)
+	}
+	out := string(html)
+	if !strings.Contains(out, `id="btn-status"`) {
+		t.Errorf("[P4a] status toggle button (id=btn-status) missing from HTML")
+	}
+}
+
+func TestGraphExportHTMLStatusToggleCycles(t *testing.T) {
+	// [P4a] status cycle labels must appear: All, Draft, Reviewed, Permanent
+	html, err := buildHTML(nil, nil, nil, false)
+	if err != nil {
+		t.Fatalf("buildHTML: %v", err)
+	}
+	out := string(html)
+	for _, label := range []string{"All", "Draft", "Reviewed", "Permanent"} {
+		if !strings.Contains(out, label) {
+			t.Errorf("[P4a] status cycle label %q missing from HTML", label)
+		}
+	}
+}
+
+func TestGraphServeStatusFieldInGraph(t *testing.T) {
+	// [P4b] /graph JSON must include 'status' field on each node
+	nbDir, cfgFile := setupNotebookWithCfg(t)
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	writeNoteFile(t, nbDir, a)
+
+	port := 17350
+	startServeForTest(t, port, cfgFile)
+
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/graph", port))
+	if err != nil {
+		t.Fatalf("GET /graph: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var body struct {
+		Nodes []map[string]any `json:"nodes"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("GET /graph: body not valid JSON: %v", err)
+	}
+	if len(body.Nodes) == 0 {
+		t.Fatal("GET /graph: no nodes")
+	}
+	if _, ok := body.Nodes[0]["status"]; !ok {
+		t.Errorf("[P4b] /graph node JSON missing 'status' field")
+	}
+}
+
+// ── selection tray + export [P5a-5e] ─────────────────────────────────────────
+
+func TestGraphExportHTMLTrayPresent(t *testing.T) {
+	// [P5d] tray count element and Export button must be in both static and serve HTML
+	for _, serveMode := range []bool{false, true} {
+		html, err := buildHTML(nil, nil, nil, serveMode)
+		if err != nil {
+			t.Fatalf("buildHTML serveMode=%v: %v", serveMode, err)
+		}
+		out := string(html)
+		if !strings.Contains(out, `id="tray-count"`) {
+			t.Errorf("[P5d] serveMode=%v: tray count element (id=tray-count) missing", serveMode)
+		}
+		if !strings.Contains(out, `id="btn-export"`) {
+			t.Errorf("[P5d] serveMode=%v: Export button (id=btn-export) missing", serveMode)
+		}
+	}
+}
+
+func TestGraphExportHTMLTrayShiftClick(t *testing.T) {
+	// [P5a P5b] shift-click handler must toggle node in/out of tray and update count
+	html, err := buildHTML(nil, nil, nil, false)
+	if err != nil {
+		t.Fatalf("buildHTML: %v", err)
+	}
+	out := string(html)
+	if !strings.Contains(out, `shiftKey`) {
+		t.Errorf("[P5a/5b] shift-click handler (shiftKey) missing from HTML")
+	}
+	if !strings.Contains(out, `tray-count`) {
+		t.Errorf("[P5a/5b] tray count update missing from shift-click handler")
+	}
+}
+
+func TestGraphExportHTMLExportCopiesContent(t *testing.T) {
+	// [P5c] Export button must call clipboard writeText with note title, body, links
+	html, err := buildHTML(nil, nil, nil, false)
+	if err != nil {
+		t.Fatalf("buildHTML: %v", err)
+	}
+	out := string(html)
+	if !strings.Contains(out, `clipboard.writeText`) {
+		t.Errorf("[P5c] Export button must call navigator.clipboard.writeText")
+	}
+}
+
+func TestGraphExportHTMLExportDisabledWhenEmpty(t *testing.T) {
+	// [P5e] Export button must be disabled when tray is empty
+	html, err := buildHTML(nil, nil, nil, false)
+	if err != nil {
+		t.Fatalf("buildHTML: %v", err)
+	}
+	out := string(html)
+	if !strings.Contains(out, `btn-export`) || !strings.Contains(out, `disabled`) {
+		t.Errorf("[P5e] Export button must be disabled when tray is empty")
+	}
+}
+
+// ── remove chat [P16 P17] ─────────────────────────────────────────────────────
+
+func TestGraphExportNoChatFlag(t *testing.T) {
+	// [P16] --chat flag must not appear in --help output
 	nbDir, execute := setupNotebook(t)
 	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
 	writeNoteFile(t, nbDir, a)
 
-	out, err := execute("graph", "export", "--help")
-	if err != nil && !strings.Contains(out, "--chat") {
-		t.Fatalf("graph export --help: %v", err)
+	out, _ := execute("graph", "export", "--help")
+	if strings.Contains(out, "--chat") {
+		t.Errorf("[P16] --chat flag must not appear in graph export --help after removal")
 	}
-	if !strings.Contains(out, "--chat") {
-		t.Errorf("graph export --help: --chat flag not listed")
+}
+
+func TestGraphExportHTMLNoChatElements(t *testing.T) {
+	// [P17] msg-panel, msg-input, msg-send must not appear in any generated HTML
+	for _, chatMode := range []bool{false, true} {
+		html, err := buildHTML(nil, nil, nil, true)
+		if err != nil {
+			t.Fatalf("buildHTML chatMode=%v: %v", chatMode, err)
+		}
+		out := string(html)
+		for _, id := range []string{`id="msg-panel"`, `id="msg-input"`, `id="msg-send"`} {
+			if strings.Contains(out, id) {
+				t.Errorf("[P17] chatMode=%v: %s must not appear in HTML after chat removal", chatMode, id)
+			}
+		}
 	}
 }
 

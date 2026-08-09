@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"runtime"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/jaresty/nn/internal/backend"
@@ -21,13 +20,6 @@ import (
 type serveState struct {
 	backend      backend.Backend
 	notebookPath string
-	mu           sync.Mutex
-	messages     []serveMessage
-}
-
-type serveMessage struct {
-	Text string `json:"text"`
-	Ts   string `json:"ts"`
 }
 
 func startServeMode(ctx context.Context, b backend.Backend, notebookPath string, htmlBytes []byte, port int, openBrowser bool, verbose bool) error {
@@ -43,6 +35,10 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write(htmlBytes)
 	})
@@ -68,11 +64,12 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 		}
 
 		type outNode struct {
-			ID    string   `json:"id"`
-			Title string   `json:"title"`
-			Type  string   `json:"type"`
-			Tags  []string `json:"tags"`
-			Body  string   `json:"body"`
+			ID     string   `json:"id"`
+			Title  string   `json:"title"`
+			Type   string   `json:"type"`
+			Status string   `json:"status"`
+			Tags   []string `json:"tags"`
+			Body   string   `json:"body"`
 		}
 		type outEdge struct {
 			Source string `json:"source"`
@@ -96,7 +93,7 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 				if tags == nil {
 					tags = []string{}
 				}
-				outNodes = append(outNodes, outNode{e.n.ID, e.n.Title, string(e.n.Type), tags, e.n.Body})
+				outNodes = append(outNodes, outNode{e.n.ID, e.n.Title, string(e.n.Type), string(e.n.Status), tags, e.n.Body})
 			}
 			for _, e := range entries {
 				for _, lnk := range e.n.Links {
@@ -112,7 +109,7 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 				if tags == nil {
 					tags = []string{}
 				}
-				outNodes = append(outNodes, outNode{n.ID, n.Title, string(n.Type), tags, n.Body})
+				outNodes = append(outNodes, outNode{n.ID, n.Title, string(n.Type), string(n.Status), tags, n.Body})
 			}
 			for _, n := range notes {
 				for _, lnk := range n.Links {
@@ -182,45 +179,6 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	mux.HandleFunc("POST /chat", func(w http.ResponseWriter, r *http.Request) {
-		var payload map[string]any
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		payload["event"] = "chat"
-		payload["ts"] = time.Now().UTC().Format(time.RFC3339)
-		line, _ := json.Marshal(payload)
-		fmt.Fprintf(os.Stdout, "%s\n", line)
-		w.WriteHeader(http.StatusNoContent)
-	})
-
-	mux.HandleFunc("POST /message", func(w http.ResponseWriter, r *http.Request) {
-		var msg serveMessage
-		if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		if msg.Ts == "" {
-			msg.Ts = time.Now().UTC().Format(time.RFC3339)
-		}
-		s.mu.Lock()
-		s.messages = append(s.messages, msg)
-		s.mu.Unlock()
-		w.WriteHeader(http.StatusNoContent)
-	})
-
-	mux.HandleFunc("GET /messages", func(w http.ResponseWriter, r *http.Request) {
-		s.mu.Lock()
-		msgs := s.messages
-		s.messages = nil
-		s.mu.Unlock()
-		if msgs == nil {
-			msgs = []serveMessage{}
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(msgs)
-	})
 
 	addr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{Addr: addr, Handler: mux}

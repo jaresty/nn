@@ -119,36 +119,21 @@ svg:active { cursor: grabbing; }
 #btn-layout:hover { background: #2a3a5e; color: #fff; }
 #btn-layout.active { background: #2a3a5e; border-color: #7eb8f7; color: #7eb8f7; }
 
-/* ── message panel (chat mode, docked in right column) ── */
-#msg-panel {
-  height: 260px; min-height: 260px; flex-shrink: 0;
-  border-top: 1px solid #2a3a5e;
-  padding: 10px 12px; overflow-y: auto;
-  display: flex; flex-direction: column; gap: 8px;
+/* ── tray / export ── */
+#tray-bar {
+  position: absolute; bottom: 14px; right: 14px; z-index: 10;
+  display: flex; gap: 6px; align-items: center;
 }
-.msg-bubble {
-  background: #1e2a4a; border-radius: 6px; padding: 7px 10px;
-  font-size: 12px; line-height: 1.5; color: #dde; word-break: break-word;
+#tray-count {
+  background: rgba(10,10,30,.9); border: 1px solid #3a4a6a;
+  color: #ccc; border-radius: 5px; padding: 4px 10px; font-size: 12px;
 }
-.msg-bubble .msg-ts { font-size: 10px; color: #556; margin-top: 4px; }
-.msg-bubble.outgoing { background: #1a2e4a; }
-#msg-input-row {
-  display: flex; gap: 6px; margin-top: 8px; flex-shrink: 0;
-  border-top: 1px solid #2a3a5e; padding-top: 8px;
-}
-#msg-input {
-  flex: 1; background: #0d1220; border: 1px solid #3a4a6a;
-  color: #e0e0e0; border-radius: 5px; padding: 5px 8px;
-  font-size: 12px; resize: none; outline: none; height: 52px;
-  font-family: inherit;
-}
-#msg-input:focus { border-color: #7eb8f7; }
-#msg-send {
+#btn-export {
   background: #16213e; border: 1px solid #3a4a6a; color: #ccc;
-  border-radius: 5px; padding: 4px 10px; font-size: 12px;
-  cursor: pointer; align-self: flex-end;
+  border-radius: 5px; padding: 4px 10px; font-size: 12px; cursor: pointer;
 }
-#msg-send:hover { background: #2a3a5e; color: #fff; }
+#btn-export:not([disabled]):hover { background: #2a3a5e; color: #fff; }
+#btn-export[disabled] { opacity: .4; cursor: default; }
 </style>
 </head>
 <body>
@@ -162,7 +147,12 @@ svg:active { cursor: grabbing; }
   <div id="search-bar">
     <button id="btn-back">← Back</button>
     <button id="btn-layout" title="Toggle grouped layout">Grouped</button>
+    <button id="btn-status" title="Filter by status">All</button>
     <input id="search-input" type="text" placeholder="Search notes…" autocomplete="off">
+  </div>
+  <div id="tray-bar">
+    <span id="tray-count">0 selected</span>
+    <button id="btn-export" disabled>Export</button>
   </div>
   <div id="zoom-controls">
     <button id="btn-zoom-in"  title="Zoom in">+</button>
@@ -183,14 +173,6 @@ svg:active { cursor: grabbing; }
     <div id="panel-tags"></div>
     <div id="panel-body"></div>
   </div>
-  {{if .ChatMode}}
-  <div id="msg-panel">
-    <div id="msg-input-row">
-      <textarea id="msg-input" placeholder="Ask about the graph…"></textarea>
-      <button id="msg-send">Send</button>
-    </div>
-  </div>
-  {{end}}
 </div>
 <script>
 // ── D3 bundle ──────────────────────────────────────────────────────────────
@@ -346,8 +328,18 @@ function rebuildSim(data) {
       .on("drag",  (e,d) => { d.fx=e.x; d.fy=e.y; })
       .on("end",   (e,d) => { if (!e.active) simulation.alphaTarget(0); d.fx=null; d.fy=null; }));
 
+  const degreeMap = {};
+  data.edges.forEach(e => {
+    const s = typeof e.source==="object" ? e.source.id : e.source;
+    const t = typeof e.target==="object" ? e.target.id : e.target;
+    degreeMap[s] = (degreeMap[s]||0) + 1;
+    degreeMap[t] = (degreeMap[t]||0) + 1;
+  });
+  const maxDeg = Math.max(1, ...Object.values(degreeMap));
+  const rScale = d3.scaleSqrt().domain([0, maxDeg]).range([4, 16]);
   node.selectAll("circle").data(d=>[d]).join("circle")
-    .attr("r", 10).attr("fill", nodeColor).attr("stroke", d => nodeColor(d));
+    .attr("r", d => rScale(degreeMap[d.id]||0))
+    .attr("fill", nodeColor).attr("stroke", d => nodeColor(d));
   node.selectAll("text").data(d=>[d]).join("text")
     .attr("dy", "1.5em").attr("text-anchor", "middle")
     .text(d => d.title.length > 28 ? d.title.slice(0,26)+"…" : d.title);
@@ -388,6 +380,12 @@ function rebuildSim(data) {
   // ── Click: ego-graph (client-side, both modes) ───────────────────────────
   node.on("click", (e,d) => {
     e.stopPropagation();
+    // shift-click: toggle tray membership
+    if (e.shiftKey) {
+      if (tray.has(d.id)) { tray.delete(d.id); } else { tray.set(d.id, d); }
+      updateTrayUI();
+      return;
+    }
     if (selected === d.id) { closePanel(); return; }
     selected = d.id;
     {{if .ServeMode}}
@@ -416,6 +414,11 @@ function rebuildSim(data) {
     };
     rebuildSim(egoData);
     rebuildLegend(egoData);
+    // clear search state when entering ego-graph mode
+    {{if .ServeMode}}
+    const si = document.getElementById("search-input");
+    if (si.value) { si.value = ""; gNodes.selectAll("g").classed("search-dim", false); }
+    {{end}}
     // open panel after rebuildSim so closePanel() inside rebuildSim doesn't wipe it
     highlight(d.id);
     openPanel(d);
@@ -487,6 +490,8 @@ document.getElementById("search-input").addEventListener("input", e => {
       gNodes.selectAll("g").classed("search-dim", false);
       return;
     }
+    // clear click-highlight state when search takes over
+    clearHighlight();
     const resp = await fetch('/search', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -500,54 +505,45 @@ document.getElementById("search-input").addEventListener("input", e => {
 });
 {{end}}
 
-// ── Message panel polling (chat mode only) ───────────────────────────────
-{{if .ChatMode}}
-const msgPanel = document.getElementById("msg-panel");
-const msgInputRow = document.getElementById("msg-input-row");
-const msgEmpty = document.createElement("div");
-msgEmpty.id = "msg-empty";
-msgEmpty.style.cssText = "color:#334;font-size:11px;font-style:italic;text-align:center;padding:8px 0";
-msgEmpty.textContent = "LLM messages appear here";
-msgPanel.insertBefore(msgEmpty, msgInputRow);
-
-function sendChat() {
-  const input = document.getElementById("msg-input");
-  const text = input.value.trim();
-  if (!text) return;
-  input.value = "";
-  const bubble = document.createElement("div");
-  bubble.className = "msg-bubble outgoing";
-  bubble.innerHTML = `<div>${text.replace(/</g,"&lt;")}</div>`;
-  const empty = document.getElementById("msg-empty");
-  if (empty) empty.remove();
-  msgPanel.insertBefore(bubble, msgInputRow);
-  msgPanel.scrollTop = msgPanel.scrollHeight;
-  fetch('/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text})});
-}
-document.getElementById("msg-send").addEventListener("click", sendChat);
-document.getElementById("msg-input").addEventListener("keydown", e => {
-  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
+// ── Status overlay toggle ─────────────────────────────────────────────────
+const STATUS_CYCLE = ["All", "Draft", "Reviewed", "Permanent"];
+let statusIdx = 0;
+document.getElementById("btn-status").addEventListener("click", () => {
+  statusIdx = (statusIdx + 1) % STATUS_CYCLE.length;
+  const sel = STATUS_CYCLE[statusIdx];
+  document.getElementById("btn-status").textContent = sel;
+  if (sel === "All") {
+    gNodes.selectAll("g").classed("search-dim", false);
+  } else {
+    gNodes.selectAll("g").classed("search-dim", d => (d.status||"draft").toLowerCase() !== sel.toLowerCase());
+  }
 });
 
-async function pollMessages() {
-  try {
-    const resp = await fetch('/messages');
-    const msgs = await resp.json();
-    if (msgs && msgs.length) {
-      const empty = document.getElementById("msg-empty");
-      if (empty) empty.remove();
-      msgs.forEach(m => {
-        const bubble = document.createElement("div");
-        bubble.className = "msg-bubble";
-        bubble.innerHTML = `<div>${m.text.replace(/</g,"&lt;")}</div><div class="msg-ts">${m.ts}</div>`;
-        msgPanel.insertBefore(bubble, msgInputRow);
-        msgPanel.scrollTop = msgPanel.scrollHeight;
-      });
-    }
-  } catch(_) {}
+// ── Selection tray + export ───────────────────────────────────────────────
+const tray = new Map(); // id → node data
+
+function updateTrayUI() {
+  const count = tray.size;
+  document.getElementById("tray-count").textContent = count === 0 ? "0 selected" : `${count} selected`;
+  const btn = document.getElementById("btn-export");
+  if (count === 0) { btn.setAttribute("disabled", ""); } else { btn.removeAttribute("disabled"); }
 }
-setInterval(pollMessages, 2000);
-{{end}}
+
+document.getElementById("btn-export").addEventListener("click", () => {
+  if (tray.size === 0) return;
+  const lines = [];
+  tray.forEach((d) => {
+    lines.push(`### ${d.title} (${d.id})`);
+    if (d.body && d.body.trim()) lines.push(d.body.trim());
+    const outLinks = (currentGraphData || rootGraphData || {edges:[]}).edges
+      .filter(e => { const s = typeof e.source==="object" ? e.source.id : e.source; return s === d.id; })
+      .map(e => { const t = typeof e.target==="object" ? e.target : {id: e.target, title: e.target}; return `→ ${t.title||t.id}`; });
+    if (outLinks.length) lines.push("Links: " + outLinks.join(", "));
+    lines.push("");
+  });
+  lines.push("## Question\n");
+  navigator.clipboard.writeText("## Selected notes\n\n" + lines.join("\n"));
+});
 
 // ── Initial render ────────────────────────────────────────────────────────
 {{if .ServeMode}}
