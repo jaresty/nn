@@ -459,6 +459,36 @@ func TestGraphExportHTMLServeModeNoEmbeddedData(t *testing.T) {
 	}
 }
 
+func TestGraphExportHTMLLayoutToggle(t *testing.T) {
+	// property [1a]: a layout toggle element must be present in the DOM
+	nbDir, execute := setupNotebook(t)
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	writeNoteFile(t, nbDir, a)
+
+	out, err := execute("graph", "export", "--format", "html")
+	if err != nil {
+		t.Fatalf("html export: %v", err)
+	}
+	if !strings.Contains(out, `id="btn-layout"`) {
+		t.Errorf("html export: layout toggle button (id=btn-layout) missing from output")
+	}
+}
+
+func TestGraphExportHTMLServeModeMessagePanel(t *testing.T) {
+	// property [2a]: message panel element must be present in serve mode HTML
+	html, err := buildHTML(nil, nil, nil, true)
+	if err != nil {
+		t.Fatalf("buildHTML serveMode=true: %v", err)
+	}
+	out := string(html)
+	if !strings.Contains(out, `id="msg-panel"`) {
+		t.Errorf("serve mode: message panel element (id=msg-panel) missing")
+	}
+	if !strings.Contains(out, "/messages") {
+		t.Errorf("serve mode: GET /messages polling not present")
+	}
+}
+
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 func nonEmptyLines(s string) []string {

@@ -89,6 +89,26 @@ func TestGraphServeGetGraphFocus(t *testing.T) {
 	}
 }
 
+func TestGraphServePostEvent(t *testing.T) {
+	// property [3]: POST /event with {id, title} must succeed (204) — event is logged to stdout
+	nbDir, cfgFile := setupNotebookWithCfg(t)
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	writeNoteFile(t, nbDir, a)
+
+	port := 17345
+	startServeForTest(t, port, cfgFile)
+
+	body := strings.NewReader(`{"id":"` + a.ID + `","title":"Alpha"}`)
+	resp, err := http.Post(fmt.Sprintf("http://localhost:%d/event", port), "application/json", body)
+	if err != nil {
+		t.Fatalf("POST /event: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("POST /event: status = %d, want 204", resp.StatusCode)
+	}
+}
+
 func TestGraphServeGetRoot(t *testing.T) {
 	nbDir, cfgFile := setupNotebookWithCfg(t)
 

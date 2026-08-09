@@ -107,6 +107,28 @@ svg:active { cursor: grabbing; }
   font-size: 12px; cursor: pointer;
 }
 #btn-back:hover { background: #2a3a5e; color: #fff; }
+#btn-layout {
+  background: #16213e; border: 1px solid #3a4a6a;
+  color: #ccc; border-radius: 5px; padding: 4px 10px;
+  font-size: 12px; cursor: pointer;
+}
+#btn-layout:hover { background: #2a3a5e; color: #fff; }
+#btn-layout.active { background: #2a3a5e; border-color: #7eb8f7; color: #7eb8f7; }
+
+/* ── message panel (serve mode) ── */
+#msg-panel {
+  position: absolute; bottom: 18px; right: 18px; z-index: 20;
+  width: 320px; max-height: 260px; overflow-y: auto;
+  background: rgba(10,10,30,.93); border: 1px solid #3a4a6a;
+  border-radius: 8px; padding: 10px 12px;
+  display: none; flex-direction: column; gap: 8px;
+}
+#msg-panel.visible { display: flex; }
+.msg-bubble {
+  background: #1e2a4a; border-radius: 6px; padding: 7px 10px;
+  font-size: 12px; line-height: 1.5; color: #dde; word-break: break-word;
+}
+.msg-bubble .msg-ts { font-size: 10px; color: #556; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -119,6 +141,7 @@ svg:active { cursor: grabbing; }
   <div id="legend"></div>
   <div id="search-bar">
     <button id="btn-back">← Back</button>
+    <button id="btn-layout" title="Toggle grouped layout">Grouped</button>
     <input id="search-input" type="text" placeholder="Search notes…" autocomplete="off">
   </div>
   <div id="zoom-controls">
@@ -128,6 +151,7 @@ svg:active { cursor: grabbing; }
   </div>
   <svg></svg>
 </div>
+<div id="msg-panel"></div>
 <div id="panel">
   <div id="panel-header">
     <div>
@@ -261,11 +285,21 @@ function rebuildLegend(data) {
   });
 }
 
+// ── Layout toggle ──────────────────────────────────────────────────────────
+let groupingMode = false;
+document.getElementById("btn-layout").addEventListener("click", () => {
+  groupingMode = !groupingMode;
+  document.getElementById("btn-layout").classList.toggle("active", groupingMode);
+  const d = currentGraphData || rootGraphData;
+  if (d) { rebuildSim(d); rebuildLegend(d); }
+});
+
 // ── Simulation (rebuildable) ───────────────────────────────────────────────
 let simulation = null;
 let selected = null;
 
 function rebuildSim(data) {
+  currentGraphData = data;
   if (simulation) simulation.stop();
   selected = null;
   closePanel();
@@ -328,6 +362,9 @@ function rebuildSim(data) {
     selected = d.id;
     highlight(d.id);
     openPanel(d);
+    {{if .ServeMode}}
+    fetch('/event', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: d.id, title: d.title})});
+    {{end}}
     // show ego subgraph: filter to 2-hop neighbors in memory
     const egoNodes = new Set([d.id]);
     data.edges.forEach(edge => {
@@ -362,6 +399,27 @@ function rebuildSim(data) {
     .force("center",    d3.forceCenter(0, 0))
     .force("collision", d3.forceCollide(36));
 
+  if (groupingMode) {
+    // per-tick centroid force: attract each node toward its type's mean position
+    simulation.force("group", () => {
+      const centroids = {};
+      data.nodes.forEach(n => {
+        if (!centroids[n.type]) centroids[n.type] = {x: 0, y: 0, count: 0};
+        centroids[n.type].x += n.x || 0;
+        centroids[n.type].y += n.y || 0;
+        centroids[n.type].count++;
+      });
+      Object.values(centroids).forEach(c => { c.x /= c.count; c.y /= c.count; });
+      const alpha = simulation.alpha();
+      data.nodes.forEach(n => {
+        const c = centroids[n.type];
+        if (!c) return;
+        n.vx = (n.vx || 0) + (c.x - (n.x || 0)) * 0.08 * alpha;
+        n.vy = (n.vy || 0) + (c.y - (n.y || 0)) * 0.08 * alpha;
+      });
+    });
+  }
+
   simulation.on("tick", () => {
     link.attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
         .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
@@ -377,6 +435,7 @@ function clearHighlight() {
 
 // ── Back button (both modes) ──────────────────────────────────────────────
 let rootGraphData = null;
+let currentGraphData = null;
 document.getElementById("btn-back").addEventListener("click", () => {
   if (rootGraphData) {
     rebuildSim(rootGraphData);
@@ -407,6 +466,28 @@ document.getElementById("search-input").addEventListener("input", e => {
     gNodes.selectAll("g").classed("search-dim", d => !scoreMap[d.id]);
   }, 300);
 });
+{{end}}
+
+// ── Message panel polling (serve mode only) ───────────────────────────────
+{{if .ServeMode}}
+const msgPanel = document.getElementById("msg-panel");
+async function pollMessages() {
+  try {
+    const resp = await fetch('/messages');
+    const msgs = await resp.json();
+    if (msgs && msgs.length) {
+      msgPanel.classList.add("visible");
+      msgs.forEach(m => {
+        const bubble = document.createElement("div");
+        bubble.className = "msg-bubble";
+        bubble.innerHTML = `<div>${m.text.replace(/</g,"&lt;")}</div><div class="msg-ts">${m.ts}</div>`;
+        msgPanel.appendChild(bubble);
+        msgPanel.scrollTop = msgPanel.scrollHeight;
+      });
+    }
+  } catch(_) {}
+}
+setInterval(pollMessages, 2000);
 {{end}}
 
 // ── Initial render ────────────────────────────────────────────────────────
