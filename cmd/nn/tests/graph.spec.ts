@@ -345,3 +345,61 @@ test('[PB] all nodes have radius >= 5', async ({ page }) => {
   expect(radii.length).toBeGreaterThan(0);
   expect(Math.min(...radii)).toBeGreaterThanOrEqual(5);
 });
+
+// ── zoom-to-search ────────────────────────────────────────────────────────────
+
+// Helper: get SVG <g> transform string (the D3 zoom target)
+async function getSvgTransform(page: any): Promise<string> {
+  return page.locator('svg > g').first().getAttribute('transform').then((t: string | null) => t ?? '');
+}
+
+// Helper: get bounding rect of matched nodes in viewport coordinates
+async function getMatchedNodeViewportBounds(page: any) {
+  return page.locator('svg g.node:not(.search-dim) circle').evaluateAll((els: SVGCircleElement[]) => {
+    return els.map(el => {
+      const rect = el.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
+    });
+  });
+}
+
+test('[PC1a] matched nodes are horizontally within viewport after search', async ({ page }) => {
+  await loadGraph(page);
+  await page.locator('#search-input').fill('Alpha');
+  await page.waitForTimeout(600); // debounce + zoom animation
+  const W = await page.evaluate(() => window.innerWidth);
+  const pad = 40;
+  const rects = await getMatchedNodeViewportBounds(page);
+  expect(rects.length).toBeGreaterThan(0);
+  for (const r of rects) {
+    expect(r.left).toBeGreaterThanOrEqual(pad);
+    expect(r.right).toBeLessThanOrEqual(W - pad);
+  }
+});
+
+test('[PC1b] matched nodes are vertically within viewport after search', async ({ page }) => {
+  await loadGraph(page);
+  await page.locator('#search-input').fill('Alpha');
+  await page.waitForTimeout(600);
+  const H = await page.evaluate(() => window.innerHeight);
+  const pad = 40;
+  const rects = await getMatchedNodeViewportBounds(page);
+  expect(rects.length).toBeGreaterThan(0);
+  for (const r of rects) {
+    expect(r.top).toBeGreaterThanOrEqual(pad);
+    expect(r.bottom).toBeLessThanOrEqual(H - pad);
+  }
+});
+
+test('[PC2] zoom transform changes when search produces matches', async ({ page }) => {
+  await loadGraph(page);
+  // Capture transform before search (zoom-to-fit initial state)
+  await page.waitForTimeout(600); // let simulation settle
+  const t0 = await getSvgTransform(page);
+  // Search for a term that matches one note
+  await page.locator('#search-input').fill('Alpha');
+  await page.waitForTimeout(600);
+  const t1 = await getSvgTransform(page);
+  // Transform must have changed — zoom-to-fit on search result differs from initial
+  expect(t1).not.toBe(t0);
+});

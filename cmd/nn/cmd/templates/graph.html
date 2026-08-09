@@ -556,6 +556,30 @@ document.getElementById("btn-back").addEventListener("click", () => {
   document.getElementById("btn-back").style.display = "none";
 });
 
+// ── Zoom to fit a set of node IDs ────────────────────────────────────────────
+function zoomToMatchedNodes(matchedIds) {
+  if (!matchedIds || matchedIds.size === 0) return;
+  const PAD = 60;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  gNodes.selectAll("g.node").each(function(d) {
+    if (!matchedIds.has(d.id)) return;
+    const r = Number(d3.select(this).select("circle").attr("r")) || 8;
+    x0 = Math.min(x0, d.x - r);
+    y0 = Math.min(y0, d.y - r);
+    x1 = Math.max(x1, d.x + r);
+    y1 = Math.max(y1, d.y + r);
+  });
+  if (!isFinite(x0)) return;
+  const svgEl = svg.node();
+  const W = svgEl.clientWidth || svgEl.getBoundingClientRect().width;
+  const H = svgEl.clientHeight || svgEl.getBoundingClientRect().height;
+  const bw = x1 - x0, bh = y1 - y0;
+  const scale = Math.min((W - 2 * PAD) / Math.max(bw, 1), (H - 2 * PAD) / Math.max(bh, 1), 4);
+  const tx = (W / 2) - scale * ((x0 + x1) / 2);
+  const ty = (H / 2) - scale * ((y0 + y1) / 2);
+  svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
 // ── Search with debounce (serve mode only) ─────────────────────────────────
 {{if .ServeMode}}
 let debounceTimer = null;
@@ -578,6 +602,8 @@ document.getElementById("search-input").addEventListener("input", e => {
     const scoreMap = {};
     results.forEach(r => { scoreMap[r.id] = r.score; });
     gNodes.selectAll("g").classed("search-dim", d => !scoreMap[d.id]);
+    const matchedIds = new Set(Object.keys(scoreMap));
+    zoomToMatchedNodes(matchedIds);
   }, 300);
 });
 {{end}}
