@@ -113,8 +113,12 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 					tags = []string{}
 				}
 				outNodes = append(outNodes, outNode{n.ID, n.Title, string(n.Type), tags, n.Body})
+			}
+			for _, n := range notes {
 				for _, lnk := range n.Links {
-					outEdges = append(outEdges, outEdge{n.ID, lnk.TargetID})
+					if nodeSet[lnk.TargetID] {
+						outEdges = append(outEdges, outEdge{n.ID, lnk.TargetID})
+					}
 				}
 			}
 		}
