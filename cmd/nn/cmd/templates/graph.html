@@ -311,11 +311,9 @@ const zoom = d3.zoom().scaleExtent([.05, 12]).on("zoom", e => {
   const k = e.transform.k;
   g.selectAll(".node text").style("display", k >= LABEL_ZOOM_THRESHOLD ? null : "none");
 });
-// Test helper — lets Playwright set zoom level programmatically
-window.__testSetZoom = (k) => {
-  const t = d3.zoomIdentity.scale(k);
-  svg.call(zoom.transform, t);
-};
+// Test helpers
+window.__testSetZoom = (k) => { svg.call(zoom.transform, d3.zoomIdentity.scale(k)); };
+window.__zoom = zoom;
 const svg  = d3.select("svg").call(zoom);
 const g    = svg.append("g");
 const gLinks = g.append("g");
@@ -398,11 +396,7 @@ function rebuildSim(data) {
 
   const node = gNodes.selectAll("g")
     .data(data.nodes, d => d.id)
-    .join("g").attr("class", "node")
-    .call(d3.drag()
-      .on("start", (e,d) => { if (!e.active) simulation.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; })
-      .on("drag",  (e,d) => { d.fx=e.x; d.fy=e.y; })
-      .on("end",   (e,d) => { if (!e.active) simulation.alphaTarget(0); d.fx=null; d.fy=null; }));
+    .join("g").attr("class", "node");
 
   const degreeMap = {};
   data.edges.forEach(e => {
@@ -483,6 +477,20 @@ function rebuildSim(data) {
     gNodes.selectAll("g").classed("search-dim", n => !egoNodes.has(n.id));
     highlight(d.id);
     openPanel(d);
+    // Pan left if node is under the panel (use rAF so panel layout is committed)
+    requestAnimationFrame(() => {
+      const panel = document.getElementById("right-col");
+      const panelW = panel ? panel.offsetWidth : 0;
+      const svgW = svg.node().clientWidth;
+      const T = d3.zoomTransform(svg.node());
+      const sx = T.applyX(d.x);
+      const clearW = svgW - panelW;
+      const pad = 40;
+      if (panelW > 0 && sx > clearW - pad) {
+        const shift = sx - (clearW - pad);
+        svg.transition().duration(300).call(zoom.translateBy, -shift / T.k, 0);
+      }
+    });
   });
   svg.on("click", () => { closePanel(); });
 

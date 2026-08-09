@@ -456,18 +456,91 @@ test('[PE1a] viewport is fit after initial load (non-identity transform)', async
   expect(transform).not.toBe('');
 });
 
-test('[PE1b] viewport transform does not change after node click', async ({ page }) => {
+test('[PE1b] zoom scale does not change after node click (no re-center)', async ({ page }) => {
   await loadGraph(page);
-  // Wait for transform to appear and stabilize (zoomFit uses a 400ms transition)
   await page.waitForFunction(() => {
     const g = document.querySelector('svg > g');
     return g && g.getAttribute('transform') && g.getAttribute('transform') !== '';
   }, { timeout: 5000 });
-  await page.waitForTimeout(600); // let 400ms zoomFit transition complete
-  const t0 = await page.locator('svg > g').first().getAttribute('transform');
-  // Click a node — should not re-center
+  await page.waitForTimeout(600);
+  const scaleBefore = await page.locator('svg > g').first().evaluate((el: SVGGElement) => {
+    const m = (el.getAttribute('transform') || '').match(/scale\(([^)]+)\)/);
+    return m ? parseFloat(m[1]) : 1;
+  });
   await page.locator('svg g circle').first().click();
-  await page.waitForTimeout(800); // wait long enough for any spurious zoomFit to fire
+  await page.waitForTimeout(800);
+  const scaleAfter = await page.locator('svg > g').first().evaluate((el: SVGGElement) => {
+    const m = (el.getAttribute('transform') || '').match(/scale\(([^)]+)\)/);
+    return m ? parseFloat(m[1]) : 1;
+  });
+  // Scale must not change (pan-to-reveal only translates, never re-centers)
+  expect(scaleAfter).toBeCloseTo(scaleBefore, 5);
+});
+
+// ── pan-to-reveal after panel opens ──────────────────────────────────────────
+
+test('[PF1a] viewport pans left when node is under the panel after click', async ({ page }) => {
+  await loadGraph(page);
+  await page.waitForTimeout(600);
+  // Expose a helper to shift the zoom translate programmatically via the registered zoom
+  await page.evaluate(() => {
+    (window as any).__testPanBy = (dx: number, dy: number) => {
+      const svgEl = document.querySelector('svg') as SVGSVGElement;
+      const d3 = (window as any).d3;
+      const t = d3.zoomTransform(svgEl);
+      d3.select(svgEl).call((window as any).__zoom.transform, d3.zoomIdentity.translate(t.x + dx, t.y + dy).scale(t.k));
+    };
+  });
+  // Shift viewport so the first node ends up in the right quarter (panel zone)
+  const svgWidth = await page.locator('svg').evaluate((el: HTMLElement) => el.clientWidth);
+  const nodeScreenX = await page.locator('svg g circle').first().evaluate((el: SVGCircleElement) => el.getBoundingClientRect().left);
+  // Pan left (negative dx) to push node toward right edge
+  const panAmount = nodeScreenX - (svgWidth - 150); // move node to 150px from right
+  await page.evaluate((dx: number) => { (window as any).__testPanBy(-dx, 0); }, panAmount);
+  await page.locator('svg g circle').first().click();
+  await page.waitForTimeout(500);
+  const panelWidth = await page.locator('#right-col').evaluate((el: HTMLElement) => el.offsetWidth);
+  const clearWidth = svgWidth - panelWidth;
+  const nodeScreenXAfter = await page.locator('svg g circle').first().evaluate((el: SVGCircleElement) => el.getBoundingClientRect().left);
+  expect(nodeScreenXAfter).toBeLessThan(clearWidth + 30);
+});
+
+test('[PF1b] zoom scale unchanged after pan-to-reveal', async ({ page }) => {
+  await loadGraph(page);
+  await page.waitForTimeout(600);
+  const scaleBefore = await page.locator('svg > g').first().evaluate((el: SVGGElement) => {
+    const t = el.getAttribute('transform') || '';
+    const m = t.match(/scale\(([^)]+)\)/);
+    return m ? parseFloat(m[1]) : 1;
+  });
+  await page.locator('svg g circle').first().click();
+  await page.waitForTimeout(400);
+  const scaleAfter = await page.locator('svg > g').first().evaluate((el: SVGGElement) => {
+    const t = el.getAttribute('transform') || '';
+    const m = t.match(/scale\(([^)]+)\)/);
+    return m ? parseFloat(m[1]) : 1;
+  });
+  expect(scaleAfter).toBeCloseTo(scaleBefore, 5);
+});
+
+test('[PF2] no pan when node is already well left of panel', async ({ page }) => {
+  await loadGraph(page);
+  await page.waitForTimeout(600);
+  // Get node screen position, then shift right just enough to keep it clickable but left of panel
+  const svgWidth = await page.locator('svg').evaluate((el: HTMLElement) => el.clientWidth);
+  const nodeX = await page.locator('svg g circle').first().evaluate((el: SVGCircleElement) => el.getBoundingClientRect().left);
+  // Pan so node ends up at x=100 (well left of 360px panel, still clickable)
+  const panRight = 100 - nodeX; // positive = shift translate right = node moves right on screen
+  await page.evaluate((dx: number) => {
+    const svgEl = document.querySelector('svg') as SVGSVGElement;
+    const d3 = (window as any).d3;
+    const z = d3.zoomTransform(svgEl);
+    d3.select(svgEl).call((window as any).__zoom.transform, d3.zoomIdentity.translate(z.x + dx, z.y).scale(z.k));
+  }, panRight);
+  await page.waitForTimeout(100);
+  const t0 = await page.locator('svg > g').first().getAttribute('transform');
+  await page.locator('svg g circle').first().click();
+  await page.waitForTimeout(500);
   const t1 = await page.locator('svg > g').first().getAttribute('transform');
   expect(t1).toBe(t0);
 });
