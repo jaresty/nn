@@ -441,3 +441,33 @@ test('[PD2] clicking SVG background clears click-dim', async ({ page }) => {
   const dimmedAfter = await page.locator('g.node.search-dim').count();
   expect(dimmedAfter).toBe(0);
 });
+
+// ── zoom stability on node click ──────────────────────────────────────────────
+
+test('[PE1a] viewport is fit after initial load (non-identity transform)', async ({ page }) => {
+  await loadGraph(page);
+  // Wait for zoomFit to fire: transform becomes non-null
+  await page.waitForFunction(() => {
+    const g = document.querySelector('svg > g');
+    return g && g.getAttribute('transform') && g.getAttribute('transform') !== '';
+  }, { timeout: 5000 });
+  const transform = await page.locator('svg > g').first().getAttribute('transform');
+  expect(transform).not.toBeNull();
+  expect(transform).not.toBe('');
+});
+
+test('[PE1b] viewport transform does not change after node click', async ({ page }) => {
+  await loadGraph(page);
+  // Wait for transform to appear and stabilize (zoomFit uses a 400ms transition)
+  await page.waitForFunction(() => {
+    const g = document.querySelector('svg > g');
+    return g && g.getAttribute('transform') && g.getAttribute('transform') !== '';
+  }, { timeout: 5000 });
+  await page.waitForTimeout(600); // let 400ms zoomFit transition complete
+  const t0 = await page.locator('svg > g').first().getAttribute('transform');
+  // Click a node — should not re-center
+  await page.locator('svg g circle').first().click();
+  await page.waitForTimeout(800); // wait long enough for any spurious zoomFit to fire
+  const t1 = await page.locator('svg > g').first().getAttribute('transform');
+  expect(t1).toBe(t0);
+});

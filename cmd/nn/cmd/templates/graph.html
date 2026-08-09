@@ -520,7 +520,15 @@ function rebuildSim(data) {
         .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
     node.attr("transform", d=>`translate(${d.x},${d.y})`);
   });
-  simulation.on("end", zoomFit);
+
+  // Pre-tick to stable positions, fit viewport immediately, then let async ticks animate
+  simulation.stop();
+  for (let i = 0; i < 300; ++i) simulation.tick();
+  node.attr("transform", d => `translate(${d.x},${d.y})`);
+  link.attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
+      .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
+  zoomFit();
+  simulation.restart();
 }
 
 function clearHighlight() {
