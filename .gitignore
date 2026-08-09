@@ -14,3 +14,5 @@
 # Editor
 .DS_Store
 *.swp
+cmd/nn/node_modules/
+cmd/nn/test-results/

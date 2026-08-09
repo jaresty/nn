@@ -134,6 +134,57 @@ svg:active { cursor: grabbing; }
 }
 #btn-export:not([disabled]):hover { background: #2a3a5e; color: #fff; }
 #btn-export[disabled] { opacity: .4; cursor: default; }
+
+/* ── tray-selected node ring ── */
+.node.tray-selected circle { stroke: #f0c040; stroke-width: 3px; }
+
+/* ── context brief modal ── */
+#brief-modal {
+  background: #13192e; border: 1px solid #3a4a6a; border-radius: 8px;
+  color: #e0e0e0; padding: 0; width: 520px; max-width: 95vw; max-height: 80vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#brief-modal::backdrop { background: rgba(0,0,10,.75); }
+#brief-modal-header {
+  padding: 14px 16px 10px; border-bottom: 1px solid #2a3a5e;
+  font-size: 14px; font-weight: 600; flex-shrink: 0;
+}
+#brief-note-list {
+  flex: 1; overflow-y: auto; padding: 10px 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.brief-note-row { border: 1px solid #2a3a5e; border-radius: 6px; padding: 10px 12px; background: #0e1228; }
+.brief-note-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.brief-note-id { font-size: 10px; color: #666; margin-bottom: 6px; font-family: monospace; }
+textarea.brief-ann {
+  width: 100%; background: #1a1a2e; border: 1px solid #3a4a6a; color: #ccc;
+  border-radius: 4px; padding: 5px 8px; font-size: 12px; resize: vertical;
+  min-height: 36px; font-family: inherit;
+}
+.brief-body-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; color: #888; }
+input.brief-body-toggle { accent-color: #7eb8f7; }
+#brief-question-wrap { padding: 10px 16px; border-top: 1px solid #2a3a5e; flex-shrink: 0; }
+#brief-question-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+#brief-question {
+  width: 100%; background: #1a1a2e; border: 1px solid #3a4a6a; color: #ccc;
+  border-radius: 4px; padding: 5px 8px; font-size: 12px; resize: vertical;
+  min-height: 60px; font-family: inherit;
+}
+#brief-actions { padding: 10px 16px; border-top: 1px solid #2a3a5e; display: flex; gap: 8px; flex-shrink: 0; }
+#btn-copy {
+  background: #1e3a5e; border: 1px solid #3a6aaa; color: #7eb8f7;
+  border-radius: 5px; padding: 6px 14px; font-size: 12px; cursor: pointer;
+}
+#btn-copy:hover { background: #2a4a7e; }
+#btn-clear-tray {
+  background: #16213e; border: 1px solid #3a4a6a; color: #888;
+  border-radius: 5px; padding: 6px 14px; font-size: 12px; cursor: pointer;
+}
+#btn-clear-tray:hover { color: #ccc; }
+#brief-fallback {
+  display: none; width: 100%; background: #1a1a2e; border: 1px solid #f0a040;
+  color: #ccc; border-radius: 4px; padding: 5px 8px; font-size: 11px;
+  resize: vertical; min-height: 80px; margin-top: 6px; font-family: monospace;
+}
 </style>
 </head>
 <body>
@@ -152,8 +203,22 @@ svg:active { cursor: grabbing; }
   </div>
   <div id="tray-bar">
     <span id="tray-count">0 selected</span>
-    <button id="btn-export" disabled>Export</button>
+    <button id="btn-export" disabled>Review &amp; Export</button>
   </div>
+  <dialog id="brief-modal">
+    <div id="brief-modal-header">Context brief (<span id="brief-modal-count">0</span> notes)</div>
+    <div id="brief-note-list"></div>
+    <div id="brief-question-wrap">
+      <div id="brief-question-label">Your question</div>
+      <textarea id="brief-question">## Question
+</textarea>
+    </div>
+    <div id="brief-actions">
+      <button id="btn-copy">Copy to clipboard</button>
+      <button id="btn-clear-tray">Clear selection</button>
+      <textarea id="brief-fallback" readonly></textarea>
+    </div>
+  </dialog>
   <div id="zoom-controls">
     <button id="btn-zoom-in"  title="Zoom in">+</button>
     <button id="btn-zoom-out" title="Zoom out">−</button>
@@ -383,6 +448,7 @@ function rebuildSim(data) {
     // shift-click: toggle tray membership
     if (e.shiftKey) {
       if (tray.has(d.id)) { tray.delete(d.id); } else { tray.set(d.id, d); }
+      node.classed("tray-selected", n => tray.has(n.id));
       updateTrayUI();
       return;
     }
@@ -519,30 +585,99 @@ document.getElementById("btn-status").addEventListener("click", () => {
   }
 });
 
-// ── Selection tray + export ───────────────────────────────────────────────
+// ── Selection tray + modal ────────────────────────────────────────────────
 const tray = new Map(); // id → node data
 
 function updateTrayUI() {
   const count = tray.size;
-  document.getElementById("tray-count").textContent = count === 0 ? "0 selected" : `${count} selected`;
   const btn = document.getElementById("btn-export");
-  if (count === 0) { btn.setAttribute("disabled", ""); } else { btn.removeAttribute("disabled"); }
+  if (count === 0) {
+    document.getElementById("tray-count").textContent = "0 selected";
+    btn.setAttribute("disabled", "");
+  } else {
+    const titles = [...tray.values()].map(d => d.title);
+    let label;
+    if (titles.length === 1) label = titles[0];
+    else if (titles.length === 2) label = titles[0] + ", " + titles[1];
+    else label = titles[0] + ", " + titles[1] + " +" + (titles.length - 2);
+    document.getElementById("tray-count").textContent = label;
+    btn.removeAttribute("disabled");
+  }
+}
+
+// ── Brief modal ───────────────────────────────────────────────────────────
+const briefModal = document.getElementById("brief-modal");
+
+function buildExportText() {
+  const lines = ["## Context brief\n"];
+  const noteList = document.getElementById("brief-note-list");
+  const rows = noteList.querySelectorAll(".brief-note-row");
+  rows.forEach(row => {
+    const title = row.querySelector(".brief-note-title").textContent;
+    const id    = row.querySelector(".brief-note-id").textContent;
+    const ann   = row.querySelector("textarea.brief-ann").value.trim();
+    const includeBody = row.querySelector("input.brief-body-toggle").checked;
+    lines.push(`### ${title} (${id})`);
+    if (ann) lines.push(ann);
+    if (includeBody) {
+      const d = tray.get(id);
+      if (d && d.body && d.body.trim()) lines.push("\n" + d.body.trim());
+    }
+    lines.push("");
+  });
+  lines.push(document.getElementById("brief-question").value);
+  return lines.join("\n");
+}
+
+function openBriefModal() {
+  const noteList = document.getElementById("brief-note-list");
+  noteList.innerHTML = "";
+  document.getElementById("brief-modal-count").textContent = String(tray.size);
+  document.getElementById("brief-fallback").style.display = "none";
+  tray.forEach((d, id) => {
+    const row = document.createElement("div");
+    row.className = "brief-note-row";
+    row.innerHTML = `
+      <div class="brief-note-title">${d.title}</div>
+      <div class="brief-note-id">${id}</div>
+      <textarea class="brief-ann" placeholder="Why this note matters…" rows="2"></textarea>
+      <div class="brief-body-row">
+        <input type="checkbox" class="brief-body-toggle" id="body-${id}">
+        <label for="body-${id}">Include body</label>
+      </div>`;
+    noteList.appendChild(row);
+  });
+  briefModal.showModal();
 }
 
 document.getElementById("btn-export").addEventListener("click", () => {
   if (tray.size === 0) return;
-  const lines = [];
-  tray.forEach((d) => {
-    lines.push(`### ${d.title} (${d.id})`);
-    if (d.body && d.body.trim()) lines.push(d.body.trim());
-    const outLinks = (currentGraphData || rootGraphData || {edges:[]}).edges
-      .filter(e => { const s = typeof e.source==="object" ? e.source.id : e.source; return s === d.id; })
-      .map(e => { const t = typeof e.target==="object" ? e.target : {id: e.target, title: e.target}; return `→ ${t.title||t.id}`; });
-    if (outLinks.length) lines.push("Links: " + outLinks.join(", "));
-    lines.push("");
-  });
-  lines.push("## Question\n");
-  navigator.clipboard.writeText("## Selected notes\n\n" + lines.join("\n"));
+  openBriefModal();
+});
+
+document.getElementById("btn-copy").addEventListener("click", async () => {
+  const text = buildExportText();
+  const fallback = document.getElementById("brief-fallback");
+  try {
+    await navigator.clipboard.writeText(text);
+    fallback.style.display = "none";
+  } catch {
+    fallback.style.display = "block";
+    fallback.value = text;
+    fallback.select();
+  }
+});
+
+document.getElementById("btn-clear-tray").addEventListener("click", () => {
+  tray.clear();
+  updateTrayUI();
+  gNodes.selectAll("g").classed("tray-selected", false);
+  briefModal.close();
+});
+
+// Close on backdrop click (click on dialog element itself, not its children)
+briefModal.addEventListener("click", e => {
+  if (e.target === briefModal) briefModal.close();
 });
 
 // ── Initial render ────────────────────────────────────────────────────────
