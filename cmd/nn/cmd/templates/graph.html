@@ -129,6 +129,24 @@ svg:active { cursor: grabbing; }
   font-size: 12px; line-height: 1.5; color: #dde; word-break: break-word;
 }
 .msg-bubble .msg-ts { font-size: 10px; color: #556; margin-top: 4px; }
+.msg-bubble.outgoing { background: #1a2e4a; }
+#msg-input-row {
+  display: flex; gap: 6px; margin-top: 8px; flex-shrink: 0;
+  border-top: 1px solid #2a3a5e; padding-top: 8px;
+}
+#msg-input {
+  flex: 1; background: #0d1220; border: 1px solid #3a4a6a;
+  color: #e0e0e0; border-radius: 5px; padding: 5px 8px;
+  font-size: 12px; resize: none; outline: none; height: 52px;
+  font-family: inherit;
+}
+#msg-input:focus { border-color: #7eb8f7; }
+#msg-send {
+  background: #16213e; border: 1px solid #3a4a6a; color: #ccc;
+  border-radius: 5px; padding: 4px 10px; font-size: 12px;
+  cursor: pointer; align-self: flex-end;
+}
+#msg-send:hover { background: #2a3a5e; color: #fff; }
 </style>
 </head>
 <body>
@@ -151,7 +169,14 @@ svg:active { cursor: grabbing; }
   </div>
   <svg></svg>
 </div>
-<div id="msg-panel"></div>
+<div id="msg-panel">
+  {{if .ServeMode}}
+  <div id="msg-input-row">
+    <textarea id="msg-input" placeholder="Ask about the graph…"></textarea>
+    <button id="msg-send">Send</button>
+  </div>
+  {{end}}
+</div>
 <div id="panel">
   <div id="panel-header">
     <div>
@@ -360,8 +385,6 @@ function rebuildSim(data) {
     e.stopPropagation();
     if (selected === d.id) { closePanel(); return; }
     selected = d.id;
-    highlight(d.id);
-    openPanel(d);
     {{if .ServeMode}}
     fetch('/event', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: d.id, title: d.title})});
     {{end}}
@@ -388,6 +411,9 @@ function rebuildSim(data) {
     };
     rebuildSim(egoData);
     rebuildLegend(egoData);
+    // open panel after rebuildSim so closePanel() inside rebuildSim doesn't wipe it
+    highlight(d.id);
+    openPanel(d);
     document.getElementById("btn-back").style.display = "inline-block";
   });
   svg.on("click", () => { closePanel(); });
@@ -473,11 +499,31 @@ document.getElementById("search-input").addEventListener("input", e => {
 {{if .ServeMode}}
 const msgPanel = document.getElementById("msg-panel");
 msgPanel.classList.add("visible");
+const msgInputRow = document.getElementById("msg-input-row");
 const msgEmpty = document.createElement("div");
 msgEmpty.id = "msg-empty";
 msgEmpty.style.cssText = "color:#334;font-size:11px;font-style:italic;text-align:center;padding:8px 0";
 msgEmpty.textContent = "LLM messages appear here";
-msgPanel.appendChild(msgEmpty);
+msgPanel.insertBefore(msgEmpty, msgInputRow);
+
+function sendChat() {
+  const input = document.getElementById("msg-input");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  const bubble = document.createElement("div");
+  bubble.className = "msg-bubble outgoing";
+  bubble.innerHTML = `<div>${text.replace(/</g,"&lt;")}</div>`;
+  const empty = document.getElementById("msg-empty");
+  if (empty) empty.remove();
+  msgPanel.insertBefore(bubble, msgInputRow);
+  msgPanel.scrollTop = msgPanel.scrollHeight;
+  fetch('/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text})});
+}
+document.getElementById("msg-send").addEventListener("click", sendChat);
+document.getElementById("msg-input").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
+});
 
 async function pollMessages() {
   try {
@@ -490,7 +536,7 @@ async function pollMessages() {
         const bubble = document.createElement("div");
         bubble.className = "msg-bubble";
         bubble.innerHTML = `<div>${m.text.replace(/</g,"&lt;")}</div><div class="msg-ts">${m.ts}</div>`;
-        msgPanel.appendChild(bubble);
+        msgPanel.insertBefore(bubble, msgInputRow);
         msgPanel.scrollTop = msgPanel.scrollHeight;
       });
     }

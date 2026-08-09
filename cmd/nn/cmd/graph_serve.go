@@ -182,6 +182,19 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 		w.WriteHeader(http.StatusNoContent)
 	})
 
+	mux.HandleFunc("POST /chat", func(w http.ResponseWriter, r *http.Request) {
+		var payload map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		payload["event"] = "chat"
+		payload["ts"] = time.Now().UTC().Format(time.RFC3339)
+		line, _ := json.Marshal(payload)
+		fmt.Fprintf(os.Stdout, "%s\n", line)
+		w.WriteHeader(http.StatusNoContent)
+	})
+
 	mux.HandleFunc("POST /message", func(w http.ResponseWriter, r *http.Request) {
 		var msg serveMessage
 		if err := json.NewDecoder(r.Body).Decode(&msg); err != nil {

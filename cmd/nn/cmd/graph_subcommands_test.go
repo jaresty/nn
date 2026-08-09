@@ -475,7 +475,7 @@ func TestGraphExportHTMLLayoutToggle(t *testing.T) {
 }
 
 func TestGraphExportHTMLServeModeMessagePanel(t *testing.T) {
-	// property [2a]: message panel element must be present in serve mode HTML
+	// property [2a]: message panel, input, and send button must be present in serve mode HTML
 	html, err := buildHTML(nil, nil, nil, true)
 	if err != nil {
 		t.Fatalf("buildHTML serveMode=true: %v", err)
@@ -486,6 +486,15 @@ func TestGraphExportHTMLServeModeMessagePanel(t *testing.T) {
 	}
 	if !strings.Contains(out, "/messages") {
 		t.Errorf("serve mode: GET /messages polling not present")
+	}
+	if !strings.Contains(out, `id="msg-input"`) {
+		t.Errorf("serve mode: chat textarea (id=msg-input) missing from msg-panel")
+	}
+	if !strings.Contains(out, `id="msg-send"`) {
+		t.Errorf("serve mode: send button (id=msg-send) missing from msg-panel")
+	}
+	if !strings.Contains(out, "/chat") {
+		t.Errorf("serve mode: POST /chat not referenced in template")
 	}
 }
 

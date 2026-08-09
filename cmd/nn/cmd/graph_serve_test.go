@@ -89,6 +89,26 @@ func TestGraphServeGetGraphFocus(t *testing.T) {
 	}
 }
 
+func TestGraphServePostChat(t *testing.T) {
+	// property [3]: POST /chat with {text} must return 204 and write JSON to stdout
+	nbDir, cfgFile := setupNotebookWithCfg(t)
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	writeNoteFile(t, nbDir, a)
+
+	port := 17346
+	startServeForTest(t, port, cfgFile)
+
+	body := strings.NewReader(`{"text":"what is this graph about?"}`)
+	resp, err := http.Post(fmt.Sprintf("http://localhost:%d/chat", port), "application/json", body)
+	if err != nil {
+		t.Fatalf("POST /chat: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("POST /chat: status = %d, want 204", resp.StatusCode)
+	}
+}
+
 func TestGraphServePostEvent(t *testing.T) {
 	// property [3]: POST /event with {id, title} must succeed (204) — event is logged to stdout
 	nbDir, cfgFile := setupNotebookWithCfg(t)
