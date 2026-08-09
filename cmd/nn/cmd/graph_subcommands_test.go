@@ -381,6 +381,82 @@ func TestGraphExportHTML(t *testing.T) {
 	if !strings.Contains(out, "highlight") {
 		t.Errorf("html export: missing highlight interaction:\n%.200s", out)
 	}
+	if !strings.Contains(out, "const graph =") {
+		t.Errorf("html export: missing static graph embed (const graph =):\n%.200s", out)
+	}
+}
+
+func TestGraphExportHTMLStaticEmbeddedData(t *testing.T) {
+	// Static export: the HTML must be self-contained — graph data is embedded and parseable,
+	// not fetched at runtime.
+	nbDir, execute := setupNotebook(t)
+
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	b := newTestNoteForCLI(note.GenerateID(), "Beta", note.TypeConcept)
+	a.Links = []note.Link{{TargetID: b.ID, Annotation: "link"}}
+	writeNoteFile(t, nbDir, a)
+	writeNoteFile(t, nbDir, b)
+
+	out, err := execute("graph", "export", "--format", "html")
+	if err != nil {
+		t.Fatalf("static export: %v", err)
+	}
+
+	// Extract the JSON object assigned to `const graph = {...};`
+	const marker = "const graph = "
+	idx := strings.Index(out, marker)
+	if idx == -1 {
+		t.Fatalf("static export: graph data not embedded (missing %q)", marker)
+	}
+	jsonStart := idx + len(marker)
+	// Find the matching closing brace (the JSON ends at `;`)
+	semi := strings.Index(out[jsonStart:], ";\n")
+	if semi == -1 {
+		t.Fatalf("static export: could not find end of embedded graph JSON")
+	}
+	jsonStr := out[jsonStart : jsonStart+semi]
+
+	var graph struct {
+		Nodes []struct {
+			ID string `json:"id"`
+		} `json:"nodes"`
+		Edges []struct {
+			Source string `json:"source"`
+			Target string `json:"target"`
+		} `json:"edges"`
+	}
+	if err := json.Unmarshal([]byte(jsonStr), &graph); err != nil {
+		t.Fatalf("static export: embedded graph JSON not parseable: %v\n%.200s", err, jsonStr)
+	}
+
+	ids := make(map[string]bool)
+	for _, n := range graph.Nodes {
+		ids[n.ID] = true
+	}
+	if !ids[a.ID] {
+		t.Errorf("static export: node %s (Alpha) missing from embedded graph", a.ID)
+	}
+	if !ids[b.ID] {
+		t.Errorf("static export: node %s (Beta) missing from embedded graph", b.ID)
+	}
+	if len(graph.Edges) == 0 {
+		t.Errorf("static export: no edges in embedded graph")
+	}
+}
+
+func TestGraphExportHTMLServeModeNoEmbeddedData(t *testing.T) {
+	// Serve mode: the HTML must NOT embed graph data — it fetches from /graph at runtime.
+	// Verify by calling buildHTML(serveMode=true) and asserting that the embedded-data
+	// marker is absent, meaning the browser must fetch graph data rather than reading
+	// it from a static variable.
+	html, err := buildHTML(nil, nil, nil, true)
+	if err != nil {
+		t.Fatalf("buildHTML serveMode=true: %v", err)
+	}
+	out := string(html)
+	if strings.Contains(out, "const graph = ") {
+		t.Errorf("serve mode: graph data must not be embedded (found 'const graph = ')")
+	}
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

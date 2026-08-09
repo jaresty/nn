@@ -576,6 +576,9 @@ func newGraphExportCmd(state *rootState) *cobra.Command {
 	var depth int
 	var open bool
 	var output string
+	var serve bool
+	var port int
+	var verbose bool
 
 	cmd := &cobra.Command{
 		Use:   "export",
@@ -639,9 +642,12 @@ func newGraphExportCmd(state *rootState) *cobra.Command {
 				fmt.Fprint(w, svg)
 				return nil
 			case "html":
-				htmlBytes, err := buildHTML(enodes, eedges, byID)
+				htmlBytes, err := buildHTML(enodes, eedges, byID, serve)
 				if err != nil {
 					return fmt.Errorf("graph export html: %w", err)
+				}
+				if serve {
+					return startServeMode(cmd.Context(), state.backend, state.notebookDir, htmlBytes, port, open, verbose)
 				}
 				if output != "" {
 					if err := os.WriteFile(output, htmlBytes, 0o644); err != nil {
@@ -665,8 +671,11 @@ func newGraphExportCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&format, "format", "dot", "Output format: dot, svg, or html")
 	cmd.Flags().StringVar(&focus, "focus", "", "Center note ID for ego-graph")
 	cmd.Flags().IntVar(&depth, "depth", 2, "BFS depth from focus note (when --focus is set)")
-	cmd.Flags().BoolVar(&open, "open", false, "Open output in default viewer")
+	cmd.Flags().BoolVar(&open, "open", false, "Open output in default viewer (or browser when --serve)")
 	cmd.Flags().StringVar(&output, "output", "", "Write output to file path (html only)")
+	cmd.Flags().BoolVar(&serve, "serve", false, "Serve the HTML graph interactively on a local HTTP server (html only)")
+	cmd.Flags().IntVar(&port, "port", 7734, "Port for --serve mode")
+	cmd.Flags().BoolVar(&verbose, "verbose", false, "Log server activity to stderr (--serve mode)")
 	return cmd
 }
 
@@ -693,7 +702,7 @@ func buildDOT(nodes []dotNode, edges []dotEdge) string {
 	return sb.String()
 }
 
-func buildHTML(nodes []dotNode, edges []dotEdge, notesByID map[string]*note.Note) ([]byte, error) {
+func buildHTML(nodes []dotNode, edges []dotEdge, notesByID map[string]*note.Note, serveMode bool) ([]byte, error) {
 	type jsonNode struct {
 		ID    string   `json:"id"`
 		Title string   `json:"title"`
@@ -757,9 +766,14 @@ func buildHTML(nodes []dotNode, edges []dotEdge, notesByID map[string]*note.Note
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]template.JS{
-		"D3":        template.JS(d3Bundle),
-		"GraphJSON": template.JS(graphData),
+	if err := tmpl.Execute(&buf, struct {
+		D3        template.JS
+		GraphJSON template.JS
+		ServeMode bool
+	}{
+		D3:        template.JS(d3Bundle),
+		GraphJSON: template.JS(graphData),
+		ServeMode: serveMode,
 	}); err != nil {
 		return nil, fmt.Errorf("execute graph template: %w", err)
 	}

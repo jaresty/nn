@@ -87,6 +87,26 @@ svg:active { cursor: grabbing; }
   stroke: #1a1a2e; stroke-width: 3px; stroke-linejoin: round;
 }
 .node.highlighted text { fill: #fff; }
+.node.search-dim circle { opacity: .12; }
+.node.search-dim text   { opacity: .1; }
+
+/* ── search bar ── */
+#search-bar {
+  position: absolute; top: 14px; right: 14px; z-index: 10;
+  display: flex; gap: 6px; align-items: center;
+}
+#search-input {
+  background: rgba(10,10,30,.9); border: 1px solid #3a4a6a;
+  color: #e0e0e0; border-radius: 5px; padding: 5px 10px;
+  font-size: 12px; width: 200px; outline: none;
+}
+#search-input:focus { border-color: #7eb8f7; }
+#btn-back {
+  display: none; background: #16213e; border: 1px solid #3a4a6a;
+  color: #ccc; border-radius: 5px; padding: 4px 10px;
+  font-size: 12px; cursor: pointer;
+}
+#btn-back:hover { background: #2a3a5e; color: #fff; }
 </style>
 </head>
 <body>
@@ -97,6 +117,10 @@ svg:active { cursor: grabbing; }
     <div class="tip-tags"></div>
   </div>
   <div id="legend"></div>
+  <div id="search-bar">
+    <button id="btn-back">← Back</button>
+    <input id="search-input" type="text" placeholder="Search notes…" autocomplete="off">
+  </div>
   <div id="zoom-controls">
     <button id="btn-zoom-in"  title="Zoom in">+</button>
     <button id="btn-zoom-out" title="Zoom out">−</button>
@@ -119,7 +143,49 @@ svg:active { cursor: grabbing; }
 // ── D3 bundle ──────────────────────────────────────────────────────────────
 {{.D3}}
 // ── Graph data ─────────────────────────────────────────────────────────────
+{{if .ServeMode}}
+let graphState = null;
+let egoID = null;
+
+async function loadGraph(focusID) {
+  const url = '/graph';
+  const resp = await fetch(url);
+  const data = await resp.json();
+  if (!rootGraphData) rootGraphData = data;
+  egoID = focusID || null;
+  if (focusID) {
+    // filter to ego subgraph client-side (same as static mode click)
+    const egoNodes = new Set([focusID]);
+    data.edges.forEach(edge => {
+      const s = typeof edge.source==="object" ? edge.source.id : edge.source;
+      const t = typeof edge.target==="object" ? edge.target.id : edge.target;
+      if (s===focusID || t===focusID) { egoNodes.add(s); egoNodes.add(t); }
+    });
+    data.edges.forEach(edge => {
+      const s = typeof edge.source==="object" ? edge.source.id : edge.source;
+      const t = typeof edge.target==="object" ? edge.target.id : edge.target;
+      if (egoNodes.has(s) || egoNodes.has(t)) { egoNodes.add(s); egoNodes.add(t); }
+    });
+    const egoData = {
+      nodes: data.nodes.filter(n => egoNodes.has(n.id)),
+      edges: data.edges.filter(edge => {
+        const s = typeof edge.source==="object" ? edge.source.id : edge.source;
+        const t = typeof edge.target==="object" ? edge.target.id : edge.target;
+        return egoNodes.has(s) && egoNodes.has(t);
+      })
+    };
+    rebuildSim(egoData);
+    rebuildLegend(egoData);
+  } else {
+    rebuildSim(data);
+    rebuildLegend(data);
+  }
+}
+
+loadGraph(null);
+{{else}}
 const graph = {{.GraphJSON}};
+{{end}}
 // ── Type colours ──────────────────────────────────────────────────────────
 const TYPE_COLOR = {
   concept:     "#7eb8f7",
@@ -133,15 +199,6 @@ const TYPE_COLOR = {
 const DEFAULT_COLOR = "#8899bb";
 function nodeColor(d) { return TYPE_COLOR[d.type] || DEFAULT_COLOR; }
 
-// ── Legend ────────────────────────────────────────────────────────────────
-const usedTypes = [...new Set(graph.nodes.map(d => d.type))].sort();
-const legend = document.getElementById("legend");
-usedTypes.forEach(t => {
-  const row = document.createElement("div"); row.className = "leg-row";
-  row.innerHTML = `<div class="leg-dot" style="background:${TYPE_COLOR[t]||DEFAULT_COLOR}"></div><div class="leg-label">${t}</div>`;
-  legend.appendChild(row);
-});
-
 // ── SVG + zoom ─────────────────────────────────────────────────────────────
 const svgEl  = document.querySelector("svg");
 const width  = () => svgEl.clientWidth;
@@ -150,6 +207,8 @@ const height = () => svgEl.clientHeight;
 const zoom = d3.zoom().scaleExtent([.05, 12]).on("zoom", e => g.attr("transform", e.transform));
 const svg  = d3.select("svg").call(zoom);
 const g    = svg.append("g");
+const gLinks = g.append("g");
+const gNodes = g.append("g");
 
 function zoomBy(k) { svg.transition().duration(200).call(zoom.scaleBy, k); }
 function zoomFit() {
@@ -165,51 +224,12 @@ document.getElementById("btn-zoom-in").onclick  = () => zoomBy(1.4);
 document.getElementById("btn-zoom-out").onclick = () => zoomBy(1/1.4);
 document.getElementById("btn-zoom-fit").onclick = zoomFit;
 
-// ── Simulation ─────────────────────────────────────────────────────────────
-const simulation = d3.forceSimulation(graph.nodes)
-  .force("link",      d3.forceLink(graph.edges).id(d => d.id).distance(140))
-  .force("charge",    d3.forceManyBody().strength(-350))
-  .force("center",    d3.forceCenter(0, 0))
-  .force("collision", d3.forceCollide(36));
-
-// ── Links ──────────────────────────────────────────────────────────────────
-const link = g.append("g").selectAll("line")
-  .data(graph.edges).join("line")
-  .attr("class", "link")
-  .attr("stroke", "#3a4a6a");
-
-// ── Nodes ──────────────────────────────────────────────────────────────────
-const node = g.append("g").selectAll("g")
-  .data(graph.nodes).join("g")
-  .attr("class", "node")
-  .call(d3.drag()
-    .on("start", (e,d) => { if (!e.active) simulation.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; })
-    .on("drag",  (e,d) => { d.fx=e.x; d.fy=e.y; })
-    .on("end",   (e,d) => { if (!e.active) simulation.alphaTarget(0); d.fx=null; d.fy=null; }));
-
-node.append("circle").attr("r", 10).attr("fill", nodeColor).attr("stroke", d => nodeColor(d));
-node.append("text")
-  .attr("dy", "1.5em").attr("text-anchor", "middle")
-  .text(d => d.title.length > 28 ? d.title.slice(0,26)+"…" : d.title);
-
-// ── Tooltip ────────────────────────────────────────────────────────────────
-const tooltip = document.getElementById("tooltip");
-node.on("mousemove", (e,d) => {
-  tooltip.style.display = "block";
-  tooltip.style.left = (e.offsetX + 16) + "px";
-  tooltip.style.top  = (e.offsetY - 10) + "px";
-  tooltip.querySelector(".tip-type").textContent  = d.type || "";
-  tooltip.querySelector(".tip-title").textContent = d.title;
-  tooltip.querySelector(".tip-tags").textContent  = (d.tags||[]).length ? d.tags.map(t=>"#"+t).join("  ") : "";
-}).on("mouseleave", () => { tooltip.style.display = "none"; });
-
 // ── Panel ──────────────────────────────────────────────────────────────────
 const panel      = document.getElementById("panel");
 const panelTitle = document.getElementById("panel-title");
 const panelType  = document.getElementById("panel-type");
 const panelTags  = document.getElementById("panel-tags");
 const panelBody  = document.getElementById("panel-body");
-
 document.getElementById("panel-close").addEventListener("click", closePanel);
 
 function openPanel(d) {
@@ -229,49 +249,174 @@ function closePanel() {
   clearHighlight(); selected = null;
 }
 
-// ── Highlight ──────────────────────────────────────────────────────────────
+// ── Legend ────────────────────────────────────────────────────────────────
+const legendEl = document.getElementById("legend");
+function rebuildLegend(data) {
+  legendEl.innerHTML = "";
+  const usedTypes = [...new Set(data.nodes.map(d => d.type))].sort();
+  usedTypes.forEach(t => {
+    const row = document.createElement("div"); row.className = "leg-row";
+    row.innerHTML = `<div class="leg-dot" style="background:${TYPE_COLOR[t]||DEFAULT_COLOR}"></div><div class="leg-label">${t}</div>`;
+    legendEl.appendChild(row);
+  });
+}
+
+// ── Simulation (rebuildable) ───────────────────────────────────────────────
+let simulation = null;
 let selected = null;
-node.on("click", (e,d) => {
-  e.stopPropagation();
-  if (selected === d.id) { closePanel(); return; }
-  selected = d.id;
-  highlight(d.id);
-  openPanel(d);
-});
-svg.on("click", () => { closePanel(); });
 
-function highlight(id) {
-  const neighbors = new Set([id]);
-  graph.edges.forEach(e => {
-    const s = typeof e.source==="object" ? e.source.id : e.source;
-    const t = typeof e.target==="object" ? e.target.id : e.target;
-    if (s===id) neighbors.add(t);
-    if (t===id) neighbors.add(s);
+function rebuildSim(data) {
+  if (simulation) simulation.stop();
+  selected = null;
+  closePanel();
+
+  const link = gLinks.selectAll("line")
+    .data(data.edges, d => `${d.source}-${d.target}`)
+    .join("line").attr("class", "link").attr("stroke", "#3a4a6a");
+
+  const node = gNodes.selectAll("g")
+    .data(data.nodes, d => d.id)
+    .join("g").attr("class", "node")
+    .call(d3.drag()
+      .on("start", (e,d) => { if (!e.active) simulation.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; })
+      .on("drag",  (e,d) => { d.fx=e.x; d.fy=e.y; })
+      .on("end",   (e,d) => { if (!e.active) simulation.alphaTarget(0); d.fx=null; d.fy=null; }));
+
+  node.selectAll("circle").data(d=>[d]).join("circle")
+    .attr("r", 10).attr("fill", nodeColor).attr("stroke", d => nodeColor(d));
+  node.selectAll("text").data(d=>[d]).join("text")
+    .attr("dy", "1.5em").attr("text-anchor", "middle")
+    .text(d => d.title.length > 28 ? d.title.slice(0,26)+"…" : d.title);
+
+  // ── Tooltip ──────────────────────────────────────────────────────────────
+  const tooltip = document.getElementById("tooltip");
+  node.on("mousemove", (e,d) => {
+    tooltip.style.display = "block";
+    tooltip.style.left = (e.offsetX + 16) + "px";
+    tooltip.style.top  = (e.offsetY - 10) + "px";
+    tooltip.querySelector(".tip-type").textContent  = d.type || "";
+    tooltip.querySelector(".tip-title").textContent = d.title;
+    tooltip.querySelector(".tip-tags").textContent  = (d.tags||[]).length ? d.tags.map(t=>"#"+t).join("  ") : "";
+  }).on("mouseleave", () => { tooltip.style.display = "none"; });
+
+  // ── Highlight ─────────────────────────────────────────────────────────────
+  function highlight(id) {
+    const neighbors = new Set([id]);
+    data.edges.forEach(e => {
+      const s = typeof e.source==="object" ? e.source.id : e.source;
+      const t = typeof e.target==="object" ? e.target.id : e.target;
+      if (s===id) neighbors.add(t);
+      if (t===id) neighbors.add(s);
+    });
+    node.classed("highlighted", d => neighbors.has(d.id))
+        .classed("dimmed",      d => !neighbors.has(d.id));
+    link.classed("highlighted", e => {
+      const s = typeof e.source==="object" ? e.source.id : e.source;
+      const t = typeof e.target==="object" ? e.target.id : e.target;
+      return s===id || t===id;
+    }).attr("stroke", e => {
+      const s = typeof e.source==="object" ? e.source.id : e.source;
+      const t = typeof e.target==="object" ? e.target.id : e.target;
+      return (s===id || t===id) ? "#7eb8f7" : "#3a4a6a";
+    });
+  }
+
+  // ── Click: ego-graph (client-side, both modes) ───────────────────────────
+  node.on("click", (e,d) => {
+    e.stopPropagation();
+    if (selected === d.id) { closePanel(); return; }
+    selected = d.id;
+    highlight(d.id);
+    openPanel(d);
+    // show ego subgraph: filter to 2-hop neighbors in memory
+    const egoNodes = new Set([d.id]);
+    data.edges.forEach(edge => {
+      const s = typeof edge.source==="object" ? edge.source.id : edge.source;
+      const t = typeof edge.target==="object" ? edge.target.id : edge.target;
+      if (s===d.id || t===d.id) { egoNodes.add(s); egoNodes.add(t); }
+    });
+    // second hop
+    data.edges.forEach(edge => {
+      const s = typeof edge.source==="object" ? edge.source.id : edge.source;
+      const t = typeof edge.target==="object" ? edge.target.id : edge.target;
+      if (egoNodes.has(s) || egoNodes.has(t)) { egoNodes.add(s); egoNodes.add(t); }
+    });
+    const egoData = {
+      nodes: data.nodes.filter(n => egoNodes.has(n.id)),
+      edges: data.edges.filter(edge => {
+        const s = typeof edge.source==="object" ? edge.source.id : edge.source;
+        const t = typeof edge.target==="object" ? edge.target.id : edge.target;
+        return egoNodes.has(s) && egoNodes.has(t);
+      })
+    };
+    rebuildSim(egoData);
+    rebuildLegend(egoData);
+    document.getElementById("btn-back").style.display = "inline-block";
   });
-  node.classed("highlighted", d => neighbors.has(d.id))
-      .classed("dimmed",      d => !neighbors.has(d.id));
-  link.classed("highlighted", e => {
-    const s = typeof e.source==="object" ? e.source.id : e.source;
-    const t = typeof e.target==="object" ? e.target.id : e.target;
-    return s===id || t===id;
-  }).attr("stroke", e => {
-    const s = typeof e.source==="object" ? e.source.id : e.source;
-    const t = typeof e.target==="object" ? e.target.id : e.target;
-    return (s===id || t===id) ? "#7eb8f7" : "#3a4a6a";
+  svg.on("click", () => { closePanel(); });
+
+  // ── Simulation ────────────────────────────────────────────────────────────
+  simulation = d3.forceSimulation(data.nodes)
+    .force("link",      d3.forceLink(data.edges).id(d => d.id).distance(140))
+    .force("charge",    d3.forceManyBody().strength(-350))
+    .force("center",    d3.forceCenter(0, 0))
+    .force("collision", d3.forceCollide(36));
+
+  simulation.on("tick", () => {
+    link.attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
+        .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
+    node.attr("transform", d=>`translate(${d.x},${d.y})`);
   });
+  simulation.on("end", zoomFit);
 }
+
 function clearHighlight() {
-  node.classed("highlighted", false).classed("dimmed", false);
-  link.classed("highlighted", false).attr("stroke", "#3a4a6a");
+  gNodes.selectAll("g").classed("highlighted", false).classed("dimmed", false);
+  gLinks.selectAll("line").classed("highlighted", false).attr("stroke", "#3a4a6a");
 }
 
-// ── Tick ───────────────────────────────────────────────────────────────────
-simulation.on("tick", () => {
-  link.attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
-      .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
-  node.attr("transform", d=>`translate(${d.x},${d.y})`);
+// ── Back button (both modes) ──────────────────────────────────────────────
+let rootGraphData = null;
+document.getElementById("btn-back").addEventListener("click", () => {
+  if (rootGraphData) {
+    rebuildSim(rootGraphData);
+    rebuildLegend(rootGraphData);
+  }
+  document.getElementById("btn-back").style.display = "none";
 });
-simulation.on("end", zoomFit);
+
+// ── Search with debounce (serve mode only) ─────────────────────────────────
+{{if .ServeMode}}
+let debounceTimer = null;
+document.getElementById("search-input").addEventListener("input", e => {
+  clearTimeout(debounceTimer);
+  const q = e.target.value.trim();
+  debounceTimer = setTimeout(async () => {
+    if (!q) {
+      gNodes.selectAll("g").classed("search-dim", false);
+      return;
+    }
+    const resp = await fetch('/search', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query: q})
+    });
+    const results = await resp.json();
+    const scoreMap = {};
+    results.forEach(r => { scoreMap[r.id] = r.score; });
+    gNodes.selectAll("g").classed("search-dim", d => !scoreMap[d.id]);
+  }, 300);
+});
+{{end}}
+
+// ── Initial render ────────────────────────────────────────────────────────
+{{if .ServeMode}}
+// serve: loadGraph() called above fetches data then calls renderGraph
+{{else}}
+rootGraphData = graph;
+rebuildSim(graph);
+rebuildLegend(graph);
+{{end}}
 </script>
 </body>
 </html>
