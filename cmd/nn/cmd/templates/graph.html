@@ -305,7 +305,17 @@ const svgEl  = document.querySelector("svg");
 const width  = () => svgEl.clientWidth;
 const height = () => svgEl.clientHeight;
 
-const zoom = d3.zoom().scaleExtent([.05, 12]).on("zoom", e => g.attr("transform", e.transform));
+const LABEL_ZOOM_THRESHOLD = 0.4;
+const zoom = d3.zoom().scaleExtent([.05, 12]).on("zoom", e => {
+  g.attr("transform", e.transform);
+  const k = e.transform.k;
+  g.selectAll(".node text").style("display", k >= LABEL_ZOOM_THRESHOLD ? null : "none");
+});
+// Test helper — lets Playwright set zoom level programmatically
+window.__testSetZoom = (k) => {
+  const t = d3.zoomIdentity.scale(k);
+  svg.call(zoom.transform, t);
+};
 const svg  = d3.select("svg").call(zoom);
 const g    = svg.append("g");
 const gLinks = g.append("g");
@@ -402,7 +412,7 @@ function rebuildSim(data) {
     degreeMap[t] = (degreeMap[t]||0) + 1;
   });
   const maxDeg = Math.max(1, ...Object.values(degreeMap));
-  const rScale = d3.scaleSqrt().domain([0, maxDeg]).range([4, 16]);
+  const rScale = d3.scaleSqrt().domain([0, maxDeg]).range([5, 28]);
   node.selectAll("circle").data(d=>[d]).join("circle")
     .attr("r", d => rScale(degreeMap[d.id]||0))
     .attr("fill", nodeColor).attr("stroke", d => nodeColor(d));

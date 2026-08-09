@@ -309,3 +309,39 @@ test('status toggle All clears dim', async ({ page }) => {
   const dimmed = await page.locator('g.node.search-dim').count();
   expect(dimmed).toBe(0);
 });
+
+// ── label visibility at zoom ──────────────────────────────────────────────────
+
+test('[PA] node labels hidden when zoomed out below threshold', async ({ page }) => {
+  await loadGraph(page);
+  // Force zoom to 0.1 (well below threshold)
+  await page.evaluate(() => {
+    (window as any).__testSetZoom(0.1);
+  });
+  const display = await page.locator('svg g.node text').first().evaluate(
+    el => window.getComputedStyle(el).display
+  );
+  expect(display).toBe('none');
+});
+
+test('[PA] node labels visible when zoomed in above threshold', async ({ page }) => {
+  await loadGraph(page);
+  await page.evaluate(() => {
+    (window as any).__testSetZoom(1.5);
+  });
+  const display = await page.locator('svg g.node text').first().evaluate(
+    el => window.getComputedStyle(el).display
+  );
+  expect(display).not.toBe('none');
+});
+
+// ── node radius range ─────────────────────────────────────────────────────────
+
+test('[PB] all nodes have radius >= 5', async ({ page }) => {
+  await loadGraph(page);
+  const radii = await page.locator('svg g.node circle').evaluateAll(
+    (els: SVGCircleElement[]) => els.map(el => Number(el.getAttribute('r')))
+  );
+  expect(radii.length).toBeGreaterThan(0);
+  expect(Math.min(...radii)).toBeGreaterThanOrEqual(5);
+});
