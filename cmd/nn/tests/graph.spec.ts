@@ -189,3 +189,123 @@ test('[P7b] clicking dialog backdrop closes #brief-modal', async ({ page }) => {
   });
   await expect(page.locator('#brief-modal')).not.toHaveAttribute('open');
 });
+
+// ── page load / DOM structure ─────────────────────────────────────────────────
+
+test('page loads and renders node circles', async ({ page }) => {
+  await loadGraph(page);
+  const count = await page.locator('svg g circle').count();
+  expect(count).toBeGreaterThan(0);
+});
+
+test('side panel is present in DOM', async ({ page }) => {
+  await loadGraph(page);
+  await expect(page.locator('#panel')).toBeAttached();
+});
+
+test('side panel opens on node click', async ({ page }) => {
+  await loadGraph(page);
+  await page.locator('svg g circle').first().click();
+  await expect(page.locator('#right-col')).toHaveClass(/open/);
+  await expect(page.locator('#panel-title')).not.toBeEmpty();
+});
+
+test('tray-count and btn-export present on page load', async ({ page }) => {
+  await loadGraph(page);
+  await expect(page.locator('#tray-count')).toBeAttached();
+  await expect(page.locator('#btn-export')).toBeAttached();
+});
+
+test('btn-export is disabled on page load (empty tray)', async ({ page }) => {
+  await loadGraph(page);
+  await expect(page.locator('#btn-export')).toBeDisabled();
+});
+
+test('no chat elements in DOM', async ({ page }) => {
+  await loadGraph(page);
+  await expect(page.locator('#msg-panel')).not.toBeAttached();
+  await expect(page.locator('#msg-input')).not.toBeAttached();
+  await expect(page.locator('#msg-send')).not.toBeAttached();
+});
+
+// ── layout toggle ─────────────────────────────────────────────────────────────
+
+test('layout toggle button present', async ({ page }) => {
+  await loadGraph(page);
+  await expect(page.locator('#btn-layout')).toBeAttached();
+});
+
+test('layout toggle activates grouped mode', async ({ page }) => {
+  await loadGraph(page);
+  await expect(page.locator('#btn-layout')).not.toHaveClass(/active/);
+  await page.locator('#btn-layout').click();
+  await expect(page.locator('#btn-layout')).toHaveClass(/active/);
+});
+
+// ── search interaction ────────────────────────────────────────────────────────
+
+test('search dims non-matching nodes', async ({ page }) => {
+  await loadGraph(page);
+  await page.locator('#search-input').fill('xyzzynosuchterm');
+  await page.waitForTimeout(400); // debounce
+  const dimmed = await page.locator('g.node.search-dim').count();
+  const total  = await page.locator('g.node').count();
+  expect(dimmed).toBeGreaterThan(0);
+  expect(dimmed).toBeLessThanOrEqual(total);
+});
+
+test('node click clears search dim', async ({ page }) => {
+  await loadGraph(page);
+  await page.locator('#search-input').fill('xyzzynosuchterm');
+  await page.waitForTimeout(400);
+  const dimmedBefore = await page.locator('g.node.search-dim').count();
+  expect(dimmedBefore).toBeGreaterThan(0);
+  await page.locator('svg g circle').first().click();
+  const dimmedAfter = await page.locator('g.node.search-dim').count();
+  expect(dimmedAfter).toBe(0);
+});
+
+// ── node size ─────────────────────────────────────────────────────────────────
+
+test('nodes have non-zero radius', async ({ page }) => {
+  await loadGraph(page);
+  const r = await page.locator('svg g circle').first().getAttribute('r');
+  expect(Number(r)).toBeGreaterThan(0);
+});
+
+// ── status toggle ─────────────────────────────────────────────────────────────
+
+test('status toggle button present', async ({ page }) => {
+  await loadGraph(page);
+  await expect(page.locator('#btn-status')).toBeAttached();
+  await expect(page.locator('#btn-status')).toHaveText('All');
+});
+
+test('status toggle cycles through labels', async ({ page }) => {
+  await loadGraph(page);
+  const btn = page.locator('#btn-status');
+  await btn.click(); await expect(btn).toHaveText('Draft');
+  await btn.click(); await expect(btn).toHaveText('Reviewed');
+  await btn.click(); await expect(btn).toHaveText('Permanent');
+  await btn.click(); await expect(btn).toHaveText('All');
+});
+
+test('status toggle dims non-matching nodes', async ({ page }) => {
+  await loadGraph(page);
+  // fixture notes are draft; clicking to Reviewed should dim all of them
+  await page.locator('#btn-status').click(); // → Draft
+  await page.locator('#btn-status').click(); // → Reviewed
+  const dimmed = await page.locator('g.node.search-dim').count();
+  const total  = await page.locator('g.node').count();
+  expect(dimmed).toBe(total);
+});
+
+test('status toggle All clears dim', async ({ page }) => {
+  await loadGraph(page);
+  await page.locator('#btn-status').click(); // Draft
+  await page.locator('#btn-status').click(); // Reviewed
+  await page.locator('#btn-status').click(); // Permanent
+  await page.locator('#btn-status').click(); // All
+  const dimmed = await page.locator('g.node.search-dim').count();
+  expect(dimmed).toBe(0);
+});
