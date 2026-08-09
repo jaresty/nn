@@ -468,38 +468,21 @@ function rebuildSim(data) {
     {{if .ServeMode}}
     fetch('/event', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: d.id, title: d.title})});
     {{end}}
-    // show ego subgraph: filter to 2-hop neighbors in memory
+    // dim nodes outside 2-hop neighborhood (keep full graph, just fade non-neighbors)
     const egoNodes = new Set([d.id]);
     data.edges.forEach(edge => {
       const s = typeof edge.source==="object" ? edge.source.id : edge.source;
       const t = typeof edge.target==="object" ? edge.target.id : edge.target;
       if (s===d.id || t===d.id) { egoNodes.add(s); egoNodes.add(t); }
     });
-    // second hop
     data.edges.forEach(edge => {
       const s = typeof edge.source==="object" ? edge.source.id : edge.source;
       const t = typeof edge.target==="object" ? edge.target.id : edge.target;
       if (egoNodes.has(s) || egoNodes.has(t)) { egoNodes.add(s); egoNodes.add(t); }
     });
-    const egoData = {
-      nodes: data.nodes.filter(n => egoNodes.has(n.id)),
-      edges: data.edges.filter(edge => {
-        const s = typeof edge.source==="object" ? edge.source.id : edge.source;
-        const t = typeof edge.target==="object" ? edge.target.id : edge.target;
-        return egoNodes.has(s) && egoNodes.has(t);
-      })
-    };
-    rebuildSim(egoData);
-    rebuildLegend(egoData);
-    // clear search state when entering ego-graph mode
-    {{if .ServeMode}}
-    const si = document.getElementById("search-input");
-    if (si.value) { si.value = ""; gNodes.selectAll("g").classed("search-dim", false); }
-    {{end}}
-    // open panel after rebuildSim so closePanel() inside rebuildSim doesn't wipe it
+    gNodes.selectAll("g").classed("search-dim", n => !egoNodes.has(n.id));
     highlight(d.id);
     openPanel(d);
-    document.getElementById("btn-back").style.display = "inline-block";
   });
   svg.on("click", () => { closePanel(); });
 
@@ -541,7 +524,7 @@ function rebuildSim(data) {
 }
 
 function clearHighlight() {
-  gNodes.selectAll("g").classed("highlighted", false).classed("dimmed", false);
+  gNodes.selectAll("g").classed("highlighted", false).classed("dimmed", false).classed("search-dim", false);
   gLinks.selectAll("line").classed("highlighted", false).attr("stroke", "#3a4a6a");
 }
 

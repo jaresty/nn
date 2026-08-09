@@ -254,15 +254,19 @@ test('search dims non-matching nodes', async ({ page }) => {
   expect(dimmed).toBeLessThanOrEqual(total);
 });
 
-test('node click clears search dim', async ({ page }) => {
+test('node click replaces search dim with click dim', async ({ page }) => {
   await loadGraph(page);
   await page.locator('#search-input').fill('xyzzynosuchterm');
   await page.waitForTimeout(400);
   const dimmedBefore = await page.locator('g.node.search-dim').count();
   expect(dimmedBefore).toBeGreaterThan(0);
   await page.locator('svg g circle').first().click();
-  const dimmedAfter = await page.locator('g.node.search-dim').count();
-  expect(dimmedAfter).toBe(0);
+  // After click, clicked node and its neighbors are undimmed; others remain dimmed
+  // Clicked node itself must not be dimmed
+  const clickedHasDim = await page.locator('svg g circle').first().evaluate(
+    el => el.parentElement?.classList.contains('search-dim')
+  );
+  expect(clickedHasDim).toBe(false);
 });
 
 // ── node size ─────────────────────────────────────────────────────────────────
@@ -402,4 +406,38 @@ test('[PC2] zoom transform changes when search produces matches', async ({ page 
   const t1 = await getSvgTransform(page);
   // Transform must have changed — zoom-to-fit on search result differs from initial
   expect(t1).not.toBe(t0);
+});
+
+// ── click-dim: dim non-neighbors on node click ────────────────────────────────
+
+test('[PD1a] clicking a node dims nodes outside its 2-hop neighborhood', async ({ page }) => {
+  await loadGraph(page);
+  // fixture: alpha-0001 and beta-0002 have no edges — each is outside the other's neighborhood
+  await page.locator('svg g circle').first().click();
+  // The second node (not clicked) should have search-dim
+  const secondHasDim = await page.locator('svg g circle').nth(1).evaluate(
+    el => el.parentElement?.classList.contains('search-dim')
+  );
+  expect(secondHasDim).toBe(true);
+});
+
+test('[PD1b] clicking a node does not dim itself', async ({ page }) => {
+  await loadGraph(page);
+  await page.locator('svg g circle').first().click();
+  const firstHasDim = await page.locator('svg g circle').first().evaluate(
+    el => el.parentElement?.classList.contains('search-dim')
+  );
+  expect(firstHasDim).toBe(false);
+});
+
+test('[PD2] clicking SVG background clears click-dim', async ({ page }) => {
+  await loadGraph(page);
+  await page.locator('svg g circle').first().click();
+  // Confirm dim was applied
+  const dimmedBefore = await page.locator('g.node.search-dim').count();
+  expect(dimmedBefore).toBeGreaterThan(0);
+  // Click background (SVG element itself)
+  await page.locator('svg').click({ position: { x: 10, y: 10 } });
+  const dimmedAfter = await page.locator('g.node.search-dim').count();
+  expect(dimmedAfter).toBe(0);
 });
