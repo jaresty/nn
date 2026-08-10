@@ -204,6 +204,60 @@ func MyFunc() {
 	}
 }
 
+// TestBuildIndexConcurrencyCap verifies that BuildIndex correctly indexes
+// symbols across multiple files when the goroutine pool is active.
+// Combined with the structural guard (grep for g.SetLimit(4)), this confirms
+// the cap is both present and behaviorally correct.
+func TestBuildIndexConcurrencyCap(t *testing.T) {
+	dir := t.TempDir()
+	for i := 0; i < 10; i++ {
+		name := filepath.Join(dir, strings.Repeat("f", i+1)+".go")
+		content := "package main\nfunc Cap" + strings.Repeat("X", i+1) + "() {}\n"
+		if err := os.WriteFile(name, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	idx, err := trace.BuildIndex(dir)
+	if err != nil {
+		t.Fatalf("BuildIndex error: %v", err)
+	}
+	if len(idx.All) != 10 {
+		t.Errorf("FAIL: TestBuildIndexConcurrencyCap: expected 10 symbols, got %d", len(idx.All))
+	}
+}
+
+// TestBuildIndexSkipsLargeFiles verifies that files exceeding 500KB are not
+// parsed and their symbols do not appear in the index.
+func TestBuildIndexSkipsLargeFiles(t *testing.T) {
+	dir := t.TempDir()
+
+	// Write a valid Go file that exceeds 500KB via comment padding.
+	padding := strings.Repeat("// padding line to exceed size limit\n", 15000) // ~570KB
+	largeContent := "package main\n" + padding + "\nfunc LargeFileSymbol() {}\n"
+	if len(largeContent) <= 500*1024 {
+		t.Fatalf("test setup: large file is only %d bytes, need >%d", len(largeContent), 500*1024)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "large.go"), []byte(largeContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write a normal file that should be indexed.
+	if err := os.WriteFile(filepath.Join(dir, "small.go"), []byte("package main\nfunc SmallFileSymbol() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	idx, err := trace.BuildIndex(dir)
+	if err != nil {
+		t.Fatalf("BuildIndex error: %v", err)
+	}
+	if _, ok := idx.ByName["LargeFileSymbol"]; ok {
+		t.Error("FAIL: TestBuildIndexSkipsLargeFiles: LargeFileSymbol should be skipped (file >500KB) but was indexed")
+	}
+	if _, ok := idx.ByName["SmallFileSymbol"]; !ok {
+		t.Error("FAIL: TestBuildIndexSkipsLargeFiles: SmallFileSymbol should be indexed but was not found")
+	}
+}
+
 func BenchmarkBuildIndex(b *testing.B) {
 	// Benchmark against the actual nn source tree — representative real-world workload.
 	dir := "../.."

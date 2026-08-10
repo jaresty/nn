@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 
 	"golang.org/x/sync/errgroup"
@@ -97,10 +96,18 @@ func BuildIndex(root string) (*Index, error) {
 	results := make([]fileDefs, len(paths))
 
 	g := new(errgroup.Group)
-	g.SetLimit(runtime.NumCPU())
+	g.SetLimit(4)
 	for i, path := range paths {
 		i, path := i, path
 		g.Go(func() error {
+			info, err := os.Stat(path)
+			if err != nil {
+				return nil
+			}
+			const maxFileBytes = 500 * 1024
+			if info.Size() > maxFileBytes {
+				return nil
+			}
 			src, err := os.ReadFile(path)
 			if err != nil {
 				return nil
