@@ -541,6 +541,28 @@ func TestShowGlobalShowsTodayWhenPresent(t *testing.T) {
 	}
 }
 
+// Assertion: TestShowGlobalTodosExcludeHistoricalDailyNotes — nn show --global's Todos section
+// must exclude open items from daily-tagged notes created before today, matching nn todo list default.
+func TestShowGlobalTodosExcludeHistoricalDailyNotes(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+
+	// A daily note created yesterday — its todos are carried forward and must not appear.
+	oldDaily := newTestNoteForCLI(note.GenerateID(), "Daily: yesterday", note.TypeObservation)
+	oldDaily.Tags = []string{"daily"}
+	oldDaily.Created = time.Now().AddDate(0, 0, -1)
+	oldDaily.Modified = oldDaily.Created
+	oldDaily.Body = "## Open\n- [ ] stale daily task"
+	writeNoteFile(t, nbDir, oldDaily)
+
+	out, err := execute("show", "--global")
+	if err != nil {
+		t.Fatalf("nn show --global: %v", err)
+	}
+	if strings.Contains(out, "- [ ] stale daily task") {
+		t.Errorf("nn show --global: historical daily note todo must be excluded from Todos section, got:\n%s", out)
+	}
+}
+
 // Assertion: TestShowGlobalIncludesTodosSection — nn show --global includes open todo items from notes
 // and omits the Todos section when no open items exist.
 func TestShowGlobalIncludesTodosSection(t *testing.T) {

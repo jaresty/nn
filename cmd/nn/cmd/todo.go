@@ -10,20 +10,58 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
-func listTodosText(notes []*note.Note, byID map[string]*note.Note) string {
+// todoListOptions controls which open todo items collectOpenTodos includes.
+// The zero value matches `nn todo list` default behavior: historical daily
+// notes, blocked notes, and waiting items are all excluded.
+type todoListOptions struct {
+	showAll       bool   // include notes blocked by an incomplete requires target
+	showWaiting   bool   // show only items tagged [waiting: ...] instead of hiding them
+	contextFilter string // if non-empty, keep only items tagged @<contextFilter>
+}
+
+// collectOpenTodos is the single source of truth for rendering open checkboxes
+// grouped by note. Both `nn show --global` (via listTodosText) and `nn todo list`
+// call it so their filtering can never drift apart.
+func collectOpenTodos(notes []*note.Note, byID map[string]*note.Note, opts todoListOptions) string {
+	loc := time.Now().Location()
+	today := time.Now().In(loc).Truncate(24 * time.Hour)
+
 	var sb strings.Builder
 	first := true
 	for _, n := range notes {
+		// Always exclude daily notes from previous days — their todos are carried forward.
+		if hasDailyTag(n) {
+			createdDay := n.Created.In(loc).Truncate(24 * time.Hour)
+			if createdDay.Before(today) {
+				continue
+			}
+		}
 		var open []string
 		for _, line := range strings.Split(n.Body, "\n") {
-			if strings.HasPrefix(strings.TrimSpace(line), "- [ ]") {
-				open = append(open, line)
+			if !strings.HasPrefix(strings.TrimSpace(line), "- [ ]") {
+				continue
 			}
+			waiting, _ := isWaiting(line)
+			if opts.showWaiting {
+				if !waiting {
+					continue
+				}
+			} else {
+				if waiting {
+					continue
+				}
+			}
+			if opts.contextFilter != "" {
+				if todoContext(line) != strings.ToLower(opts.contextFilter) {
+					continue
+				}
+			}
+			open = append(open, line)
 		}
 		if len(open) == 0 {
 			continue
 		}
-		if isBlocked(n, byID) {
+		if !opts.showAll && !opts.showWaiting && isBlocked(n, byID) {
 			continue
 		}
 		if !first {
@@ -36,6 +74,12 @@ func listTodosText(notes []*note.Note, byID map[string]*note.Note) string {
 		}
 	}
 	return sb.String()
+}
+
+// listTodosText renders the default todo view for nn show --global, matching
+// nn todo list's default filter.
+func listTodosText(notes []*note.Note, byID map[string]*note.Note) string {
+	return collectOpenTodos(notes, byID, todoListOptions{})
 }
 
 // isWaiting reports whether a checkbox line contains a [waiting: ...] tag.
@@ -117,56 +161,13 @@ func newTodoListCmd(state *rootState) *cobra.Command {
 			for _, n := range notes {
 				byID[n.ID] = n
 			}
-			loc := time.Now().Location()
-			today := time.Now().In(loc).Truncate(24 * time.Hour)
 
-			w := outWriter(cmd)
-			first := true
-			for _, n := range notes {
-				// Always exclude daily notes from previous days — their todos are carried forward.
-				if hasDailyTag(n) {
-					createdDay := n.Created.In(loc).Truncate(24 * time.Hour)
-					if createdDay.Before(today) {
-						continue
-					}
-				}
-				var open []string
-				for _, line := range strings.Split(n.Body, "\n") {
-					if !strings.HasPrefix(strings.TrimSpace(line), "- [ ]") {
-						continue
-					}
-					waiting, _ := isWaiting(line)
-					if showWaiting {
-						if !waiting {
-							continue
-						}
-					} else {
-						if waiting {
-							continue
-						}
-					}
-					if contextFilter != "" {
-						if todoContext(line) != strings.ToLower(contextFilter) {
-							continue
-						}
-					}
-					open = append(open, line)
-				}
-				if len(open) == 0 {
-					continue
-				}
-				if !showAll && !showWaiting && isBlocked(n, byID) {
-					continue
-				}
-				if !first {
-					fmt.Fprintln(w)
-				}
-				first = false
-				fmt.Fprintf(w, "%s  %s\n", n.ID, n.Title)
-				for _, line := range open {
-					fmt.Fprintf(w, "  %s\n", strings.TrimSpace(line))
-				}
-			}
+			out := collectOpenTodos(notes, byID, todoListOptions{
+				showAll:       showAll,
+				showWaiting:   showWaiting,
+				contextFilter: contextFilter,
+			})
+			fmt.Fprint(outWriter(cmd), out)
 			return nil
 		},
 	}
