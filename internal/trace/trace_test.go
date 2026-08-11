@@ -2,10 +2,12 @@ package trace_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jaresty/nn/internal/note"
 	"github.com/jaresty/nn/internal/trace"
@@ -19,6 +21,78 @@ func writeTempFile(t *testing.T, dir, name, content string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func TestBuildIndexReturnsNonNilForAnyTimeout(t *testing.T) {
+	// property [1a]: BuildIndex returns a non-nil Index and terminates for any
+	// DefaultParseTimeoutMicros >= 0.
+	dir := t.TempDir()
+	writeTempFile(t, dir, "ok.go", `package main
+func Kept() {}
+`)
+	for _, tmo := range []uint64{0, 1} {
+		type result struct {
+			idx *trace.Index
+			err error
+		}
+		done := make(chan result, 1)
+		orig := trace.DefaultParseTimeoutMicros
+		trace.DefaultParseTimeoutMicros = tmo
+		go func() {
+			idx, err := trace.BuildIndex(dir)
+			done <- result{idx, err}
+		}()
+		select {
+		case r := <-done:
+			trace.DefaultParseTimeoutMicros = orig
+			if r.err != nil {
+				t.Fatalf("timeout=%d: BuildIndex error: %v", tmo, r.err)
+			}
+			if r.idx == nil {
+				t.Fatalf("timeout=%d: expected non-nil Index", tmo)
+			}
+		case <-time.After(10 * time.Second):
+			trace.DefaultParseTimeoutMicros = orig
+			t.Fatalf("timeout=%d: BuildIndex did not terminate within 10s", tmo)
+		}
+	}
+}
+
+func TestBuildIndexAppliesParseTimeout(t *testing.T) {
+	// property [1b]: DefaultParseTimeoutMicros observably changes parse
+	// completeness — a value of 0 recovers definitions that a tiny positive
+	// value may omit.
+	dir := t.TempDir()
+	var sb strings.Builder
+	sb.WriteString("package main\n")
+	for i := 0; i < 4000; i++ {
+		fmt.Fprintf(&sb, "func Fn%d() { _ = %d + %d }\n", i, i, i)
+	}
+	writeTempFile(t, dir, "big.go", sb.String())
+
+	orig := trace.DefaultParseTimeoutMicros
+
+	trace.DefaultParseTimeoutMicros = 0
+	full, err := trace.BuildIndex(dir)
+	if err != nil {
+		trace.DefaultParseTimeoutMicros = orig
+		t.Fatalf("full parse error: %v", err)
+	}
+
+	trace.DefaultParseTimeoutMicros = 1
+	limited, err := trace.BuildIndex(dir)
+	trace.DefaultParseTimeoutMicros = orig
+	if err != nil {
+		t.Fatalf("limited parse error: %v", err)
+	}
+
+	if len(full.All) == 0 {
+		t.Fatalf("expected full parse to recover definitions, got 0")
+	}
+	if len(limited.All) >= len(full.All) {
+		t.Fatalf("expected 1us timeout to omit definitions: full=%d limited=%d (timeout not applied)",
+			len(full.All), len(limited.All))
+	}
 }
 
 func TestBuildIndex(t *testing.T) {

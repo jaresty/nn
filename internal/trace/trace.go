@@ -66,6 +66,13 @@ type NoteRef struct {
 	Title string `json:"title"`
 }
 
+// DefaultParseTimeoutMicros bounds each per-file gotreesitter parse. A single
+// pathological file can otherwise drive gotreesitter's GLR error-recovery into
+// unbounded transient allocation (observed >1GB). On timeout gotreesitter returns
+// a partial tree with a nil error, which is acceptable for definition indexing.
+// A value of 0 disables the timeout (gotreesitter's default, full-parse behavior).
+var DefaultParseTimeoutMicros uint64 = 2_000_000
+
 // BuildIndex walks root, parses all grammar-detected files via gotreesitter, and
 // returns an Index of all definition sites. Files are parsed concurrently using a
 // bounded goroutine pool.
@@ -114,6 +121,11 @@ func BuildIndex(root string) (*Index, error) {
 			}
 			entry := grammars.DetectLanguage(path)
 			parser := gotreesitter.NewParser(entry.Language())
+			// Bound per-file parse time so a single pathological file cannot drive
+			// gotreesitter's GLR error-recovery into unbounded transient allocation.
+			// On timeout Parse returns a partial tree with nil error, which yields
+			// whatever definition spans were recovered before the deadline.
+			parser.SetTimeoutMicros(DefaultParseTimeoutMicros)
 			tree, err := parser.Parse(src)
 			if err != nil || tree == nil {
 				return nil
