@@ -225,6 +225,47 @@ nn list --representation ontology                    # find all notes with repre
 
 **Representation** is an optional orthogonal frontmatter field — independent of `type`. A note's `type` answers "what epistemic role does this play?" while `representation` answers "what structural contract must it satisfy?" Most notes omit it; set it when a note belongs to a formal structure like an ontology or taxonomy tree.
 
+## nn rules
+
+A small pure-Go **Datalog rules engine** that runs over facts derived from your notes. It is a *pure derivation layer*: facts and rules both come from the Markdown on disk (files are truth), and the engine only computes derived facts — it never writes.
+
+```
+nn rules check              # print every violation(ID, Reason); exits non-zero if any exist
+nn rules query <predicate>  # print all derived facts for a predicate, e.g. nn rules query violation
+nn rules list               # list rules loaded from notes (with note-ID provenance) + built-in count
+```
+
+**Auto-exposed facts.** Every note parse contributes these ground facts, forming a closed-world fact base ("no link ⇒ false"):
+
+| Predicate | Meaning |
+|---|---|
+| `note(ID, Type, Status)` | one per note |
+| `link(From, To, LinkType)` | one per outgoing link |
+| `tag(ID, Tag)` | one per tag |
+| `open_item(ID, Text)` | one per unchecked `- [ ]` checkbox |
+| `expires(ID, YYYY-MM-DD)` | only if the note has an expiry |
+| `representation(ID, Rep)` | only if the note has a representation |
+
+**Built-in rules** re-express the `nn check` representation invariants (model root, concept/argument children, taxonomy `refines`/`extends`-only links, axiom `grounded-by`, no cycles) as `violation(ID, Reason)` clauses. `nn rules check` reports these across all notes.
+
+**Writing your own rules.** Put a ` ```nn-rule ` fenced block in any note body — the rule versions in Git alongside the note. A `type:protocol` note can carry both its prose *and* a machine-checkable rule.
+
+````markdown
+```nn-rule
+# transitive closure over governs → refines chains
+transitively_governs(X, Y) :- link(X, Y, "governs").
+transitively_governs(X, Z) :- transitively_governs(X, Y), link(Y, Z, "refines").
+
+# flag any note that contradicts a permanent note
+violation(N, "contradicts a permanent note") :-
+    link(N, T, "contradicts"), note(T, _, "permanent").
+```
+````
+
+**Syntax:** `head(args) :- body1(args), body2(args).` Uppercase args (or `_`) are variables (`_` is a wildcard that binds nothing); lowercase or `"quoted"` args are constants; a leading `!` negates a body literal (negation-as-failure). Comment lines start with `#`. Recursion (transitive closure) is supported and always terminates. Negation must be *stratified* — a ruleset where a predicate negatively depends on itself through a cycle is rejected with an error.
+
+A **malformed rule** produces a warning naming the note ID and is skipped — it never prevents the note (or the rest of the ruleset) from loading.
+
 ## nn update-link / nn bulk-update-link
 
 ```

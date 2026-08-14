@@ -8,7 +8,80 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jaresty/nn/internal/note"
+	"github.com/jaresty/nn/internal/rules"
 )
+
+// engineCheckViolations computes representation-subgraph violations via the
+// rules engine (builtin.dl), scoped to the same-representation subgraph rooted
+// at root. It returns the same []checkViolation shape as the legacy
+// checkRepresentationGraph so nn check can delegate to it. The differential
+// guard in rules_differential_test.go proves the two agree on verdicts.
+func engineCheckViolations(root *note.Note, all []*note.Note, rep string) []checkViolation {
+	// Scope: root plus every node reachable from root via same-representation
+	// links (mirrors checkRepresentationGraph's same-rep traversal). The root is
+	// always in scope even if its representation field is empty (e.g. `--as`).
+	inScope := sameRepSubgraph(root, all, rep)
+
+	e := rules.NewEngine()
+	for _, f := range rules.FactsFromNotes(all) {
+		e.AddFact(f)
+	}
+	// Ensure every in-scope node carries the representation being validated, so
+	// the built-in rep_* rules fire even when the note's representation field is
+	// absent (the `--as <rep>` override supplies rep as an argument, mirroring
+	// checkRepresentationGraph which validates the root regardless of its field).
+	for id := range inScope {
+		e.AddFact(rules.Fact{Pred: "representation", Args: []string{id, rep}})
+	}
+	builtin, err := rules.ParseProgram(rules.BuiltinRules())
+	if err != nil {
+		// builtin.dl is embedded and tested; a parse failure is a programmer error.
+		return []checkViolation{{root.ID, fmt.Sprintf("internal: builtin rules failed to parse: %v", err)}}
+	}
+	e.AddRules(builtin)
+	if err := e.Eval(); err != nil {
+		return []checkViolation{{root.ID, fmt.Sprintf("internal: rule evaluation failed: %v", err)}}
+	}
+
+	var out []checkViolation
+	for _, f := range e.Query("violation") {
+		if len(f.Args) < 2 {
+			continue
+		}
+		id, reason := f.Args[0], f.Args[1]
+		if inScope[id] {
+			out = append(out, checkViolation{id, reason})
+		}
+	}
+	return out
+}
+
+// sameRepSubgraph returns the set of note IDs in the same-representation
+// subgraph rooted at root (root + all nodes reachable via links whose both
+// endpoints have representation rep).
+func sameRepSubgraph(root *note.Note, all []*note.Note, rep string) map[string]bool {
+	byID := make(map[string]*note.Note, len(all))
+	for _, n := range all {
+		byID[n.ID] = n
+	}
+	inScope := map[string]bool{}
+	var walk func(n *note.Note)
+	walk = func(n *note.Note) {
+		if inScope[n.ID] {
+			return
+		}
+		inScope[n.ID] = true
+		for _, lnk := range n.Links {
+			target, ok := byID[lnk.TargetID]
+			if !ok || target.Representation != rep {
+				continue
+			}
+			walk(target)
+		}
+	}
+	walk(root)
+	return inScope
+}
 
 // taxonomyLinkTypes lists the only link types permitted in a taxonomy subgraph.
 var taxonomyLinkTypes = map[string]bool{
@@ -102,11 +175,7 @@ func runRepresentationCheck(cmd *cobra.Command, state *rootState, n *note.Note) 
 	if err != nil {
 		return fmt.Errorf("check: %w", err)
 	}
-	byID := make(map[string]*note.Note, len(all))
-	for _, nn := range all {
-		byID[nn.ID] = nn
-	}
-	violations := checkRepresentationGraph(n, byID, n.Representation)
+	violations := engineCheckViolations(n, all, n.Representation)
 	if len(violations) > 0 {
 		var msgs []string
 		for _, v := range violations {
@@ -218,7 +287,7 @@ func newCheckCmd(state *rootState) *cobra.Command {
 				id = found.ID
 			}
 
-			violations := checkRepresentationGraph(n, byID, rep)
+			violations := engineCheckViolations(n, all, rep)
 			if len(violations) > 0 {
 				var msgs []string
 				for _, v := range violations {

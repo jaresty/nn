@@ -1,0 +1,62 @@
+# Built-in rules — port of nn check's representation-subgraph invariants
+# (ADR-0019). Traversal follows only same-representation links, mirroring
+# cmd/nn/cmd/check.go. A violation(ID, Reason) fact marks a structural failure.
+#
+# Expressed without comparison operators (deferred per ADR) — inequalities are
+# encoded as negated membership over enumerated positive cases.
+
+# ── Same-representation link: both endpoints share representation R ────────────
+rep_link(F, T, Ty, R) :- link(F, T, Ty), representation(F, R), representation(T, R).
+
+# ── Root of a representation subgraph: a rep node with no same-rep parent ──────
+# (mirrors findRepresentationRoot: a root has no same-representation inbound link)
+has_rep_parent(N, R) :- rep_link(_, N, _, R).
+rep_root(N, R) :- representation(N, R), !has_rep_parent(N, R).
+
+# A node that participates in a representation subgraph (root or reachable).
+in_rep(N, R) :- rep_root(N, R).
+in_rep(T, R) :- in_rep(F, R), rep_link(F, T, _, R).
+
+# ── Ontology / taxonomy: root must be type:model ──────────────────────────────
+is_model(N) :- note(N, model, _).
+violation(N, "root must be type:model") :- rep_root(N, _), !is_model(N).
+
+# ── Non-root nodes must be type:concept or type:argument ───────────────────────
+non_root_in_rep(N, R) :- in_rep(N, R), !rep_root(N, R).
+ok_child_type(N) :- note(N, concept, _).
+ok_child_type(N) :- note(N, argument, _).
+violation(N, "non-root must be type:concept or type:argument") :-
+    non_root_in_rep(N, _), !ok_child_type(N).
+
+# ── Taxonomy: same-rep links must be refines or extends ────────────────────────
+# Keyed on the link type so a disallowed edge is not masked by a sibling edge.
+ok_tax_type(refines).
+ok_tax_type(extends).
+violation(F, "taxonomy link type not refines/extends") :-
+    rep_link(F, _, Ty, taxonomy), !ok_tax_type(Ty).
+
+# ── Axiom: root must have at least one grounded-by same-rep link ───────────────
+axiom_root_grounded(N) :- rep_root(N, axiom), rep_link(N, _, "grounded-by", axiom).
+violation(N, "axiom root missing grounded-by link") :-
+    rep_root(N, axiom), !axiom_root_grounded(N).
+
+# ── Cycles: a node reachable from itself via same-rep links ────────────────────
+rep_reach(F, T) :- rep_link(F, T, _, _).
+rep_reach(F, T) :- rep_reach(F, M), rep_link(M, T, _, _).
+violation(N, "cycle detected in representation subgraph") :- rep_reach(N, N).
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DERIVATION RULES — general relationships computed from the link graph, useful
+# out of the box via `nn rules query`. Not violations; pure derived facts.
+# ══════════════════════════════════════════════════════════════════════════════
+
+# reachable(A, B): B is reachable from A by following any links.
+reachable(A, B) :- link(A, B, _).
+reachable(A, C) :- reachable(A, B), link(B, C, _).
+
+# transitively_governs(P, N): a protocol P governs N directly, or governs an
+# ancestor that N refines/extends from — the transitive reach of a governs edge
+# down refines/extends chains.
+transitively_governs(P, N) :- link(P, N, "governs").
+transitively_governs(P, N) :- transitively_governs(P, M), link(M, N, "refines").
+transitively_governs(P, N) :- transitively_governs(P, M), link(M, N, "extends").

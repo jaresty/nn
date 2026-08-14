@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jaresty/nn/internal/note"
+	"github.com/jaresty/nn/internal/rules"
 )
 
 // nowFn is the time source for daily note date labels. Tests override it to simulate timezone offsets.
@@ -133,6 +134,11 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"Graph checks (all representations): root must be type:model; non-root nodes must be type:concept or type:argument; cycles fail\n" +
 			"Representation-specific: ontology = connectivity only; taxonomy = all links must be refines or extends; axiom = root must have ≥1 grounded-by link\n" +
 			"Does NOT check section headers within note bodies — use semantic review for body structure\n\n" +
+			"**nn rules check** — evaluate Datalog rules over all notes and print every `violation(ID, Reason)`; exits non-zero if any exist. Rules come from built-in invariants plus any ` ```nn-rule ` fenced blocks in note bodies.\n" +
+			"**nn rules query** `<predicate>` — print all derived facts for a predicate (e.g. `nn rules query violation`); use to inspect derivation output.\n" +
+			"**nn rules list** — list rules loaded from note bodies with note-ID provenance, plus the built-in rule count.\n" +
+			"Auto-exposed facts (closed-world, from every note): `note(ID, Type, Status)`, `link(From, To, LinkType)`, `tag(ID, Tag)`, `open_item(ID, Text)`, `expires(ID, YYYY-MM-DD)`, `representation(ID, Rep)`.\n" +
+			"Rule syntax lives in a ` ```nn-rule ` fenced block in a note body: `head(X) :- body1(X), !body2(X).` — `_` is a wildcard, uppercase args are variables, quoted/lowercase are constants, `!` negates. A malformed rule warns (with note ID) and is skipped; it never breaks note loading.\n\n" +
 			"**nn list** `--search \"<q>\" --show-first --json [--fields id,title,...]` | `--type <type>` | `--status <status>` | `--representation <rep>` | `--orphan` | `--since <ISO>` | `--before <ISO>` | `--expired` | `--has-expires` | `--has-open-items` | `--unblocked`\n" +
 			"Output shaping (require --json): `--rich` (adds modified/link_count/body_preview) | `--full` (disables excerpt/annotation truncation) | `--envelope` (wraps in metadata envelope with query/result_count/total_matching; requires --search)\n" +
 			"Search ranking: `--boost-recent` boosts recently-modified notes (requires --search)\n" +
@@ -842,5 +848,54 @@ func renderWithResolvedLinks(raw string, n *note.Note, byID map[string]*note.Not
 			}
 		}
 	}
+	buf.WriteString(ruleViolationsSection(n, byID))
 	return buf.String()
+}
+
+// ruleViolationsSection evaluates the notebook's rules (built-in + nn-rule
+// fences) and returns a "## Rule violations" section listing only the
+// violations whose subject is note n. This closes the protocol-enforcement
+// loop: a type:protocol note's nn-rule flags the notes it governs, and that is
+// surfaced when those notes are shown. Returns "" when n has no violations.
+func ruleViolationsSection(n *note.Note, byID map[string]*note.Note) string {
+	all := make([]*note.Note, 0, len(byID))
+	for _, m := range byID {
+		all = append(all, m)
+	}
+
+	e := rules.NewEngine()
+	for _, f := range rules.FactsFromNotes(all) {
+		e.AddFact(f)
+	}
+	builtin, err := rules.ParseProgram(rules.BuiltinRules())
+	if err != nil {
+		return ""
+	}
+	e.AddRules(builtin)
+	for _, m := range all {
+		userRules, _ := rules.ExtractFenceRules(m.ID, m.Body)
+		e.AddRules(userRules)
+	}
+	if err := e.Eval(); err != nil {
+		// A non-stratifiable user ruleset must not break show output.
+		return ""
+	}
+
+	var reasons []string
+	for _, f := range e.Query("violation") {
+		if len(f.Args) >= 2 && f.Args[0] == n.ID {
+			reasons = append(reasons, f.Args[1])
+		}
+	}
+	if len(reasons) == 0 {
+		return ""
+	}
+	sort.Strings(reasons)
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "\n## Rule violations (%d)\n\n", len(reasons))
+	for _, r := range reasons {
+		fmt.Fprintf(&b, "- %s\n", r)
+	}
+	return b.String()
 }
