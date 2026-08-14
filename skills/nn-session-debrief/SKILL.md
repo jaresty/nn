@@ -112,6 +112,15 @@ nn list --type concept --status draft --json
 - Has reviewed inbound links and a focused body
 - Has 2+ outbound links and a focused body (well-connected even if not yet referenced)
 
+**Rules-engine shortcut (optional):** the first arm ("reviewed inbound") is expressible as an `nn-rule` fence and queryable with `nn rules query`:
+
+```nn-rule
+has_reviewed_inbound(N) :- link(P, N, _), note(P, _, "reviewed").
+promotable(N) :- note(N, _, "draft"), has_reviewed_inbound(N).
+```
+
+`nn rules query promotable` then lists drafts with a reviewed inbound link — pre-filtering the first arm instead of counting by hand. The second arm ("2+ outbound links") is *not* expressible in the v1 engine (no inequality/aggregation, so it cannot count distinct links — verified); check that arm manually with `nn backlinks`/link counts.
+
 For each candidate, check link counts:
 
 ```
@@ -239,6 +248,17 @@ For each draft not touched in 14+ days: check outbound link count first.
 - **Has outbound links + coherent body** → promotion candidate, not a deletion candidate; propose `nn promote`
 - **Zero links in either direction** → true orphan, candidate for deletion; surface for user to decide
 - **No inbound, but has outbound** → dead-end note that hasn't been linked to yet; link it rather than delete it
+
+**Rules-engine shortcut (optional):** these two structural buckets are expressible as `nn-rule` fences and queryable with `nn rules query` (both verified):
+
+```nn-rule
+has_out(N) :- link(N, _, _).
+has_in(N) :- link(_, N, _).
+orphan_draft(N) :- note(N, _, "draft"), !has_out(N), !has_in(N).
+dead_end_draft(N) :- note(N, _, "draft"), has_out(N), !has_in(N).
+```
+
+`nn rules query orphan_draft` (deletion candidates) and `nn rules query dead_end_draft` (link-it candidates) surface the buckets directly, complementing `nn list --orphan`/`--no-inbound`.
 
 Then sweep expired ephemeral notes (concrete/time-bound notes flagged by the staleness check in the gate):
 
