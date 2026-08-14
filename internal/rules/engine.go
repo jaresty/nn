@@ -7,6 +7,7 @@ package rules
 import (
 	"fmt"
 	"maps"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -44,9 +45,10 @@ type Rule struct {
 // arguments other than the result variable are the grouping variables. K is
 // bound to the number of DISTINCT V values within each group.
 type aggregate struct {
-	countVar string // the variable counted (V)
+	kind     string // count | min | max | sum
+	countVar string // the variable aggregated (V)
 	source   Atom   // the single source literal
-	resultOn int    // index into Head.Args that receives the count (K)
+	resultOn int    // index into Head.Args that receives the result (K)
 }
 
 // Fact is a ground atom: a predicate with constant string arguments.
@@ -154,21 +156,25 @@ func (e *Engine) evalAggregates() bool {
 }
 
 // aggregateFacts computes the head facts produced by an aggregate rule: for each
-// group (distinct binding of the head's non-result variables), count the DISTINCT
-// values of the counted variable among matching source facts.
+// group (distinct binding of the head's non-result variables), fold the values
+// of the aggregated variable among matching source facts. count uses the number
+// of DISTINCT values; sum/min/max fold the numeric values (each source fact
+// contributes once, so a multiset — duplicates matter for sum). For sum/min/max
+// non-numeric values are skipped, and a group with no numeric values yields no
+// head fact.
 func (e *Engine) aggregateFacts(r Rule) []Fact {
 	agg := r.Agg
-	// group key (ordered head arg values excluding the result slot) -> set of
-	// distinct counted values.
-	groups := map[string]map[string]bool{}
+	// group key -> ordered list of the aggregated variable's values (multiset).
+	groupVals := map[string][]string{}
 	groupArgs := map[string][]string{}
+	var order []string // stable group iteration order
 
 	for _, f := range e.facts {
 		b, ok := unify(agg.source, f, bindings{})
 		if !ok {
 			continue
 		}
-		countVal, bound := b[agg.countVar]
+		val, bound := b[agg.countVar]
 		if !bound {
 			continue
 		}
@@ -194,20 +200,70 @@ func (e *Engine) aggregateFacts(r Rule) []Fact {
 			continue
 		}
 		key := strings.Join(args, "\x00")
-		if groups[key] == nil {
-			groups[key] = map[string]bool{}
+		if _, seen := groupArgs[key]; !seen {
 			groupArgs[key] = args
+			order = append(order, key)
 		}
-		groups[key][countVal] = true
+		groupVals[key] = append(groupVals[key], val)
 	}
 
 	var out []Fact
-	for key, distinct := range groups {
+	for _, key := range order {
+		res, ok := foldAggregate(agg.kind, groupVals[key])
+		if !ok {
+			continue // e.g. sum/min/max over a group with no numeric values
+		}
 		args := append([]string(nil), groupArgs[key]...)
-		args[agg.resultOn] = strconv.Itoa(len(distinct))
+		args[agg.resultOn] = res
 		out = append(out, Fact{Pred: r.Head.Pred, Args: args})
 	}
 	return out
+}
+
+// foldAggregate reduces a group's aggregated values by kind, returning the
+// formatted result and whether a result exists. count = number of distinct
+// values (always ok). sum/min/max operate on the numeric values; non-numeric
+// values are skipped, and ok=false if no numeric value remains.
+func foldAggregate(kind string, vals []string) (string, bool) {
+	if kind == "count" {
+		distinct := map[string]bool{}
+		for _, v := range vals {
+			distinct[v] = true
+		}
+		return strconv.Itoa(len(distinct)), true
+	}
+	var acc float64
+	have := false
+	for _, v := range vals {
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			continue
+		}
+		switch {
+		case !have:
+			acc = f
+		case kind == "min" && f < acc:
+			acc = f
+		case kind == "max" && f > acc:
+			acc = f
+		case kind == "sum":
+			acc += f
+		}
+		have = true
+	}
+	if !have {
+		return "", false
+	}
+	return formatNumber(acc), true
+}
+
+// formatNumber renders an aggregate result, using an integer form when the value
+// is integral so `sum = 5` prints "5" rather than "5.000000".
+func formatNumber(f float64) string {
+	if f == math.Trunc(f) && !math.IsInf(f, 0) {
+		return strconv.FormatInt(int64(f), 10)
+	}
+	return strconv.FormatFloat(f, 'g', -1, 64)
 }
 
 // checkSafe rejects rules where a comparison literal references a variable that

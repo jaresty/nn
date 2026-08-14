@@ -130,23 +130,23 @@ func ParseRule(line string) (Rule, error) {
 	return r, nil
 }
 
-// aggregateRE matches `count(V : source(...)) = K`.
-var aggregateRE = regexp.MustCompile(`^\s*count\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)\)\s*=\s*([A-Za-z_][A-Za-z0-9_]*)\s*$`)
+// aggregateRE matches `<fn>(V : source(...)) = K` where fn is count/min/max/sum.
+var aggregateRE = regexp.MustCompile(`^\s*(count|min|max|sum)\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)\)\s*=\s*([A-Za-z_][A-Za-z0-9_]*)\s*$`)
 
 // parseAggregate recognises the aggregate body form
-// `count(V : source(...)) = K` and builds the rule's aggregate descriptor.
-// It returns ok=false when body is not an aggregate form.
+// `<fn>(V : source(...)) = K` (fn ∈ count/min/max/sum) and builds the rule's
+// aggregate descriptor. It returns ok=false when body is not an aggregate form.
 func parseAggregate(body string, head Atom) (*aggregate, bool, error) {
 	m := aggregateRE.FindStringSubmatch(strings.TrimSpace(body))
 	if m == nil {
 		return nil, false, nil
 	}
-	countVar, sourceStr, resultVar := m[1], m[2], m[3]
+	kind, countVar, sourceStr, resultVar := m[1], m[2], m[3], m[4]
 	source, err := parseAtom(sourceStr)
 	if err != nil {
 		return nil, false, fmt.Errorf("rules: aggregate source: %w", err)
 	}
-	// Find which head argument receives the count (the result variable K).
+	// Find which head argument receives the result (the result variable K).
 	resultOn := -1
 	for i, t := range head.Args {
 		if t.Var && t.Name == resultVar {
@@ -157,7 +157,7 @@ func parseAggregate(body string, head Atom) (*aggregate, bool, error) {
 	if resultOn < 0 {
 		return nil, false, fmt.Errorf("rules: aggregate result variable %q does not appear in head %q", resultVar, head.Pred)
 	}
-	return &aggregate{countVar: countVar, source: source, resultOn: resultOn}, true, nil
+	return &aggregate{kind: kind, countVar: countVar, source: source, resultOn: resultOn}, true, nil
 }
 
 // ParseProgram parses a multi-clause program, splitting on top-level periods
