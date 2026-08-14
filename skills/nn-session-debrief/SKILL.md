@@ -117,9 +117,13 @@ nn list --type concept --status draft --json
 ```nn-rule
 has_reviewed_inbound(N) :- link(P, N, _), note(P, _, "reviewed").
 promotable(N) :- note(N, _, "draft"), has_reviewed_inbound(N).
+
+# second arm: drafts with 2+ distinct outbound links (uses count aggregation)
+outdeg(N, K) :- count(T : link(N, T, _)) = K.
+well_connected(N) :- note(N, _, "draft"), outdeg(N, K), K != "1", K != "0".
 ```
 
-`nn rules query promotable` then lists drafts with a reviewed inbound link — pre-filtering the first arm instead of counting by hand. The second arm ("2+ outbound links") is *not* expressible in the v1 engine (no inequality/aggregation, so it cannot count distinct links — verified); check that arm manually with `nn backlinks`/link counts.
+`nn rules query promotable` lists drafts with a reviewed inbound link; `nn rules query well_connected` lists drafts with 2+ distinct outbound links — together they pre-filter both arms of the promotion threshold instead of counting by hand.
 
 For each candidate, check link counts:
 

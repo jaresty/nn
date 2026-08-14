@@ -18,9 +18,33 @@ func parseTerm(s string) Term {
 	return Term{Name: strings.Trim(s, `"'`), Var: false}
 }
 
-// parseAtom parses a single (optionally negated) atom like `p(X, "c")`.
+// Comparison predicates are represented as atoms whose Pred is one of these
+// sentinels, carrying exactly two argument terms. They filter bindings rather
+// than matching facts (see evalBody).
+const (
+	predEq  = "=cmp:eq"
+	predNeq = "=cmp:neq"
+)
+
+// comparisonRE matches an infix comparison literal like `A != B` or `X = "c"`.
+var comparisonRE = regexp.MustCompile(`^\s*(.+?)\s*(!=|=)\s*(.+?)\s*$`)
+
+// parseAtom parses a single body element: either an infix comparison
+// (`A != B`, `X = Y`) or an ordinary (optionally negated) atom like `p(X, "c")`.
 func parseAtom(s string) (Atom, error) {
-	m := atomRE.FindStringSubmatch(strings.TrimSpace(s))
+	s = strings.TrimSpace(s)
+	// Try comparison first, but only when the string is not a predicate call
+	// (a predicate call contains '(' before any operator).
+	if !looksLikeCall(s) {
+		if m := comparisonRE.FindStringSubmatch(s); m != nil {
+			pred := predEq
+			if m[2] == "!=" {
+				pred = predNeq
+			}
+			return Atom{Pred: pred, Args: []Term{parseTerm(m[1]), parseTerm(m[3])}}, nil
+		}
+	}
+	m := atomRE.FindStringSubmatch(s)
 	if m == nil {
 		return Atom{}, fmt.Errorf("rules: malformed atom %q", s)
 	}
@@ -29,6 +53,17 @@ func parseAtom(s string) (Atom, error) {
 		a.Args = append(a.Args, parseTerm(part))
 	}
 	return a, nil
+}
+
+// looksLikeCall reports whether s is a predicate call form `name(...)` rather
+// than an infix comparison, by checking for a '(' that precedes any '=' / '!'.
+func looksLikeCall(s string) bool {
+	paren := strings.IndexByte(s, '(')
+	if paren < 0 {
+		return false
+	}
+	op := strings.IndexAny(s, "=!")
+	return op < 0 || paren < op
 }
 
 // ParseRule parses a single clause: `head :- b1, b2.` or a bare fact `head.`.
@@ -47,6 +82,13 @@ func ParseRule(line string) (Rule, error) {
 			return r, err
 		}
 		r.Head = h
+		// Aggregate rule form: head(...) :- count(V : source(...)) = K.
+		if agg, ok, err := parseAggregate(parts[1], h); err != nil {
+			return r, err
+		} else if ok {
+			r.Agg = agg
+			return r, nil
+		}
 		for _, b := range splitTopLevel(parts[1]) {
 			ba, err := parseAtom(b)
 			if err != nil {
@@ -62,6 +104,36 @@ func ParseRule(line string) (Rule, error) {
 	}
 	r.Head = h
 	return r, nil
+}
+
+// aggregateRE matches `count(V : source(...)) = K`.
+var aggregateRE = regexp.MustCompile(`^\s*count\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)\)\s*=\s*([A-Za-z_][A-Za-z0-9_]*)\s*$`)
+
+// parseAggregate recognises the aggregate body form
+// `count(V : source(...)) = K` and builds the rule's aggregate descriptor.
+// It returns ok=false when body is not an aggregate form.
+func parseAggregate(body string, head Atom) (*aggregate, bool, error) {
+	m := aggregateRE.FindStringSubmatch(strings.TrimSpace(body))
+	if m == nil {
+		return nil, false, nil
+	}
+	countVar, sourceStr, resultVar := m[1], m[2], m[3]
+	source, err := parseAtom(sourceStr)
+	if err != nil {
+		return nil, false, fmt.Errorf("rules: aggregate source: %w", err)
+	}
+	// Find which head argument receives the count (the result variable K).
+	resultOn := -1
+	for i, t := range head.Args {
+		if t.Var && t.Name == resultVar {
+			resultOn = i
+			break
+		}
+	}
+	if resultOn < 0 {
+		return nil, false, fmt.Errorf("rules: aggregate result variable %q does not appear in head %q", resultVar, head.Pred)
+	}
+	return &aggregate{countVar: countVar, source: source, resultOn: resultOn}, true, nil
 }
 
 // ParseProgram parses a multi-clause program, splitting on top-level periods

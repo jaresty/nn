@@ -264,6 +264,15 @@ violation(N, "contradicts a permanent note") :-
 
 **Syntax:** `head(args) :- body1(args), body2(args).` Uppercase args (or `_`) are variables (`_` is a wildcard that binds nothing); lowercase or `"quoted"` args are constants; a leading `!` negates a body literal (negation-as-failure). Comment lines start with `#`. Recursion (transitive closure) is supported and always terminates. Negation must be *stratified* — a ruleset where a predicate negatively depends on itself through a cycle is rejected with an error.
 
+**Comparison** — a body literal `A != B` or `A = B` filters solutions to those where the two operands differ / match. Both operands must be bound by an earlier positive literal (an unbound comparison is a rule error). Example: `two_distinct(N) :- link(N, A, _), link(N, B, _), A != B.`
+
+**Aggregation** — `count(V : source(...)) = K` binds `K` to the number of **distinct** values of `V` in the matching `source` facts, grouped by the head's other variables. The counted relation must be stratified (an aggregate that transitively depends on its own output is rejected). Example — "notes with 2+ distinct outbound links":
+
+```nn-rule
+outdeg(N, K) :- count(T : link(N, T, _)) = K.
+well_connected(N) :- outdeg(N, K), K != "1", K != "0".
+```
+
 A **malformed rule** produces a warning naming the note ID and is skipped — it never prevents the note (or the rest of the ruleset) from loading.
 
 ## nn update-link / nn bulk-update-link

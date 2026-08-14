@@ -150,10 +150,17 @@ cmd/nn/cmd/
 
 ## Deferred (v1 scope discipline)
 
-- Arithmetic/comparison predicates (`>`, `<`), aggregation (count/min).
+- Ordering comparison predicates (`>`, `<`) and other aggregates (min/max/sum).
 - Rule *scoping* — v1 evaluates all rules globally; revisit only if collisions bite.
 - Performance indexing.
-- `nn rules explain` (derivation provenance) — stretch, not v1-blocking.
+
+## Implemented after v1
+
+- `nn rules explain` (derivation provenance).
+- Equality/inequality comparison predicates (`A = B`, `A != B`) with safety
+  (operands must be bound) — motivated by the "2+ distinct outbound" threshold.
+- `count(V : source) = K` distinct-count aggregation, stratified (an aggregate
+  that depends on its own output is rejected) to preserve termination.
 
 ## Alternatives considered
 
