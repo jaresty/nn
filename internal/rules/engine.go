@@ -240,30 +240,142 @@ func checkSafe(rules []Rule) error {
 	return nil
 }
 
-// fixpoint iterates the rules until no new fact is derived.
+// positivePredIdxs returns the body-literal indices of a rule's positive
+// (non-negated, non-comparison) literals — the join positions that a semi-naive
+// delta round can restrict to newly-derived facts. A rule with no such literal,
+// or with any negated literal, is not eligible for delta evaluation (see
+// fixpoint): negation is only correct against a saturated relation, so such
+// rules are re-evaluated fully every round.
+func positivePredIdxs(body []Atom) (idxs []int, hasNeg bool) {
+	for i, lit := range body {
+		switch {
+		case lit.Pred == predEq || lit.Pred == predNeq:
+			// comparison: not a join position
+		case lit.Neg:
+			hasNeg = true
+		default:
+			idxs = append(idxs, i)
+		}
+	}
+	return idxs, hasNeg
+}
+
+// fixpoint iterates the rules until no new fact is derived, using semi-naive
+// (delta) evaluation for negation-free rules.
+//
+// Naive evaluation re-joins every rule over the whole fact base each round,
+// re-deriving all previously-known facts. Semi-naive instead tracks the facts
+// added in the previous round (the delta) and, for a negation-free rule,
+// requires at least one positive body literal to bind against a delta fact — so
+// a rule fires only when it can produce something new. Rules containing a
+// negated literal are evaluated fully every round: their correctness depends on
+// the negated relation being saturated, which the outer convergence loop
+// guarantees but a delta round does not. Both paths compute the same least
+// fixpoint; only redundant re-derivation is eliminated.
 func (e *Engine) fixpoint() {
-	for {
-		added := false
+	// Round 0: evaluate every rule fully. Seed the next delta with everything
+	// added here (plus the base facts, so first-round consumers of base facts
+	// via delta rounds still see them).
+	delta := map[string][]Fact{}
+	for pred, fs := range e.byPred {
+		delta[pred] = append([]Fact(nil), fs...)
+	}
+	e.applyRules(e.rules, func(r Rule) []bindings { return e.evalBody(r.Body) }, &delta)
+
+	for len(delta) > 0 {
+		next := map[string][]Fact{}
 		for _, r := range e.rules {
 			if r.Agg != nil {
-				// Aggregate rules are evaluated by evalAggregates, not the
-				// ordinary join pass; their empty Body would otherwise emit a
-				// spurious all-empty-args head fact.
 				continue
 			}
-			for _, b := range e.evalBody(r.Body) {
-				nf := subst(r.Head, b)
-				if !e.has(nf) {
-					e.addFact(nf)
-					e.deriv[nf.Key()] = derivation{rule: r, premises: positivePremiseKeys(r.Body, b)}
-					added = true
+			idxs, hasNeg := positivePredIdxs(r.Body)
+			var results []bindings
+			if hasNeg || len(idxs) == 0 {
+				// Not delta-eligible: full evaluation (cheap — few such facts).
+				results = e.evalBody(r.Body)
+			} else {
+				// Semi-naive: the union over each positive literal position of
+				// the body evaluated with that position restricted to delta.
+				// De-dup identical head facts across positions via addFact.
+				seen := map[string]bool{}
+				for _, di := range idxs {
+					if len(delta[r.Body[di].Pred]) == 0 {
+						continue
+					}
+					for _, b := range e.evalBodyDelta(r.Body, di, delta) {
+						key := subst(r.Head, b).Key()
+						if seen[key] {
+							continue
+						}
+						seen[key] = true
+						results = append(results, b)
+					}
+				}
+			}
+			e.deriveInto(r, results, &next)
+		}
+		delta = next
+	}
+}
+
+// applyRules runs eval(r) for every non-aggregate rule and records new head
+// facts, seeding *nextDelta with the facts added.
+func (e *Engine) applyRules(rules []Rule, eval func(Rule) []bindings, nextDelta *map[string][]Fact) {
+	for _, r := range rules {
+		if r.Agg != nil {
+			continue
+		}
+		e.deriveInto(r, eval(r), nextDelta)
+	}
+}
+
+// deriveInto grounds each binding into a head fact; newly-added facts are
+// recorded (witness in e.deriv) and pushed onto *nextDelta for the next round.
+func (e *Engine) deriveInto(r Rule, bs []bindings, nextDelta *map[string][]Fact) {
+	for _, b := range bs {
+		nf := subst(r.Head, b)
+		if !e.has(nf) {
+			e.addFact(nf)
+			e.deriv[nf.Key()] = derivation{rule: r, premises: positivePremiseKeys(r.Body, b)}
+			(*nextDelta)[nf.Pred] = append((*nextDelta)[nf.Pred], nf)
+		}
+	}
+}
+
+// evalBodyDelta is evalBody with the positive literal at deltaIdx iterating only
+// the delta facts for its predicate, instead of the full fact base. All other
+// positive literals still range over the full fact base. This is the semi-naive
+// rule instantiation: the head can be new only if the deltaIdx literal matched a
+// fact derived in the previous round.
+func (e *Engine) evalBodyDelta(body []Atom, deltaIdx int, delta map[string][]Fact) []bindings {
+	results := []bindings{{}}
+	for i, lit := range body {
+		var next []bindings
+		for _, b := range results {
+			switch {
+			case lit.Pred == predEq || lit.Pred == predNeq:
+				if compareHolds(lit, b) {
+					next = append(next, b)
+				}
+			case lit.Neg:
+				if !e.has(subst(lit, b)) {
+					next = append(next, b)
+				}
+			default:
+				facts := e.byPred[lit.Pred]
+				if i == deltaIdx {
+					facts = delta[lit.Pred]
+				}
+				for _, f := range facts {
+					if nb, ok := unify(lit, f, b); ok {
+						next = append(next, nb)
+					}
 				}
 			}
 		}
-		if !added {
-			return
-		}
+		results = next
 	}
+	return results
 }
 
 type bindings map[string]string
