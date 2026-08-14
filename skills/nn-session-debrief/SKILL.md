@@ -143,6 +143,13 @@ Ask: **"What slowed you down this session? Any theories about why?"**
 
 Also scan the conversation transcript for **repeated similar edits** — making the same kind of change in multiple places is a strong signal that the concern is not centralized and a refactor may be warranted. Flag these as friction candidates even if the user did not name them explicitly.
 
+**Rules lens** — for each friction moment, ask: *was this a manual check I ran, a structural pattern I eyeballed, or a constraint I wished were enforced?* If yes, route it:
+- **Write a rule** — if it is expressible over the fact vocabulary (`note`, `link`, `tag`, `open_item`, `expires`, `representation`, plus `!=`/`=` comparison and `count(V : source) = K` aggregation). Propose an `nn-rule` fence (in a relevant protocol note) and, if it flags anything, query it with `nn rules query`/`nn rules check`.
+- **Engine gap** — if it needs facts or operators the engine does not expose (e.g. a check over data not in the fact vocabulary). Capture as a friction/feature-request note tagged `rules-engine` — do not force it into a rule.
+- **Neither** — a one-off, a conceptual insight, or a non-notebook-structure issue (CLI quoting, methodology). Do not route to a rule.
+
+Apply this lens only to friction that is a repeated or structural check — not to every friction point.
+
 For each friction point identified, capture it as a note:
 
 ```bash
@@ -239,6 +246,7 @@ Use its output to drive the rest of the pass:
   - `aging (3–14 days)`: surface for recheck — propose `nn show <id>` and update if content is stale
   - `stale (>14 days)`: content may be outdated — verify before relying on it; propose update or deletion if superseded
 - **Structural gaps** → act on any other pattern `nn review` identifies
+- **Recurring manual checks → rules** → review the week's friction notes (`nn list --search "friction" --status draft --json`): if a notebook-health or structural check was run by hand more than once, propose promoting it to a built-in or shared `nn-rule` so `nn rules check`/`nn rules query` surfaces it automatically going forward. If the check needs facts the engine does not expose, keep it as a `rules-engine`-tagged feature-request note instead.
 
 Then sweep unactioned drafts:
 
