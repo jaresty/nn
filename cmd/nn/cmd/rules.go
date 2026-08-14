@@ -13,7 +13,7 @@ import (
 // buildRuleEngine loads all notes, derives facts, and loads the built-in rules
 // plus any user rules embedded in note bodies via ```nn-rule fences. It returns
 // the evaluated engine and any per-note parse warnings (which never abort load).
-func buildRuleEngine(state *rootState) (*rules.Engine, []string, error) {
+func buildRuleEngine(state *rootState, assume ...string) (*rules.Engine, []string, error) {
 	all, err := state.backend.List()
 	if err != nil {
 		return nil, nil, fmt.Errorf("rules: %w", err)
@@ -21,6 +21,18 @@ func buildRuleEngine(state *rootState) (*rules.Engine, []string, error) {
 
 	e := rules.NewEngine()
 	for _, f := range rules.FactsFromNotes(all) {
+		e.AddFact(f)
+	}
+
+	// Hypothetical/counterfactual facts (--assume): injected alongside the real
+	// facts before Eval so the ruleset is evaluated AS IF they were present.
+	// They are never written to disk, and because the engine is rebuilt per
+	// invocation they are discarded when the command returns.
+	for _, a := range assume {
+		f, err := parseFactArg(a)
+		if err != nil {
+			return nil, nil, fmt.Errorf("rules: --assume %q: %w", a, err)
+		}
 		e.AddFact(f)
 	}
 
@@ -87,12 +99,17 @@ func newRulesExplainCmd(state *rootState) *cobra.Command {
 // newRulesCheckCmd runs the engine and prints every violation(ID, Reason) fact,
 // exiting non-zero if any exist.
 func newRulesCheckCmd(state *rootState) *cobra.Command {
-	return &cobra.Command{
+	var assume []string
+	cmd := &cobra.Command{
 		Use:   "check",
 		Short: "Report rule violations across all notes",
-		Args:  cobra.NoArgs,
+		Long: "Report rule violations across all notes.\n\n" +
+			"--assume injects a hypothetical ground fact (e.g. " +
+			"representation(ID, ontology)) so the ruleset is evaluated as if that " +
+			"fact were present, without writing anything to disk. Repeatable.",
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			e, warns, err := buildRuleEngine(state)
+			e, warns, err := buildRuleEngine(state, assume...)
 			if err != nil {
 				return err
 			}
@@ -111,6 +128,9 @@ func newRulesCheckCmd(state *rootState) *cobra.Command {
 			return fmt.Errorf("rules check: %d violation(s)", len(viols))
 		},
 	}
+	cmd.Flags().StringArrayVar(&assume, "assume", nil,
+		"assume a hypothetical fact, e.g. representation(ID, ontology) (repeatable)")
+	return cmd
 }
 
 // newRulesQueryCmd prints all derived facts for a predicate. The argument is a
@@ -219,7 +239,7 @@ func parseFactArg(s string) (rules.Fact, error) {
 	s = strings.TrimSpace(s)
 	open := strings.IndexByte(s, '(')
 	if open < 0 || !strings.HasSuffix(s, ")") {
-		return rules.Fact{}, fmt.Errorf("rules explain: expected a fact of the form pred(arg,...), got %q", s)
+		return rules.Fact{}, fmt.Errorf("expected a fact of the form pred(arg,...), got %q", s)
 	}
 	pred := strings.TrimSpace(s[:open])
 	inner := s[open+1 : len(s)-1]
