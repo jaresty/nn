@@ -217,7 +217,7 @@ func checkSafe(rules []Rule) error {
 	for _, r := range rules {
 		bound := map[string]bool{}
 		for _, lit := range r.Body {
-			if lit.Neg || lit.Pred == predEq || lit.Pred == predNeq {
+			if lit.Neg || isComparison(lit.Pred) {
 				continue
 			}
 			for _, t := range lit.Args {
@@ -227,7 +227,7 @@ func checkSafe(rules []Rule) error {
 			}
 		}
 		for _, lit := range r.Body {
-			if lit.Pred != predEq && lit.Pred != predNeq {
+			if !isComparison(lit.Pred) {
 				continue
 			}
 			for _, t := range lit.Args {
@@ -249,7 +249,7 @@ func checkSafe(rules []Rule) error {
 func positivePredIdxs(body []Atom) (idxs []int, hasNeg bool) {
 	for i, lit := range body {
 		switch {
-		case lit.Pred == predEq || lit.Pred == predNeq:
+		case isComparison(lit.Pred):
 			// comparison: not a join position
 		case lit.Neg:
 			hasNeg = true
@@ -353,7 +353,7 @@ func (e *Engine) evalBodyDelta(body []Atom, deltaIdx int, delta map[string][]Fac
 		var next []bindings
 		for _, b := range results {
 			switch {
-			case lit.Pred == predEq || lit.Pred == predNeq:
+			case isComparison(lit.Pred):
 				if compareHolds(lit, b) {
 					next = append(next, b)
 				}
@@ -389,7 +389,7 @@ func (e *Engine) evalBody(body []Atom) []bindings {
 		var next []bindings
 		for _, b := range results {
 			switch {
-			case lit.Pred == predEq || lit.Pred == predNeq:
+			case isComparison(lit.Pred):
 				if compareHolds(lit, b) {
 					next = append(next, b)
 				}
@@ -410,19 +410,42 @@ func (e *Engine) evalBody(body []Atom) []bindings {
 	return results
 }
 
-// compareHolds evaluates a comparison literal (predEq/predNeq) under bindings b.
-// Both operands must be bound to a constant (variable resolved via b, or a
-// literal constant); an unbound operand is treated as a failed comparison.
+// compareHolds evaluates a comparison literal under bindings b. Both operands
+// must be bound to a constant (variable resolved via b, or a literal constant);
+// an unbound operand is treated as a failed comparison.
+//
+// Equality (=) and inequality (!=) compare operands as strings. The ordering
+// operators (<, <=, >, >=) compare them numerically: both operands must parse as
+// numbers, and a non-numeric operand makes the comparison fail (never errors),
+// matching the unbound-operand convention.
 func compareHolds(lit Atom, b bindings) bool {
 	l, lok := resolveTerm(lit.Args[0], b)
 	r, rok := resolveTerm(lit.Args[1], b)
 	if !lok || !rok {
 		return false
 	}
-	if lit.Pred == predEq {
+	switch lit.Pred {
+	case predEq:
 		return l == r
+	case predNeq:
+		return l != r
 	}
-	return l != r
+	lf, lerr := strconv.ParseFloat(l, 64)
+	rf, rerr := strconv.ParseFloat(r, 64)
+	if lerr != nil || rerr != nil {
+		return false
+	}
+	switch lit.Pred {
+	case predLt:
+		return lf < rf
+	case predLte:
+		return lf <= rf
+	case predGt:
+		return lf > rf
+	case predGte:
+		return lf >= rf
+	}
+	return false
 }
 
 // resolveTerm returns the constant value a term denotes under bindings b, and
@@ -520,7 +543,7 @@ func checkStratified(rules []Rule) error {
 		}
 		for _, lit := range r.Body {
 			// Comparison literals are not predicate dependencies.
-			if lit.Pred == predEq || lit.Pred == predNeq {
+			if isComparison(lit.Pred) {
 				continue
 			}
 			deps[head] = append(deps[head], dep{pred: lit.Pred, neg: lit.Neg})

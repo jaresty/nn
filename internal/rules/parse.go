@@ -24,10 +24,38 @@ func parseTerm(s string) Term {
 const (
 	predEq  = "=cmp:eq"
 	predNeq = "=cmp:neq"
+	predLt  = "=cmp:lt"
+	predLte = "=cmp:lte"
+	predGt  = "=cmp:gt"
+	predGte = "=cmp:gte"
 )
 
-// comparisonRE matches an infix comparison literal like `A != B` or `X = "c"`.
-var comparisonRE = regexp.MustCompile(`^\s*(.+?)\s*(!=|=)\s*(.+?)\s*$`)
+// isComparison reports whether a predicate is one of the internal comparison
+// sentinels (=, !=, <, <=, >, >=). Comparison literals filter bindings rather
+// than matching facts (see evalBody).
+func isComparison(pred string) bool {
+	switch pred {
+	case predEq, predNeq, predLt, predLte, predGt, predGte:
+		return true
+	}
+	return false
+}
+
+// cmpOps maps each infix operator token to its comparison predicate. Longest
+// operators must be matched first in comparisonRE so `>=` is not read as `>`.
+var cmpOps = map[string]string{
+	"!=": predNeq,
+	">=": predGte,
+	"<=": predLte,
+	"=":  predEq,
+	">":  predGt,
+	"<":  predLt,
+}
+
+// comparisonRE matches an infix comparison literal like `A != B`, `X = "c"`, or
+// `K < 2`. Multi-char operators are listed before their single-char prefixes so
+// the alternation is greedy in the right order.
+var comparisonRE = regexp.MustCompile(`^\s*(.+?)\s*(!=|>=|<=|=|>|<)\s*(.+?)\s*$`)
 
 // parseAtom parses a single body element: either an infix comparison
 // (`A != B`, `X = Y`) or an ordinary (optionally negated) atom like `p(X, "c")`.
@@ -37,11 +65,7 @@ func parseAtom(s string) (Atom, error) {
 	// (a predicate call contains '(' before any operator).
 	if !looksLikeCall(s) {
 		if m := comparisonRE.FindStringSubmatch(s); m != nil {
-			pred := predEq
-			if m[2] == "!=" {
-				pred = predNeq
-			}
-			return Atom{Pred: pred, Args: []Term{parseTerm(m[1]), parseTerm(m[3])}}, nil
+			return Atom{Pred: cmpOps[m[2]], Args: []Term{parseTerm(m[1]), parseTerm(m[3])}}, nil
 		}
 	}
 	m := atomRE.FindStringSubmatch(s)
@@ -62,7 +86,7 @@ func looksLikeCall(s string) bool {
 	if paren < 0 {
 		return false
 	}
-	op := strings.IndexAny(s, "=!")
+	op := strings.IndexAny(s, "=!<>")
 	return op < 0 || paren < op
 }
 
