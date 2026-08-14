@@ -6,6 +6,7 @@ package rules
 
 import (
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -64,7 +65,10 @@ func (f Fact) Key() string {
 // Engine holds a fact base and a ruleset and computes their least fixpoint.
 type Engine struct {
 	facts map[string]Fact
-	rules []Rule
+	// byPred indexes facts by predicate so evalBody and Query iterate only the
+	// facts that can match a given literal, rather than scanning the whole base.
+	byPred map[string][]Fact
+	rules  []Rule
 	// deriv records, for each derived fact key, one witness of how it was
 	// produced: the rule that fired and the premise fact keys it consumed. Base
 	// facts (added via AddFact) are absent from this map.
@@ -79,11 +83,23 @@ type derivation struct {
 
 // NewEngine returns an empty engine.
 func NewEngine() *Engine {
-	return &Engine{facts: map[string]Fact{}, deriv: map[string]derivation{}}
+	return &Engine{facts: map[string]Fact{}, byPred: map[string][]Fact{}, deriv: map[string]derivation{}}
+}
+
+// addFact inserts a ground fact into both the keyed base and the predicate
+// index. It is the single insertion point that keeps byPred consistent with
+// facts; callers must not write e.facts directly.
+func (e *Engine) addFact(f Fact) {
+	k := f.Key()
+	if _, ok := e.facts[k]; ok {
+		return
+	}
+	e.facts[k] = f
+	e.byPred[f.Pred] = append(e.byPred[f.Pred], f)
 }
 
 // AddFact inserts a ground fact into the fact base.
-func (e *Engine) AddFact(f Fact) { e.facts[f.Key()] = f }
+func (e *Engine) AddFact(f Fact) { e.addFact(f) }
 
 // AddRules appends rules to the ruleset.
 func (e *Engine) AddRules(rs []Rule) { e.rules = append(e.rules, rs...) }
@@ -93,12 +109,7 @@ func (e *Engine) has(f Fact) bool { _, ok := e.facts[f.Key()]; return ok }
 
 // Query returns all facts for the given predicate, sorted by key.
 func (e *Engine) Query(pred string) []Fact {
-	var out []Fact
-	for _, f := range e.facts {
-		if f.Pred == pred {
-			out = append(out, f)
-		}
-	}
+	out := append([]Fact(nil), e.byPred[pred]...)
 	sort.Slice(out, func(i, j int) bool { return out[i].Key() < out[j].Key() })
 	return out
 }
@@ -134,7 +145,7 @@ func (e *Engine) evalAggregates() bool {
 		}
 		for _, f := range e.aggregateFacts(r) {
 			if !e.has(f) {
-				e.facts[f.Key()] = f
+				e.addFact(f)
 				added = true
 			}
 		}
@@ -243,7 +254,7 @@ func (e *Engine) fixpoint() {
 			for _, b := range e.evalBody(r.Body) {
 				nf := subst(r.Head, b)
 				if !e.has(nf) {
-					e.facts[nf.Key()] = nf
+					e.addFact(nf)
 					e.deriv[nf.Key()] = derivation{rule: r, premises: positivePremiseKeys(r.Body, b)}
 					added = true
 				}
@@ -275,7 +286,7 @@ func (e *Engine) evalBody(body []Atom) []bindings {
 					next = append(next, b)
 				}
 			default:
-				for _, f := range e.facts {
+				for _, f := range e.byPred[lit.Pred] {
 					if nb, ok := unify(lit, f, b); ok {
 						next = append(next, nb)
 					}
@@ -321,27 +332,42 @@ func unify(a Atom, f Fact, b bindings) (bindings, bool) {
 	if a.Pred != f.Pred || len(a.Args) != len(f.Args) {
 		return nil, false
 	}
-	nb := make(bindings, len(b)+len(a.Args))
-	for k, v := range b {
-		nb[k] = v
-	}
+	// Check every argument against the incoming bindings (and against earlier
+	// args of this same atom, tracked in pending) before allocating nb. This
+	// avoids copying b for facts that fail to unify — the common case when a
+	// literal shares a predicate with many non-matching facts.
+	var pending []struct{ k, v string }
 	for i, t := range a.Args {
 		switch {
 		case t.Var && t.Name == "_":
 			// wildcard: matches anything, binds nothing
 		case t.Var:
-			if cur, ok := nb[t.Name]; ok {
+			cur, ok := b[t.Name]
+			if !ok {
+				for _, p := range pending {
+					if p.k == t.Name {
+						cur, ok = p.v, true
+						break
+					}
+				}
+			}
+			if ok {
 				if cur != f.Args[i] {
 					return nil, false
 				}
 			} else {
-				nb[t.Name] = f.Args[i]
+				pending = append(pending, struct{ k, v string }{t.Name, f.Args[i]})
 			}
 		default:
 			if t.Name != f.Args[i] {
 				return nil, false
 			}
 		}
+	}
+	nb := make(bindings, len(b)+len(pending))
+	maps.Copy(nb, b)
+	for _, p := range pending {
+		nb[p.k] = p.v
 	}
 	return nb, true
 }
