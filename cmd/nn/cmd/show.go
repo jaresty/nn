@@ -144,9 +144,10 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"Search ranking: `--boost-recent` boosts recently-modified notes (requires --search)\n" +
 			"Valid --fields: id|title|type|status|tags|applies_when|excerpt|score|modified|match_reason|is_protocol|link_count|backlink_count|created|body_preview|representation (requires --json; errors on unknown field)\n" +
 			"`nn list --search` always includes 1-hop graph neighbors in output: plain text shows indented `→`/`←` lines (id, title, type, annotation); `--json` includes a `neighbors` array with direction/id/title/type/annotation fields.\n\n" +
-			"**nn show** `<id>` | `--global`\n" +
+			"**nn show** `<id>` | `--global` | `[--rules]`\n" +
 			"`nn show` output must not be piped to `head`, `tail`, `less`, or `more`. Pipe the full output or omit the pipe — the complete note body is required for accurate retrieval.\n" +
-			"Output format: Links and Backlinks sections each render as `[[id|title]] [type] {status} — annotation` (fields omitted when empty).\n\n" +
+			"Output format: Links and Backlinks sections each render as `[[id|title]] [type] {status} — annotation` (fields omitted when empty).\n" +
+			"`--rules` appends a `## Rule violations` section for the shown note (runs the rules engine over the notebook); omitted by default for speed. Use `nn rules check` for a full-notebook sweep.\n\n" +
 			"**nn link** `<from> <to> --type <type> --annotation \"...\"`\n" +
 			buildLinkTypeProtocolText() +
 			"**nn read** `<file> [--lines N-M[,N-M,...]] [--limit N]` — read file with line numbers; appends `## Related notes` from BM25 search on shown content\n\n" +
@@ -221,6 +222,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 	var jsonOut bool
 	var depth int
 	var global bool
+	var showRules bool
 
 	cmd := &cobra.Command{
 		Use:   "show <id-or-title> [<id-or-title>...]",
@@ -313,7 +315,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 					}
 					backlinkers := findBacklinkers(dn.ID, all)
 					if data, merr := dn.Marshal(); merr == nil {
-						rendered := renderWithResolvedLinks(string(data), dn, byID, backlinkers)
+						rendered := renderWithResolvedLinks(string(data), dn, byID, backlinkers, showRules)
 						fmt.Fprint(w, rendered)
 					} else {
 						fmt.Fprintf(w, "id: %s\ntitle: %s\ntype: observation\nstatus: %s\ntags: daily\n---\n\n%s\n", dn.ID, dn.Title, dn.Status, dn.Body)
@@ -469,7 +471,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 					return fmt.Errorf("show: marshal: %w", err)
 				}
 				backlinkers := findBacklinkers(n.ID, all)
-				rendered := renderWithResolvedLinks(string(data), n, byID, backlinkers)
+				rendered := renderWithResolvedLinks(string(data), n, byID, backlinkers, showRules)
 				rendered = injectFreshness(rendered, n.Modified)
 				fmt.Fprint(w, rendered)
 			}
@@ -480,6 +482,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output note as JSON with governing_protocols")
 	cmd.Flags().IntVar(&depth, "depth", 0, "Traverse outgoing links to this depth and print all reachable notes")
 	cmd.Flags().BoolVar(&global, "global", false, "Show all global protocol notes (type:protocol with no outgoing governs links)")
+	cmd.Flags().BoolVar(&showRules, "rules", false, "Append a ## Rule violations section (runs the rules engine over the notebook; omitted by default for speed)")
 	return cmd
 }
 
@@ -798,7 +801,7 @@ func humanAge(d time.Duration) string {
 // renderWithResolvedLinks replaces the raw ## Links section in marshaled note output
 // with title-resolved link lines, and appends a ## Backlinks section.
 // Target IDs are resolved via byID; unresolved IDs fall back to the bare ID.
-func renderWithResolvedLinks(raw string, n *note.Note, byID map[string]*note.Note, backlinkers []*note.Note) string {
+func renderWithResolvedLinks(raw string, n *note.Note, byID map[string]*note.Note, backlinkers []*note.Note, showRules bool) string {
 	var buf strings.Builder
 	if len(n.Links) > 0 {
 		const linkSection = "\n## Links\n\n"
@@ -848,7 +851,11 @@ func renderWithResolvedLinks(raw string, n *note.Note, byID map[string]*note.Not
 			}
 		}
 	}
-	buf.WriteString(ruleViolationsSection(n, byID))
+	// The rule-violations section runs the full rules engine over the notebook,
+	// so it is opt-in (--rules) to keep default nn show fast.
+	if showRules {
+		buf.WriteString(ruleViolationsSection(n, byID))
+	}
 	return buf.String()
 }
 

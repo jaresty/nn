@@ -67,12 +67,14 @@ The five types cover the epistemic roles a note can play (after Ahrens, *How to 
 Print note content to stdout. Accepts a full ID or a title substring.
 
 ```
-nn show <id-or-title> [--depth N] [--json]
+nn show <id-or-title> [--depth N] [--json] [--rules]
 nn show --linked-from <id>
 nn show --global
 ```
 
 `--global` shows all global protocol notes (type:protocol with no outgoing `governs` links) in one command, each with the derivation instruction appended. Replaces the two-step `nn list --global --json` + `nn show <id>` pattern. Also appends a `## Reminders` block listing the body of any non-expired notes tagged `reminder`.
+
+`--rules` appends a `## Rule violations` section listing rule violations whose subject is the shown note. This runs the rules engine over the whole notebook, so it is **opt-in** — default `nn show` skips it to stay fast. For a full-notebook violation sweep use `nn rules check` instead.
 
 If the query doesn't match an ID exactly, `nn` searches note titles case-insensitively.
 If multiple titles match, the command lists the candidates and exits with an error — use
