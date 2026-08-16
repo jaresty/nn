@@ -137,6 +137,11 @@ func newGrepCmd(state *rootState) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Prepare the query-invariant corpus inputs once. Each match only
+			// varies the query, so the link maps and fieldIDF (which open the
+			// SQLite cache, run git rev-parse, and hash the whole corpus) must
+			// not be recomputed per match.
+			prepared := prepareCorpus(notes, state.notebookDir)
 
 			w := outWriter(cmd)
 			k := notesPerMatch
@@ -202,7 +207,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 				if strings.TrimSpace(query) == "" {
 					continue
 				}
-				scores := RankedByQuery(notes, notes, query, state.notebookDir)
+				scores := prepared.rankedByQuery(notes, query)
 
 				type scored struct {
 					n     *note.Note
