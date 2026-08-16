@@ -175,6 +175,32 @@ func BenchmarkCmdPerfAst(b *testing.B) {
 	}
 }
 
+// BenchmarkCmdPerfShuf measures nn shuf, which ranks per sampled unit. --count
+// controls how many samples invoke the ranking path per invocation.
+func BenchmarkCmdPerfShuf(b *testing.B) {
+	for _, n := range notebookSizes {
+		b.Run(fmt.Sprintf("notes=%d", n), func(b *testing.B) {
+			_, execute := benchNotebook(b, n)
+			dir := b.TempDir()
+			var body string
+			for i := 0; i < 30; i++ {
+				body += fmt.Sprintf("Paragraph %d about handleAuth session token routing middleware.\n\n", i)
+			}
+			f := filepath.Join(dir, "doc.txt")
+			if err := os.WriteFile(f, []byte(body), 0o644); err != nil {
+				b.Fatal(err)
+			}
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				if _, err := execute("shuf", f, "--count", "30", "--unit", "paragraphs"); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
 // BenchmarkCmdPerfListSearch measures nn list --search, a single-call ranking
 // path over the whole corpus as candidates.
 func BenchmarkCmdPerfListSearch(b *testing.B) {

@@ -62,6 +62,10 @@ func newAstCmd(state *rootState) *cobra.Command {
 			sessionReads := loadSessionReads(resolveCfgDir())
 			notes, _ := state.backend.List()
 			if len(notes) > 0 {
+				// Prepare the query-invariant corpus inputs once; each symbol only
+				// varies the query, so the link maps and fieldIDF must not be
+				// recomputed per symbol.
+				prepared := prepareCorpus(notes, state.notebookDir)
 				seenNotes := map[string]bool{}
 				var relatedNotes []*note.Note
 				for _, sym := range f.Symbols {
@@ -72,7 +76,7 @@ func newAstCmd(state *rootState) *cobra.Command {
 					if query == "" {
 						query = sym.Name
 					}
-					scores := RankedByQuery(notes, notes, query, state.notebookDir)
+					scores := prepared.rankedByQuery(notes, query)
 					type scored struct {
 						n     *note.Note
 						score float64

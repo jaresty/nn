@@ -83,6 +83,12 @@ func runShufWithDiagnostics(stdin io.Reader, paths []string, out, errOut io.Writ
 	if state != nil && state.backend != nil {
 		notes, _ = state.backend.List()
 	}
+	// Prepare the query-invariant corpus inputs once; each sample only varies
+	// the query, so the link maps and fieldIDF must not be recomputed per sample.
+	var prepared preparedCorpus
+	if len(notes) > 0 {
+		prepared = prepareCorpus(notes, state.notebookDir)
+	}
 
 	for _, idx := range indices {
 		u := units[idx]
@@ -90,7 +96,7 @@ func runShufWithDiagnostics(stdin io.Reader, paths []string, out, errOut io.Writ
 		fmt.Fprintln(out, u)
 
 		if len(notes) > 0 && strings.TrimSpace(u) != "" {
-			printShufRelated(out, notes, u, state.notebookDir)
+			printShufRelated(out, prepared, notes, u)
 		}
 	}
 	return nil
@@ -238,8 +244,8 @@ func extractSymbolBodies(filePath string) []string {
 	return bodies
 }
 
-func printShufRelated(out io.Writer, notes []*note.Note, query, repoDir string) {
-	scores := RankedByQuery(notes, notes, query, repoDir)
+func printShufRelated(out io.Writer, prepared preparedCorpus, notes []*note.Note, query string) {
+	scores := prepared.rankedByQuery(notes, query)
 	type scored struct {
 		n     *note.Note
 		score float64
