@@ -320,7 +320,75 @@ func BM25RRFPerFieldForCorpus(corpus, candidates []*Note, fidf FieldIDF, query s
 	return bm25RRFPerField(corpus, candidates, fidf, query, inbound, outbound, 1, 0, 1)
 }
 
+// CorpusScorer scores many queries against a fixed corpus while reusing
+// tokenization across queries. Tokenization of a note's fields is a pure
+// function of the note content, so it is memoized once per corpus and shared by
+// every Score call.
+type CorpusScorer struct {
+	corpus   []*Note
+	fidf     FieldIDF
+	inbound  map[string][]string
+	outbound map[string][]string
+	cache    *tokenCache
+}
+
+// NewCorpusScorer builds a scorer over the given corpus and BM25 inputs.
+func NewCorpusScorer(corpus []*Note, fidf FieldIDF, inbound, outbound map[string][]string) *CorpusScorer {
+	return &CorpusScorer{corpus: corpus, fidf: fidf, inbound: inbound, outbound: outbound, cache: newTokenCache()}
+}
+
+// Score ranks candidates for query. Results are identical to
+// BM25RRFPerFieldForCorpus over the same inputs; only the redundant
+// per-query tokenization of the corpus is avoided.
+func (s *CorpusScorer) Score(candidates []*Note, query string) map[string]float64 {
+	return bm25RRFPerFieldCached(s.corpus, candidates, s.fidf, query, s.inbound, s.outbound, 1, 0, 1, s.cache)
+}
+
+// tokenCache memoizes per-note, per-field tokenizations. Fields are identified
+// by a small enum so title/body/tags/inbound/outbound each have an independent
+// slot per note pointer.
+type tokenCache struct {
+	byField map[tokenField]map[*Note][]string
+}
+
+type tokenField int
+
+const (
+	fieldTitleTokens tokenField = iota
+	fieldBodyTokens
+	fieldTagTokens
+	fieldInboundTokens
+	fieldOutboundTokens
+)
+
+func newTokenCache() *tokenCache {
+	return &tokenCache{byField: make(map[tokenField]map[*Note][]string)}
+}
+
+// get returns the memoized tokens for (field, note), computing and storing them
+// via compute on a miss. A nil cache computes without memoizing.
+func (c *tokenCache) get(field tokenField, n *Note, compute func(*Note) []string) []string {
+	if c == nil {
+		return compute(n)
+	}
+	m := c.byField[field]
+	if m == nil {
+		m = make(map[*Note][]string)
+		c.byField[field] = m
+	}
+	if toks, ok := m[n]; ok {
+		return toks
+	}
+	toks := compute(n)
+	m[n] = toks
+	return toks
+}
+
 func bm25RRFPerField(corpus, candidates []*Note, fidf FieldIDF, query string, inbound, outbound map[string][]string, tagFieldWeight, inboundFieldWeight, outboundFieldWeight float64) map[string]float64 {
+	return bm25RRFPerFieldCached(corpus, candidates, fidf, query, inbound, outbound, tagFieldWeight, inboundFieldWeight, outboundFieldWeight, nil)
+}
+
+func bm25RRFPerFieldCached(corpus, candidates []*Note, fidf FieldIDF, query string, inbound, outbound map[string][]string, tagFieldWeight, inboundFieldWeight, outboundFieldWeight float64, cache *tokenCache) map[string]float64 {
 	terms := tokenize(query)
 	if len(terms) == 0 {
 		return nil
@@ -381,26 +449,42 @@ func bm25RRFPerField(corpus, candidates []*Note, fidf FieldIDF, query string, in
 		return ids
 	}
 
+	// Each field's tokenization is a pure function of the note content, so route
+	// it through the cache: repeated queries against the same corpus reuse the
+	// tokens instead of re-splitting every note body per query. A nil cache
+	// computes fresh (identical results), preserving single-call behavior.
+	titleTokens := func(n *Note) []string {
+		return cache.get(fieldTitleTokens, n, func(n *Note) []string { return tokenize(n.Title) })
+	}
+	bodyTokens := func(n *Note) []string {
+		return cache.get(fieldBodyTokens, n, func(n *Note) []string { return tokenize(n.Body) })
+	}
 	tagTokens := func(n *Note) []string {
-		var all []string
-		for _, tag := range n.Tags {
-			all = append(all, tokenize(tag)...)
-		}
-		return all
+		return cache.get(fieldTagTokens, n, func(n *Note) []string {
+			var all []string
+			for _, tag := range n.Tags {
+				all = append(all, tokenize(tag)...)
+			}
+			return all
+		})
 	}
 	inboundTokens := func(n *Note) []string {
-		var all []string
-		for _, ann := range inbound[n.ID] {
-			all = append(all, tokenize(ann)...)
-		}
-		return all
+		return cache.get(fieldInboundTokens, n, func(n *Note) []string {
+			var all []string
+			for _, ann := range inbound[n.ID] {
+				all = append(all, tokenize(ann)...)
+			}
+			return all
+		})
 	}
 	outboundTokens := func(n *Note) []string {
-		var all []string
-		for _, ann := range outbound[n.ID] {
-			all = append(all, tokenize(ann)...)
-		}
-		return all
+		return cache.get(fieldOutboundTokens, n, func(n *Note) []string {
+			var all []string
+			for _, ann := range outbound[n.ID] {
+				all = append(all, tokenize(ann)...)
+			}
+			return all
+		})
 	}
 
 	type weightedField struct {
@@ -408,8 +492,8 @@ func bm25RRFPerField(corpus, candidates []*Note, fidf FieldIDF, query string, in
 		ranked []string
 	}
 	fields := []weightedField{
-		{titleWeight, scoreField(func(n *Note) []string { return tokenize(n.Title) }, fidf.Title)},
-		{1, scoreField(func(n *Note) []string { return tokenize(n.Body) }, fidf.Body)},
+		{titleWeight, scoreField(titleTokens, fidf.Title)},
+		{1, scoreField(bodyTokens, fidf.Body)},
 		{tagFieldWeight, scoreField(tagTokens, fidf.Tags)},
 	}
 	if inboundFieldWeight > 0 {

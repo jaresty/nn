@@ -16,6 +16,7 @@ type preparedCorpus struct {
 	inbound  map[string][]string
 	outbound map[string][]string
 	fieldIDF note.FieldIDF
+	scorer   *note.CorpusScorer
 }
 
 // prepareCorpus computes the query-invariant BM25 inputs for a corpus once. It
@@ -33,14 +34,16 @@ func prepareCorpus(corpus []*note.Note, repoDir string) preparedCorpus {
 		}
 	}
 	fieldIDF, _ := index.GetOrComputeFieldIDFPath(config.DefaultIndexDBPath(), repoDir, corpus, inbound)
-	return preparedCorpus{corpus: corpus, inbound: inbound, outbound: outbound, fieldIDF: fieldIDF}
+	scorer := note.NewCorpusScorer(corpus, fieldIDF, inbound, outbound)
+	return preparedCorpus{corpus: corpus, inbound: inbound, outbound: outbound, fieldIDF: fieldIDF, scorer: scorer}
 }
 
 // rankedByQuery scores candidates for query using pre-computed corpus inputs.
-// It is the query-only half of the ranking path and performs no per-call corpus
-// preparation.
+// It is the query-only half of the ranking path: the scorer reuses tokenization
+// across queries, so repeated calls against the same prepared corpus do not
+// re-tokenize the corpus per query.
 func (p preparedCorpus) rankedByQuery(candidates []*note.Note, query string) map[string]float64 {
-	return note.BM25RRFPerFieldForCorpus(p.corpus, candidates, p.fieldIDF, query, p.inbound, p.outbound)
+	return p.scorer.Score(candidates, query)
 }
 
 // RankedByQuery returns positive per-field BM25 RRF scores for candidates.
