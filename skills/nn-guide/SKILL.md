@@ -467,10 +467,10 @@ Search files for a regular-expression pattern and annotate each retained match w
 ## nn trace
 
 ```
-nn trace <root-dir> --symbol <name> [--symbol <name> ...] [--depth N] [--json] [--show-unresolved]
+nn trace <root-dir> --symbol <name> [--symbol <name> ...] [--depth N] [--json] [--show-unresolved] [--root <dir>]
 ```
 
-Syntax-aware call graph from one or more entry-point symbols. Uses gotreesitter to index all definitions in `<root-dir>`, then DFS-traces calls from each `--symbol` up to `--depth` hops (default 3).
+Syntax-aware call graph from one or more entry-point symbols. Uses gotreesitter to index all definitions in `<root-dir>` (or `--root <dir>` if given), then DFS-traces calls from each `--symbol` up to `--depth` hops (default 3).
 
 **Prefer `nn trace` over `nn grep`** when you want to understand how a symbol is called or what it calls across files — trace follows actual call edges rather than text matches.
 
@@ -488,11 +488,14 @@ AddLink (method) [internal/backend/gitlocal/gitlocal.go:288]
 
 `--json` output: `{"nodes": [...], "edges": [...]}` — each node has `nn_notes`, `ambiguous_receiver`, and `receiver` fields.
 
-`--show-unresolved`: include stdlib/external leaves (default off; always in JSON with `resolved: false`).
+`--show-unresolved`: include stdlib/external leaves (default off; always in JSON with `resolved: false`). Go builtins (`append`, `make`, `len`, ...) are always filtered out.
+
+`--root <dir>`: index this directory instead of `<root-dir>`, so calls to definitions in **sibling packages** resolve rather than showing as unresolved. Language-agnostic (indexes every grammar-detected file under the root, not just Go). Pass the repo/project root to follow logic across packages; stdlib/third-party calls stay unresolved because they are not in the project.
 
 ```
 nn trace ./internal/backend/gitlocal --symbol AddLink --depth 3
 nn trace ./cmd/nn/cmd --symbol newGrepCmd --json
+nn trace ./cmd/nn/cmd --symbol newGrepCmd --root .   # resolve cross-package calls
 ```
 
 ## nn update
