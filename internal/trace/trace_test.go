@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jaresty/nn/internal/note"
 	"github.com/jaresty/nn/internal/trace"
 )
 
@@ -252,16 +251,16 @@ func MyFunc() {
 		t.Fatalf("BuildIndex error: %v", err)
 	}
 
-	// Synthetic note whose title contains the distinctive body term.
-	notes := []*note.Note{
-		{
-			ID:    "test-note-1",
-			Title: "distinctivequerytermxyz usage pattern",
-			Body:  "This note is about distinctivequerytermxyz.",
-		},
+	// Annotator that surfaces a note only when the node's source-span query
+	// contains the distinctive term, verifying the source text drives annotation.
+	annotate := func(query string) []trace.NoteRef {
+		if strings.Contains(query, "distinctivequerytermxyz") {
+			return []trace.NoteRef{{ID: "test-note-1", Title: "distinctivequerytermxyz usage pattern"}}
+		}
+		return nil
 	}
 
-	result := trace.Trace(idx, []string{"MyFunc"}, 1, notes)
+	result := trace.Trace(idx, []string{"MyFunc"}, 1, annotate)
 
 	var myFuncNode *trace.Node
 	for i := range result.Nodes {

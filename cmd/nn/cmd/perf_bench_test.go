@@ -140,6 +140,69 @@ func BenchmarkCmdPerfGrep(b *testing.B) {
 	}
 }
 
+// benchTraceCodeFile writes a Go source file with matchCount callable functions
+// that match "handleAuth" and call a shared helper, so grep --trace has real
+// callable matches to trace.
+func benchTraceCodeFile(b *testing.B, matchCount int) string {
+	b.Helper()
+	dir := b.TempDir()
+	var sb strings.Builder
+	sb.WriteString("package server\n\n")
+	sb.WriteString("func validateToken() {}\n\n")
+	for i := 0; i < matchCount; i++ {
+		fmt.Fprintf(&sb, "func handleAuth%d() { validateToken() }\n\n", i)
+	}
+	f := filepath.Join(dir, "server.go")
+	if err := os.WriteFile(f, []byte(sb.String()), 0o644); err != nil {
+		b.Fatal(err)
+	}
+	return f
+}
+
+// BenchmarkCmdPerfGrepTrace measures nn grep --trace end to end. Per unique
+// matched file it builds a trace index and runs the annotated call graph, so
+// this captures the in-loop BuildIndex + per-node annotation cost.
+func BenchmarkCmdPerfGrepTrace(b *testing.B) {
+	for _, n := range notebookSizes {
+		b.Run(fmt.Sprintf("notes=%d", n), func(b *testing.B) {
+			_, execute := benchNotebook(b, n)
+			f := benchTraceCodeFile(b, 10)
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				if _, err := execute("grep", "handleAuth", f, "--trace", "--max-matches", "0"); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+// BenchmarkCmdPerfGrepTraceMultiFile measures nn grep --trace when matches span
+// many files in one directory. grep builds a trace index once per unique matched
+// file, so this exposes the cost of repeated BuildIndex over the same tree.
+func BenchmarkCmdPerfGrepTraceMultiFile(b *testing.B) {
+	_, execute := benchNotebook(b, 200)
+	dir := b.TempDir()
+	const files = 10
+	for j := 0; j < files; j++ {
+		var sb strings.Builder
+		sb.WriteString("package server\n\n")
+		fmt.Fprintf(&sb, "func handleAuth%d() { validateToken%d() }\n", j, j)
+		fmt.Fprintf(&sb, "func validateToken%d() {}\n", j)
+		if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("f%d.go", j)), []byte(sb.String()), 0o644); err != nil {
+			b.Fatal(err)
+		}
+	}
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		if _, err := execute("grep", "handleAuth", dir, "--trace", "--max-matches", "0"); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 // BenchmarkCmdPerfRead measures nn read, which calls the ranking path once per
 // invocation (Pattern B) — cost scales with notebook size, not match count.
 func BenchmarkCmdPerfRead(b *testing.B) {

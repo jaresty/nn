@@ -215,7 +215,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 						dir := filepath.Dir(m.file)
 						if idx, err := traceIndexFor(dir); err == nil {
 							if sym, _, ok := resolveFileLineInIndex(idx, m.file, m.lineNum); ok {
-								result := trace.Trace(idx, []string{sym}, 3, notes)
+								result := trace.Trace(idx, []string{sym}, 3, traceAnnotator(prepared, k))
 								fmt.Fprintf(w, "  [trace: %s --symbol %s]\n", dir, sym)
 								// Count how many resolved nodes share each name so
 								// name-only resolution ambiguity can be surfaced.

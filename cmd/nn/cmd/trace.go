@@ -42,7 +42,8 @@ func newTraceCmd(state *rootState) *cobra.Command {
 			sessionReads := loadSessionReads(resolveCfgDir())
 			notes, _ := state.backend.List()
 
-			result := trace.Trace(idx, symbols, depth, notes)
+			prepared := prepareCorpus(notes, state.notebookDir)
+			result := trace.Trace(idx, symbols, depth, traceAnnotator(prepared, 2))
 
 			w := outWriter(cmd)
 

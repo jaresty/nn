@@ -4,14 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 
 	"golang.org/x/sync/errgroup"
 
 	"github.com/odvcencio/gotreesitter"
 	"github.com/odvcencio/gotreesitter/grammars"
-
-	"github.com/jaresty/nn/internal/note"
 )
 
 // DefSite is a located symbol definition extracted from a source file.
@@ -186,22 +183,19 @@ func byteToLine(lines []uint32, offset uint32) int {
 	return lo + 1
 }
 
-// Trace performs a DFS from the named entry-point symbols up to maxDepth, annotates
-// each resolved node with related nn notes via BM25, and returns the graph result.
-func Trace(idx *Index, symbols []string, maxDepth int, notes []*note.Note) *Result {
+// Annotator maps a node's source-span text to related nn notes. The caller
+// supplies the ranking (for example, the memoizing per-field BM25 scorer used by
+// nn grep/ast/shuf), keeping trace decoupled from the note/index packages. A nil
+// Annotator leaves every node's NNNotes empty.
+type Annotator func(query string) []NoteRef
+
+// Trace performs a DFS from the named entry-point symbols up to maxDepth,
+// annotates each resolved node with related nn notes via the supplied annotate
+// function, and returns the graph result.
+func Trace(idx *Index, symbols []string, maxDepth int, annotate Annotator) *Result {
 	result := &Result{}
 	nodeSet := map[string]bool{}
 	seen := map[string]bool{}
-
-	var allInbound map[string][]string
-	if len(notes) > 0 {
-		allInbound = make(map[string][]string)
-		for _, n := range notes {
-			for _, lnk := range n.Links {
-				allInbound[lnk.TargetID] = append(allInbound[lnk.TargetID], lnk.Annotation)
-			}
-		}
-	}
 
 	var dfs func(def *defSiteWithSource, depth int)
 	dfs = func(def *defSiteWithSource, depth int) {
@@ -222,25 +216,10 @@ func Trace(idx *Index, symbols []string, maxDepth int, notes []*note.Note) *Resu
 			NNNotes:     []NoteRef{},
 		}
 
-		if len(notes) > 0 {
+		if annotate != nil {
 			query := string(def.Source[def.StartByte:def.EndByte])
-			scores := note.BM25Scores(notes, query, allInbound)
-			type scored struct {
-				n     *note.Note
-				score float64
-			}
-			var ranked []scored
-			for _, nt := range notes {
-				if s := scores[nt.ID]; s > 0 {
-					ranked = append(ranked, scored{nt, s})
-				}
-			}
-			sort.Slice(ranked, func(i, j int) bool { return ranked[i].score > ranked[j].score })
-			if len(ranked) > 2 {
-				ranked = ranked[:2]
-			}
-			for _, r := range ranked {
-				n.NNNotes = append(n.NNNotes, NoteRef{ID: r.n.ID, Title: r.n.Title})
+			if refs := annotate(query); len(refs) > 0 {
+				n.NNNotes = refs
 			}
 		}
 

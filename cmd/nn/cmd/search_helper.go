@@ -1,10 +1,49 @@
 package cmd
 
 import (
+	"sort"
+
 	"github.com/jaresty/nn/internal/config"
 	"github.com/jaresty/nn/internal/index"
 	"github.com/jaresty/nn/internal/note"
+	"github.com/jaresty/nn/internal/trace"
 )
+
+// traceAnnotator returns a trace.Annotator that ranks the prepared corpus for a
+// query via the memoizing per-field scorer and returns the top-k related notes.
+// This gives nn trace / grep --trace the same ranking as grep/ast/shuf and reuses
+// the corpus tokenization cache across every traced node. Returns nil when there
+// is no corpus, so trace leaves NNNotes empty.
+func traceAnnotator(prepared preparedCorpus, k int) trace.Annotator {
+	if len(prepared.corpus) == 0 {
+		return nil
+	}
+	if k <= 0 {
+		k = 2
+	}
+	return func(query string) []trace.NoteRef {
+		scores := prepared.rankedByQuery(prepared.corpus, query)
+		type scored struct {
+			n     *note.Note
+			score float64
+		}
+		var ranked []scored
+		for _, n := range prepared.corpus {
+			if s := scores[n.ID]; s > 0 {
+				ranked = append(ranked, scored{n, s})
+			}
+		}
+		sort.Slice(ranked, func(i, j int) bool { return ranked[i].score > ranked[j].score })
+		if len(ranked) > k {
+			ranked = ranked[:k]
+		}
+		refs := make([]trace.NoteRef, 0, len(ranked))
+		for _, r := range ranked {
+			refs = append(refs, trace.NoteRef{ID: r.n.ID, Title: r.n.Title})
+		}
+		return refs
+	}
+}
 
 // preparedCorpus holds the query-invariant BM25 inputs derived from a corpus:
 // the inbound/outbound link-annotation projections and the per-field IDF. These
