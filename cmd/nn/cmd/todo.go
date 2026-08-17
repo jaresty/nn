@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jaresty/nn/internal/note"
+	"github.com/jaresty/nn/internal/rules"
 )
 
 // todoListOptions controls which open todo items collectOpenTodos includes.
@@ -25,6 +26,11 @@ type todoListOptions struct {
 func collectOpenTodos(notes []*note.Note, byID map[string]*note.Note, opts todoListOptions) string {
 	loc := time.Now().Location()
 	today := time.Now().In(loc).Truncate(24 * time.Hour)
+
+	// Compute the transitively-blocked set once via the engine (gated on the
+	// notebook actually having requires edges, so the common no-dependency case
+	// skips evaluation entirely).
+	blocked := blockedSet(notes)
 
 	var sb strings.Builder
 	first := true
@@ -61,7 +67,7 @@ func collectOpenTodos(notes []*note.Note, byID map[string]*note.Note, opts todoL
 		if len(open) == 0 {
 			continue
 		}
-		if !opts.showAll && !opts.showWaiting && isBlocked(n, byID) {
+		if !opts.showAll && !opts.showWaiting && blocked[n.ID] {
 			continue
 		}
 		if !first {
@@ -126,22 +132,47 @@ func newTodoCmd(state *rootState) *cobra.Command {
 	return cmd
 }
 
-// isBlocked reports whether n has at least one requires link pointing to a note
-// that is not done (has unchecked checkboxes or has checkboxes and not all checked).
-func isBlocked(n *note.Note, byID map[string]*note.Note) bool {
-	for _, lnk := range n.Links {
-		if lnk.Type != "requires" {
-			continue
+// blockedSet returns the set of note IDs that are blocked by an unfinished task
+// dependency, derived from the engine's transitive `blocked` predicate (X is
+// blocked if it requires a not-done target, or a target that is itself blocked).
+// It is gated: if the notebook has no `requires` edges, no engine evaluation runs
+// and the empty set is returned, keeping the common (no-dependency) case fast.
+func blockedSet(notes []*note.Note) map[string]bool {
+	hasRequires := false
+	for _, n := range notes {
+		for _, lnk := range n.Links {
+			if lnk.Type == "requires" {
+				hasRequires = true
+				break
+			}
 		}
-		target, ok := byID[lnk.TargetID]
-		if !ok {
-			continue
-		}
-		if !note.IsDone(target.Body) {
-			return true
+		if hasRequires {
+			break
 		}
 	}
-	return false
+	blocked := map[string]bool{}
+	if !hasRequires {
+		return blocked
+	}
+
+	e := rules.NewEngine()
+	for _, f := range rules.FactsFromNotes(notes) {
+		e.AddFact(f)
+	}
+	builtin, err := rules.ParseProgram(rules.BuiltinRules())
+	if err != nil {
+		return blocked
+	}
+	e.AddRules(builtin)
+	if err := e.Eval(); err != nil {
+		return blocked
+	}
+	for _, f := range e.Query("blocked") {
+		if len(f.Args) >= 1 {
+			blocked[f.Args[0]] = true
+		}
+	}
+	return blocked
 }
 
 func newTodoListCmd(state *rootState) *cobra.Command {
