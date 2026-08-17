@@ -195,6 +195,7 @@ type Annotator func(query string) []NoteRef
 func Trace(idx *Index, symbols []string, maxDepth int, annotate Annotator) *Result {
 	result := &Result{}
 	nodeSet := map[string]bool{}
+	fileCallCache := newCallCache()
 	seen := map[string]bool{}
 
 	var dfs func(def *defSiteWithSource, depth int)
@@ -239,7 +240,7 @@ func Trace(idx *Index, symbols []string, maxDepth int, annotate Annotator) *Resu
 		}
 		seen[nodeID] = true
 
-		calls := extractCallsInDef(def)
+		calls := fileCallCache.callsForDef(def)
 		callSeen := map[string]bool{}
 		for _, call := range calls {
 			ck := call.receiver + "." + call.name
@@ -299,28 +300,57 @@ type defSiteWithSource struct {
 }
 
 type callRef struct {
-	name     string
-	receiver string
+	name      string
+	receiver  string
+	startByte uint32
 }
 
-func extractCallsInDef(def *defSiteWithSource) []callRef {
-	entry := grammars.DetectLanguage(def.File)
+// extractCallsInFile parses a file's source once and returns every call site
+// with its start-byte offset, so callers can filter to a specific def's span
+// without re-parsing.
+func extractCallsInFile(file string, source []byte) []callRef {
+	entry := grammars.DetectLanguage(file)
 	if entry == nil {
 		return nil
 	}
 	parser := gotreesitter.NewParser(entry.Language())
-	tree, err := parser.Parse(def.Source)
+	tree, err := parser.Parse(source)
 	if err != nil || tree == nil {
 		return nil
 	}
 	refs := gotreesitter.ExtractCalls(tree)
 	var out []callRef
 	for _, ref := range refs {
-		if ref.StartByte < def.StartByte || ref.StartByte >= def.EndByte {
+		name := string(source[ref.NameStartByte:ref.NameEndByte])
+		out = append(out, callRef{name: name, receiver: ref.Receiver, startByte: ref.StartByte})
+	}
+	return out
+}
+
+// callCache memoizes per-file call extraction so a file's source is parsed at
+// most once per Trace invocation, rather than once per def visited in it.
+type callCache struct {
+	byFile map[string][]callRef
+}
+
+func newCallCache() *callCache {
+	return &callCache{byFile: map[string][]callRef{}}
+}
+
+// callsForDef returns the calls whose sites fall within def's byte span, parsing
+// the file's source at most once and reusing it for every def in that file.
+func (c *callCache) callsForDef(def *defSiteWithSource) []callRef {
+	fileRefs, ok := c.byFile[def.File]
+	if !ok {
+		fileRefs = extractCallsInFile(def.File, def.Source)
+		c.byFile[def.File] = fileRefs
+	}
+	var out []callRef
+	for _, ref := range fileRefs {
+		if ref.startByte < def.StartByte || ref.startByte >= def.EndByte {
 			continue
 		}
-		name := string(def.Source[ref.NameStartByte:ref.NameEndByte])
-		out = append(out, callRef{name: name, receiver: ref.Receiver})
+		out = append(out, ref)
 	}
 	return out
 }
