@@ -178,23 +178,26 @@ func newTodoListCmd(state *rootState) *cobra.Command {
 }
 
 func newTodoDoneCmd(state *rootState) *cobra.Command {
-	return &cobra.Command{
-		Use:   "done <id> <pattern>",
-		Short: "Mark the first matching open checkbox as done",
-		Args:  cobra.ExactArgs(2),
+	var resolution string
+	cmd := &cobra.Command{
+		Use:   "done <id> <pattern> [<pattern>...]",
+		Short: "Mark matching open checkboxes as done (multiple patterns flip in one write)",
+		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return flipCheckbox(cmd, state, args[0], args[1], "- [ ]", "- [x]", "open")
+			return flipCheckboxes(cmd, state, args[0], args[1:], "- [ ]", "- [x]", "open", resolution)
 		},
 	}
+	cmd.Flags().StringVar(&resolution, "resolution", "", "Append commentary explaining why the item(s) were completed")
+	return cmd
 }
 
 func newTodoReopenCmd(state *rootState) *cobra.Command {
 	return &cobra.Command{
-		Use:   "reopen <id> <pattern>",
-		Short: "Mark the first matching done checkbox as open",
-		Args:  cobra.ExactArgs(2),
+		Use:   "reopen <id> <pattern> [<pattern>...]",
+		Short: "Mark matching done checkboxes as open (multiple patterns flip in one write)",
+		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return flipCheckbox(cmd, state, args[0], args[1], "- [x]", "- [ ]", "done")
+			return flipCheckbox(cmd, state, args[0], args[1:], "- [x]", "- [ ]", "done")
 		},
 	}
 }
@@ -338,7 +341,17 @@ func removeContextTag(line string) string {
 	return indent + strings.Join(result, " ")
 }
 
-func flipCheckbox(cmd *cobra.Command, state *rootState, id, pattern, from, to, fromLabel string) error {
+func flipCheckbox(cmd *cobra.Command, state *rootState, id string, patterns []string, from, to, fromLabel string) error {
+	return flipCheckboxes(cmd, state, id, patterns, from, to, fromLabel, "")
+}
+
+// flipCheckboxes flips every checkbox matching one of patterns from `from` to
+// `to` in a single read-modify-write. Matching is all-or-nothing: every pattern
+// must match a distinct not-yet-flipped line, and if any pattern matches none
+// the note is left unchanged (no partial write). Doing all flips in one Update
+// avoids the concurrency conflict that parallel single-pattern calls hit. When
+// resolution is non-empty it is appended to each flipped line as commentary.
+func flipCheckboxes(cmd *cobra.Command, state *rootState, id string, patterns []string, from, to, fromLabel, resolution string) error {
 	n, err := resolveNote(state, id)
 	if err != nil {
 		return fmt.Errorf("todo: %w", err)
@@ -346,20 +359,36 @@ func flipCheckbox(cmd *cobra.Command, state *rootState, id, pattern, from, to, f
 	sinceTs := n.Modified
 
 	lines := strings.Split(n.Body, "\n")
-	lowerPattern := strings.ToLower(pattern)
-	matched := -1
-	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, from) && strings.Contains(strings.ToLower(line), lowerPattern) {
-			matched = i
-			break
+	// Resolve every pattern to a distinct matching line before mutating, so a
+	// single unmatched pattern aborts without a partial write.
+	matchedIdx := make([]int, 0, len(patterns))
+	usedLine := make(map[int]bool)
+	for _, pattern := range patterns {
+		lowerPattern := strings.ToLower(pattern)
+		found := -1
+		for i, line := range lines {
+			if usedLine[i] {
+				continue
+			}
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, from) && strings.Contains(strings.ToLower(line), lowerPattern) {
+				found = i
+				break
+			}
 		}
-	}
-	if matched == -1 {
-		return fmt.Errorf("no %s checkbox matching %q found in note %s", fromLabel, pattern, n.ID)
+		if found == -1 {
+			return fmt.Errorf("no %s checkbox matching %q found in note %s", fromLabel, pattern, n.ID)
+		}
+		usedLine[found] = true
+		matchedIdx = append(matchedIdx, found)
 	}
 
-	lines[matched] = strings.Replace(lines[matched], from, to, 1)
+	for _, i := range matchedIdx {
+		lines[i] = strings.Replace(lines[i], from, to, 1)
+		if resolution != "" {
+			lines[i] = strings.TrimRight(lines[i], " ") + " — " + resolution
+		}
+	}
 	n.Body = strings.Join(lines, "\n")
 	n.Modified = time.Now().In(time.Local)
 

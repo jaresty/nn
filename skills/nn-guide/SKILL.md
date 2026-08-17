@@ -627,8 +627,8 @@ Manage open checkboxes (todo items) across notes.
 
 ```
 nn todo list [--all] [--waiting] [--context <name>]
-nn todo done <id> <pattern>
-nn todo reopen <id> <pattern>
+nn todo done <id> <pattern> [<pattern>...] [--resolution "why"]
+nn todo reopen <id> <pattern> [<pattern>...]
 ```
 
 **Todo item format** — write checkboxes as standard Markdown:
@@ -661,6 +661,8 @@ Examples:
 - `nn todo done <id> <pattern>` — marks the first `- [ ]` line containing `<pattern>` as `- [x]`
 - `nn todo reopen <id> <pattern>` — marks the first `- [x]` line containing `<pattern>` as `- [ ]`
 - Pattern match is case-insensitive; errors if no match found
+- **Multiple patterns** flip in a single write: `nn todo done <id> "pat a" "pat b"`. Prefer this over parallel `nn todo done` calls on the same note — concurrent single-pattern calls race on the note's version and the later write fails. Matching is all-or-nothing: if any pattern matches no checkbox, the note is left unchanged.
+- `--resolution "why"` on `done` appends commentary to each flipped line (e.g. `- [x] migrate schema — done in PR #42`), recording why it was completed.
 
 **nn todo set** — add, replace, or remove inline metadata tags on a matching open checkbox:
 ```
