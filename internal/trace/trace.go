@@ -251,6 +251,13 @@ func Trace(idx *Index, symbols []string, maxDepth int, annotate Annotator) *Resu
 
 			targets := idx.ByName[call.name]
 			if len(targets) == 0 {
+				// Suppress unresolved edges for language predeclared builtins
+				// (e.g. Go's append/make/len): they are never definitions the
+				// index could resolve and only add noise. Real cross-package
+				// calls are still surfaced as unresolved.
+				if isBuiltinCall(def.File, call.name) {
+					continue
+				}
 				edge := Edge{From: nodeID, To: call.name, Resolved: false}
 				result.Edges = append(result.Edges, edge)
 				continue
@@ -353,6 +360,26 @@ func (c *callCache) callsForDef(def *defSiteWithSource) []callRef {
 		out = append(out, ref)
 	}
 	return out
+}
+
+// goBuiltins is the set of Go predeclared functions. Calls to these can never
+// resolve to a definition in the index, so they are filtered from unresolved
+// edges to reduce noise.
+var goBuiltins = map[string]bool{
+	"append": true, "cap": true, "clear": true, "close": true, "complex": true,
+	"copy": true, "delete": true, "imag": true, "len": true, "make": true,
+	"max": true, "min": true, "new": true, "panic": true, "print": true,
+	"println": true, "real": true, "recover": true,
+}
+
+// isBuiltinCall reports whether name is a predeclared builtin for the language of
+// file. Only Go is currently recognized; other languages return false so their
+// unresolved calls are still surfaced.
+func isBuiltinCall(file, name string) bool {
+	if filepath.Ext(file) == ".go" {
+		return goBuiltins[name]
+	}
+	return false
 }
 
 // nodeID returns a stable string key for a DefSite.
