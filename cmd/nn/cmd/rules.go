@@ -181,7 +181,19 @@ func newRulesListCmd(state *rootState) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("rules: builtin: %w", err)
 			}
-			fmt.Fprintf(out, "built-in: %d rule(s)\n", len(builtin))
+			// Surface the distinct built-in head predicates so their queryable
+			// names are discoverable (e.g. `nn rules query blocked`) rather than
+			// hidden behind a bare count.
+			seen := map[string]bool{}
+			var preds []string
+			for _, r := range builtin {
+				if !seen[r.Head.Pred] {
+					seen[r.Head.Pred] = true
+					preds = append(preds, r.Head.Pred)
+				}
+			}
+			sort.Strings(preds)
+			fmt.Fprintf(out, "built-in: %d rule(s) — queryable predicates: %s\n", len(builtin), strings.Join(preds, ", "))
 
 			type entry struct {
 				id    string

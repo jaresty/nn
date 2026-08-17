@@ -60,3 +60,13 @@ reachable(A, C) :- reachable(A, B), link(B, C, _).
 transitively_governs(P, N) :- link(P, N, "governs").
 transitively_governs(P, N) :- transitively_governs(P, M), link(M, N, "refines").
 transitively_governs(P, N) :- transitively_governs(P, M), link(M, N, "extends").
+
+# ── Task dependency: done / blocked ───────────────────────────────────────────
+# done(X): X has no open checkbox items (vacuously true when it has none),
+# matching note.IsDone — a note with no open work is a satisfied dependency.
+has_open(X) :- open_item(X, _).
+done(X) :- note(X, _, _), !has_open(X).
+# blocked(X): X cannot be acted on because it requires a target that is not done,
+# or requires a target that is itself blocked (transitive dependency chain).
+blocked(X) :- link(X, T, requires), !done(T).
+blocked(X) :- link(X, T, requires), blocked(T).

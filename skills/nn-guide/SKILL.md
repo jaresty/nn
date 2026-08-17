@@ -250,6 +250,12 @@ nn rules list               # list rules loaded from notes (with note-ID provena
 
 **Built-in rules** re-express the `nn check` representation invariants (model root, concept/argument children, taxonomy `refines`/`extends`-only links, axiom `grounded-by`, no cycles) as `violation(ID, Reason)` clauses. `nn rules check` reports these across all notes.
 
+**Built-in queryable predicates.** Beyond `violation`, the engine ships derivation rules you can query with `nn rules query <pred>` out of the box (run `nn rules list` to see the full set of predicate names):
+- `reachable(A, B)` — B is reachable from A by following any links.
+- `transitively_governs(P, N)` — protocol P governs N directly or down `refines`/`extends` chains.
+- `done(X)` — X has no open `- [ ]` checkbox items (a satisfied task; vacuously true when it has no checkboxes, matching `nn list --unblocked`).
+- `blocked(X)` — X has a `requires` link to a target that is not done, **or** to a target that is itself blocked (transitive dependency chain). Use `nn rules query blocked` to find every task waiting on an unfinished dependency, including indirect ones (which `nn list --unblocked` does not surface transitively).
+
 **Writing your own rules.** Put a ` ```nn-rule ` fenced block in any note body — the rule versions in Git alongside the note. A `type:protocol` note can carry both its prose *and* a machine-checkable rule.
 
 ````markdown
