@@ -12,18 +12,19 @@ import (
 func TestRulesExplainShowsDerivation(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 
-	// p governs a; a refines b ⇒ transitively_governs(p,b) is derived by the
-	// built-in derivation rules.
+	// p governs b (general); a refines b (a specializes b) ⇒ governance flows
+	// general→specific, so transitively_governs(p,a) is derived by the built-in
+	// derivation rules.
 	p := newTestNoteForCLI(note.GenerateID(), "Protocol", note.TypeProtocol)
 	a := newTestNoteForCLI(note.GenerateID(), "A", note.TypeConcept)
 	b := newTestNoteForCLI(note.GenerateID(), "B", note.TypeConcept)
-	p.Links = []note.Link{{TargetID: a.ID, Annotation: "governs it", Type: "governs"}}
+	p.Links = []note.Link{{TargetID: b.ID, Annotation: "governs it", Type: "governs"}}
 	a.Links = []note.Link{{TargetID: b.ID, Annotation: "refines it", Type: "refines"}}
 	writeNoteFile(t, nbDir, p)
 	writeNoteFile(t, nbDir, a)
 	writeNoteFile(t, nbDir, b)
 
-	fact := "transitively_governs(" + p.ID + "," + b.ID + ")"
+	fact := "transitively_governs(" + p.ID + "," + a.ID + ")"
 	out, err := execute("rules", "explain", fact)
 	if err != nil {
 		t.Fatalf("rules explain: %v\nout: %s", err, out)

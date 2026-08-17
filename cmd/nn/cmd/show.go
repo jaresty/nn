@@ -377,7 +377,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 					if i > 0 {
 						fmt.Fprintln(w, "---")
 					}
-					protos := findGoverningProtocols(n.ID, all)
+					protos := governingProtocolsFromEngine(n.ID, all)
 					if len(protos) > 0 {
 						fmt.Fprintf(w, "governing protocols:\n")
 						for _, p := range protos {
@@ -416,7 +416,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 					return fmt.Errorf("show: %w", err)
 				}
 				appendAccessLog(resolveCfgDir(), n.ID)
-				protos := findGoverningProtocols(n.ID, all)
+				protos := governingProtocolsFromEngine(n.ID, all)
 
 				if jsonOut {
 					type protoRef struct {
@@ -613,6 +613,45 @@ func findGoverningProtocols(targetID string, all []*note.Note) []*note.Note {
 				result = append(result, n)
 				seen[n.ID] = true
 				break
+			}
+		}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
+	return result
+}
+
+// governingProtocolsFromEngine returns the protocol notes that govern targetID,
+// derived from the engine's governs_note predicate (direct + whole-tree
+// representation + refines/extends specialization). This is the single source of
+// truth for governance, replacing the ad-hoc findGoverningProtocols traversal.
+func governingProtocolsFromEngine(targetID string, all []*note.Note) []*note.Note {
+	byID := make(map[string]*note.Note, len(all))
+	for _, n := range all {
+		byID[n.ID] = n
+	}
+	e := rules.NewEngine()
+	for _, f := range rules.FactsFromNotes(all) {
+		e.AddFact(f)
+	}
+	builtin, err := rules.ParseProgram(rules.BuiltinRules())
+	if err != nil {
+		return nil
+	}
+	e.AddRules(builtin)
+	if err := e.Eval(); err != nil {
+		return nil
+	}
+	seen := make(map[string]bool)
+	var result []*note.Note
+	for _, f := range e.Query("governs_note") {
+		if len(f.Args) >= 2 && f.Args[1] == targetID {
+			pID := f.Args[0]
+			if seen[pID] {
+				continue
+			}
+			if p := byID[pID]; p != nil {
+				seen[pID] = true
+				result = append(result, p)
 			}
 		}
 	}
