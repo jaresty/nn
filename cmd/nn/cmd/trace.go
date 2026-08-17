@@ -16,6 +16,7 @@ func newTraceCmd(state *rootState) *cobra.Command {
 	var depth int
 	var asJSON bool
 	var showUnresolved bool
+	var indexRoot string
 
 	cmd := &cobra.Command{
 		Use:   "trace <root-dir>",
@@ -32,6 +33,14 @@ func newTraceCmd(state *rootState) *cobra.Command {
 				}
 			} else if len(symbols) == 0 {
 				return fmt.Errorf("required flag(s) \"symbol\" not set")
+			}
+
+			// --root widens the index scope beyond the target directory so
+			// calls to definitions elsewhere in the project resolve. It is
+			// language-agnostic: BuildIndex parses every grammar-detected file
+			// under the root regardless of language.
+			if indexRoot != "" {
+				root = indexRoot
 			}
 
 			idx, err := trace.BuildIndex(root)
@@ -149,6 +158,7 @@ func newTraceCmd(state *rootState) *cobra.Command {
 	cmd.Flags().IntVar(&depth, "depth", 3, "DFS depth limit")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Emit JSON graph")
 	cmd.Flags().BoolVar(&showUnresolved, "show-unresolved", false, "Show unresolved (stdlib/external) leaves")
+	cmd.Flags().StringVar(&indexRoot, "root", "", "Index this directory instead of the target dir, so calls to definitions elsewhere in the project resolve (language-agnostic)")
 	return cmd
 }
 
