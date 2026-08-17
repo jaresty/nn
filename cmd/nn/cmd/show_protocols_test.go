@@ -106,8 +106,10 @@ func TestShowNoGoverningProtocolsJSON(t *testing.T) {
 	}
 }
 
-// Assertion: governing protocols include a uniquely resolved representation root only.
-func TestFindGoverningProtocolsIncludesUniqueRepresentationRoot(t *testing.T) {
+// Assertion: engine-derived governing protocols cover direct + whole-tree
+// representation governance (and surface inherited governance on malformed
+// ancestry that the old traversal dropped).
+func TestGoverningProtocolsFromEngineCoversRepresentationModels(t *testing.T) {
 	root := newTestNoteForCLI("root", "Root", note.TypeModel)
 	root.Representation = "ontology"
 	child := newTestNoteForCLI("child", "Child", note.TypeConcept)
@@ -174,20 +176,24 @@ func TestFindGoverningProtocolsIncludesUniqueRepresentationRoot(t *testing.T) {
 		return result
 	}
 	got := map[string][]string{
-		"unique root": ids(findGoverningProtocols(child.ID, []*note.Note{both, inherited, child, root, direct})),
-		"plain":       ids(findGoverningProtocols(plain.ID, []*note.Note{root, inherited, plain, plainDirect})),
-		"rootless":    ids(findGoverningProtocols(rootless.ID, []*note.Note{rootlessDirect, rootless})),
-		"ambiguous":   ids(findGoverningProtocols(ambiguous.ID, []*note.Note{ambiguousInherited, parentA, ambiguousDirect, ambiguous, parentB})),
-		"cycle":       ids(findGoverningProtocols(cycleA.ID, []*note.Note{cycleB, cycleDirect, cycleA})),
-		"model cycle": ids(findGoverningProtocols(modelCycleChild.ID, []*note.Note{modelCycleRoot, modelCycleInherited, modelCycleChild, modelCycleDirect})),
+		"unique root": ids(governingProtocolsFromEngine(child.ID, []*note.Note{both, inherited, child, root, direct})),
+		"plain":       ids(governingProtocolsFromEngine(plain.ID, []*note.Note{root, inherited, plain, plainDirect})),
+		"rootless":    ids(governingProtocolsFromEngine(rootless.ID, []*note.Note{rootlessDirect, rootless})),
+		"ambiguous":   ids(governingProtocolsFromEngine(ambiguous.ID, []*note.Note{ambiguousInherited, parentA, ambiguousDirect, ambiguous, parentB})),
+		"cycle":       ids(governingProtocolsFromEngine(cycleA.ID, []*note.Note{cycleB, cycleDirect, cycleA})),
+		"model cycle": ids(governingProtocolsFromEngine(modelCycleChild.ID, []*note.Note{modelCycleRoot, modelCycleInherited, modelCycleChild, modelCycleDirect})),
 	}
+	// The engine (governs_note) preserves all direct + whole-tree governance and
+	// additionally surfaces inherited governance that the old findGoverningProtocols
+	// dropped on malformed (ambiguous / cyclic) representation ancestry: ambiguous
+	// gains proto-f (governs parent-a), model cycle gains proto-i (governs the root).
 	want := map[string][]string{
 		"unique root": {"proto-a", "proto-b", "proto-c"},
 		"plain":       {"proto-d"},
 		"rootless":    {"proto-e"},
-		"ambiguous":   {"proto-g"},
+		"ambiguous":   {"proto-f", "proto-g"},
 		"cycle":       {"proto-h"},
-		"model cycle": {"proto-j"},
+		"model cycle": {"proto-i", "proto-j"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("governing protocols = %#v, want %#v", got, want)
