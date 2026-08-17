@@ -11,9 +11,12 @@ import (
 // purely from the auto-exposed facts + builtin.dl.
 
 func TestBuiltin_DerivesTransitivelyGoverns(t *testing.T) {
+	// Governance flows from the general (governed) note to the notes that refine
+	// or extend it: p governs b (general); a refines b (a specializes b) ⇒ p
+	// governs a as well. Governing a broad claim binds its refinements.
 	notes := []*note.Note{
 		{ID: "p", Type: note.TypeProtocol, Status: note.StatusPermanent,
-			Links: []note.Link{{TargetID: "a", Type: "governs"}}},
+			Links: []note.Link{{TargetID: "b", Type: "governs"}}},
 		{ID: "a", Type: note.TypeConcept, Status: note.StatusReviewed,
 			Links: []note.Link{{TargetID: "b", Type: "refines"}}},
 		{ID: "b", Type: note.TypeConcept, Status: note.StatusReviewed},
@@ -33,7 +36,7 @@ func TestBuiltin_DerivesTransitivelyGoverns(t *testing.T) {
 	}
 
 	got := queryKeys(e, "transitively_governs")
-	// p governs a; a refines b ⇒ p transitively governs a and b.
+	// p governs b; a refines b ⇒ p transitively governs b and a.
 	want := []string{"transitively_governs(p,a)", "transitively_governs(p,b)"}
 	if !equalSlices(got, want) {
 		t.Fatalf("transitively_governs = %v, want %v", got, want)

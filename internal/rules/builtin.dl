@@ -58,8 +58,23 @@ reachable(A, C) :- reachable(A, B), link(B, C, _).
 # ancestor that N refines/extends from — the transitive reach of a governs edge
 # down refines/extends chains.
 transitively_governs(P, N) :- link(P, N, "governs").
-transitively_governs(P, N) :- transitively_governs(P, M), link(M, N, "refines").
-transitively_governs(P, N) :- transitively_governs(P, M), link(M, N, "extends").
+# Governance flows from the general (governed) note M to notes N that refine or
+# extend it (N --refines/extends--> M means N specializes M, so a protocol on M
+# binds N).
+transitively_governs(P, N) :- transitively_governs(P, M), link(N, M, "refines").
+transitively_governs(P, N) :- transitively_governs(P, M), link(N, M, "extends").
+
+# governs_note(P, X): the unified "which protocols govern note X" relation — the
+# single source of truth for the session-start governing-protocols block. It
+# combines every governance model:
+#   (1) direct — P has a governs link straight to X;
+#   (2) whole-tree — P governs the root of a representation subtree and X is a
+#       member of that subtree (any same-representation edge type, matching
+#       findRepresentationRoot / the structured "governs the whole model" intent);
+#   (3) specialization — X refines/extends (transitively) something P governs.
+governs_note(P, X) :- link(P, X, "governs").
+governs_note(P, X) :- link(P, R, "governs"), rep_root(R, Rep), in_rep(X, Rep).
+governs_note(P, X) :- transitively_governs(P, X).
 
 # ── Task dependency: done / blocked ───────────────────────────────────────────
 # done(X): X has no open checkbox items (vacuously true when it has none),
