@@ -17,6 +17,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// traceBuildIndex indirects trace.BuildIndex so tests can observe how often the
+// index is built per grep --trace invocation.
+var traceBuildIndex = trace.BuildIndex
+
 func newGrepCmd(state *rootState) *cobra.Command {
 	var contextLines int
 	var notesPerMatch int
@@ -150,6 +154,27 @@ func newGrepCmd(state *rootState) *cobra.Command {
 			}
 
 			traceSuggested := map[string]bool{}
+			// dirIndex memoizes the trace index per directory across the whole
+			// invocation so BuildIndex parses each directory tree at most once,
+			// rather than once per matched file. dirIndexErr records a build
+			// failure so a failed directory is not retried per match.
+			dirIndex := map[string]*trace.Index{}
+			dirIndexErr := map[string]error{}
+			traceIndexFor := func(dir string) (*trace.Index, error) {
+				if idx, ok := dirIndex[dir]; ok {
+					return idx, nil
+				}
+				if err, ok := dirIndexErr[dir]; ok {
+					return nil, err
+				}
+				idx, err := traceBuildIndex(dir)
+				if err != nil {
+					dirIndexErr[dir] = err
+					return nil, err
+				}
+				dirIndex[dir] = idx
+				return idx, nil
+			}
 			prevEnd := -1 // last line number printed in previous group (for separator logic)
 			currentFile := ""
 			for _, m := range matches {
@@ -188,7 +213,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 					traceSuggested[m.file] = true
 					if traceFlag {
 						dir := filepath.Dir(m.file)
-						if idx, err := trace.BuildIndex(dir); err == nil {
+						if idx, err := traceIndexFor(dir); err == nil {
 							if sym, _, ok := resolveFileLineInIndex(idx, m.file, m.lineNum); ok {
 								result := trace.Trace(idx, []string{sym}, 3, notes)
 								fmt.Fprintf(w, "  [trace: %s --symbol %s]\n", dir, sym)
