@@ -192,8 +192,30 @@ func newGrepCmd(state *rootState) *cobra.Command {
 							if sym, _, ok := resolveFileLineInIndex(idx, m.file, m.lineNum); ok {
 								result := trace.Trace(idx, []string{sym}, 3, notes)
 								fmt.Fprintf(w, "  [trace: %s --symbol %s]\n", dir, sym)
+								// Count how many resolved nodes share each name so
+								// name-only resolution ambiguity can be surfaced.
+								nameCount := map[string]int{}
 								for _, n := range result.Nodes {
-									fmt.Fprintf(w, "    %s (%s) [%s:%d]\n", n.Name, n.Kind, n.File, n.Line)
+									nameCount[n.Name]++
+								}
+								for _, n := range result.Nodes {
+									label := ""
+									if n.AmbiguousReceiver {
+										// Name-only resolution matched multiple
+										// definitions for a receiver call; surface the
+										// receiver and candidate count so the reader can
+										// apply their own type knowledge to filter.
+										label = fmt.Sprintf(" [%d candidates — receiver: %s]", nameCount[n.Name], n.Receiver)
+									}
+									fmt.Fprintf(w, "    %s (%s) [%s:%d]%s\n", n.Name, n.Kind, n.File, n.Line, label)
+								}
+								// Surface unresolved calls (no matching definition in the
+								// index) so callable edges the trace could not follow are
+								// visible rather than silently dropped.
+								for _, e := range result.Edges {
+									if !e.Resolved {
+										fmt.Fprintf(w, "    %s (unresolved) — no definition found in %s\n", e.To, dir)
+									}
 								}
 							}
 						}
