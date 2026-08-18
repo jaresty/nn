@@ -390,28 +390,58 @@ func flipCheckboxes(cmd *cobra.Command, state *rootState, id string, patterns []
 	sinceTs := n.Modified
 
 	lines := strings.Split(n.Body, "\n")
-	// Resolve every pattern to a distinct matching line before mutating, so a
-	// single unmatched pattern aborts without a partial write.
-	matchedIdx := make([]int, 0, len(patterns))
-	usedLine := make(map[int]bool)
-	for _, pattern := range patterns {
-		lowerPattern := strings.ToLower(pattern)
-		found := -1
-		for i, line := range lines {
-			if usedLine[i] {
-				continue
+	lowerPatterns := make([]string, len(patterns))
+	for i, p := range patterns {
+		lowerPatterns[i] = strings.ToLower(p)
+	}
+	lineMatchesAll := func(line string) bool {
+		if !strings.HasPrefix(strings.TrimSpace(line), from) {
+			return false
+		}
+		lower := strings.ToLower(line)
+		for _, lp := range lowerPatterns {
+			if !strings.Contains(lower, lp) {
+				return false
 			}
-			trimmed := strings.TrimSpace(line)
-			if strings.HasPrefix(trimmed, from) && strings.Contains(strings.ToLower(line), lowerPattern) {
-				found = i
+		}
+		return true
+	}
+
+	// Conjunctive path (takes precedence): if a single not-yet-flipped checkbox
+	// line contains every pattern, flip exactly that one line.
+	var matchedIdx []int
+	if len(patterns) > 1 {
+		for i, line := range lines {
+			if lineMatchesAll(line) {
+				matchedIdx = []int{i}
 				break
 			}
 		}
-		if found == -1 {
-			return fmt.Errorf("no %s checkbox matching %q found in note %s", fromLabel, pattern, n.ID)
+	}
+
+	// Batch fallback: resolve every pattern to a distinct matching line before
+	// mutating, so a single unmatched pattern aborts without a partial write.
+	if matchedIdx == nil {
+		matchedIdx = make([]int, 0, len(patterns))
+		usedLine := make(map[int]bool)
+		for pi, lowerPattern := range lowerPatterns {
+			found := -1
+			for i, line := range lines {
+				if usedLine[i] {
+					continue
+				}
+				trimmed := strings.TrimSpace(line)
+				if strings.HasPrefix(trimmed, from) && strings.Contains(strings.ToLower(line), lowerPattern) {
+					found = i
+					break
+				}
+			}
+			if found == -1 {
+				return fmt.Errorf("no %s checkbox matching %q found in note %s", fromLabel, patterns[pi], n.ID)
+			}
+			usedLine[found] = true
+			matchedIdx = append(matchedIdx, found)
 		}
-		usedLine[found] = true
-		matchedIdx = append(matchedIdx, found)
 	}
 
 	for _, i := range matchedIdx {

@@ -69,6 +69,45 @@ func TestTodoDoneResolution(t *testing.T) {
 	}
 }
 
+// property [1-conjunctive]: when all patterns are substrings of a single open
+// checkbox line, that one line is flipped (conjunctive AND on one line), rather
+// than requiring each pattern to match a distinct line.
+func TestTodoDoneConjunctiveSingleLine(t *testing.T) {
+	_, execute := setupNotebook(t)
+	id := newTaskNote(t, execute, "- [ ] fix graph apply atomicity — needs targeted test\n- [ ] unrelated item")
+
+	if _, err := execute("todo", "done", id, "atomicity", "targeted test"); err != nil {
+		t.Fatalf("nn todo done conjunctive same-line: %v", err)
+	}
+	body := noteBody(t, execute, id)
+	if !strings.Contains(body, "- [x] fix graph apply atomicity — needs targeted test") {
+		t.Errorf("expected the single line matching both patterns to be flipped; got:\n%s", body)
+	}
+	if !strings.Contains(body, "- [ ] unrelated item") {
+		t.Errorf("expected unrelated item untouched; got:\n%s", body)
+	}
+}
+
+// property [4-precedence]: when patterns could match either a single all-containing
+// line or separate distinct lines, the single-line conjunctive match wins (exactly
+// one line flipped, not two).
+func TestTodoDoneConjunctiveTakesPrecedence(t *testing.T) {
+	_, execute := setupNotebook(t)
+	// "alpha" and "beta" both appear on line 1; "beta" also appears alone on line 2.
+	id := newTaskNote(t, execute, "- [ ] alpha and beta together\n- [ ] beta alone")
+
+	if _, err := execute("todo", "done", id, "alpha", "beta"); err != nil {
+		t.Fatalf("nn todo done precedence: %v", err)
+	}
+	body := noteBody(t, execute, id)
+	if !strings.Contains(body, "- [x] alpha and beta together") {
+		t.Errorf("expected the single all-containing line flipped; got:\n%s", body)
+	}
+	if !strings.Contains(body, "- [ ] beta alone") {
+		t.Errorf("expected 'beta alone' untouched (conjunctive precedence); got:\n%s", body)
+	}
+}
+
 // property [4]: reopen mirrors the multi-pattern behavior.
 func TestTodoReopenMultiplePatterns(t *testing.T) {
 	_, execute := setupNotebook(t)

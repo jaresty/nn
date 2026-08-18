@@ -346,6 +346,34 @@ nn graph show [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [-
 
 With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 and direction defaults to `outgoing`. `--links` accepts canonical link types, `--status` accepts `draft`, `reviewed`, or `permanent`, and `--representation` accepts one representation value. Filters constrain BFS expansion, so traversal does not pass through an ineligible intermediate note. Without --focus, graph show renders the full graph; explicitly supplied traversal flags, including `--depth`, require `--focus`. Mermaid output preserves stored edge orientation, includes link type and annotation labels, represents missing edge endpoints as deterministic placeholder nodes, and emits deterministic provenance comments for the normalized traversal options. Use `--format json` for structured output or `--format mermaid` for Markdown-compatible diagrams. Prefer focused output when exploring a note's neighborhood.
 
+### nn graph apply (YAML changeset manifest)
+
+```
+nn graph apply <manifest.yaml> (--dry-run | --commit)
+```
+
+Creates notes and edges atomically from a single YAML manifest. Exactly one of `--dry-run` or `--commit` is required: `--dry-run` prints what would be created (`would create N note(s), add M edge(s)` plus per-item lines) without writing; `--commit` writes all notes and edges in one commit.
+
+Manifest schema:
+
+```yaml
+notes:
+  - key: a                    # optional local ref for edges (must be unique)
+    title: My note            # required
+    type: concept             # required; must be a valid note type
+    content: |                # optional body
+      Body text here
+    tags: [foo, bar]          # optional
+    applies_when: "..."       # optional
+edges:
+  - from: a                   # a manifest key, OR existing:<note-id>
+    to: existing:20260817-1234
+    type: refines             # link type
+    annotation: "why this edge exists"   # required — errors if missing
+```
+
+Edge `from`/`to` references resolve two ways: a bare `key` declared in the `notes` block, or `existing:<note-id>` to link to a note already in the notebook. New notes are always created as `draft`. Validation errors: missing title, invalid type, duplicate `key`, missing edge annotation, or an unknown key reference (the error lists the known keys).
+
 ## nn status
 
 ```
@@ -667,7 +695,7 @@ Examples:
 - `nn todo done <id> <pattern>` — marks the first `- [ ]` line containing `<pattern>` as `- [x]`
 - `nn todo reopen <id> <pattern>` — marks the first `- [x]` line containing `<pattern>` as `- [ ]`
 - Pattern match is case-insensitive; errors if no match found
-- **Multiple patterns** flip in a single write: `nn todo done <id> "pat a" "pat b"`. Prefer this over parallel `nn todo done` calls on the same note — concurrent single-pattern calls race on the note's version and the later write fails. Matching is all-or-nothing: if any pattern matches no checkbox, the note is left unchanged.
+- **Multiple patterns** flip in a single write: `nn todo done <id> "pat a" "pat b"`. Prefer this over parallel `nn todo done` calls on the same note — concurrent single-pattern calls race on the note's version and the later write fails. Two matching modes: if a **single open line contains every pattern**, that one line is flipped (conjunctive AND — use several patterns to pinpoint one item, e.g. `"atomicity" "targeted test"`); otherwise **each pattern flips its own distinct line** (batch flip of several items). The conjunctive single-line match takes precedence. Matching is all-or-nothing: if any pattern matches no checkbox, the note is left unchanged.
 - `--resolution "why"` on `done` appends commentary to each flipped line (e.g. `- [x] migrate schema — done in PR #42`), recording why it was completed.
 
 **nn todo set** — add, replace, or remove inline metadata tags on a matching open checkbox:
