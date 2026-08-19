@@ -89,6 +89,7 @@ Workflow guidance is embedded in the binary:
 		newLogCmd(state),
 		newFetchCmd(state),
 		newSearchWebCmd(state),
+		newAskCmd(state),
 	)
 	return root
 }
