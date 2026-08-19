@@ -66,19 +66,70 @@ func seedNotebookFiles(b *testing.B, dir string, n int, withGoverns bool) {
 	}
 }
 
+// seedRepresentationNotebook models the recursive-representation cost the target
+// notebook has: notes carry a representation: ontology|axiom|taxonomy field and
+// form same-representation refines/extends chains, so the builtin recursive
+// rules (rep_link -> rep_reach transitive closure, run over all facts on every
+// nn show --global) do the deep fixpoint work that profiling showed dominates.
+func seedRepresentationNotebook(b *testing.B, dir string, n int) {
+	b.Helper()
+	reps := []string{"ontology", "taxonomy", "axiom"}
+	id := func(i int) string { return fmt.Sprintf("20260101%06d-%04d", i, i%10000) }
+	// Build several representation subgraphs; within each, notes chain via
+	// refines/extends to the next, forming a path the transitive closure walks.
+	subgraphSize := 25
+	for i := range n {
+		rep := reps[(i/subgraphSize)%len(reps)]
+		posInSub := i % subgraphSize
+		var sb strings.Builder
+		sb.WriteString("---\nid: " + id(i) + "\n")
+		fmt.Fprintf(&sb, "title: 'Rep note %d'\n", i)
+		// Root of each subgraph is a model; others are concepts.
+		if posInSub == 0 {
+			sb.WriteString("type: model\n")
+		} else {
+			sb.WriteString("type: concept\n")
+		}
+		sb.WriteString("status: reviewed\n")
+		fmt.Fprintf(&sb, "representation: %s\n", rep)
+		// Same-representation refines link to the previous note in the subgraph
+		// (roots have none), so rep_link fires and rep_reach closes the chain.
+		if posInSub != 0 {
+			sb.WriteString("links:\n")
+			linkType := "refines"
+			if posInSub%2 == 0 {
+				linkType = "extends"
+			}
+			fmt.Fprintf(&sb, "    - to: %s\n      type: %s\n      annotation: same-rep\n", id(i-1), linkType)
+		}
+		sb.WriteString("---\n\nRepresentation subgraph node body.\n")
+		if err := os.WriteFile(filepath.Join(dir, id(i)+"-rep-note.md"), []byte(sb.String()), 0o644); err != nil {
+			b.Fatalf("seed rep write: %v", err)
+		}
+	}
+	// Daily note so --global renders and runs the engine over the rep facts.
+	daily := "20260101999999-0002"
+	os.WriteFile(filepath.Join(dir, daily+"-daily.md"),
+		[]byte("---\nid: "+daily+"\ntitle: 'Daily: 2026-01-01'\ntype: observation\nstatus: draft\ntags:\n    - daily\n---\n\n## Relay\n\nseeded.\n"), 0o644)
+}
+
 // BenchmarkShowGlobal measures the full nn show --global command over a seeded
 // notebook. It captures both the backend.List() parse cost and, when governing
 // edges exist, the rules-engine (datalog) cost of governingProtocolsFromEngine.
 // Run: go test ./cmd/nn/cmd -bench=ShowGlobal -benchmem -run '^$'
 func BenchmarkShowGlobal(b *testing.B) {
+	// mode: "plain" (parse-only), "governs" (nn-rule blocks + governs chains),
+	// "reps" (ontology/axiom/taxonomy representation subgraphs — the recursive
+	// rep_reach transitive-closure workload the target notebook has).
 	for _, tc := range []struct {
-		n       int
-		governs bool
+		n    int
+		mode string
 	}{
-		{100, false}, {600, false}, {2000, false},
-		{600, true}, {2000, true},
+		{100, "plain"}, {600, "plain"}, {2000, "plain"},
+		{600, "governs"}, {2000, "governs"},
+		{600, "reps"}, {2000, "reps"},
 	} {
-		name := fmt.Sprintf("n=%d/governs=%v", tc.n, tc.governs)
+		name := fmt.Sprintf("n=%d/mode=%s", tc.n, tc.mode)
 		b.Run(name, func(b *testing.B) {
 			nbDir := b.TempDir()
 			cfgDir := b.TempDir()
@@ -92,7 +143,12 @@ default = "test"
 path = %q
 backend = "gitlocal"
 `, nbDir)), 0o644)
-			seedNotebookFiles(b, nbDir, tc.n, tc.governs)
+			switch tc.mode {
+			case "reps":
+				seedRepresentationNotebook(b, nbDir, tc.n)
+			default:
+				seedNotebookFiles(b, nbDir, tc.n, tc.mode == "governs")
+			}
 
 			b.ReportAllocs()
 			b.ResetTimer()
