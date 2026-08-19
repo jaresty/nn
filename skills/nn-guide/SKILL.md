@@ -941,6 +941,8 @@ Ask a human for feedback via a chosen **surface**, block until they submit, then
 
 Surface-specific shape lives *inside* the referenced files. **You read the artifact and decide** what, if anything, it becomes (a note, an update, a `graph apply`, or nothing) — `nn ask` never files the result automatically.
 
+Session directories are **ephemeral scratch**: each `nn ask` run reclaims session directories older than 7 days. If you want to keep a result, persist it (into a note, or copy the artifact elsewhere) — do not rely on the session directory surviving.
+
 **Surfaces:**
 - `--surface canvas` (default, *hosted*) — an embedded Excalidraw diagram editor. `--mermaid "<diagram>"` seeds the canvas with an editable diagram (converted from Mermaid); the human edits it and clicks Done. Writes `result.excalidraw` (scene) + `result.png` (image).
 - `--surface document` (*delegated*) — hands the document to the `plannotator` peer for text/markdown annotation. Annotates `--document <file|folder>` when given, otherwise the `--instructions` text. Writes `result.plannotator.json`, a `{ "decision": "approved|annotated|dismissed", "feedback": "..." }` object you read to get the human's annotations.
