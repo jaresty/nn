@@ -91,8 +91,12 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodGet && !strings.Contains(strings.TrimPrefix(path, "/session/"), "/"):
 		s.handleGet(w, r)
+	case r.Method == http.MethodGet && strings.HasSuffix(path, "/draft"):
+		s.handleGetDraft(w, r)
 	case r.Method == http.MethodPut && strings.HasSuffix(path, "/draft"):
 		s.handlePutDraft(w, r)
+	case r.Method == http.MethodPost && strings.HasSuffix(path, "/png"):
+		s.handlePostPng(w, r)
 	case r.Method == http.MethodPost && strings.HasSuffix(path, "/submit"):
 		s.handleSubmit(w, r)
 	case r.Method == http.MethodPost && strings.HasSuffix(path, "/cancel"):
@@ -148,6 +152,37 @@ func (s *Server) handlePutDraft(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// handleGetDraft returns the persisted draft so the surface can restore it as
+// initialData on reopen. A missing draft is 404 (no draft yet).
+func (s *Server) handleGetDraft(w http.ResponseWriter, r *http.Request) {
+	body, err := os.ReadFile(filepath.Join(s.dir, "draft.json"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(body)
+}
+
+// handlePostPng persists the surface's exported PNG so submit can name it as a
+// result.png artifact.
+func (s *Server) handlePostPng(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := os.MkdirAll(s.dir, 0o755); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := os.WriteFile(filepath.Join(s.dir, "result.png"), body, 0o644); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) handleSubmit(w http.ResponseWriter, r *http.Request) {
 	if err := s.promoteDraftToResult(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -163,8 +198,9 @@ func (s *Server) handleCancel(w http.ResponseWriter, r *http.Request) {
 }
 
 // promoteDraftToResult builds result.json from the latest draft. The draft is
-// the surface's native output; the result wraps it in the thin envelope with a
-// single artifact reference to the persisted draft.
+// the surface's native output; on submit it is materialized into a native
+// result artifact whose format matches the surface, and the thin envelope
+// references it by path.
 func (s *Server) promoteDraftToResult() error {
 	draftPath := filepath.Join(s.dir, "draft.json")
 	result := FeedbackResult{
@@ -175,8 +211,24 @@ func (s *Server) promoteDraftToResult() error {
 	if q, err := ReadRequest(s.dir); err == nil {
 		result.Surface = q.Surface
 	}
-	if _, err := os.Stat(draftPath); err == nil {
-		result.Artifacts = []Artifact{{Format: "draft", Path: "draft.json"}}
+	if draft, err := os.ReadFile(draftPath); err == nil {
+		switch result.Surface {
+		case "canvas":
+			// The canvas draft is the Excalidraw scene JSON. Materialize it as
+			// the native result.excalidraw artifact so the agent reads a scene,
+			// not an opaque draft.
+			scenePath := filepath.Join(s.dir, "result.excalidraw")
+			if err := os.WriteFile(scenePath, draft, 0o644); err != nil {
+				return err
+			}
+			result.Artifacts = []Artifact{{Format: "excalidraw", Path: "result.excalidraw"}}
+			// property [8a]: name the exported png if the surface uploaded one.
+			if _, err := os.Stat(filepath.Join(s.dir, "result.png")); err == nil {
+				result.Artifacts = append(result.Artifacts, Artifact{Format: "png", Path: "result.png"})
+			}
+		default:
+			result.Artifacts = []Artifact{{Format: "draft", Path: "draft.json"}}
+		}
 	}
 	return WriteResult(s.dir, result)
 }

@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"net/http"
+	neturl "net/url"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -30,9 +31,16 @@ func TestRunAskDrivesSessionToResult(t *testing.T) {
 	hook := func(url string) error {
 		openCalls++
 		openedURL = url
-		// property [2]: request must be readable at open time.
-		// Drive to submit via the real endpoint.
-		resp, err := http.Post(url+"/submit", "application/json", nil)
+		// property [4]: the browser lands on the static UI entry at
+		// "/?session=<id>", not the raw JSON endpoint. Derive the session
+		// endpoint base from the query param and drive to submit through it.
+		u, err := neturl.Parse(url)
+		if err != nil {
+			return err
+		}
+		id := u.Query().Get("session")
+		base := u.Scheme + "://" + u.Host
+		resp, err := http.Post(base+"/session/"+id+"/submit", "application/json", nil)
 		if err != nil {
 			return err
 		}
@@ -54,8 +62,17 @@ func TestRunAskDrivesSessionToResult(t *testing.T) {
 	if openCalls != 1 {
 		t.Fatalf("open hook called %d times, want 1", openCalls)
 	}
-	if !strings.Contains(openedURL, "/session/"+sess.id) {
-		t.Fatalf("opened URL %q does not address session %q", openedURL, sess.id)
+	// property [4]: opens the static UI entry with the session id as a query
+	// param, not the raw JSON /session/<id> endpoint.
+	pu, err := neturl.Parse(openedURL)
+	if err != nil {
+		t.Fatalf("parse opened URL: %v", err)
+	}
+	if pu.Path != "/" {
+		t.Fatalf("opened URL path = %q, want %q", pu.Path, "/")
+	}
+	if got := pu.Query().Get("session"); got != sess.id {
+		t.Fatalf("opened URL session param = %q, want %q", got, sess.id)
 	}
 	wantPath := filepath.Join(sess.dir, "result.json")
 	if !strings.Contains(out.String(), wantPath) {

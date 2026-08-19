@@ -80,7 +80,10 @@ func runAsk(opts askOptions) (askSession, error) {
 		return sess, err
 	}
 
-	sessionURL := fmt.Sprintf("http://%s/session/%s", srv.Addr(), id)
+	// Open the static UI entry with the session id as a query param; the
+	// embedded frontend reads ?session=<id> and drives the /session/<id>
+	// endpoints. Opening /session/<id> directly would show raw JSON.
+	sessionURL := fmt.Sprintf("http://%s/?session=%s", srv.Addr(), id)
 	if err := opts.open(sessionURL); err != nil {
 		return sess, err
 	}

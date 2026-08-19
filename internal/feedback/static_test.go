@@ -29,26 +29,20 @@ func TestServesEmbeddedIndexAtRoot(t *testing.T) {
 	}
 }
 
-// property [3]: GET /<asset> for an embedded non-index file returns 200 with
-// that file's bytes.
-func TestServesEmbeddedAsset(t *testing.T) {
+// property [3] (revised): the static route serves the embedded bundle and
+// returns 404 for paths with no corresponding embedded file. The bundle is a
+// single self-contained index.html (Vite singlefile build), so there are no
+// separate asset files; the delivered behavior is index-or-404.
+func TestServesNotFoundForUnknownAsset(t *testing.T) {
 	srv, base := startTestServer(t, FeedbackRequest{ID: "s1", Surface: "canvas"})
 	defer srv.stopForTest()
 
-	resp, err := http.Get(base + "/app.js")
+	resp, err := http.Get(base + "/does-not-exist.js")
 	if err != nil {
-		t.Fatalf("GET /app.js: %v", err)
+		t.Fatalf("GET unknown asset: %v", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		t.Fatalf("GET /app.js status = %d, want 200", resp.StatusCode)
-	}
-	body, _ := io.ReadAll(resp.Body)
-	want, err := webFS.ReadFile("web/app.js")
-	if err != nil {
-		t.Fatalf("read embedded app.js: %v", err)
-	}
-	if string(body) != string(want) {
-		t.Fatalf("GET /app.js body = %q, want embedded app.js %q", body, want)
+	if resp.StatusCode != 404 {
+		t.Fatalf("GET /does-not-exist.js status = %d, want 404", resp.StatusCode)
 	}
 }
