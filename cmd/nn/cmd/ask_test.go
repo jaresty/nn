@@ -10,8 +10,20 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/jaresty/nn/internal/feedback"
 )
+
+// property [14]: nn ask does not require a notebook config — it is note-agnostic
+// at the boundary (ADR-0020), so initState must exempt it like init/skills.
+func TestAskDoesNotRequireNotebookConfig(t *testing.T) {
+	cmd := &cobra.Command{Use: "ask"}
+	err := initState(cmd, &rootState{}, "/tmp/nonexistent-nn-config/config.toml")
+	if err != nil {
+		t.Fatalf("initState for ask returned %v, want nil (ask must not require config)", err)
+	}
+}
 
 func TestAskCommandRegistered(t *testing.T) {
 	cmd := newAskCmd(&rootState{})

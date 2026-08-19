@@ -25,13 +25,17 @@ const params = new URLSearchParams(window.location.search);
 const sessionId = params.get("session");
 const base = sessionId ? `/session/${sessionId}` : null;
 
-// Debounce helper for onChange -> PUT /draft.
+// Debounce helper for onChange -> PUT /draft. The returned function exposes a
+// cancel() so a pending trailing call can be dropped on submit (property [12]),
+// avoiding a draft PUT that races the server shutdown.
 function debounce(fn, ms) {
   let t = null;
-  return (...args) => {
+  const wrapped = (...args) => {
     clearTimeout(t);
     t = setTimeout(() => fn(...args), ms);
   };
+  wrapped.cancel = () => clearTimeout(t);
+  return wrapped;
 }
 
 export default function App() {
@@ -88,7 +92,10 @@ export default function App() {
   // property [5]: onChange -> debounced PUT /draft carrying the scene.
   const putDraft = useCallback(
     debounce(async (elements, appState) => {
-      if (!base) return;
+      // property [12]/[13]: once the session is submitted the server is
+      // shutting down; skip the draft PUT entirely so a trailing debounced
+      // call cannot race the close and surface a spurious error.
+      if (!base || doneRef.current) return;
       const scene = JSON.parse(
         serializeAsJSON(elements, appState, {}, "local"),
       );
@@ -98,9 +105,10 @@ export default function App() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(scene),
         });
-        setStatus("Draft saved.");
+        if (!doneRef.current) setStatus("Draft saved.");
       } catch (e) {
-        setStatus(`Draft error: ${e}`);
+        // property [13]: never overwrite the terminal submitted status.
+        if (!doneRef.current) setStatus(`Draft error: ${e}`);
       }
     }, 400),
     [],
@@ -116,6 +124,9 @@ export default function App() {
   const onDone = useCallback(async () => {
     if (!api || !base || doneRef.current) return;
     doneRef.current = true;
+    // property [12]: drop any pending debounced draft so it cannot race the
+    // server shutdown that submit triggers.
+    putDraft.cancel();
     setStatus("Submitting…");
     const elements = api.getSceneElements();
     const appState = api.getAppState();
@@ -139,12 +150,16 @@ export default function App() {
         body: blob,
       });
       await fetch(`${base}/submit`, { method: "POST" });
+      setStatus("Submitted. Closing…");
+      // The session result is captured; close the window. window.close() only
+      // works for script-opened tabs, so fall back to a terminal message.
+      window.close();
       setStatus("Submitted. You may close this window.");
     } catch (e) {
       doneRef.current = false;
       setStatus(`Submit error: ${e}`);
     }
-  }, [api]);
+  }, [api, putDraft]);
 
   const onCancel = useCallback(async () => {
     if (!base) return;

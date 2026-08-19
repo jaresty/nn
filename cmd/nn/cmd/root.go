@@ -102,8 +102,11 @@ func NewRootCmdForTest(cfgFile string) *cobra.Command {
 
 // initState resolves the notebook directory and initialises the backend.
 func initState(cmd *cobra.Command, state *rootState, cfgFile string) error {
-	// These commands manage config/skills and don't need a notebook.
-	if cmd.Name() == "install-skills" || cmd.Name() == "install-hooks" || cmd.Name() == "install-extensions" || cmd.Name() == "install" || cmd.Name() == "init" || cmd.Name() == "skills" {
+	// These commands manage config/skills and don't need a notebook. `ask` is
+	// note-agnostic at the boundary (ADR-0020) — it collects human feedback to a
+	// session path and does not read or write the notebook — so it runs without
+	// a config too.
+	if cmd.Name() == "install-skills" || cmd.Name() == "install-hooks" || cmd.Name() == "install-extensions" || cmd.Name() == "install" || cmd.Name() == "init" || cmd.Name() == "skills" || cmd.Name() == "ask" {
 		return nil
 	}
 
