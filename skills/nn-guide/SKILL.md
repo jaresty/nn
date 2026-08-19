@@ -924,6 +924,39 @@ Best-effort web search via DuckDuckGo. Fetches the top N result pages, strips HT
 
 **LLM usage note:** DDG occasionally wraps results in JS-challenge pages; results quality varies. Use `nn fetch <url>` directly when you have a specific URL.
 
+## nn ask
+
+```
+nn ask [--surface canvas|document|web] [--instructions "..."] [--mermaid "<diagram>"] [--document <file|folder>]
+```
+
+Ask a human for feedback via a chosen **surface**, block until they submit, then print the path to a thin result envelope. The primitive is the job — *"get a human to close a knowledge gap"* — and the surface is a routing decision keyed on the shape of the answer (ADR-0020). `nn ask` runs **without a configured notebook** (it is note-agnostic at the boundary).
+
+**Result contract.** Every surface writes to a session directory (`~/.config/nn/feedback/<id>/`) and produces `result.json` — a thin envelope naming native artifacts by path:
+
+```json
+{ "id": "...", "surface": "canvas", "status": "submitted",
+  "artifacts": [ { "format": "excalidraw", "path": "result.excalidraw" } ] }
+```
+
+Surface-specific shape lives *inside* the referenced files. **You read the artifact and decide** what, if anything, it becomes (a note, an update, a `graph apply`, or nothing) — `nn ask` never files the result automatically.
+
+**Surfaces:**
+- `--surface canvas` (default, *hosted*) — an embedded Excalidraw diagram editor. `--mermaid "<diagram>"` seeds the canvas with an editable diagram (converted from Mermaid); the human edits it and clicks Done. Writes `result.excalidraw` (scene) + `result.png` (image).
+- `--surface document` (*delegated*) — hands the document to the `plannotator` peer for text/markdown annotation. Annotates `--document <file|folder>` when given, otherwise the `--instructions` text. Writes `result.plannotator.json`, a `{ "decision": "approved|annotated|dismissed", "feedback": "..." }` object you read to get the human's annotations.
+
+**Flags:**
+- `--surface` — which surface to route to (default `canvas`)
+- `--instructions "..."` — the prompt shown to the human on the surface (canvas), or the content to annotate when no `--document` is given (document)
+- `--mermaid "<diagram>"` — canvas only: seed the canvas from a Mermaid diagram
+- `--document <file|folder>` — document only: the file or folder to annotate
+
+**Use `nn ask` when:**
+- You reach a point where only a human can supply the missing knowledge — a sketch, a judgment on a diagram, or annotations on prose
+- You want that response back as structured data at a known path, on your terms
+
+**LLM usage note:** `nn ask` blocks until the human submits — do not run it where no human is present. After it returns, read the named artifact(s) and decide what enters the notebook.
+
 ## nn install-skills
 
 ```
