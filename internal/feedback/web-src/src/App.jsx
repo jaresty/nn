@@ -1,7 +1,25 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { Excalidraw, exportToBlob, serializeAsJSON } from "@excalidraw/excalidraw";
+import {
+  Excalidraw,
+  exportToBlob,
+  serializeAsJSON,
+  convertToExcalidrawElements,
+} from "@excalidraw/excalidraw";
+import { parseMermaidToExcalidraw } from "@excalidraw/mermaid-to-excalidraw";
 // Excalidraw 0.17.x injects its own styles from the bundle; there is no
 // separate CSS entry to import.
+
+// mermaidToScene converts a mermaid diagram string into an Excalidraw scene
+// usable as initialData. Returns null on parse failure so the caller can fall
+// back to a blank canvas.
+async function mermaidToScene(mermaid) {
+  try {
+    const { elements } = await parseMermaidToExcalidraw(mermaid);
+    return { elements: convertToExcalidrawElements(elements) };
+  } catch {
+    return null;
+  }
+}
 
 const params = new URLSearchParams(window.location.search);
 const sessionId = params.get("session");
@@ -37,14 +55,24 @@ export default function App() {
         const resp = await fetch(base);
         const req = resp.ok ? await resp.json() : {};
         let scene = {};
+        let haveDraft = false;
         try {
           const draftResp = await fetch(`${base}/draft`);
           if (draftResp.ok) {
             const d = await draftResp.json();
-            if (d && (d.elements || d.appState)) scene = d;
+            if (d && (d.elements || d.appState)) {
+              scene = d;
+              haveDraft = true;
+            }
           }
         } catch {
-          // no draft yet — start empty
+          // no draft yet — fall through to mermaid seed or blank canvas
+        }
+        // property [10]: seed from mermaid only when there is no prior draft,
+        // so draft recovery (property [6]) always takes precedence.
+        if (!haveDraft && req.mermaid) {
+          const seeded = await mermaidToScene(req.mermaid);
+          if (seeded) scene = seeded;
         }
         setInitialData(scene);
         setStatus(req.instructions ? `Task: ${req.instructions}` : `Session ${sessionId}`);

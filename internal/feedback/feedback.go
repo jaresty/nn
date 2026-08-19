@@ -44,7 +44,11 @@ type FeedbackRequest struct {
 	Instructions string   `json:"instructions"`
 	Context      []string `json:"context"`
 	Workspace    string   `json:"workspace,omitempty"`
-	Output       string   `json:"output"`
+	// Mermaid is an optional diagram source used to seed the canvas surface:
+	// the frontend converts it to editable Excalidraw elements as initialData
+	// when no prior draft exists.
+	Mermaid string `json:"mermaid,omitempty"`
+	Output  string `json:"output"`
 }
 
 // FeedbackResult is the thin envelope returned after submission. Surface-specific
