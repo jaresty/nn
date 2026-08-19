@@ -2,6 +2,7 @@ package feedback
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"encoding/json"
 	"io"
@@ -62,11 +63,18 @@ func (s *Server) Start() error {
 func (s *Server) Addr() string { return s.ln.Addr().String() }
 
 // Wait blocks until the session is submitted or cancelled, then returns the
-// outcome. After it returns, the caller may Close the server.
+// outcome. It shuts the server down gracefully so the in-flight submit/cancel
+// request that produced the outcome finishes flushing its response to the
+// client before the connection closes — an abrupt Close races that response and
+// surfaces as an EOF on the client.
 func (s *Server) Wait() Outcome {
 	o := <-s.done
 	if s.srv != nil {
-		s.srv.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := s.srv.Shutdown(ctx); err != nil {
+			s.srv.Close()
+		}
 	}
 	return o
 }
