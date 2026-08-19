@@ -8,12 +8,11 @@ import (
 	"testing"
 )
 
-// property [20]: nn show --global output must be byte-identical whether the
-// filter pass loads full bodies (List) or metadata only (ListMeta). This guards
-// the ListMeta optimization against changing behavior — in particular the
-// reminders section, which prints note bodies, and the daily render, which
-// resolves link titles from the loaded set.
-func TestShowGlobalOutputUnaffectedByMetaLoad(t *testing.T) {
+// nn show --global renders note bodies for reminders (and scans bodies for
+// todos), so its note-loading path must not drop bodies. This guards against a
+// metadata-only load optimization silently removing the reminders/todos
+// content — the regression that reverted the ListMeta experiment.
+func TestShowGlobalRendersReminderBodies(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 
 	// A reminder note (body is rendered in --global), a protocol note (filtered
@@ -23,9 +22,10 @@ func TestShowGlobalOutputUnaffectedByMetaLoad(t *testing.T) {
 			t.Fatalf("write %s: %v", name, err)
 		}
 	}
-	write("20260819000000-0001.md", "---\nid: 20260819000000-0001\ntitle: 'A reminder'\ntype: observation\nstatus: permanent\ntags:\n    - reminder\n---\n\nRemember to do the important thing.\n")
-	write("20260819000000-0002.md", "---\nid: 20260819000000-0002\ntitle: 'A global protocol'\ntype: protocol\nstatus: permanent\n---\n\nProtocol body text.\n")
-	write("20260819000000-0003.md", "---\nid: 20260819000000-0003\ntitle: 'A plain note'\ntype: observation\nstatus: draft\n---\n\nPlain body.\n")
+	// Real note filenames are <id>-<slug>.md, which findByID/Read rely on.
+	write("20260819000000-0001-a-reminder.md", "---\nid: 20260819000000-0001\ntitle: 'A reminder'\ntype: observation\nstatus: permanent\ntags:\n    - reminder\n---\n\nRemember to do the important thing.\n")
+	write("20260819000000-0002-a-global-protocol.md", "---\nid: 20260819000000-0002\ntitle: 'A global protocol'\ntype: protocol\nstatus: permanent\n---\n\nProtocol body text.\n")
+	write("20260819000000-0003-a-plain-note.md", "---\nid: 20260819000000-0003\ntitle: 'A plain note'\ntype: observation\nstatus: draft\n---\n\nPlain body.\n")
 
 	out, err := execute("show", "--global")
 	if err != nil {
@@ -33,7 +33,7 @@ func TestShowGlobalOutputUnaffectedByMetaLoad(t *testing.T) {
 	}
 
 	// The reminder body must appear in --global output — this is the body that
-	// a naive ListMeta switch would drop.
+	// a metadata-only load would drop.
 	if !strings.Contains(out, "Remember to do the important thing.") {
 		t.Fatalf("--global output missing reminder body:\n%s", out)
 	}

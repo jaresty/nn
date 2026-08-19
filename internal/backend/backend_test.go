@@ -21,7 +21,6 @@ func (m *mockBackend) Write(n *note.Note) error                              { r
 func (m *mockBackend) Read(id string) (*note.Note, error)                   { return nil, nil }
 func (m *mockBackend) Delete(id string) error                               { return nil }
 func (m *mockBackend) List() ([]*note.Note, error)                          { return nil, nil }
-func (m *mockBackend) ListMeta() ([]*note.Note, error)                      { return nil, nil }
 func (m *mockBackend) AddLink(from, to, annotation, linkType, linkStatus string) error { return nil }
 func (m *mockBackend) AddLinks(from string, targets []backend.LinkTarget) error           { return nil }
 func (m *mockBackend) RemoveLink(from, to string) error                                  { return nil }

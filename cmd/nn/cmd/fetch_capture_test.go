@@ -19,7 +19,6 @@ type stubBackend struct {
 
 func (s *stubBackend) Write(n *note.Note) error                                           { s.written = append(s.written, n); return nil }
 func (s *stubBackend) List() ([]*note.Note, error)                                        { return nil, nil }
-func (s *stubBackend) ListMeta() ([]*note.Note, error)                                    { return nil, nil }
 func (s *stubBackend) Read(id string) (*note.Note, error)                                 { return nil, nil }
 func (s *stubBackend) Delete(id string) error                                             { return nil }
 func (s *stubBackend) BulkWrite(notes []*note.Note) error                                 { return nil }

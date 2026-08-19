@@ -180,22 +180,8 @@ func (b *Backend) Delete(id string) error {
 	return b.commitDeleteLocked(path, msg)
 }
 
-// List returns all notes in the notebook directory, bodies included.
+// List returns all notes in the notebook directory.
 func (b *Backend) List() ([]*note.Note, error) {
-	return b.listWith(note.Parse)
-}
-
-// ListMeta returns all notes with metadata and links parsed but bodies dropped
-// (Note.Body == ""). Callers that only filter on frontmatter + links — such as
-// nn show --global — use this to avoid retaining every note's full body, the
-// dominant allocation in a whole-notebook load. Fetch the body via Get for the
-// specific notes whose text is rendered.
-func (b *Backend) ListMeta() ([]*note.Note, error) {
-	return b.listWith(note.ParseMeta)
-}
-
-// listWith loads every .md note in the notebook, parsing each with parse.
-func (b *Backend) listWith(parse func([]byte) (*note.Note, error)) ([]*note.Note, error) {
 	entries, err := os.ReadDir(b.dir)
 	if err != nil {
 		return nil, fmt.Errorf("gitlocal.List: %w", err)
@@ -223,7 +209,7 @@ func (b *Backend) listWith(parse func([]byte) (*note.Note, error)) ([]*note.Note
 				if rerr != nil {
 					return nil, fmt.Errorf("gitlocal.List: read %s: %w", mdNames[i], rerr)
 				}
-				n, perr := parse(data)
+				n, perr := note.Parse(data)
 				if perr != nil {
 					continue
 				}
@@ -235,7 +221,7 @@ func (b *Backend) listWith(parse func([]byte) (*note.Note, error)) ([]*note.Note
 	}
 	var notes []*note.Note
 	for _, data := range contents {
-		n, perr := parse(data)
+		n, perr := note.Parse(data)
 		if perr != nil {
 			continue
 		}
