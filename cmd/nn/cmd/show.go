@@ -375,6 +375,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("show --linked-from: list: %w", err)
 				}
+				ge := buildGovernanceEngine(all)
 				for i, lnk := range src.Links {
 					n, err := state.backend.Read(lnk.TargetID)
 					if err != nil {
@@ -383,7 +384,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 					if i > 0 {
 						fmt.Fprintln(w, "---")
 					}
-					protos := governingProtocolsFromEngine(n.ID, all)
+					protos := governedBy(ge, n.ID)
 					if len(protos) > 0 {
 						fmt.Fprintf(w, "governing protocols:\n")
 						for _, p := range protos {
@@ -408,6 +409,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("show: list: %w", err)
 			}
+			ge := buildGovernanceEngine(all)
 
 			for i, query := range args {
 				if i > 0 {
@@ -422,7 +424,7 @@ func newShowCmd(state *rootState) *cobra.Command {
 					return fmt.Errorf("show: %w", err)
 				}
 				appendAccessLog(resolveCfgDir(), n.ID)
-				protos := governingProtocolsFromEngine(n.ID, all)
+				protos := governedBy(ge, n.ID)
 
 				if jsonOut {
 					type protoRef struct {
@@ -596,7 +598,20 @@ func appendAccessLog(cfgDir, id string) {
 // derived from the engine's governs_note predicate (direct + whole-tree
 // representation + refines/extends specialization). This is the single source of
 // truth for governance, replacing the ad-hoc findGoverningProtocols traversal.
-func governingProtocolsFromEngine(targetID string, all []*note.Note) []*note.Note {
+// governanceEngine bundles a saturated rules engine with the note lookup its
+// governs_note facts resolve against. Build it once per command with
+// buildGovernanceEngine, then query per note with governedBy — the datalog
+// fixpoint (which for representation subgraphs runs a transitive closure over
+// all facts) must not be re-evaluated per shown note.
+type governanceEngine struct {
+	engine *rules.Engine
+	byID   map[string]*note.Note
+}
+
+// buildGovernanceEngine loads facts + builtin rules and evaluates the fixpoint
+// once. Returns nil on parse/eval failure (callers treat nil as "no governance
+// derivable", matching the prior per-call error behavior).
+func buildGovernanceEngine(all []*note.Note) *governanceEngine {
 	byID := make(map[string]*note.Note, len(all))
 	for _, n := range all {
 		byID[n.ID] = n
@@ -613,15 +628,32 @@ func governingProtocolsFromEngine(targetID string, all []*note.Note) []*note.Not
 	if err := e.Eval(); err != nil {
 		return nil
 	}
+	return &governanceEngine{engine: e, byID: byID}
+}
+
+// governingProtocolsFromEngine builds a governance engine and queries it for a
+// single note. Prefer buildGovernanceEngine + governedBy when resolving several
+// notes so the fixpoint is evaluated once; this one-shot form remains for
+// callers (and tests) that resolve a single note against a bespoke note set.
+func governingProtocolsFromEngine(targetID string, all []*note.Note) []*note.Note {
+	return governedBy(buildGovernanceEngine(all), targetID)
+}
+
+// governedBy returns the protocol notes that govern targetID, querying the
+// already-saturated engine (no re-evaluation). A nil ge yields no protocols.
+func governedBy(ge *governanceEngine, targetID string) []*note.Note {
+	if ge == nil {
+		return nil
+	}
 	seen := make(map[string]bool)
 	var result []*note.Note
-	for _, f := range e.Query("governs_note") {
+	for _, f := range ge.engine.Query("governs_note") {
 		if len(f.Args) >= 2 && f.Args[1] == targetID {
 			pID := f.Args[0]
 			if seen[pID] {
 				continue
 			}
-			if p := byID[pID]; p != nil {
+			if p := ge.byID[pID]; p != nil {
 				seen[pID] = true
 				result = append(result, p)
 			}

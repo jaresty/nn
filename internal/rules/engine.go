@@ -75,7 +75,13 @@ type Engine struct {
 	// produced: the rule that fired and the premise fact keys it consumed. Base
 	// facts (added via AddFact) are absent from this map.
 	deriv map[string]derivation
+	// evalCount counts completed Eval() calls, so callers can verify the
+	// fixpoint runs once per command rather than once per queried note.
+	evalCount int
 }
+
+// EvalCount reports how many times Eval has completed on this engine.
+func (e *Engine) EvalCount() int { return e.evalCount }
 
 // derivation is one witness of how a derived fact was produced.
 type derivation struct {
@@ -132,6 +138,7 @@ func (e *Engine) Eval() error {
 	for {
 		e.fixpoint()
 		if !e.evalAggregates() {
+			e.evalCount++
 			return nil
 		}
 	}
