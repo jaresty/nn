@@ -7,12 +7,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jaresty/nn/internal/feedback"
 	"github.com/jaresty/nn/internal/note"
 )
+
+// feedbackRetention is how long a completed feedback session directory is kept
+// before nn ask reclaims it on its next run. Mirrors the daily-note expiry.
+const feedbackRetention = 7 * 24 * time.Hour
 
 // askOptions configures a runAsk invocation. open and runPlannotator are
 // injected so tests can drive a session without launching a real surface.
@@ -71,6 +76,11 @@ func runAsk(opts askOptions) (askSession, error) {
 	if opts.out == nil {
 		opts.out = io.Discard
 	}
+
+	// Reclaim aged session directories before starting a new one. Sessions are
+	// ephemeral scratch — the durable artifact is whatever the agent persisted
+	// from a result — so this is safe and best-effort (errors are ignored).
+	_ = feedback.CleanupSessions(feedback.FeedbackRoot(), feedbackRetention)
 
 	id := note.GenerateID()
 	dir := feedback.SessionDir(id)
