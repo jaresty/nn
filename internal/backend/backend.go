@@ -30,6 +30,9 @@ type Backend interface {
 	Read(id string) (*note.Note, error)
 	Delete(id string) error
 	List() ([]*note.Note, error)
+	// ListMeta returns all notes with metadata + links parsed but bodies
+	// dropped (Note.Body == ""), for callers that only filter on metadata.
+	ListMeta() ([]*note.Note, error)
 	AddLink(fromID, toID, annotation, linkType, linkStatus string) error
 	AddLinks(fromID string, targets []LinkTarget) error
 	RemoveLink(fromID, toID string) error

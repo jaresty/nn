@@ -263,6 +263,57 @@ func Parse(data []byte) (*Note, error) {
 	}, nil
 }
 
+// ParseMeta is like Parse but discards the body prose: it parses frontmatter
+// and the ## Links section, and returns a Note whose Body is empty. Callers
+// that only filter on metadata + links (e.g. nn show --global) use this to
+// avoid retaining every note's full body — the dominant allocation in a
+// whole-notebook load. Fetch the body via a full Parse only for the notes whose
+// text is actually rendered.
+func ParseMeta(data []byte) (*Note, error) {
+	fm, body, err := splitFrontmatter(data)
+	if err != nil {
+		return nil, fmt.Errorf("note.ParseMeta: frontmatter: %w", err)
+	}
+	var raw frontmatterYAML
+	if err := yaml.Unmarshal(fm, &raw); err != nil {
+		return nil, fmt.Errorf("note.ParseMeta: yaml: %w", err)
+	}
+	if raw.Type == "" {
+		return nil, fmt.Errorf("note.ParseMeta: type field is required")
+	}
+	noteType := Type(raw.Type)
+	if !noteType.IsValid() {
+		return nil, fmt.Errorf("note.ParseMeta: invalid type %q", raw.Type)
+	}
+	noteStatus := Status(raw.Status)
+	if raw.Status != "" && !noteStatus.IsValid() {
+		return nil, fmt.Errorf("note.ParseMeta: invalid status %q", raw.Status)
+	}
+	if raw.Status == "" {
+		noteStatus = StatusDraft
+	}
+	// property [19b]: parse links only; do not materialize the body prose.
+	links, err := parseLinksOnly(body)
+	if err != nil {
+		return nil, fmt.Errorf("note.ParseMeta: links: %w", err)
+	}
+	return &Note{
+		ID:             raw.ID,
+		Title:          raw.Title,
+		Type:           noteType,
+		Status:         noteStatus,
+		Tags:           raw.Tags,
+		AppliesWhen:    raw.AppliesWhen,
+		Representation: raw.Representation,
+		ExpiresWhen:    raw.ExpiresWhen,
+		Expires:        raw.Expires,
+		Created:        raw.Created,
+		Modified:       raw.Modified,
+		Body:           "",
+		Links:          links,
+	}, nil
+}
+
 // splitFrontmatter separates the YAML frontmatter (between --- markers) from the body.
 func splitFrontmatter(data []byte) (fm []byte, body []byte, err error) {
 	const sep = "---"
@@ -281,6 +332,40 @@ func splitFrontmatter(data []byte) (fm []byte, body []byte, err error) {
 	// Strip optional newline after closing ---
 	bodyStr = strings.TrimPrefix(bodyStr, "\n")
 	return []byte(fmStr), []byte(bodyStr), nil
+}
+
+// parseLinksOnly extracts the ## Links section without materializing the body
+// prose, so metadata-only loads (ParseMeta) skip the largest per-note
+// allocation. It mirrors parseBody's link parsing exactly, including the bare-
+// link error, so ParseMeta and Parse agree on links and validity.
+func parseLinksOnly(data []byte) ([]Link, error) {
+	const linkSection = "\n## Links\n"
+	s := string(data)
+	idx := strings.Index(s, linkSection)
+	if idx == -1 {
+		return nil, nil
+	}
+	linksPart := s[idx+len(linkSection):]
+	var links []Link
+	for _, line := range strings.Split(linksPart, "\n") {
+		line = strings.TrimRight(line, "\r")
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		if m := linkLineRE.FindStringSubmatch(line); m != nil {
+			links = append(links, Link{
+				TargetID:   m[1],
+				Type:       m[2],
+				Status:     m[3],
+				Annotation: strings.TrimSpace(m[4]),
+			})
+			continue
+		}
+		if bareLinkRE.MatchString(line) {
+			return nil, fmt.Errorf("bare link without annotation: %q", line)
+		}
+	}
+	return links, nil
 }
 
 // parseBody splits the body into content text and ## Links section.
