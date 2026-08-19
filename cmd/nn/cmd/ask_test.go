@@ -2,11 +2,15 @@ package cmd
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"net/http"
 	neturl "net/url"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jaresty/nn/internal/feedback"
 )
 
 func TestAskCommandRegistered(t *testing.T) {
@@ -16,6 +20,52 @@ func TestAskCommandRegistered(t *testing.T) {
 	}
 	if cmd.Flags().Lookup("surface") == nil {
 		t.Fatalf("expected --surface flag to be registered")
+	}
+}
+
+// property [11a] + [11b]: CLI flags for mermaid and instructions flow into the
+// prepared request.json before the surface launches.
+func TestRunAskSeedsRequestFromFlags(t *testing.T) {
+	t.Setenv("NN_CONFIG_DIR", t.TempDir())
+
+	// The hook stands in for the browser: the request is already on disk when
+	// it fires, so assert the seeded fields there, then drive submit so
+	// runAsk's Wait() returns instead of blocking forever.
+	var seededErr error
+	hook := func(url string) error {
+		u, _ := neturl.Parse(url)
+		id := u.Query().Get("session")
+		req, err := feedback.ReadRequest(feedback.SessionDir(id))
+		if err != nil {
+			seededErr = err
+			return err
+		}
+		if req.Mermaid != "graph TD; A-->B" {
+			seededErr = fmt.Errorf("request Mermaid = %q, want seeded value", req.Mermaid)
+		}
+		if req.Instructions != "edit the flow" {
+			seededErr = fmt.Errorf("request Instructions = %q, want seeded value", req.Instructions)
+		}
+		base := u.Scheme + "://" + u.Host
+		resp, err := http.Post(base+"/session/"+id+"/submit", "application/json", nil)
+		if err != nil {
+			return err
+		}
+		resp.Body.Close()
+		return nil
+	}
+
+	if _, err := runAsk(askOptions{
+		surface:      "canvas",
+		mermaid:      "graph TD; A-->B",
+		instructions: "edit the flow",
+		open:         hook,
+		out:          io.Discard,
+	}); err != nil {
+		t.Fatalf("runAsk: %v", err)
+	}
+	if seededErr != nil {
+		t.Fatal(seededErr)
 	}
 }
 

@@ -16,9 +16,11 @@ import (
 // askOptions configures a runAsk invocation. open is injected so tests can
 // drive the session without launching a real browser.
 type askOptions struct {
-	surface string
-	open    func(url string) error
-	out     io.Writer
+	surface      string
+	mermaid      string
+	instructions string
+	open         func(url string) error
+	out          io.Writer
 }
 
 // askSession identifies a completed feedback session.
@@ -28,7 +30,7 @@ type askSession struct {
 }
 
 func newAskCmd(state *rootState) *cobra.Command {
-	var surface string
+	var surface, mermaid, instructions string
 
 	cmd := &cobra.Command{
 		Use:   "ask",
@@ -36,14 +38,18 @@ func newAskCmd(state *rootState) *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, err := runAsk(askOptions{
-				surface: surface,
-				open:    openBrowser,
-				out:     cmd.OutOrStdout(),
+				surface:      surface,
+				mermaid:      mermaid,
+				instructions: instructions,
+				open:         openBrowser,
+				out:          cmd.OutOrStdout(),
 			})
 			return err
 		},
 	}
 	cmd.Flags().StringVar(&surface, "surface", "canvas", "Feedback surface (canvas, document, web)")
+	cmd.Flags().StringVar(&instructions, "instructions", "", "Instructions shown to the human on the surface")
+	cmd.Flags().StringVar(&mermaid, "mermaid", "", "Mermaid diagram source to seed the canvas (converted to editable elements)")
 	return cmd
 }
 
@@ -63,9 +69,11 @@ func runAsk(opts askOptions) (askSession, error) {
 	sess := askSession{id: id, dir: dir}
 
 	req := feedback.FeedbackRequest{
-		ID:      id,
-		Surface: opts.surface,
-		Mode:    "create",
+		ID:           id,
+		Surface:      opts.surface,
+		Mode:         "create",
+		Instructions: opts.instructions,
+		Mermaid:      opts.mermaid,
 	}
 	// property [2]: request must be on disk before the surface opens.
 	if err := feedback.WriteRequest(dir, req); err != nil {
