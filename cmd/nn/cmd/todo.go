@@ -132,11 +132,9 @@ func newTodoCmd(state *rootState) *cobra.Command {
 	return cmd
 }
 
-// blockedSet returns the set of note IDs that are blocked by an unfinished task
-// dependency, derived from the engine's transitive `blocked` predicate (X is
-// blocked if it requires a not-done target, or a target that is itself blocked).
-// It is gated: if the notebook has no `requires` edges, no engine evaluation runs
-// and the empty set is returned, keeping the common (no-dependency) case fast.
+// blockedSet returns the least fixed point of the builtin blocked predicate.
+// Predicate-directed evaluation keeps the rules engine authoritative while
+// excluding unrelated closures such as reachable and representation validation.
 func blockedSet(notes []*note.Note) map[string]bool {
 	hasRequires := false
 	for _, n := range notes {
@@ -164,11 +162,11 @@ func blockedSet(notes []*note.Note) map[string]bool {
 		return blocked
 	}
 	e.AddRules(builtin)
-	if err := e.Eval(); err != nil {
+	if err := e.EvalFor("blocked"); err != nil {
 		return blocked
 	}
 	for _, f := range e.Query("blocked") {
-		if len(f.Args) >= 1 {
+		if len(f.Args) > 0 {
 			blocked[f.Args[0]] = true
 		}
 	}

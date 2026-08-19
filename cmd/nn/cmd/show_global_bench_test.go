@@ -165,3 +165,31 @@ backend = "gitlocal"
 		})
 	}
 }
+
+// BenchmarkShowGlobalLive measures the production command path against the
+// notebook selected by the caller's normal nn configuration. It is opt-in to
+// keep tests hermetic and to avoid reading a developer's notebook in CI.
+//
+// Run benchmark + allocations:
+//
+//	NN_BENCH_LIVE=1 go test ./cmd/nn/cmd -run '^$' -bench '^BenchmarkShowGlobalLive$' -benchmem
+//
+// Run CPU + heap profiles:
+//
+//	NN_BENCH_LIVE=1 go test ./cmd/nn/cmd -run '^$' -bench '^BenchmarkShowGlobalLive$' -benchtime=1x -cpuprofile cpu.out -memprofile mem.out
+func BenchmarkShowGlobalLive(b *testing.B) {
+	if os.Getenv("NN_BENCH_LIVE") != "1" {
+		b.Skip("set NN_BENCH_LIVE=1 to benchmark the configured live notebook")
+	}
+
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		root := NewRootCmdForTest("")
+		root.SetOut(io.Discard)
+		root.SetErr(io.Discard)
+		root.SetArgs([]string{"show", "--global"})
+		if err := root.Execute(); err != nil {
+			b.Fatalf("show --global against live notebook: %v", err)
+		}
+	}
+}

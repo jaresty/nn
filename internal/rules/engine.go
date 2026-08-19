@@ -122,33 +122,85 @@ func (e *Engine) Query(pred string) []Fact {
 	return out
 }
 
-// Eval validates safety and stratification, then runs the least-fixpoint
-// computation. It returns an error if a rule is unsafe (a comparison operand is
-// never bound by a positive literal) or the ruleset is not stratifiable.
-func (e *Engine) Eval() error {
-	if err := checkSafe(e.rules); err != nil {
+// Eval validates and evaluates the complete ruleset.
+func (e *Engine) Eval() error { return e.evalRules(e.rules) }
+
+// EvalFor evaluates only rules in the transitive dependency closure of the
+// requested predicates. Dependencies include positive, negated, recursive, and
+// aggregate source predicates. Base predicates need no deriving rule.
+func (e *Engine) EvalFor(predicates ...string) error {
+	return e.evalRules(dependencyRules(e.rules, predicates))
+}
+
+func dependencyRules(all []Rule, predicates []string) []Rule {
+	byHead := make(map[string][]int)
+	for i, r := range all {
+		byHead[r.Head.Pred] = append(byHead[r.Head.Pred], i)
+	}
+
+	neededPred := make(map[string]bool)
+	neededRule := make(map[int]bool)
+	queue := append([]string(nil), predicates...)
+	for len(queue) > 0 {
+		pred := queue[0]
+		queue = queue[1:]
+		if neededPred[pred] {
+			continue
+		}
+		neededPred[pred] = true
+		for _, idx := range byHead[pred] {
+			if neededRule[idx] {
+				continue
+			}
+			neededRule[idx] = true
+			r := all[idx]
+			if r.Agg != nil {
+				queue = append(queue, r.Agg.source.Pred)
+				continue
+			}
+			for _, lit := range r.Body {
+				if !isComparison(lit.Pred) {
+					queue = append(queue, lit.Pred)
+				}
+			}
+		}
+	}
+
+	selected := make([]Rule, 0, len(neededRule))
+	for i, r := range all {
+		if neededRule[i] {
+			selected = append(selected, r)
+		}
+	}
+	return selected
+}
+
+// evalRules validates safety and stratification, then computes the least
+// fixpoint for exactly the supplied rules.
+func (e *Engine) evalRules(selected []Rule) error {
+	if err := checkSafe(selected); err != nil {
 		return err
 	}
-	if err := checkStratified(e.rules); err != nil {
+	if err := checkStratified(selected); err != nil {
 		return err
 	}
 	// Interleave ordinary fixpoint and aggregate evaluation until neither adds a
 	// fact. Aggregates read the completed source relation each round; downstream
 	// rules then see the aggregate's output on the next fixpoint pass.
 	for {
-		e.fixpoint()
-		if !e.evalAggregates() {
+		e.fixpoint(selected)
+		if !e.evalAggregates(selected) {
 			e.evalCount++
 			return nil
 		}
 	}
 }
 
-// evalAggregates runs every aggregate rule against the current facts, emitting
-// count facts. It returns whether any new fact was added.
-func (e *Engine) evalAggregates() bool {
+// evalAggregates runs selected aggregate rules against the current facts. It
+// returns whether any new fact was added.
+func (e *Engine) evalAggregates(selected []Rule) bool {
 	added := false
-	for _, r := range e.rules {
+	for _, r := range selected {
 		if r.Agg == nil {
 			continue
 		}
@@ -335,7 +387,7 @@ func positivePredIdxs(body []Atom) (idxs []int, hasNeg bool) {
 // the negated relation being saturated, which the outer convergence loop
 // guarantees but a delta round does not. Both paths compute the same least
 // fixpoint; only redundant re-derivation is eliminated.
-func (e *Engine) fixpoint() {
+func (e *Engine) fixpoint(selected []Rule) {
 	// Round 0: evaluate every rule fully. Seed the next delta with everything
 	// added here (plus the base facts, so first-round consumers of base facts
 	// via delta rounds still see them).
@@ -343,11 +395,11 @@ func (e *Engine) fixpoint() {
 	for pred, fs := range e.byPred {
 		delta[pred] = append([]Fact(nil), fs...)
 	}
-	e.applyRules(e.rules, func(r Rule) []bindings { return e.evalBody(r.Body) }, &delta)
+	e.applyRules(selected, func(r Rule) []bindings { return e.evalBody(r.Body) }, &delta)
 
 	for len(delta) > 0 {
 		next := map[string][]Fact{}
-		for _, r := range e.rules {
+		for _, r := range selected {
 			if r.Agg != nil {
 				continue
 			}
