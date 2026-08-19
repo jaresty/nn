@@ -1,6 +1,8 @@
 package feedback
 
 import (
+	"bytes"
+	"embed"
 	"encoding/json"
 	"io"
 	"net"
@@ -8,7 +10,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+// webFS holds the static feedback-surface bundle served at GET / and asset
+// paths. The bundle is a placeholder now; a later phase replaces web/ with the
+// built Excalidraw React output.
+//
+//go:embed web
+var webFS embed.FS
 
 // Outcome is the terminal result of a feedback session's blocking Wait.
 type Outcome string
@@ -42,6 +52,7 @@ func (s *Server) Start() error {
 	s.ln = ln
 	mux := http.NewServeMux()
 	mux.HandleFunc("/session/", s.handleSession)
+	mux.HandleFunc("/", s.handleStatic)
 	s.srv = &http.Server{Handler: mux}
 	go s.srv.Serve(ln)
 	return nil
@@ -89,6 +100,25 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// handleStatic serves the embedded feedback-surface bundle. GET / maps to
+// index.html; any other path maps to the correspondingly named embedded file.
+func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+	name := strings.TrimPrefix(r.URL.Path, "/")
+	if name == "" {
+		name = "index.html"
+	}
+	body, err := webFS.ReadFile("web/" + name)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeContent(w, r, name, time.Time{}, bytes.NewReader(body))
 }
 
 func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
