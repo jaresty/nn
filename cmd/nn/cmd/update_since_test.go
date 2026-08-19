@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -34,6 +35,42 @@ func TestUpdateSinceMatch(t *testing.T) {
 	_, err := execute("update", n.ID, "--title", "New Title", "--since", since, "--no-edit")
 	if err != nil {
 		t.Fatalf("expected success when --since matches modified, got: %v", err)
+	}
+}
+
+// property [30]+[31]: the modified timestamp emitted by nn show --json carries
+// full subsecond precision, so a caller can read it and pass it straight to
+// nn update --since on an unchanged note without a spurious "modified since"
+// rejection. Regression guard for JSON truncating modified to whole seconds.
+func TestUpdateSinceFromShowJSONRoundTrips(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "Precision Note", note.TypeConcept)
+	// A modified time with sub-second precision — the case the bug hit.
+	n.Modified = time.Date(2026, 8, 19, 20, 8, 10, 437216000, time.UTC)
+	writeNoteFile(t, nbDir, n)
+
+	out, err := execute("show", n.ID, "--json")
+	if err != nil {
+		t.Fatalf("show --json: %v", err)
+	}
+	var shown struct {
+		Modified string `json:"modified"`
+	}
+	if jerr := json.Unmarshal([]byte(out), &shown); jerr != nil {
+		t.Fatalf("unmarshal show json: %v (out=%s)", jerr, out)
+	}
+	// property [30]: the JSON modified must equal the stored instant to the ns.
+	got, perr := time.Parse(time.RFC3339Nano, shown.Modified)
+	if perr != nil {
+		t.Fatalf("parse json modified %q: %v", shown.Modified, perr)
+	}
+	if !got.Equal(n.Modified) {
+		t.Fatalf("json modified = %q (%v), want %v — precision lost", shown.Modified, got, n.Modified)
+	}
+
+	// property [31]: passing that value to --since on an unchanged note succeeds.
+	if _, uerr := execute("update", n.ID, "--title", "Renamed", "--since", shown.Modified, "--no-edit"); uerr != nil {
+		t.Fatalf("update --since from show --json rejected on unchanged note: %v", uerr)
 	}
 }
 

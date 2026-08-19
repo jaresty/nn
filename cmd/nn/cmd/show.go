@@ -455,8 +455,8 @@ func newShowCmd(state *rootState) *cobra.Command {
 						Type:               string(n.Type),
 						Status:             string(n.Status),
 						Tags:               n.Tags,
-						Created:            n.Created.UTC().Format("2006-01-02T15:04:05Z"),
-						Modified:           n.Modified.UTC().Format("2006-01-02T15:04:05Z"),
+						Created:            n.Created.UTC().Format(time.RFC3339Nano),
+						Modified:           n.Modified.UTC().Format(time.RFC3339Nano),
 						Body:               n.Body,
 						GoverningProtocols: refs,
 					}

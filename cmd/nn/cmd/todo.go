@@ -290,7 +290,7 @@ func newTodoSetCmd(state *rootState) *cobra.Command {
 			if err := state.backend.Update(n, &sinceTs); err != nil {
 				return fmt.Errorf("todo set: %w", err)
 			}
-			fmt.Fprintf(outWriter(cmd), "updated %s\nmodified: %s\n", n.ID, n.Modified.Format(time.RFC3339))
+			fmt.Fprintf(outWriter(cmd), "updated %s\nmodified: %s\n", n.ID, n.Modified.Format(time.RFC3339Nano))
 			return nil
 		},
 	}
@@ -456,6 +456,6 @@ func flipCheckboxes(cmd *cobra.Command, state *rootState, id string, patterns []
 	if err := state.backend.Update(n, &sinceTs); err != nil {
 		return fmt.Errorf("todo: %w", err)
 	}
-	fmt.Fprintf(outWriter(cmd), "updated %s\nmodified: %s\n", n.ID, n.Modified.Format(time.RFC3339))
+	fmt.Fprintf(outWriter(cmd), "updated %s\nmodified: %s\n", n.ID, n.Modified.Format(time.RFC3339Nano))
 	return nil
 }

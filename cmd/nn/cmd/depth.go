@@ -66,8 +66,8 @@ func printDepthJSON(w io.Writer, entries []depthEntry) error {
 			Type:     string(e.n.Type),
 			Status:   string(e.n.Status),
 			Tags:     tags,
-			Created:  e.n.Created.UTC().Format(time.RFC3339),
-			Modified: e.n.Modified.UTC().Format(time.RFC3339),
+			Created:  e.n.Created.UTC().Format(time.RFC3339Nano),
+			Modified: e.n.Modified.UTC().Format(time.RFC3339Nano),
 			Body:     e.n.Body,
 			Depth:    e.level,
 		}
