@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -13,13 +14,15 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
-// askOptions configures a runAsk invocation. open is injected so tests can
-// drive the session without launching a real browser.
+// askOptions configures a runAsk invocation. open and runPlannotator are
+// injected so tests can drive a session without launching a real surface.
 type askOptions struct {
 	surface      string
 	mermaid      string
 	instructions string
+	document     string // for --surface document: file or folder to annotate
 	open         func(url string) error
+	runPlannotator func(argv []string) error
 	out          io.Writer
 }
 
@@ -30,7 +33,7 @@ type askSession struct {
 }
 
 func newAskCmd(state *rootState) *cobra.Command {
-	var surface, mermaid, instructions string
+	var surface, mermaid, instructions, document string
 
 	cmd := &cobra.Command{
 		Use:   "ask",
@@ -41,6 +44,7 @@ func newAskCmd(state *rootState) *cobra.Command {
 				surface:      surface,
 				mermaid:      mermaid,
 				instructions: instructions,
+				document:     document,
 				open:         openBrowser,
 				out:          cmd.OutOrStdout(),
 			})
@@ -50,6 +54,7 @@ func newAskCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&surface, "surface", "canvas", "Feedback surface (canvas, document, web)")
 	cmd.Flags().StringVar(&instructions, "instructions", "", "Instructions shown to the human on the surface")
 	cmd.Flags().StringVar(&mermaid, "mermaid", "", "Mermaid diagram source to seed the canvas (converted to editable elements)")
+	cmd.Flags().StringVar(&document, "document", "", "For --surface document: file or folder to annotate (defaults to a session file from --instructions)")
 	return cmd
 }
 
@@ -59,6 +64,9 @@ func newAskCmd(state *rootState) *cobra.Command {
 func runAsk(opts askOptions) (askSession, error) {
 	if opts.open == nil {
 		opts.open = openBrowser
+	}
+	if opts.runPlannotator == nil {
+		opts.runPlannotator = runPlannotator
 	}
 	if opts.out == nil {
 		opts.out = io.Discard
@@ -78,6 +86,17 @@ func runAsk(opts askOptions) (askSession, error) {
 	// property [2]: request must be on disk before the surface opens.
 	if err := feedback.WriteRequest(dir, req); err != nil {
 		return sess, err
+	}
+
+	// property [15a]/[15b]: the document surface is a delegated adapter — it
+	// invokes the plannotator peer rather than hosting a server.
+	if opts.surface == "document" {
+		if err := runDocumentSurface(opts, dir, id); err != nil {
+			return sess, err
+		}
+		resultPath := filepath.Join(dir, "result.json")
+		fmt.Fprintf(opts.out, "Feedback collected.\nResult: %s\n", resultPath)
+		return sess, nil
 	}
 
 	srv, err := feedback.NewServer(id, dir)
@@ -101,6 +120,51 @@ func runAsk(opts askOptions) (askSession, error) {
 	resultPath := filepath.Join(dir, "result.json")
 	fmt.Fprintf(opts.out, "Feedback collected.\nResult: %s\n", resultPath)
 	return sess, nil
+}
+
+// runDocumentSurface is the delegated adapter for --surface document. It hands
+// a document (file or folder) to the plannotator peer on the contract "path in
+// -> result path out -> exit", then records a thin envelope naming the native
+// plannotator decision file. nn does not parse plannotator's JSON — the agent
+// reads it (ADR-0020).
+func runDocumentSurface(opts askOptions, dir, id string) error {
+	// property [16a'-i]/[16a'-ii]: annotate the supplied --document path when
+	// given, otherwise write the instructions to a session file and annotate it.
+	contentPath := opts.document
+	if contentPath == "" {
+		contentPath = filepath.Join(dir, "document.md")
+		if err := os.WriteFile(contentPath, []byte(opts.instructions+"\n"), 0o644); err != nil {
+			return err
+		}
+	}
+
+	resultFile := filepath.Join(dir, "result.plannotator.json")
+	// property [16b]: request path in, --result-file out, then exit.
+	argv := []string{"annotate", contentPath, "--gate", "--json", "--result-file", resultFile}
+	if err := opts.runPlannotator(argv); err != nil {
+		return err
+	}
+
+	// property [17a]/[17b]: normalize under the thin envelope.
+	result := feedback.FeedbackResult{
+		ID:      id,
+		Surface: "document",
+		Status:  string(feedback.OutcomeSubmitted),
+		Artifacts: []feedback.Artifact{
+			{Format: "plannotator-decision", Path: "result.plannotator.json"},
+		},
+	}
+	return feedback.WriteResult(dir, result)
+}
+
+// runPlannotator invokes the plannotator binary with argv, wiring stdio through
+// so the human interacts with its UI.
+func runPlannotator(argv []string) error {
+	cmd := exec.Command("plannotator", argv...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 // openBrowser opens url in the user's default browser.
