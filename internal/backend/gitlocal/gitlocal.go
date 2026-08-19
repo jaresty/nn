@@ -69,6 +69,25 @@ func atomicWriteFile(path string, data []byte) error {
 	return os.Rename(tmpName, path)
 }
 
+// exclusiveWriteFile creates path with O_EXCL so it fails (os.IsExist) rather
+// than overwriting an existing file. New-note writes use this so two processes
+// generating the same timestamp-based ID in the same second cannot silently
+// clobber each other — the loser retries with a fresh ID. Unlike atomicWriteFile
+// (temp+rename, used for updates that legitimately overwrite), this is a
+// create-only primitive.
+func exclusiveWriteFile(path string, data []byte) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	if _, werr := f.Write(data); werr != nil {
+		f.Close()
+		os.Remove(path)
+		return werr
+	}
+	return f.Close()
+}
+
 // Backend stores notes as Markdown files in a Git-backed directory.
 // mu serialises add+commit pairs so concurrent goroutines in the same process
 // do not interleave staging. Cross-process isolation is handled by the commit queue.
@@ -123,13 +142,26 @@ func (b *Backend) Write(n *note.Note) error {
 		}
 		n.ID = note.GenerateID()
 	}
-	data, err := n.Marshal()
-	if err != nil {
-		return fmt.Errorf("gitlocal.Write: %w", err)
-	}
-	path := filepath.Join(b.dir, n.Filename())
-	if err := atomicWriteFile(path, data); err != nil {
-		return fmt.Errorf("gitlocal.Write: %w", err)
+	// Create the file exclusively. If another process wrote the same path
+	// between our findByID check and now (same-second colliding ID, a TOCTOU
+	// window findByID cannot close), O_EXCL fails with IsExist — regenerate the
+	// ID and retry rather than silently overwriting the other note.
+	var path string
+	for attempts := 0; ; attempts++ {
+		data, err := n.Marshal()
+		if err != nil {
+			return fmt.Errorf("gitlocal.Write: %w", err)
+		}
+		path = filepath.Join(b.dir, n.Filename())
+		werr := exclusiveWriteFile(path, data)
+		if werr == nil {
+			break
+		}
+		if os.IsExist(werr) && attempts < 100 {
+			n.ID = note.GenerateID()
+			continue
+		}
+		return fmt.Errorf("gitlocal.Write: %w", werr)
 	}
 	msg := fmt.Sprintf("note: create %s — %s", n.ID, n.Title)
 	return b.commitLocked(path, msg)
