@@ -59,7 +59,7 @@ func newAskCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&surface, "surface", "canvas", "Feedback surface (canvas, document, web)")
 	cmd.Flags().StringVar(&instructions, "instructions", "", "Instructions shown to the human on the surface")
 	cmd.Flags().StringVar(&mermaid, "mermaid", "", "Mermaid diagram source to seed the canvas (converted to editable elements)")
-	cmd.Flags().StringVar(&document, "document", "", "For --surface document: file or folder to annotate (defaults to a session file from --instructions)")
+	cmd.Flags().StringVar(&document, "document", "", "For --surface document: file, folder, or URL to annotate (defaults to a session file from --instructions)")
 	return cmd
 }
 
@@ -133,10 +133,10 @@ func runAsk(opts askOptions) (askSession, error) {
 }
 
 // runDocumentSurface is the delegated adapter for --surface document. It hands
-// a document (file or folder) to the plannotator peer on the contract "path in
-// -> result path out -> exit", then records a thin envelope naming the native
-// plannotator decision file. nn does not parse plannotator's JSON — the agent
-// reads it (ADR-0020).
+// a document (file, folder, or URL) to the plannotator peer on the contract
+// "path in -> result path out -> exit", then records a thin envelope naming the
+// native plannotator decision file. nn does not parse plannotator's JSON — the
+// agent reads it (ADR-0020).
 func runDocumentSurface(opts askOptions, dir, id string) error {
 	// property [16a'-i]/[16a'-ii]: annotate the supplied --document path when
 	// given, otherwise write the instructions to a session file and annotate it.

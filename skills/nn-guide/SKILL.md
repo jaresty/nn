@@ -945,7 +945,7 @@ Session directories are **ephemeral scratch**: each `nn ask` run reclaims sessio
 
 **Surfaces:**
 - `--surface canvas` (default, *hosted*) — an embedded Excalidraw diagram editor. `--mermaid "<diagram>"` seeds the canvas with an editable diagram (converted from Mermaid); the human edits it and clicks Done. Writes `result.excalidraw` (scene) + `result.png` (image).
-- `--surface document` (*delegated*) — hands the document to the `plannotator` peer for text/markdown annotation. Annotates `--document <file|folder>` when given, otherwise the `--instructions` text. Writes `result.plannotator.json`, a `{ "decision": "approved|annotated|dismissed", "feedback": "..." }` object you read to get the human's annotations.
+- `--surface document` (*delegated*) — hands the document to the `plannotator` peer for text/markdown annotation. Annotates `--document <file|folder|url>` when given (a `https://` URL is passed straight through — plannotator fetches it), otherwise the `--instructions` text. Writes `result.plannotator.json`, a `{ "decision": "approved|annotated|dismissed", "feedback": "..." }` object you read to get the human's annotations.
 
 **Flags:**
 - `--surface` — which surface to route to (default `canvas`)

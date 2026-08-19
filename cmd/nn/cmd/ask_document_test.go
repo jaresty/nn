@@ -144,6 +144,50 @@ func TestAskDocumentUsesDocumentFlagWhenGiven(t *testing.T) {
 	}
 }
 
+// property [28]: a URL passed to --document is handed to plannotator's annotate
+// argument verbatim (plannotator accepts file, folder, or https:// URL).
+func TestAskDocumentPassesURLThrough(t *testing.T) {
+	t.Setenv("NN_CONFIG_DIR", t.TempDir())
+
+	const url = "https://example.com/spec.html"
+	var argv []string
+	opts := askOptions{
+		surface:  "document",
+		document: url,
+		open:     func(string) error { return nil },
+		out:      io.Discard,
+	}
+	opts.runPlannotator = func(a []string) error {
+		argv = a
+		for i, x := range a {
+			if x == "--result-file" && i+1 < len(a) {
+				os.WriteFile(a[i+1], []byte(`{}`), 0o644)
+			}
+		}
+		return nil
+	}
+	sess, err := runAsk(opts)
+	if err != nil {
+		t.Fatalf("runAsk: %v", err)
+	}
+	if argv[0] != "annotate" || argv[1] != url {
+		t.Fatalf("argv %v: want annotate %q verbatim", argv, url)
+	}
+	// A URL must not be written as a session file.
+	if _, err := os.Stat(filepath.Join(sess.dir, "document.md")); err == nil {
+		t.Fatalf("session document.md written for a URL")
+	}
+}
+
+// property [29]: the --document flag help names URL as an accepted input.
+func TestAskDocumentFlagHelpMentionsURL(t *testing.T) {
+	cmd := newAskCmd(&rootState{})
+	usage := cmd.Flags().Lookup("document").Usage
+	if !strings.Contains(strings.ToLower(usage), "url") {
+		t.Fatalf("--document usage %q does not mention URL", usage)
+	}
+}
+
 func containsPair(argv []string, flag, val string) bool {
 	for i, a := range argv {
 		if a == flag && i+1 < len(argv) && argv[i+1] == val {
