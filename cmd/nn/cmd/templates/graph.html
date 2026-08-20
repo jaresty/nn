@@ -46,6 +46,19 @@ svg:active { cursor: grabbing; }
 #legend .leg-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 #legend .leg-label { color: #aaa; }
 
+/* ── zone legend (shown only in Zoned mode) ── */
+#zone-legend {
+  position: absolute; bottom: 18px; left: 60px; z-index: 10; display: none;
+  background: rgba(10,10,30,.85); border: 1px solid #2a3a5e;
+  border-radius: 6px; padding: 8px 12px; font-size: 11px; max-width: 320px;
+}
+#zone-legend.visible { display: block; }
+#zone-legend .zl-title { color: #7eb8f7; font-weight: 600; margin-bottom: 4px; }
+#zone-legend .zl-row { color: #aaa; margin: 2px 0; }
+#zone-legend .zl-dir { color: #e0e0e0; display: inline-block; width: 68px; }
+#zone-legend .zl-warn { color: #f77e7e; }
+#zone-legend .zl-hint { color: #888; font-style: italic; margin-top: 5px; }
+
 /* ── right column (note panel + chat panel) ── */
 #right-col {
   width: 0; min-width: 0; display: flex; flex-direction: column;
@@ -203,6 +216,14 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
     <div class="tip-tags"></div>
   </div>
   <div id="legend"></div>
+  <div id="zone-legend">
+    <div class="zl-title">Zones (relative to focus)</div>
+    <div class="zl-row"><span class="zl-dir">▲ Top</span>what it answers to — governs, extends, grounded-by</div>
+    <div class="zl-row"><span class="zl-dir">▼ Bottom</span>what builds on it — refines, supports</div>
+    <div class="zl-row zl-warn"><span class="zl-dir">◀ Left</span>tension — contradicts, questions</div>
+    <div class="zl-row"><span class="zl-dir">▶ Right</span>evidence &amp; tasks — source-of, requires</div>
+    <div class="zl-hint">Click a node to recenter on it.</div>
+  </div>
   <div id="search-bar">
     <button id="btn-back">← Back</button>
     <button id="btn-layout" title="Toggle grouped layout">Grouped</button>
@@ -323,6 +344,13 @@ const zoom = d3.zoom().scaleExtent([.05, 12]).on("zoom", e => {
 window.__testSetZoom = (k) => { svg.call(zoom.transform, d3.zoomIdentity.scale(k)); };
 window.__zoom = zoom;
 const svg  = d3.select("svg").call(zoom);
+// Arrowhead marker: shows each edge's source→target direction.
+svg.append("defs").append("marker")
+  .attr("id", "arrow").attr("viewBox", "0 -5 10 10")
+  .attr("refX", 9).attr("refY", 0)
+  .attr("markerWidth", 6).attr("markerHeight", 6)
+  .attr("orient", "auto")
+  .append("path").attr("d", "M0,-5L10,0L0,5").attr("fill", "#5a6a8a");
 const g    = svg.append("g");
 const gLinks = g.append("g");
 const gNodes = g.append("g");
@@ -398,6 +426,7 @@ const ZONE_WARN_COLOR = "#f77e7e"; // contradicts / questions (left zone)
 document.getElementById("btn-zoned").addEventListener("click", () => {
   zonedMode = !zonedMode;
   document.getElementById("btn-zoned").classList.toggle("active", zonedMode);
+  document.getElementById("zone-legend").classList.toggle("visible", zonedMode);
   if (zonedMode && groupingMode) { groupingMode = false; document.getElementById("btn-layout").classList.remove("active"); }
   const d = currentGraphData || rootGraphData;
   if (d) { rebuildSim(d); rebuildLegend(d); }
@@ -444,11 +473,26 @@ function rebuildSim(data) {
 
   const link = gLinks.selectAll("line")
     .data(data.edges, d => `${d.source}-${d.target}`)
-    .join("line").attr("class", "link").attr("stroke", "#3a4a6a");
+    .join("line").attr("class", "link").attr("stroke", "#3a4a6a")
+    .attr("marker-end", "url(#arrow)");
 
   const node = gNodes.selectAll("g")
     .data(data.nodes, d => d.id)
     .join("g").attr("class", "node");
+
+  // Pull each link's target endpoint back to the target node's edge so the
+  // arrowhead sits on the circle boundary instead of buried under it.
+  const ARROW_GAP = 6;
+  const linkEndX = d => {
+    const dx = d.target.x - d.source.x, dy = d.target.y - d.source.y;
+    const len = Math.hypot(dx, dy) || 1;
+    return d.target.x - (dx / len) * ((d.target.r || 6) + ARROW_GAP);
+  };
+  const linkEndY = d => {
+    const dx = d.target.x - d.source.x, dy = d.target.y - d.source.y;
+    const len = Math.hypot(dx, dy) || 1;
+    return d.target.y - (dy / len) * ((d.target.r || 6) + ARROW_GAP);
+  };
 
   const degreeMap = {};
   data.edges.forEach(e => {
@@ -459,9 +503,10 @@ function rebuildSim(data) {
   });
   const maxDeg = Math.max(1, ...Object.values(degreeMap));
   const rScale = d3.scaleSqrt().domain([0, maxDeg]).range([5, 28]);
+  data.nodes.forEach(n => { n.r = rScale(degreeMap[n.id]||0); });
   const fillFor = d => (zonedMode && d.zone === "left") ? ZONE_WARN_COLOR : nodeColor(d);
   node.selectAll("circle").data(d=>[d]).join("circle")
-    .attr("r", d => rScale(degreeMap[d.id]||0))
+    .attr("r", d => d.r)
     .attr("fill", fillFor).attr("stroke", fillFor);
   node.selectAll("text").data(d=>[d]).join("text")
     .attr("dy", "1.5em").attr("text-anchor", "middle")
@@ -590,7 +635,7 @@ function rebuildSim(data) {
 
   simulation.on("tick", () => {
     link.attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
-        .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
+        .attr("x2", linkEndX).attr("y2", linkEndY);
     node.attr("transform", d=>`translate(${d.x},${d.y})`);
   });
 
@@ -604,7 +649,7 @@ function rebuildSim(data) {
     node.transition().duration(T).attr("transform", d => `translate(${d.x},${d.y})`);
     link.transition().duration(T)
         .attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
-        .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
+        .attr("x2", linkEndX).attr("y2", linkEndY);
     zoomFit(); // zoomFit already animates the viewport transform over ~400ms
     return;
   }
@@ -614,7 +659,7 @@ function rebuildSim(data) {
   for (let i = 0; i < 300; ++i) simulation.tick();
   node.attr("transform", d => `translate(${d.x},${d.y})`);
   link.attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
-      .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
+      .attr("x2", linkEndX).attr("y2", linkEndY);
   zoomFit();
   simulation.restart();
 }
