@@ -50,6 +50,53 @@ func startServeForTest(t *testing.T, port int, cfgFile string) {
 	t.Fatalf("serve: server did not become ready on port %d within 3s", port)
 }
 
+// property F1/F2: /graph?focus=E includes notes that link TO E (incoming),
+// not just outgoing neighbors, and each such node carries its inbound zone —
+// so the viewer's Zoned mode shows the full four-zone spread.
+func TestGraphServeGraphFocusIncludesIncoming(t *testing.T) {
+	nbDir, cfgFile := setupNotebookWithCfg(t)
+
+	ego := newTestNoteForCLI(note.GenerateID(), "Ego", note.TypeModel)
+	foe := newTestNoteForCLI(note.GenerateID(), "Foe", note.TypeArgument)
+	// foe -> ego via contradicts (incoming to ego => left zone)
+	foe.Links = []note.Link{{TargetID: ego.ID, Type: "contradicts", Annotation: "opposes"}}
+	writeNoteFile(t, nbDir, ego)
+	writeNoteFile(t, nbDir, foe)
+
+	port := 17348
+	startServeForTest(t, port, cfgFile)
+
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/graph?focus=%s&depth=1", port, ego.ID))
+	if err != nil {
+		t.Fatalf("GET /graph?focus: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var body struct {
+		Nodes []map[string]any `json:"nodes"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("GET /graph?focus: body not valid JSON: %v", err)
+	}
+
+	var foeZone any
+	var foeFound bool
+	for _, n := range body.Nodes {
+		if n["id"] == foe.ID {
+			foeFound = true
+			foeZone = n["zone"]
+		}
+	}
+	// property F1: the incoming neighbor is present in the ego subgraph.
+	if !foeFound {
+		t.Fatalf("property F1: incoming neighbor Foe (%s) missing from /graph?focus node set", foe.ID)
+	}
+	// property F2: it carries its inbound zone (contradicts in => left).
+	if foeZone != "left" {
+		t.Errorf("property F2: Foe zone = %v, want %q", foeZone, "left")
+	}
+}
+
 // property S2: /graph?focus=E annotates each node with its directional zone
 // (via zoneOf on the node's direct edge to E), so the viewer's Zoned layout
 // reads server-computed zones rather than recomputing the mapping in JS.

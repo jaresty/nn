@@ -40,6 +40,48 @@ func bfsDepth(root *note.Note, byID map[string]*note.Note, maxDepth int) []depth
 	return ordered
 }
 
+// bfsDepthBoth performs a BFS from root following links in BOTH directions
+// (outgoing root->N and incoming N->root) up to maxDepth hops. Used where a
+// focused ego subgraph must include the notes that link TO the root (e.g. the
+// graph viewer's zoned layout), not just what the root links out to.
+func bfsDepthBoth(root *note.Note, byID map[string]*note.Note, maxDepth int) []depthEntry {
+	// Precompute inbound adjacency: target ID -> source notes linking to it.
+	inbound := make(map[string][]*note.Note)
+	for _, n := range byID {
+		for _, lnk := range n.Links {
+			if _, ok := byID[lnk.TargetID]; ok {
+				inbound[lnk.TargetID] = append(inbound[lnk.TargetID], n)
+			}
+		}
+	}
+
+	visited := map[string]bool{root.ID: true}
+	queue := []depthEntry{{root, 0}}
+	var ordered []depthEntry
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		ordered = append(ordered, cur)
+		if cur.level >= maxDepth {
+			continue
+		}
+		visit := func(next *note.Note) {
+			if next == nil || visited[next.ID] {
+				return
+			}
+			visited[next.ID] = true
+			queue = append(queue, depthEntry{next, cur.level + 1})
+		}
+		for _, lnk := range cur.n.Links {
+			visit(byID[lnk.TargetID])
+		}
+		for _, src := range inbound[cur.n.ID] {
+			visit(src)
+		}
+	}
+	return ordered
+}
+
 type depthNoteJSON struct {
 	ID       string   `json:"id"`
 	Title    string   `json:"title"`

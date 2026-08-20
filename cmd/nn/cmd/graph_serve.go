@@ -88,7 +88,7 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 				http.Error(w, "note not found", http.StatusNotFound)
 				return
 			}
-			entries := bfsDepth(root, byID, depth)
+			entries := bfsDepthBoth(root, byID, depth)
 			// Zone each node by its direct link to the focus (root): root -> N
 			// is dirOut, N -> root is dirIn. Reuses zoneOf, the same mapping as
 			// `nn graph show --zones`, so the viewer and CLI agree.
