@@ -104,8 +104,7 @@ func runAsk(opts askOptions) (askSession, error) {
 		if err := runDocumentSurface(opts, dir, id); err != nil {
 			return sess, err
 		}
-		resultPath := filepath.Join(dir, "result.json")
-		fmt.Fprintf(opts.out, "Feedback collected.\nResult: %s\n", resultPath)
+		printCompletion(opts.out, dir)
 		return sess, nil
 	}
 
@@ -127,9 +126,38 @@ func runAsk(opts askOptions) (askSession, error) {
 
 	srv.Wait()
 
-	resultPath := filepath.Join(dir, "result.json")
-	fmt.Fprintf(opts.out, "Feedback collected.\nResult: %s\n", resultPath)
+	printCompletion(opts.out, dir)
 	return sess, nil
+}
+
+// printCompletion reports the outcome of a feedback session in a form the agent
+// cannot mistake for "done": it names the session status, enumerates each
+// result artifact with its format and absolute path, and states explicitly that
+// the task is not complete until those artifacts have been read and acted on.
+// It never dumps raw artifact content (a canvas scene is a graph, not prose).
+// The result envelope is best-effort — if it cannot be read, the result path is
+// still printed with the same instruction.
+func printCompletion(out io.Writer, dir string) {
+	resultPath := filepath.Join(dir, "result.json")
+	result, err := feedback.ReadResult(dir)
+	if err != nil {
+		fmt.Fprintf(out, "Feedback collected.\nResult: %s\n", resultPath)
+		fmt.Fprintf(out, "NEXT: read %s — the task is not complete until you have read and acted on the human's feedback.\n", resultPath)
+		return
+	}
+
+	fmt.Fprintf(out, "Feedback collected (session %s, status: %s).\n\n", result.ID, result.Status)
+	if len(result.Artifacts) == 0 {
+		fmt.Fprintf(out, "No artifacts were produced. Result envelope: %s\n", resultPath)
+		fmt.Fprintln(out, "NEXT: the task is not complete until you have confirmed and acted on this outcome.")
+		return
+	}
+
+	fmt.Fprintln(out, "Artifacts (read and interpret these before treating the task as complete):")
+	for i, a := range result.Artifacts {
+		fmt.Fprintf(out, "  %d. %-12s %s\n", i+1, a.Format, filepath.Join(dir, a.Path))
+	}
+	fmt.Fprintln(out, "\nNEXT: the task is not complete until you have read and acted on the artifact(s) above — they contain the human's feedback you requested.")
 }
 
 // runDocumentSurface is the delegated adapter for --surface document. It hands

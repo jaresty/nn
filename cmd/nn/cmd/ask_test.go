@@ -141,3 +141,71 @@ func TestRunAskDrivesSessionToResult(t *testing.T) {
 		t.Fatalf("output %q does not contain result path %q", out.String(), wantPath)
 	}
 }
+
+// TestRunAskCompletionListsArtifactsAndInstructs pins the completion output
+// contract so the agent cannot finish without consuming the feedback:
+//   property A1:  the session status appears
+//   property A2a: each artifact's format appears
+//   property A2b: each artifact's absolute path appears
+//   property A3:  an explicit "not complete until read/acted on" instruction appears
+func TestRunAskCompletionListsArtifactsAndInstructs(t *testing.T) {
+	t.Setenv("NN_CONFIG_DIR", t.TempDir())
+
+	hook := func(url string) error {
+		u, err := neturl.Parse(url)
+		if err != nil {
+			return err
+		}
+		id := u.Query().Get("session")
+		base := u.Scheme + "://" + u.Host
+		// Seed a draft so the submitted result envelope names an artifact.
+		scene := bytes.NewReader([]byte(`{"type":"excalidraw","elements":[],"appState":{}}`))
+		putReq, _ := http.NewRequest(http.MethodPut, base+"/session/"+id+"/draft", scene)
+		putReq.Header.Set("Content-Type", "application/json")
+		if resp, err := http.DefaultClient.Do(putReq); err == nil {
+			resp.Body.Close()
+		}
+		resp, err := http.Post(base+"/session/"+id+"/submit", "application/json", nil)
+		if err != nil {
+			return err
+		}
+		resp.Body.Close()
+		return nil
+	}
+
+	var out bytes.Buffer
+	sess, err := runAsk(askOptions{surface: "canvas", open: hook, out: &out})
+	if err != nil {
+		t.Fatalf("runAsk: %v", err)
+	}
+
+	got := out.String()
+
+	// property A1: session status is reported.
+	result, err := feedback.ReadResult(sess.dir)
+	if err != nil {
+		t.Fatalf("ReadResult: %v", err)
+	}
+	if !strings.Contains(got, result.Status) {
+		t.Errorf("property A1: output does not contain status %q:\n%s", result.Status, got)
+	}
+
+	// property A2a/A2b: each artifact's format and absolute path appear.
+	if len(result.Artifacts) == 0 {
+		t.Fatalf("expected at least one artifact in result envelope, got none")
+	}
+	for _, a := range result.Artifacts {
+		if !strings.Contains(got, a.Format) {
+			t.Errorf("property A2a: output missing artifact format %q:\n%s", a.Format, got)
+		}
+		absPath := filepath.Join(sess.dir, a.Path)
+		if !strings.Contains(got, absPath) {
+			t.Errorf("property A2b: output missing artifact absolute path %q:\n%s", absPath, got)
+		}
+	}
+
+	// property A3: explicit not-complete-until-read instruction.
+	if !strings.Contains(strings.ToLower(got), "not complete until") {
+		t.Errorf("property A3: output missing 'not complete until' instruction:\n%s", got)
+	}
+}
