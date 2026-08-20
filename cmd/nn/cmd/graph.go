@@ -328,6 +328,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	var links string
 	var statuses string
 	var representation string
+	var zones bool
 
 	cmd := &cobra.Command{
 		Use:   "show",
@@ -343,7 +344,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				return err
 			}
 			if focus == "" {
-				for _, flag := range []string{"depth", "direction", "links", "status", "representation"} {
+				for _, flag := range []string{"depth", "direction", "links", "status", "representation", "zones"} {
 					if cmd.Flags().Changed(flag) {
 						return fmt.Errorf("graph show: --%s requires --focus", flag)
 					}
@@ -364,6 +365,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				Title string   `json:"title"`
 				Type  string   `json:"type"`
 				Tags  []string `json:"tags"`
+				Zone  string   `json:"zone,omitempty"`
 			}
 			type showEdge struct {
 				From       string `json:"from"`
@@ -390,7 +392,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					if tags == nil {
 						tags = []string{}
 					}
-					resultNodes = append(resultNodes, showNode{e.n.ID, e.n.Title, string(e.n.Type), tags})
+					resultNodes = append(resultNodes, showNode{ID: e.n.ID, Title: e.n.Title, Type: string(e.n.Type), Tags: tags})
 				}
 				sort.Slice(resultNodes, func(i, j int) bool { return resultNodes[i].ID < resultNodes[j].ID })
 				for _, e := range entries {
@@ -400,13 +402,41 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 						}
 					}
 				}
+				if zones {
+					// Zone is determined by a node's direct edge to the ego (root).
+					// ego -> N is dirOut; N -> ego is dirIn. Nodes with no direct
+					// ego edge (and the ego itself) keep an empty zone.
+					zoneByID := make(map[string]string)
+					for _, lnk := range root.Links {
+						if lnk.TargetID != root.ID {
+							if z := zoneOf(lnk.Type, dirOut); z != zoneNone {
+								zoneByID[lnk.TargetID] = string(z)
+							}
+						}
+					}
+					for _, n := range byID {
+						if n.ID == root.ID {
+							continue
+						}
+						for _, lnk := range n.Links {
+							if lnk.TargetID == root.ID {
+								if z := zoneOf(lnk.Type, dirIn); z != zoneNone {
+									zoneByID[n.ID] = string(z)
+								}
+							}
+						}
+					}
+					for i := range resultNodes {
+						resultNodes[i].Zone = zoneByID[resultNodes[i].ID]
+					}
+				}
 			} else {
 				for _, n := range notes {
 					tags := n.Tags
 					if tags == nil {
 						tags = []string{}
 					}
-					resultNodes = append(resultNodes, showNode{n.ID, n.Title, string(n.Type), tags})
+					resultNodes = append(resultNodes, showNode{ID: n.ID, Title: n.Title, Type: string(n.Type), Tags: tags})
 					for _, lnk := range n.Links {
 						resultEdges = append(resultEdges, showEdge{n.ID, lnk.TargetID, lnk.Annotation, lnk.Type})
 					}
@@ -504,6 +534,35 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(out)
 			}
+			if focus != "" && zones {
+				// Zone-grouped view: nodes under directional headers.
+				fmt.Fprintf(w, "%s  %s\n\n", focus, byID[focus].Title)
+				byZone := map[string][]showNode{}
+				for _, n := range resultNodes {
+					if n.ID == focus || n.Zone == "" {
+						continue
+					}
+					byZone[n.Zone] = append(byZone[n.Zone], n)
+				}
+				order := []struct{ key, header string }{
+					{"top", "TOP"},
+					{"left", "LEFT"},
+					{"right", "RIGHT"},
+					{"bottom", "BOTTOM"},
+				}
+				for _, z := range order {
+					group := byZone[z.key]
+					if len(group) == 0 {
+						continue
+					}
+					fmt.Fprintf(w, "%s\n", z.header)
+					for _, n := range group {
+						fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+					}
+					fmt.Fprintln(w)
+				}
+				return nil
+			}
 			if focus != "" {
 				type treeEdge struct {
 					neighbor string
@@ -567,6 +626,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&links, "links", "", "Comma-separated link types to traverse")
 	cmd.Flags().StringVar(&statuses, "status", "", "Comma-separated note statuses to traverse")
 	cmd.Flags().StringVar(&representation, "representation", "", "Representation required for traversed notes")
+	cmd.Flags().BoolVar(&zones, "zones", false, "Annotate each node with its directional zone (top/bottom/left/right) relative to the focus")
 	return cmd
 }
 

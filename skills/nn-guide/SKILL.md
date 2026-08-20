@@ -341,10 +341,19 @@ JSON output: `{ "nodes": [...], "edges": [...] }`
 ### nn graph show (LLM-facing subgraph)
 
 ```
-nn graph show [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--format text|json|mermaid]
+nn graph show [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--zones] [--format text|json|mermaid]
 ```
 
 With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 and direction defaults to `outgoing`. `--links` accepts canonical link types, `--status` accepts `draft`, `reviewed`, or `permanent`, and `--representation` accepts one representation value. Filters constrain BFS expansion, so traversal does not pass through an ineligible intermediate note. Without --focus, graph show renders the full graph; explicitly supplied traversal flags, including `--depth`, require `--focus`. Mermaid output preserves stored edge orientation, includes link type and annotation labels, represents missing edge endpoints as deterministic placeholder nodes, and emits deterministic provenance comments for the normalized traversal options. Use `--format json` for structured output or `--format mermaid` for Markdown-compatible diagrams. Prefer focused output when exploring a note's neighborhood.
+
+`--zones` (requires `--focus`) annotates each node with the directional screen zone it occupies relative to the focus, derived from the node's direct link to the focus and that link's direction:
+
+- **TOP** — what the focus answers to / depends on: `governs`, or `refines`/`extends`/`grounded-by` outgoing from the focus.
+- **BOTTOM** — what builds on the focus: `refines`/`extends`/`grounded-by`/`supports` incoming to the focus.
+- **LEFT** — tension: `contradicts`, `questions` (either direction).
+- **RIGHT** — lateral provenance / task edges: `source-of`, `requires` (either direction).
+
+In `--format json` each node gains a `zone` field (omitted when empty — the focus itself and nodes with no direct/unmapped link to the focus have no zone). In `--format text` nodes are grouped under `TOP`/`LEFT`/`RIGHT`/`BOTTOM` headers. This is the same zone mapping the interactive HTML graph viewer uses, so the CLI and the viewer stay in agreement.
 
 ### nn graph apply (YAML changeset manifest)
 
