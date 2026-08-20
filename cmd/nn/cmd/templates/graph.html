@@ -118,6 +118,13 @@ svg:active { cursor: grabbing; }
 }
 #btn-layout:hover { background: #2a3a5e; color: #fff; }
 #btn-layout.active { background: #2a3a5e; border-color: #7eb8f7; color: #7eb8f7; }
+#btn-zoned {
+  background: #16213e; border: 1px solid #3a4a6a;
+  color: #ccc; border-radius: 5px; padding: 4px 10px;
+  font-size: 12px; cursor: pointer;
+}
+#btn-zoned:hover { background: #2a3a5e; color: #fff; }
+#btn-zoned.active { background: #2a3a5e; border-color: #7eb8f7; color: #7eb8f7; }
 
 /* ── tray / export ── */
 #tray-bar {
@@ -199,6 +206,7 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
   <div id="search-bar">
     <button id="btn-back">← Back</button>
     <button id="btn-layout" title="Toggle grouped layout">Grouped</button>
+    <button id="btn-zoned" title="Directional zoned ego layout (click a node first)">Zoned</button>
     <button id="btn-status" title="Filter by status">All</button>
     <input id="search-input" type="text" placeholder="Search notes…" autocomplete="off">
   </div>
@@ -376,9 +384,46 @@ let groupingMode = false;
 document.getElementById("btn-layout").addEventListener("click", () => {
   groupingMode = !groupingMode;
   document.getElementById("btn-layout").classList.toggle("active", groupingMode);
+  if (groupingMode && zonedMode) { zonedMode = false; document.getElementById("btn-zoned").classList.remove("active"); }
   const d = currentGraphData || rootGraphData;
   if (d) { rebuildSim(d); rebuildLegend(d); }
 });
+
+// ── Zoned (directional ego) layout toggle ───────────────────────────────────
+// Positions nodes by their server-computed `zone` (top/bottom/left/right)
+// relative to the focused ego node. Zones come from `nn` (zoneOf) via the
+// /graph?focus response, so the viewer and CLI share one mapping.
+let zonedMode = false;
+const ZONE_WARN_COLOR = "#f77e7e"; // contradicts / questions (left zone)
+document.getElementById("btn-zoned").addEventListener("click", () => {
+  zonedMode = !zonedMode;
+  document.getElementById("btn-zoned").classList.toggle("active", zonedMode);
+  if (zonedMode && groupingMode) { groupingMode = false; document.getElementById("btn-layout").classList.remove("active"); }
+  const d = currentGraphData || rootGraphData;
+  if (d) { rebuildSim(d); rebuildLegend(d); }
+});
+
+// Assign fixed x/y to each node by zone, centered on the ego (0,0).
+// Nodes without a zone (ego itself, unmapped links) stay near center.
+function applyZonedLayout(data) {
+  const SPREAD = 220, JITTER = 90;
+  const buckets = { top: [], bottom: [], left: [], right: [], none: [] };
+  data.nodes.forEach(n => (buckets[n.zone] || buckets.none).push(n));
+  const place = (arr, fx, fy, horizontal) => {
+    const n = arr.length;
+    arr.forEach((node, i) => {
+      const offset = n > 1 ? (i - (n - 1) / 2) * JITTER : 0;
+      node.x = fx + (horizontal ? 0 : offset);
+      node.y = fy + (horizontal ? offset : 0);
+      node.fx = node.x; node.fy = node.y;
+    });
+  };
+  place(buckets.top,    0, -SPREAD, false);
+  place(buckets.bottom, 0,  SPREAD, false);
+  place(buckets.left,  -SPREAD, 0,  true);
+  place(buckets.right,  SPREAD, 0,  true);
+  place(buckets.none,   0, 0,       false);
+}
 
 // ── Simulation (rebuildable) ───────────────────────────────────────────────
 let simulation = null;
@@ -407,9 +452,10 @@ function rebuildSim(data) {
   });
   const maxDeg = Math.max(1, ...Object.values(degreeMap));
   const rScale = d3.scaleSqrt().domain([0, maxDeg]).range([5, 28]);
+  const fillFor = d => (zonedMode && d.zone === "left") ? ZONE_WARN_COLOR : nodeColor(d);
   node.selectAll("circle").data(d=>[d]).join("circle")
     .attr("r", d => rScale(degreeMap[d.id]||0))
-    .attr("fill", nodeColor).attr("stroke", d => nodeColor(d));
+    .attr("fill", fillFor).attr("stroke", fillFor);
   node.selectAll("text").data(d=>[d]).join("text")
     .attr("dy", "1.5em").attr("text-anchor", "middle")
     .text(d => d.title.length > 28 ? d.title.slice(0,26)+"…" : d.title);
@@ -461,6 +507,18 @@ function rebuildSim(data) {
     selected = d.id;
     {{if .ServeMode}}
     fetch('/event', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: d.id, title: d.title})});
+    if (zonedMode) {
+      // Recenter to a server-computed ego subgraph carrying zones, then lay out by zone.
+      fetch(`/graph?focus=${encodeURIComponent(d.id)}&depth=2`)
+        .then(r => r.json())
+        .then(ego => {
+          document.getElementById("btn-back").style.display = "";
+          rebuildSim(ego);
+          rebuildLegend(ego);
+          openPanel(d);
+        });
+      return;
+    }
     {{end}}
     // dim nodes outside 2-hop neighborhood (keep full graph, just fade non-neighbors)
     const egoNodes = new Set([d.id]);
@@ -528,6 +586,17 @@ function rebuildSim(data) {
         .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
     node.attr("transform", d=>`translate(${d.x},${d.y})`);
   });
+
+  if (zonedMode) {
+    // Directional zoned layout: fixed positions by zone, no force animation.
+    simulation.stop();
+    applyZonedLayout(data);
+    node.attr("transform", d => `translate(${d.x},${d.y})`);
+    link.attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
+        .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
+    zoomFit();
+    return;
+  }
 
   // Pre-tick to stable positions, fit viewport immediately, then let async ticks animate
   simulation.stop();

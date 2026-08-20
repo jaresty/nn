@@ -70,10 +70,12 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 			Status string   `json:"status"`
 			Tags   []string `json:"tags"`
 			Body   string   `json:"body"`
+			Zone   string   `json:"zone,omitempty"`
 		}
 		type outEdge struct {
 			Source string `json:"source"`
 			Target string `json:"target"`
+			Type   string `json:"type,omitempty"`
 		}
 
 		var outNodes []outNode
@@ -87,18 +89,45 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 				return
 			}
 			entries := bfsDepth(root, byID, depth)
+			// Zone each node by its direct link to the focus (root): root -> N
+			// is dirOut, N -> root is dirIn. Reuses zoneOf, the same mapping as
+			// `nn graph show --zones`, so the viewer and CLI agree.
+			zoneByID := make(map[string]string)
+			for _, lnk := range root.Links {
+				if lnk.TargetID != root.ID {
+					if z := zoneOf(lnk.Type, dirOut); z != zoneNone {
+						zoneByID[lnk.TargetID] = string(z)
+					}
+				}
+			}
+			for _, n := range byID {
+				if n.ID == root.ID {
+					continue
+				}
+				for _, lnk := range n.Links {
+					if lnk.TargetID == root.ID {
+						if z := zoneOf(lnk.Type, dirIn); z != zoneNone {
+							zoneByID[n.ID] = string(z)
+						}
+					}
+				}
+			}
 			for _, e := range entries {
 				nodeSet[e.n.ID] = true
 				tags := e.n.Tags
 				if tags == nil {
 					tags = []string{}
 				}
-				outNodes = append(outNodes, outNode{e.n.ID, e.n.Title, string(e.n.Type), string(e.n.Status), tags, e.n.Body})
+				outNodes = append(outNodes, outNode{
+					ID: e.n.ID, Title: e.n.Title, Type: string(e.n.Type),
+					Status: string(e.n.Status), Tags: tags, Body: e.n.Body,
+					Zone: zoneByID[e.n.ID],
+				})
 			}
 			for _, e := range entries {
 				for _, lnk := range e.n.Links {
 					if nodeSet[lnk.TargetID] {
-						outEdges = append(outEdges, outEdge{e.n.ID, lnk.TargetID})
+						outEdges = append(outEdges, outEdge{e.n.ID, lnk.TargetID, lnk.Type})
 					}
 				}
 			}
@@ -109,12 +138,15 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 				if tags == nil {
 					tags = []string{}
 				}
-				outNodes = append(outNodes, outNode{n.ID, n.Title, string(n.Type), string(n.Status), tags, n.Body})
+				outNodes = append(outNodes, outNode{
+					ID: n.ID, Title: n.Title, Type: string(n.Type),
+					Status: string(n.Status), Tags: tags, Body: n.Body,
+				})
 			}
 			for _, n := range notes {
 				for _, lnk := range n.Links {
 					if nodeSet[lnk.TargetID] {
-						outEdges = append(outEdges, outEdge{n.ID, lnk.TargetID})
+						outEdges = append(outEdges, outEdge{n.ID, lnk.TargetID, lnk.Type})
 					}
 				}
 			}

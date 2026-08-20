@@ -50,6 +50,44 @@ func startServeForTest(t *testing.T, port int, cfgFile string) {
 	t.Fatalf("serve: server did not become ready on port %d within 3s", port)
 }
 
+// property S2: /graph?focus=E annotates each node with its directional zone
+// (via zoneOf on the node's direct edge to E), so the viewer's Zoned layout
+// reads server-computed zones rather than recomputing the mapping in JS.
+func TestGraphServeGraphFocusZone(t *testing.T) {
+	nbDir, cfgFile := setupNotebookWithCfg(t)
+
+	ego := newTestNoteForCLI(note.GenerateID(), "Ego", note.TypeModel)
+	up := newTestNoteForCLI(note.GenerateID(), "Up", note.TypeConcept)
+	ego.Links = []note.Link{{TargetID: up.ID, Type: "extends", Annotation: "builds on"}}
+	writeNoteFile(t, nbDir, ego)
+	writeNoteFile(t, nbDir, up)
+
+	port := 17347
+	startServeForTest(t, port, cfgFile)
+
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/graph?focus=%s&depth=1", port, ego.ID))
+	if err != nil {
+		t.Fatalf("GET /graph?focus: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var body struct {
+		Nodes []map[string]any `json:"nodes"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("GET /graph?focus: body not valid JSON: %v", err)
+	}
+
+	zoneByID := map[string]any{}
+	for _, n := range body.Nodes {
+		zoneByID[n["id"].(string)] = n["zone"]
+	}
+	// ego -> up via extends (out) => top
+	if zoneByID[up.ID] != "top" {
+		t.Errorf("property S2: node Up zone = %v, want %q", zoneByID[up.ID], "top")
+	}
+}
+
 func TestGraphServeGetGraphFocus(t *testing.T) {
 	nbDir, cfgFile := setupNotebookWithCfg(t)
 
@@ -89,6 +127,47 @@ func TestGraphServeGetGraphFocus(t *testing.T) {
 	}
 }
 
+
+// property S1: every edge in the /graph response carries the source note's
+// link type in a "type" field (so the viewer can compute directional zones).
+func TestGraphServeGraphEdgeType(t *testing.T) {
+	nbDir, cfgFile := setupNotebookWithCfg(t)
+
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	b := newTestNoteForCLI(note.GenerateID(), "Beta", note.TypeConcept)
+	a.Links = []note.Link{{TargetID: b.ID, Type: "contradicts", Annotation: "opposes"}}
+	writeNoteFile(t, nbDir, a)
+	writeNoteFile(t, nbDir, b)
+
+	port := 17346
+	startServeForTest(t, port, cfgFile)
+
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/graph", port))
+	if err != nil {
+		t.Fatalf("GET /graph: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var body struct {
+		Edges []map[string]any `json:"edges"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("GET /graph: body not valid JSON: %v", err)
+	}
+
+	var found bool
+	for _, e := range body.Edges {
+		if e["source"] == a.ID && e["target"] == b.ID {
+			found = true
+			if e["type"] != "contradicts" {
+				t.Errorf("property S1: edge a->b type = %v, want %q", e["type"], "contradicts")
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("property S1: expected an edge from %s to %s in /graph response", a.ID, b.ID)
+	}
+}
 
 func TestGraphServePostEvent(t *testing.T) {
 	// property [3]: POST /event with {id, title} must succeed (204) — event is logged to stdout
