@@ -596,12 +596,16 @@ function rebuildSim(data) {
 
   if (zonedMode) {
     // Directional zoned layout: fixed positions by zone, no force animation.
+    // Glide nodes/links from their prior positions to the new zoned positions
+    // so recentering keeps spatial continuity instead of teleporting.
     simulation.stop();
     applyZonedLayout(data);
-    node.attr("transform", d => `translate(${d.x},${d.y})`);
-    link.attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
+    const T = 400;
+    node.transition().duration(T).attr("transform", d => `translate(${d.x},${d.y})`);
+    link.transition().duration(T)
+        .attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
         .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
-    zoomFit();
+    zoomFit(); // zoomFit already animates the viewport transform over ~400ms
     return;
   }
 
