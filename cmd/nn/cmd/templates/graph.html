@@ -406,15 +406,22 @@ document.getElementById("btn-zoned").addEventListener("click", () => {
 // Assign fixed x/y to each node by zone, centered on the ego (0,0).
 // Nodes without a zone (ego itself, unmapped links) stay near center.
 function applyZonedLayout(data) {
-  const SPREAD = 220, JITTER = 90;
+  // SPREAD: distance of each zone from the ego. JITTER: gap between same-zone
+  // nodes along the spread axis (wide enough for labels). STAGGER: alternating
+  // push along the perpendicular axis so adjacent labels don't share a baseline.
+  const SPREAD = 240, JITTER = 240, STAGGER = 70;
   const buckets = { top: [], bottom: [], left: [], right: [], none: [] };
   data.nodes.forEach(n => (buckets[n.zone] || buckets.none).push(n));
   const place = (arr, fx, fy, horizontal) => {
     const n = arr.length;
     arr.forEach((node, i) => {
       const offset = n > 1 ? (i - (n - 1) / 2) * JITTER : 0;
-      node.x = fx + (horizontal ? 0 : offset);
-      node.y = fy + (horizontal ? offset : 0);
+      // Alternate nodes get pushed outward along the zone axis so their labels
+      // (which sit below each node) clear their neighbours.
+      const stagger = (i % 2) * STAGGER;
+      // push alternate nodes further from the ego along the zone's own axis
+      node.x = fx + (horizontal ? stagger * Math.sign(fx || 1) : offset);
+      node.y = fy + (horizontal ? offset : stagger * Math.sign(fy || -1));
       node.fx = node.x; node.fy = node.y;
     });
   };
