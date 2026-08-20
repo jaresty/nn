@@ -374,6 +374,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 
 			var resultNodes []showNode
 			var resultEdges []showEdge
+			resultLevels := make(map[string]int)
 
 			if focus != "" {
 				root, ok := byID[focus]
@@ -384,6 +385,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				visited := make(map[string]bool, len(entries))
 				for _, e := range entries {
 					visited[e.n.ID] = true
+					resultLevels[e.n.ID] = e.level
 					tags := e.n.Tags
 					if tags == nil {
 						tags = []string{}
@@ -529,7 +531,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					}
 					rendered[id] = true
 					for _, tree := range adj[id] {
-						if rendered[tree.neighbor] {
+						if rendered[tree.neighbor] || resultLevels[tree.neighbor] != resultLevels[id]+1 {
 							continue
 						}
 						e := tree.edge

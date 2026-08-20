@@ -113,6 +113,34 @@ func TestGraphShow_DepthBound(t *testing.T) {
 	}
 }
 
+func TestGraphShow_TextHierarchyUsesBFSDepth(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	root := newTestNoteForCLI("20990101000000-1000", "root", note.TypeModel)
+	first := newTestNoteForCLI("20990101000000-2000", "first", note.TypeConcept)
+	second := newTestNoteForCLI("20990101000000-3000", "second", note.TypeConcept)
+	grandchild := newTestNoteForCLI("20990101000000-4000", "grandchild", note.TypeArgument)
+	root.Links = []note.Link{
+		{TargetID: first.ID, Type: "supports"},
+		{TargetID: second.ID, Type: "supports"},
+	}
+	first.Links = []note.Link{{TargetID: second.ID, Type: "extends"}}
+	second.Links = []note.Link{{TargetID: grandchild.ID, Type: "supports"}}
+	for _, n := range []*note.Note{root, first, second, grandchild} {
+		writeNoteFile(t, nbDir, n)
+	}
+
+	out, err := execute("graph", "show", "--focus", root.ID, "--depth", "2", "--format", "text")
+	if err != nil {
+		t.Fatalf("graph show BFS text depth: %v", err)
+	}
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		indentDepth := (len(line) - len(strings.TrimLeft(line, " "))) / 2
+		if indentDepth > 2 {
+			t.Fatalf("ASSERT graph_show_text_respects_bfs_depth FAIL: line depth = %d, want <= 2; line=%q\n%s", indentDepth, line, out)
+		}
+	}
+}
+
 func TestGraphShow_CycleGuard(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	now := time.Now().UTC().Truncate(time.Second)
