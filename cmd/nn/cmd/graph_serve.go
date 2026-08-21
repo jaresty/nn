@@ -86,9 +86,10 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 			}
 		}
 		type outEdge struct {
-			Source string `json:"source"`
-			Target string `json:"target"`
-			Type   string `json:"type,omitempty"`
+			Source     string `json:"source"`
+			Target     string `json:"target"`
+			Type       string `json:"type,omitempty"`
+			Annotation string `json:"annotation,omitempty"`
 		}
 
 		var outNodes []outNode
@@ -140,7 +141,7 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 			for _, e := range entries {
 				for _, lnk := range e.n.Links {
 					if nodeSet[lnk.TargetID] {
-						outEdges = append(outEdges, outEdge{e.n.ID, lnk.TargetID, lnk.Type})
+						outEdges = append(outEdges, outEdge{e.n.ID, lnk.TargetID, lnk.Type, lnk.Annotation})
 					}
 				}
 			}
@@ -160,7 +161,7 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 			for _, n := range notes {
 				for _, lnk := range n.Links {
 					if nodeSet[lnk.TargetID] {
-						outEdges = append(outEdges, outEdge{n.ID, lnk.TargetID, lnk.Type})
+						outEdges = append(outEdges, outEdge{n.ID, lnk.TargetID, lnk.Type, lnk.Annotation})
 					}
 				}
 			}

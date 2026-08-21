@@ -70,13 +70,19 @@ test('[Z4] none-zone node stays at the origin', async ({ page }) => {
   expect(Math.abs(e.y)).toBeLessThan(1e-6);
 });
 
-// ── legend order (property 1) ────────────────────────────────────────────────
-// property 1: zone legend rows read Top, Left, Right, Bottom.
-test('[Z5] zone legend rows are ordered Top, Left, Right, Bottom', async ({ page }) => {
+// ── micro-legend content: each axis names its relationships ──────────────────
+// (Replaces the old corner-box order check.) Each per-axis micro-legend lists
+// the relationship types that place a node in that zone.
+test('[Z5] each axis micro-legend names its zone relationships', async ({ page }) => {
   await page.goto(BASE_URL);
-  const dirs = await page.locator('#zone-legend .zl-row .zl-dir').allTextContents();
-  const words = dirs.map(d => d.replace(/[^A-Za-z]/g, ''));
-  expect(words).toEqual(['Top', 'Left', 'Right', 'Bottom']);
+  await page.waitForSelector('svg g circle', { timeout: 8000 });
+  await page.locator('#btn-zoned').click();
+  await page.locator('svg g circle').first().click();
+  await page.waitForTimeout(1300);
+  await expect(page.locator('#mlegend-top')).toContainText('grounded-by');
+  await expect(page.locator('#mlegend-bottom')).toContainText('governs');
+  await expect(page.locator('#mlegend-left')).toContainText('contradicts');
+  await expect(page.locator('#mlegend-right')).toContainText('source-of');
 });
 
 // ── wedge half-angle <= 30deg (property 2) ───────────────────────────────────
@@ -473,12 +479,12 @@ test('[Z27] tension edges are colored distinctly from structural edges', async (
   await page.locator('svg g.node').filter({ hasText: 'Beta' }).locator('circle').first().click();
   await page.waitForTimeout(1200);
   // Visible .link lines carry the family color; the paired .link-hit lines carry
-  // the type title. They share data order, so zip by index.
+  // the edge datum (with its type). They share data order, so zip by index.
   const strokes = await page.evaluate(() => {
-    const vis = [...document.querySelectorAll('svg line.link')];
-    const hit = [...document.querySelectorAll('svg line.link-hit')];
+    const vis = [...document.querySelectorAll('svg path.link')];
+    const hit = [...document.querySelectorAll('svg path.link-hit')];
     return vis.map((l, i) => ({
-      type: hit[i]?.querySelector('title')?.textContent ?? null,
+      type: (hit[i] as any)?.__data__?.type ?? null,
       stroke: l.getAttribute('stroke'),
     }));
   });
@@ -490,28 +496,20 @@ test('[Z27] tension edges are colored distinctly from structural edges', async (
   expect(tension!.stroke).not.toBe(structural!.stroke);
 });
 
-// ── H1: each edge has a WIDE hover target carrying its link type ──────────────
-// property H1: a 1px visible line is unhittable, so the tooltip must live on a
-// transparent hit-line with a wide stroke (>= 8px). We assert both the width and
-// the type title on the same element.
-test('[Z28] each edge has a wide hit-line carrying its link-type tooltip', async ({ page }) => {
+// ── H1: each edge has a WIDE (hoverable) hit-line ────────────────────────────
+// property H1: a 1px visible line is unhittable, so each edge has a transparent
+// hit-line with a wide stroke (>= 8px). The type is shown on hover (see [Z31]).
+test('[Z28] each edge has a wide hit-line for hovering', async ({ page }) => {
   await page.goto(BASE_URL);
   await page.waitForSelector('svg g circle', { timeout: 8000 });
   await page.locator('#btn-zoned').click();
   await page.locator('svg g.node').filter({ hasText: 'Beta' }).locator('circle').first().click();
   await page.waitForTimeout(1200);
-  // Find hit-lines: lines whose <title> names a type and whose stroke-width is wide.
-  const hits = await page.locator('svg line.link-hit').evaluateAll((ls: SVGLineElement[]) =>
-    ls.map(l => ({
-      type: l.querySelector('title')?.textContent ?? null,
-      width: parseFloat(getComputedStyle(l).strokeWidth),
-    }))
+  const widths = await page.locator('svg path.link-hit').evaluateAll((ls: SVGLineElement[]) =>
+    ls.map(l => parseFloat(getComputedStyle(l).strokeWidth))
   );
-  expect(hits.length).toBeGreaterThan(0);
-  // every hit-line is wide enough to hover
-  for (const h of hits) expect(h.width).toBeGreaterThanOrEqual(8);
-  // the contradicts edge's type is reachable via a hit-line
-  expect(hits.map(h => h.type)).toContain('contradicts');
+  expect(widths.length).toBeGreaterThan(0);
+  for (const w of widths) expect(w).toBeGreaterThanOrEqual(8);
 });
 
 // ── PN1: the detail panel stays open after a zoned recenter ──────────────────
@@ -526,4 +524,258 @@ test('[Z29] detail panel stays open after a zoned recenter', async ({ page }) =>
   await page.waitForTimeout(1400); // recenter + rebuild + settle
   await expect(page.locator('#right-col')).toHaveClass(/open/);
   await expect(page.locator('#panel-title')).not.toBeEmpty();
+});
+
+// ── C1: the focused ego stays centered even when zones are empty ──────────────
+// property C1: focusing alpha (only a LEFT-zone neighbor) leaves top/right/bottom
+// empty; the ego must still sit at the center of the clear region, not be pushed
+// toward the populated side by a bbox-centered fit.
+test('[Z30] focused ego stays at the clear-region center with empty axes', async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.waitForSelector('svg g circle', { timeout: 8000 });
+  await page.locator('#btn-zoned').click();
+  await page.locator('svg g.node').filter({ hasText: 'Alpha' }).locator('circle').first().click();
+  await page.waitForTimeout(1500); // recenter + settle + delayed fit
+  const info = await page.evaluate(() => {
+    // ego is the focused node; find its screen center
+    const gs = [...document.querySelectorAll('svg g.node')];
+    const egoG = gs.find(g => { const d = (g as any).__data__; return d && Math.abs(d.fx) < 1 && Math.abs(d.fy) < 1; });
+    const egoRect = egoG!.querySelector('circle')!.getBoundingClientRect();
+    const egoCx = egoRect.left + egoRect.width / 2;
+    const egoCy = egoRect.top + egoRect.height / 2;
+    // clear region = svg minus visible overlays (approx: subtract panel on right, legends)
+    const svg = document.querySelector('svg')!.getBoundingClientRect();
+    const panel = document.getElementById('right-col')!;
+    const panelOpen = panel.classList.contains('open');
+    const panelW = panelOpen ? panel.getBoundingClientRect().width : 0;
+    const zl = document.getElementById('mlegend-bottom')!.getBoundingClientRect();
+    const clearCx = (0 + (svg.width - panelW)) / 2;
+    const clearCy = (0 + Math.min(svg.height, zl.top)) / 2; // above the bottom micro-legend
+    return { egoCx, egoCy, clearCx, clearCy, svgW: svg.width };
+  });
+  // ego within 12% of viewport width from the clear-region center
+  expect(Math.abs(info.egoCx - info.clearCx)).toBeLessThan(info.svgW * 0.12);
+  expect(Math.abs(info.egoCy - info.clearCy)).toBeLessThan(info.svgW * 0.12);
+});
+
+// ── HV1/HV2: hovering an edge shows its link type in the #tooltip ─────────────
+// property HV1: mouseover a hit-line makes #tooltip visible with the link type.
+// property HV2: mouseleave hides it. Replaces the flaky native <title>.
+test('[Z31] hovering an edge shows its link type in the tooltip', async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.waitForSelector('svg g circle', { timeout: 8000 });
+  await page.locator('#btn-zoned').click();
+  await page.locator('svg g.node').filter({ hasText: 'Beta' }).locator('circle').first().click();
+  await page.waitForTimeout(1400);
+  // Hover at the edge's MIDPOINT via elementFromPoint — this respects z-order, so
+  // it fails if the visible thin line (or a node) sits on top of the hit-line.
+  const shown = await page.evaluate(() => {
+    const hit = [...document.querySelectorAll('svg path.link-hit')]
+      .find(l => (l as any).__data__ && (l as any).__data__.type === 'contradicts') as SVGPathElement | undefined;
+    if (!hit) return { found: false };
+    // A curved path's bbox center is off the path, so take a point ON the path
+    // (via getPointAtLength) and convert to screen coords through the CTM.
+    const pt = hit.getPointAtLength(hit.getTotalLength() / 2);
+    const svg = hit.ownerSVGElement!;
+    const dompt = svg.createSVGPoint(); dompt.x = pt.x; dompt.y = pt.y;
+    const scr = dompt.matrixTransform(hit.getScreenCTM()!);
+    const midX = scr.x, midY = scr.y;
+    const target = document.elementFromPoint(midX, midY);
+    if (!target) return { found: true, onTop: 'none' };
+    target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: midX, clientY: midY }));
+    target.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: midX, clientY: midY }));
+    const tip = document.getElementById('tooltip')!;
+    const visible = getComputedStyle(tip).display !== 'none';
+    const text = tip.textContent || '';
+    const hitType = (target as any).__data__ ? (target as any).__data__.type : null;
+    target.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+    const hiddenAfter = getComputedStyle(tip).display === 'none';
+    return { found: true, onTop: (target as Element).getAttribute('class'), visible, text, hitType, hiddenAfter };
+  });
+  expect(shown.found).toBe(true);
+  // the element actually under the cursor at the edge must be the hoverable hit-line
+  expect(shown.onTop).toContain('link-hit');
+  expect(shown.visible).toBe(true);       // HV1a
+  // HV1b: the tooltip shows the type of whichever edge was actually hovered
+  expect(shown.hitType).toBeTruthy();
+  expect(shown.text).toContain(shown.hitType!);
+  expect(shown.hiddenAfter).toBe(true);   // HV2
+});
+
+// ── Z1/Z2: zoneless neighbors sit on an outer diagonal ring, off the cardinals ─
+// property Z1: a non-ego zoneless node's angle avoids the four cardinal axes
+// (0/90/180/270) so it can't collide with a left/right/top/bottom zone node.
+// property Z2: it sits beyond the zone SPREAD (outer 'other' ring).
+test('[Z32] zoneless neighbors avoid the cardinal axes and sit on an outer ring', async ({ page }) => {
+  const placed = await layout(page, [
+    { id: 'ego', zone: '' },
+    { id: 'z1', zone: '' }, { id: 'z2', zone: '' }, { id: 'z3', zone: '' },
+    { id: 'r1', zone: 'right' },
+  ], 'ego');
+  const zoneless = placed.filter(p => (p.id === 'z1' || p.id === 'z2' || p.id === 'z3'));
+  expect(zoneless.length).toBe(3);
+  const SPREAD = 240;
+  const cardinals = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+  // robust signed-angle distance, always in [0, PI]
+  const angDist = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  for (const p of zoneless) {
+    const ang = Math.atan2(p.y, p.x);
+    const nearest = Math.min(...cardinals.map(c => angDist(ang, c)));
+    expect(nearest).toBeGreaterThanOrEqual(Math.PI / 9);      // Z1: >= 20deg off any cardinal
+    expect(Math.hypot(p.x, p.y)).toBeGreaterThan(SPREAD);     // Z2: outer ring
+  }
+});
+
+// ── EH1/EH2: hovering an edge highlights (thickens) its visible line ──────────
+test('[Z33] hovering an edge thickens it and returns to idle on leave', async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.waitForSelector('svg g circle', { timeout: 8000 });
+  await page.locator('#btn-zoned').click();
+  await page.locator('svg g.node').filter({ hasText: 'Beta' }).locator('circle').first().click();
+  await page.waitForTimeout(1400);
+  const res = await page.evaluate(() => {
+    const hit = [...document.querySelectorAll('svg path.link-hit')]
+      .find(h => (h as any).__data__ && (h as any).__data__.type === 'contradicts');
+    if (!hit) return { found: false };
+    hit.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    // measure the visible line that actually got the hover class
+    const hovered = document.querySelector('svg path.link.edge-hover') as SVGLineElement | null;
+    const wHover = hovered ? parseFloat(getComputedStyle(hovered).strokeWidth) : 0;
+    hit.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+    const stillHovered = document.querySelectorAll('svg path.link.edge-hover').length;
+    const wIdle = hovered ? parseFloat(getComputedStyle(hovered).strokeWidth) : 0;
+    return { found: true, wHover, wIdle, stillHovered };
+  });
+  expect(res.found).toBe(true);
+  expect(res.wHover).toBeGreaterThanOrEqual(2);   // EH1: a line is thickened on hover
+  expect(res.stillHovered).toBe(0);                // EH2: cleared on leave
+  expect(res.wIdle).toBeLessThanOrEqual(1.5);      // EH2: returns to idle
+});
+
+// ── NP1: hovering a node in focus mode previews a body snippet ───────────────
+test('[Z34] focused node hover shows a body description snippet', async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.waitForSelector('svg g circle', { timeout: 8000 });
+  await page.locator('#btn-zoned').click();
+  await page.locator('svg g.node').filter({ hasText: 'Alpha' }).locator('circle').first().click();
+  await page.waitForTimeout(1400);
+  const text = await page.evaluate(() => {
+    // hover a neighbor node (Beta has body "Body of beta note.")
+    const g = [...document.querySelectorAll('svg g.node')].find(el => {
+      const d = (el as any).__data__; return d && (d.title || '').startsWith('Beta');
+    });
+    if (!g) return null;
+    g.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    return document.getElementById('tooltip')!.textContent || '';
+  });
+  expect(text).not.toBeNull();
+  // the body of the beta note is previewed
+  expect(text).toContain('Body of beta');
+});
+
+// ── M1..M4: four per-axis micro-legends replace the corner box ────────────────
+test('[Z35] focus mode shows four per-axis micro-legends including related, no corner box', async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.waitForSelector('svg g circle', { timeout: 8000 });
+  await page.locator('#btn-zoned').click();
+  await page.locator('svg g circle').first().click(); // focus
+  await page.waitForTimeout(1300);
+  // M1: four micro-legends visible
+  for (const axis of ['top', 'left', 'right', 'bottom']) {
+    await expect(page.locator(`#mlegend-${axis}`)).toBeVisible();
+  }
+  // M2: RIGHT lists 'related'
+  await expect(page.locator('#mlegend-right')).toContainText('related');
+  // M3: old corner box gone (not present, or not visible)
+  const cornerVisible = await page.locator('#zone-legend').count()
+    ? await page.locator('#zone-legend').evaluate(el => getComputedStyle(el).display !== 'none').catch(() => false)
+    : false;
+  expect(cornerVisible).toBe(false);
+  // M4: breadcrumb carries the recenter hint
+  await expect(page.locator('#focus-crumb')).toContainText('recenter');
+});
+
+// ── B1/B2: bidirectional edges bow apart; single edges stay straight ─────────
+test('[Z36] bidirectional edges curve to opposite sides; single edges are straight', async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.waitForSelector('svg g circle', { timeout: 8000 });
+  await page.locator('#btn-zoned').click();
+  // focus alpha: alpha<->beta is bidirectional (supports + contradicts); gamma->beta is single
+  await page.locator('svg g.node').filter({ hasText: 'Alpha' }).locator('circle').first().click();
+  await page.waitForTimeout(1400);
+  const res = await page.evaluate(() => {
+    const paths = [...document.querySelectorAll('svg path.link')] as SVGPathElement[];
+    const pathOf = (type: string) => paths.find(p => (p as any).__data__.type === type);
+    const ab = pathOf('supports');      // alpha->beta
+    const ba = pathOf('contradicts');   // beta->alpha
+    const single = pathOf('refines');   // gamma->beta (single)
+    if (!ab || !ba) return { ok: false };
+    // ONE shared world chord: use alpha->beta's endpoints for both.
+    const d = (ab as any).__data__;
+    const sx = d.source.x, sy = d.source.y, tx = d.target.x, ty = d.target.y;
+    const dx = tx - sx, dy = ty - sy, len = Math.hypot(dx, dy) || 1;
+    const signedAt = (p: SVGPathElement, f: number) => {
+      const pt = p.getPointAtLength(p.getTotalLength() * f);
+      return ((pt.x - sx) * (-dy) + (pt.y - sy) * dx) / len;
+    };
+    // Sample interior points. For ba (reverse direction), mirror f.
+    const abS = [0.25, 0.5, 0.75].map(f => signedAt(ab, f));
+    const baS = [0.75, 0.5, 0.25].map(f => signedAt(ba, f)); // mirrored to align chord position
+    // single edge midpoint offset from its own chord
+    let singleOff = 0;
+    if (single) {
+      const sd = (single as any).__data__;
+      const s2x = sd.source.x, s2y = sd.source.y, t2x = sd.target.x, t2y = sd.target.y;
+      const d2x = t2x - s2x, d2y = t2y - s2y, l2 = Math.hypot(d2x, d2y) || 1;
+      const m = single.getPointAtLength(single.getTotalLength() / 2);
+      singleOff = ((m.x - s2x) * (-d2y) + (m.y - s2y) * d2x) / l2;
+    }
+    return { ok: true, abS, baS, singleOff, hasSingle: !!single };
+  });
+  expect(res.ok).toBe(true);
+  // NX1: at every interior sample, the two arcs are on OPPOSITE sides of the
+  // shared chord (product < 0) and non-trivial — so they never cross.
+  for (let i = 0; i < res.abS!.length; i++) {
+    expect(res.abS![i] * res.baS![i]).toBeLessThan(0);
+    expect(Math.abs(res.abS![i])).toBeGreaterThan(2);
+    expect(Math.abs(res.baS![i])).toBeGreaterThan(2);
+  }
+  // NX2: single edge stays straight
+  if (res.hasSingle) expect(Math.abs(res.singleOff!)).toBeLessThan(2);
+});
+
+// ── UA1: edge hover shows the annotation (description) as well as the type ────
+test('[Z37] hovering an edge shows its annotation alongside the type', async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.waitForSelector('svg g circle', { timeout: 8000 });
+  await page.locator('#btn-zoned').click();
+  await page.locator('svg g.node').filter({ hasText: 'Alpha' }).locator('circle').first().click();
+  await page.waitForTimeout(1400);
+  const res = await page.evaluate(() => {
+    const hit = [...document.querySelectorAll('svg path.link-hit')]
+      .find(l => (l as any).__data__ && (l as any).__data__.annotation) as SVGPathElement | undefined;
+    if (!hit) return { found: false };
+    const d = (hit as any).__data__;
+    hit.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    const text = document.getElementById('tooltip')!.textContent || '';
+    return { found: true, annotation: d.annotation, type: d.type, text };
+  });
+  expect(res.found).toBe(true);
+  expect(res.text).toContain(res.annotation!);   // UA1a
+  expect(res.text).toContain(res.type!);          // UA1b
+});
+
+// ── the top micro-legend must not overlap the breadcrumb (both top-center) ────
+test('[Z38] top micro-legend does not overlap the focus breadcrumb', async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.waitForSelector('svg g circle', { timeout: 8000 });
+  await page.locator('#btn-zoned').click();
+  await page.locator('svg g circle').first().click();
+  await page.waitForTimeout(1300);
+  const b = await page.evaluate(() => {
+    const r = (id: string) => { const e = document.getElementById(id)!; const x = e.getBoundingClientRect(); return { l: x.left, t: x.top, r: x.right, b: x.bottom }; };
+    return { ml: r('mlegend-top'), crumb: r('focus-crumb') };
+  });
+  const overlaps = b.ml.l < b.crumb.r && b.ml.r > b.crumb.l && b.ml.t < b.crumb.b && b.ml.b > b.crumb.t;
+  expect(overlaps).toBe(false);
 });

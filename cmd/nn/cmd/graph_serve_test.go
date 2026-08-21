@@ -264,6 +264,46 @@ func TestGraphServeGraphEdgeType(t *testing.T) {
 	}
 }
 
+// property SA1: every edge carries its link's annotation, so the viewer can show
+// the edge's description (its "why") on hover.
+func TestGraphServeGraphEdgeAnnotation(t *testing.T) {
+	nbDir, cfgFile := setupNotebookWithCfg(t)
+
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	b := newTestNoteForCLI(note.GenerateID(), "Beta", note.TypeConcept)
+	a.Links = []note.Link{{TargetID: b.ID, Type: "contradicts", Annotation: "opposes the claim"}}
+	writeNoteFile(t, nbDir, a)
+	writeNoteFile(t, nbDir, b)
+
+	port := 17353
+	startServeForTest(t, port, cfgFile)
+
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/graph", port))
+	if err != nil {
+		t.Fatalf("GET /graph: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var body struct {
+		Edges []map[string]any `json:"edges"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("GET /graph: body not valid JSON: %v", err)
+	}
+	var found bool
+	for _, e := range body.Edges {
+		if e["source"] == a.ID && e["target"] == b.ID {
+			found = true
+			if e["annotation"] != "opposes the claim" {
+				t.Errorf("property SA1: edge annotation = %v, want %q", e["annotation"], "opposes the claim")
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("property SA1: expected edge %s->%s", a.ID, b.ID)
+	}
+}
+
 func TestGraphServePostEvent(t *testing.T) {
 	// property [3]: POST /event with {id, title} must succeed (204) — event is logged to stdout
 	nbDir, cfgFile := setupNotebookWithCfg(t)

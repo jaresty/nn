@@ -35,7 +35,9 @@ func zoneOf(linkType string, dir linkDir) zone {
 	switch linkType {
 	case "contradicts", "questions":
 		return zoneLeft
-	case "source-of", "requires":
+	case "source-of", "requires", "related":
+		// source-of/requires are lateral; "related" is a legacy/generic
+		// association with no clear direction, so treat it as lateral too.
 		return zoneRight
 	case "governs":
 		// governs points from authority to governed. If a note governs the ego

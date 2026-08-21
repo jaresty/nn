@@ -30,11 +30,14 @@ func TestZoneOf(t *testing.T) {
 		{"questions out", "questions", dirOut, zoneLeft},
 		{"questions in", "questions", dirIn, zoneLeft},
 
-		// RIGHT — lateral: provenance / task edges (either direction)
+		// RIGHT — lateral: provenance / task / generic association (either direction)
 		{"source-of out", "source-of", dirOut, zoneRight},
 		{"source-of in", "source-of", dirIn, zoneRight},
 		{"requires out", "requires", dirOut, zoneRight},
 		{"requires in", "requires", dirIn, zoneRight},
+		// 'related' is a legacy/generic association (not a core nn type) -> lateral.
+		{"related out", "related", dirOut, zoneRight},
+		{"related in", "related", dirIn, zoneRight},
 
 		// supports OUT is not a top/bottom relation (ego corroborates target) -> lateral-none is acceptable;
 		// pin it to none so the mapping stays total and intentional.

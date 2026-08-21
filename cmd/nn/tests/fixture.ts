@@ -52,7 +52,9 @@ export async function startServer(): Promise<void> {
 
   // Write test notes. 'gamma' has a deliberately long title so label-truncation
   // guards have a title that overruns the render cap.
-  writeNote(notebookDir, 'alpha-0001', 'Alpha Note', 'Body of alpha note.', 'observation');
+  // alpha supports beta AND beta contradicts alpha -> a BIDIRECTIONAL pair, so
+  // focusing either shows two edges that must bow apart (not overlap).
+  writeNote(notebookDir, 'alpha-0001', 'Alpha Note', 'Body of alpha note.', 'observation', [{ to: 'beta-0002', type: 'supports' }]);
   // beta contradicts alpha, so when focused on alpha, beta lands in the LEFT
   // (tension) zone — exercises the tension-halo coloring.
   writeNote(notebookDir, 'beta-0002', 'Beta Note', 'Body of beta note.', 'observation', [{ to: 'alpha-0001', type: 'contradicts' }]);
