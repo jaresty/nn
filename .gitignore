@@ -16,3 +16,4 @@
 *.swp
 cmd/nn/node_modules/
 cmd/nn/test-results/
+test-results/

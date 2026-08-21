@@ -211,27 +211,28 @@ test('[Z13] zoned recenter settles to a legible zoom scale', async ({ page }) =>
   expect(k).toBeGreaterThanOrEqual(0.5);
 });
 
-// ── B3a/B3b: labels are truncated and carry the full title as a tooltip ───────
+// ── B3a/B3b: labels are truncated; the full title is available via the datum ──
 // property B3a: rendered label text is capped so long titles do not overrun.
-// property B3b: each node exposes its full title via an SVG <title> element.
-test('[Z14] labels are truncated with the full title in an SVG <title>', async ({ page }) => {
+// property B3b: the full untruncated title is available on the node datum (which
+// the #tooltip shows on hover) — no native <title> is used (it would compete).
+test('[Z14] labels are truncated; the full title lives on the node datum', async ({ page }) => {
   await page.goto(BASE_URL);
   await page.waitForSelector('svg g.node text', { timeout: 8000 });
   const info = await page.locator('svg g.node').evaluateAll((gs: SVGGElement[]) => {
     return gs.map(g => {
       const label = g.querySelector('text');
-      const title = g.querySelector('title');
-      return { text: label ? label.textContent || '' : '', title: title ? title.textContent || '' : null };
+      const full = (g as any).__data__ ? (g as any).__data__.title : null;
+      return { text: label ? label.textContent || '' : '', full };
     });
   });
   expect(info.length).toBeGreaterThan(0);
   // B3a: no rendered label exceeds the cap (allow ellipsis char)
   const MAXLEN = 28; // code truncates to 26 chars + ellipsis
   for (const n of info) expect(n.text.length).toBeLessThanOrEqual(MAXLEN);
-  // B3b: every node has a <title> element
-  for (const n of info) expect(n.title).not.toBeNull();
-  // At least one title is longer than its truncated label (proves truncation happened on a long title)
-  expect(info.some(n => (n.title || '').length > n.text.length)).toBe(true);
+  // B3b: the full title is available on the datum (shown by #tooltip on hover)
+  for (const n of info) expect(n.full).toBeTruthy();
+  // At least one full title is longer than its truncated label (truncation happened)
+  expect(info.some(n => (n.full || '').length > n.text.length)).toBe(true);
 });
 
 // ── P1: drill-in shows a titled breadcrumb chip ──────────────────────────────
@@ -336,7 +337,11 @@ test('[Z20] exiting focus clears the focus and does not leave a zoned whole-grap
     gs.some(g => { const d = (g as any).__data__; return d && d.fx != null && d.fy != null; })
   );
   expect(anyPinned).toBe(false);
-  await expect(page.locator('#zoned-hint')).toBeVisible();
+  // Exiting returns to the prior view with zoned OFF (not the armed state), so
+  // the armed hint is hidden and the Zoned button is inactive.
+  await expect(page.locator('#btn-zoned')).not.toHaveClass(/active/);
+  const hint = await page.locator('#zoned-hint').evaluate(el => getComputedStyle(el).display !== 'none');
+  expect(hint).toBe(false);
 });
 
 // ── B1a/B1b: tension is a halo, not a fill override ──────────────────────────
@@ -778,4 +783,84 @@ test('[Z38] top micro-legend does not overlap the focus breadcrumb', async ({ pa
   });
   const overlaps = b.ml.l < b.crumb.r && b.ml.r > b.crumb.l && b.ml.t < b.crumb.b && b.ml.b > b.crumb.t;
   expect(overlaps).toBe(false);
+});
+
+// ── T1: nodes have no native <title> (the custom #tooltip is the sole tooltip) ─
+// A native <title> competes with the JS #tooltip, popping up simultaneously.
+test('[Z39] graph nodes have no native <title> element', async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.waitForSelector('svg g.node', { timeout: 8000 });
+  const titleCount = await page.locator('svg g.node title').count();
+  expect(titleCount).toBe(0);
+});
+
+// ── S1: searching while focused exits to the full graph (search spans the notebook) ─
+test('[Z40] searching while focused restores the full graph', async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.waitForSelector('svg g circle', { timeout: 8000 });
+  const rootCount = await page.locator('svg g.node').count();
+  await page.locator('#btn-zoned').click();
+  await page.locator('svg g circle').first().click(); // focus -> subgraph
+  await page.waitForTimeout(1200);
+  const focusedCount = await page.locator('svg g.node').count();
+  expect(focusedCount).toBeLessThan(rootCount); // confirm we narrowed
+  // now search — should exit focus back to the full graph
+  await page.locator('#search-input').fill('note');
+  await page.waitForTimeout(700); // debounce + rebuild
+  const afterSearch = await page.locator('svg g.node').count();
+  expect(afterSearch).toBe(rootCount);
+});
+
+// ── D1/D2: in a dense zone, always-on labels are hidden (revealed on hover) ───
+// The fixture is too small to make a dense zone, so we drive applyZonedLayout via
+// a synthetic dataset through a test hook that returns each node's label-hidden
+// decision (zone bucket > threshold).
+test('[Z41] dense-zone nodes hide their always-on label; sparse-zone nodes keep it', async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.waitForFunction(() => typeof (window as any).__testLabelHidden === 'function', { timeout: 8000 });
+  const res = await page.evaluate(() => {
+    // 6 right-zone nodes (dense), 1 top-zone node (sparse), plus ego
+    const nodes = [
+      { id: 'ego', zone: '' },
+      { id: 't1', zone: 'top' },
+      ...Array.from({ length: 6 }, (_, i) => ({ id: 'r' + i, zone: 'right' })),
+    ];
+    return (window as any).__testLabelHidden(nodes, 'ego');
+  });
+  // dense right-zone nodes are hidden
+  for (let i = 0; i < 6; i++) expect(res['r' + i]).toBe(true);
+  // sparse top-zone node is visible
+  expect(res['t1']).toBe(false);
+});
+
+// ── G1: clicking Grouped while zoned-armed hides the armed hint ───────────────
+test('[Z42] switching to Grouped while zoned-armed hides the armed hint', async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.waitForSelector('svg g circle', { timeout: 8000 });
+  await page.locator('#btn-zoned').click();            // zoned on -> armed hint shows
+  await expect(page.locator('#zoned-hint')).toBeVisible();
+  await page.locator('#btn-layout').click();           // Grouped -> turns zoned off
+  await page.waitForTimeout(300);
+  const hintShown = await page.locator('#zoned-hint').evaluate(el => getComputedStyle(el).display !== 'none');
+  expect(hintShown).toBe(false);
+});
+
+// ── X1: exiting a focused zoned view returns to the prior layout (Grouped) ────
+test('[Z43] Grouped -> select -> Zoned -> exit returns to Grouped, zoned off', async ({ page }) => {
+  await page.goto(BASE_URL);
+  await page.waitForSelector('svg g circle', { timeout: 8000 });
+  await page.locator('#btn-layout').click();               // Grouped on
+  await expect(page.locator('#btn-layout')).toHaveClass(/active/);
+  await page.locator('svg g circle').first().click();      // select a node in Grouped
+  await page.waitForTimeout(400);
+  await page.locator('#btn-zoned').click();                // Zoned adopts selection -> focus
+  await page.waitForTimeout(1200);
+  await expect(page.locator('#focus-crumb')).toBeVisible();
+  await page.locator('#focus-crumb').click();              // exit focus
+  await page.waitForTimeout(900);
+  // back in Grouped, zoned off, hint hidden
+  await expect(page.locator('#btn-layout')).toHaveClass(/active/);   // X1a
+  await expect(page.locator('#btn-zoned')).not.toHaveClass(/active/); // X1b
+  const hint = await page.locator('#zoned-hint').evaluate(el => getComputedStyle(el).display !== 'none');
+  expect(hint).toBe(false);
 });

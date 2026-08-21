@@ -127,6 +127,8 @@ text.hidden-badge { fill: #7eb8f7; font-size: 11px; font-weight: 700; paint-orde
   stroke: #1a1a2e; stroke-width: 3px; stroke-linejoin: round;
 }
 .node.highlighted text { fill: #fff; }
+/* Dense-zone labels are hidden by default (shown on hover via #tooltip). */
+.node text.dense-hidden { display: none; }
 .node.search-dim circle { opacity: .12; }
 .node.search-dim text   { opacity: .1; }
 
@@ -395,9 +397,13 @@ const zoom = d3.zoom().scaleExtent([.05, 12]).on("zoom", e => {
   g.attr("transform", e.transform);
   const k = e.transform.k;
   // In a focused zoned view the layout is meaningless without labels, so keep
-  // them shown regardless of zoom. The armed (unfocused) zoned state and force
-  // mode both still hide labels below the threshold to avoid a 675-label mess.
-  g.selectAll(".node text").style("display", ((zonedMode && egoID) || k >= LABEL_ZOOM_THRESHOLD) ? null : "none");
+  // them shown regardless of zoom — EXCEPT dense-zone labels (.dense-hidden),
+  // which stay hidden to avoid an unreadable pile. The armed (unfocused) zoned
+  // state and force mode still hide labels below the threshold.
+  g.selectAll(".node text").style("display", function() {
+    if (this.classList.contains("dense-hidden")) return "none";
+    return ((zonedMode && egoID) || k >= LABEL_ZOOM_THRESHOLD) ? null : "none";
+  });
 });
 // Test helpers
 window.__testSetZoom = (k) => { svg.call(zoom.transform, d3.zoomIdentity.scale(k)); };
@@ -511,6 +517,7 @@ document.getElementById("btn-layout").addEventListener("click", () => {
   groupingMode = !groupingMode;
   document.getElementById("btn-layout").classList.toggle("active", groupingMode);
   if (groupingMode && zonedMode) { zonedMode = false; document.getElementById("btn-zoned").classList.remove("active"); }
+  updateZonedHint(); // zonedMode may have flipped off — recompute the armed hint
   const d = currentGraphData || rootGraphData;
   if (d) { rebuildSim(d); rebuildLegend(d); }
 });
@@ -530,9 +537,13 @@ function updateZonedHint() {
   ["top", "bottom", "left", "right"].forEach(a =>
     document.getElementById("mlegend-" + a).classList.toggle("visible", focused));
 }
+// Remembers whether Grouped was active when Zoned was turned on, so exiting a
+// focused zoned view can return the user to the view they came from.
+let preFocusGrouping = false;
 document.getElementById("btn-zoned").addEventListener("click", () => {
   zonedMode = !zonedMode;
   document.getElementById("btn-zoned").classList.toggle("active", zonedMode);
+  if (zonedMode) preFocusGrouping = groupingMode; // snapshot before clearing below
   if (zonedMode && groupingMode) { groupingMode = false; document.getElementById("btn-layout").classList.remove("active"); }
   updateZonedHint();
   {{if .ServeMode}}
@@ -618,6 +629,32 @@ window.__testApplyZonedLayout = (nodes, testEgoID) => {
   } finally {
     egoID = prevEgo;
   }
+};
+
+// Dense-zone label suppression: in a focused zoned view, a zone with more than
+// DENSE_ZONE members would render an unreadable pile of always-on labels, so we
+// hide those and reveal them on hover via the #tooltip. Sparse zones keep labels.
+const DENSE_ZONE = 4;
+function zoneCountsOf(nodes) {
+  const c = {};
+  nodes.forEach(n => { const z = n.zone || "none"; c[z] = (c[z] || 0) + 1; });
+  return c;
+}
+function labelHidden(d, zoneCounts) {
+  if (!(zonedMode && egoID)) return false;         // only when focused
+  const z = d.zone || "none";
+  return (zoneCounts[z] || 0) > DENSE_ZONE;
+}
+// Test hook: return {id: hidden-bool} for a synthetic dataset while focused.
+window.__testLabelHidden = (nodes, testEgoID) => {
+  const prevEgo = egoID, prevZoned = zonedMode;
+  egoID = testEgoID; zonedMode = true;
+  try {
+    const counts = zoneCountsOf(nodes);
+    const out = {};
+    nodes.forEach(n => { out[n.id] = labelHidden(n, counts); });
+    return out;
+  } finally { egoID = prevEgo; zonedMode = prevZoned; }
 };
 
 // ── Simulation (rebuildable) ───────────────────────────────────────────────
@@ -717,11 +754,16 @@ function rebuildSim(data) {
     .attr("r", d => d.r)
     .attr("fill", nodeColor).attr("stroke", nodeColor)
     .classed("tension-halo", d => zonedMode && d.zone === "left");
+  // Dense-zone labels are hidden (revealed on hover) to avoid an unreadable pile.
+  const zoneCounts = zoneCountsOf(data.nodes);
   node.selectAll("text").data(d=>[d]).join("text")
     .attr("dy", "1.5em").attr("text-anchor", "middle")
+    .classed("dense-hidden", d => labelHidden(d, zoneCounts))
     .text(d => d.title.length > 28 ? d.title.slice(0,26)+"…" : d.title);
-  // Full title as a native SVG tooltip, so truncated labels lose no information.
-  node.selectAll("title").data(d=>[d]).join("title").text(d => d.title);
+  // No native <title> on nodes: the JS #tooltip (which shows the full title and,
+  // in zoned mode, a body preview) is the sole node tooltip — a native <title>
+  // would pop up simultaneously and compete with it.
+  node.selectAll("title").remove();
   // Hidden-edges badge: on a focused rim node, "+N" tells how many of its direct
   // connections are hidden by the depth-1 focus (total degree minus visible).
   // degreeMap is the visible (subgraph) degree; d.degree is the full-graph total.
@@ -923,14 +965,25 @@ function exitFocusedState() {
   updateZonedHint();
 }
 document.getElementById("focus-crumb").addEventListener("click", () => {
-  // Clear the focus BEFORE rebuilding: rebuildSim reads egoID to decide whether
-  // to apply the zoned layout, and a stale egoID would zone the whole graph.
+  exitFocusToFullGraph();
+});
+// Leave the focused view and render the full graph in the force layout. Clears
+// the focus BEFORE rebuilding: rebuildSim reads egoID to decide whether to apply
+// the zoned layout, and a stale egoID would zone the whole graph.
+function exitFocusToFullGraph() {
   exitFocusedState();
+  // Leave zoned mode and restore the layout the user came from (Grouped or force)
+  // so exiting returns them where they were, not to a leftover zoned-armed state.
+  zonedMode = false;
+  document.getElementById("btn-zoned").classList.remove("active");
+  groupingMode = preFocusGrouping;
+  document.getElementById("btn-layout").classList.toggle("active", groupingMode);
+  updateZonedHint();
   if (rootGraphData) {
     rebuildSim(rootGraphData);
     rebuildLegend(rootGraphData);
   }
-});
+}
 {{if .ServeMode}}
 // Recenter the zoned view on a node: fetch its depth-1 ego subgraph (carrying
 // zones), enter the focused state, and lay it out by zone. Shared by node-click
@@ -982,6 +1035,10 @@ document.getElementById("search-input").addEventListener("input", e => {
       gNodes.selectAll("g").classed("search-dim", false);
       return;
     }
+    // Search spans the whole notebook, but a focused zoned view only renders the
+    // ego subgraph — so exit the focus back to the full graph first, otherwise
+    // matches outside the focus would be unreachable.
+    if (zonedMode && egoID) exitFocusToFullGraph();
     // clear click-highlight state when search takes over
     clearHighlight();
     const resp = await fetch('/search', {

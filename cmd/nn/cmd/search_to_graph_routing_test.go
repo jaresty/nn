@@ -22,8 +22,8 @@ func TestSearchToGraphRoutingDocumented(t *testing.T) {
 		t.Errorf("protocol does not direct the agent past ranked search results; got:\n%s", out)
 	}
 
-	// property [2]: names the default neighborhood command.
-	if !strings.Contains(out, "nn graph show --focus <id> --depth 2 --direction both") {
+	// property [2]: names the default neighborhood command (zoned, depth-1).
+	if !strings.Contains(out, "nn graph show --focus <id> --depth 1 --direction both") {
 		t.Errorf("protocol missing default graph-show command; got:\n%s", out)
 	}
 
@@ -35,5 +35,12 @@ func TestSearchToGraphRoutingDocumented(t *testing.T) {
 	// property [4]: bridges are referenced as a structural query.
 	if !strings.Contains(out, "nn graph bridges") {
 		t.Errorf("protocol missing nn graph bridges reference; got:\n%s", out)
+	}
+
+	// property [5]: the default neighborhood is inspected with --zones so the
+	// direct neighbors are grouped by relationship direction. Asserted on the
+	// default-neighborhood command specifically (not just anywhere in the doc).
+	if !strings.Contains(out, "--depth 1 --direction both --zones --format text") {
+		t.Errorf("protocol zoned default-neighborhood command should use --depth 1 --zones; got:\n%s", out)
 	}
 }
