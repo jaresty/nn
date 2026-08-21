@@ -174,6 +174,54 @@ func TestGraphServeGetGraphFocus(t *testing.T) {
 	}
 }
 
+// property P1: each node in a /graph?focus response carries its full-graph
+// degree (in+out incident edges), so the viewer can show how many direct
+// connections are hidden by the depth=1 focus.
+func TestGraphServeGraphFocusDegree(t *testing.T) {
+	nbDir, cfgFile := setupNotebookWithCfg(t)
+
+	a := newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept)
+	b := newTestNoteForCLI(note.GenerateID(), "Beta", note.TypeConcept)
+	c := newTestNoteForCLI(note.GenerateID(), "Gamma", note.TypeConcept)
+	// a -> b -> c. Focus a depth=1 returns a,b. b's full-graph degree is 2
+	// (a->b and b->c), of which only a->b is visible, so 1 is hidden.
+	a.Links = []note.Link{{TargetID: b.ID, Annotation: "link"}}
+	b.Links = []note.Link{{TargetID: c.ID, Annotation: "link"}}
+	writeNoteFile(t, nbDir, a)
+	writeNoteFile(t, nbDir, b)
+	writeNoteFile(t, nbDir, c)
+
+	port := 17352
+	startServeForTest(t, port, cfgFile)
+
+	resp, err := http.Get(fmt.Sprintf("http://localhost:%d/graph?focus=%s&depth=1", port, a.ID))
+	if err != nil {
+		t.Fatalf("GET /graph?focus: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var body struct {
+		Nodes []map[string]any `json:"nodes"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("GET /graph?focus: body not valid JSON: %v", err)
+	}
+	degByID := map[string]float64{}
+	for _, n := range body.Nodes {
+		if d, ok := n["degree"].(float64); ok {
+			degByID[n["id"].(string)] = d
+		} else {
+			t.Fatalf("property P1: node %v missing numeric degree field", n["id"])
+		}
+	}
+	if degByID[b.ID] != 2 {
+		t.Errorf("property P1: node b degree = %v, want 2 (a->b, b->c)", degByID[b.ID])
+	}
+	if degByID[a.ID] != 1 {
+		t.Errorf("property P1: node a degree = %v, want 1 (a->b)", degByID[a.ID])
+	}
+}
+
 
 // property S1: every edge in the /graph response carries the source note's
 // link type in a "type" field (so the viewer can compute directional zones).

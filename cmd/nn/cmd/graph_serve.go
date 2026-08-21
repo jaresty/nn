@@ -71,6 +71,19 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 			Tags   []string `json:"tags"`
 			Body   string   `json:"body"`
 			Zone   string   `json:"zone,omitempty"`
+			Degree int      `json:"degree"`
+		}
+
+		// Full-graph degree (in + out incident edges) per node, so the focused
+		// viewer can show how many direct connections a rim node hides.
+		degByID := make(map[string]int, len(notes))
+		for _, n := range notes {
+			for _, lnk := range n.Links {
+				if _, ok := byID[lnk.TargetID]; ok {
+					degByID[n.ID]++
+					degByID[lnk.TargetID]++
+				}
+			}
 		}
 		type outEdge struct {
 			Source string `json:"source"`
@@ -121,7 +134,7 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 				outNodes = append(outNodes, outNode{
 					ID: e.n.ID, Title: e.n.Title, Type: string(e.n.Type),
 					Status: string(e.n.Status), Tags: tags, Body: e.n.Body,
-					Zone: zoneByID[e.n.ID],
+					Zone: zoneByID[e.n.ID], Degree: degByID[e.n.ID],
 				})
 			}
 			for _, e := range entries {
@@ -141,6 +154,7 @@ func startServeMode(ctx context.Context, b backend.Backend, notebookPath string,
 				outNodes = append(outNodes, outNode{
 					ID: n.ID, Title: n.Title, Type: string(n.Type),
 					Status: string(n.Status), Tags: tags, Body: n.Body,
+					Degree: degByID[n.ID],
 				})
 			}
 			for _, n := range notes {

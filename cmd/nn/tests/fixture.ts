@@ -20,11 +20,16 @@ function freePort(): Promise<number> {
   });
 }
 
-function writeNote(dir: string, id: string, title: string, body: string) {
+function writeNote(dir: string, id: string, title: string, body: string, type = 'concept', links: Array<{ to: string; type: string }> = []) {
+  // Links are parsed from a "## Links" section, one per line:
+  //   - [[targetid]] [type] — annotation
+  const linksSection = links.length
+    ? `\n## Links\n\n` + links.map(l => `- [[${l.to}]] [${l.type}] — test link`).join('\n') + '\n'
+    : '';
   const content = `---
 id: ${id}
 title: ${title}
-type: concept
+type: ${type}
 status: draft
 tags: []
 created: 2026-01-01T00:00:00Z
@@ -32,7 +37,7 @@ modified: 2026-01-01T00:00:00Z
 ---
 
 ${body}
-`;
+${linksSection}`;
   fs.writeFileSync(path.join(dir, `${id}.md`), content);
 }
 
@@ -45,9 +50,16 @@ export async function startServer(): Promise<void> {
     stdio: 'ignore',
   });
 
-  // Write two test notes
-  writeNote(notebookDir, 'alpha-0001', 'Alpha Note', 'Body of alpha note.');
-  writeNote(notebookDir, 'beta-0002', 'Beta Note', 'Body of beta note.');
+  // Write test notes. 'gamma' has a deliberately long title so label-truncation
+  // guards have a title that overruns the render cap.
+  writeNote(notebookDir, 'alpha-0001', 'Alpha Note', 'Body of alpha note.', 'observation');
+  // beta contradicts alpha, so when focused on alpha, beta lands in the LEFT
+  // (tension) zone — exercises the tension-halo coloring.
+  writeNote(notebookDir, 'beta-0002', 'Beta Note', 'Body of beta note.', 'observation', [{ to: 'alpha-0001', type: 'contradicts' }]);
+  // gamma links to beta. So beta's full-graph degree is 2 (beta->alpha,
+  // gamma->beta); when focused on alpha only beta->alpha is visible, leaving 1
+  // hidden connection — exercises the "+N" hidden-edges badge.
+  writeNote(notebookDir, 'gamma-0003', 'Gamma Note With A Very Long Title That Should Be Truncated In The Graph View', 'Body of gamma note.', 'concept', [{ to: 'beta-0002', type: 'refines' }]);
   execSync('git add . && git commit -m "init"', { cwd: notebookDir, stdio: 'ignore' });
 
   // Build the nn binary

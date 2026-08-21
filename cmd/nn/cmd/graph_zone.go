@@ -27,8 +27,8 @@ const (
 // the related node should occupy in the Zoned ego layout.
 //
 // Mapping (see note 20260820154156-6576):
-//   - TOP    (what ego answers to): governs (either dir), refines/extends/grounded-by OUT
-//   - BOTTOM (what builds on ego):  refines/extends/grounded-by/supports IN
+//   - TOP    (what ego answers to): governs IN, refines/extends/grounded-by OUT
+//   - BOTTOM (what builds on ego):  governs OUT, refines/extends/grounded-by/supports IN
 //   - LEFT   (tension):             contradicts, questions (either dir)
 //   - RIGHT  (lateral):             source-of, requires (either dir)
 func zoneOf(linkType string, dir linkDir) zone {
@@ -38,7 +38,13 @@ func zoneOf(linkType string, dir linkDir) zone {
 	case "source-of", "requires":
 		return zoneRight
 	case "governs":
-		return zoneTop
+		// governs points from authority to governed. If a note governs the ego
+		// (dirIn), the ego answers to it -> TOP. If the ego governs the note
+		// (dirOut), that note is subordinate to the ego -> BOTTOM.
+		if dir == dirIn {
+			return zoneTop
+		}
+		return zoneBottom
 	case "refines", "extends", "grounded-by":
 		if dir == dirOut {
 			return zoneTop

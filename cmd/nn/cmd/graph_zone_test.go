@@ -11,14 +11,14 @@ func TestZoneOf(t *testing.T) {
 		dir      linkDir
 		want     zone
 	}{
-		// TOP — what the ego answers to / depends on
-		{"governs into ego", "governs", dirIn, zoneTop},
-		{"governs out of ego", "governs", dirOut, zoneTop},
+		// TOP — what the ego answers to / depends on / is governed by
+		{"governs into ego", "governs", dirIn, zoneTop}, // a note that governs the ego -> ego answers to it
 		{"refines out of ego", "refines", dirOut, zoneTop},
 		{"extends out of ego", "extends", dirOut, zoneTop},
 		{"grounded-by out of ego", "grounded-by", dirOut, zoneTop},
 
-		// BOTTOM — what builds on the ego
+		// BOTTOM — what builds on / is subordinate to the ego
+		{"governs out of ego", "governs", dirOut, zoneBottom}, // ego governs it -> it answers to the ego
 		{"refines into ego", "refines", dirIn, zoneBottom},
 		{"extends into ego", "extends", dirIn, zoneBottom},
 		{"grounded-by into ego", "grounded-by", dirIn, zoneBottom},

@@ -58,6 +58,20 @@ svg:active { cursor: grabbing; }
 #zone-legend .zl-dir { color: #e0e0e0; display: inline-block; width: 68px; }
 #zone-legend .zl-warn { color: #f77e7e; }
 #zone-legend .zl-hint { color: #888; font-style: italic; margin-top: 5px; }
+/* Armed-state hint: centered banner shown when Zoned is on but unfocused. */
+#zoned-hint {
+  position: absolute; top: 90px; left: 50%; transform: translateX(-50%);
+  z-index: 10; display: none;
+  background: rgba(28,43,74,.92); border: 1px solid #7eb8f7; color: #cfe0f7;
+  border-radius: 6px; padding: 8px 16px; font-size: 13px;
+}
+#zoned-hint.visible { display: block; }
+/* Tension halo: a red glow marking left-zone (contradicts/questions) nodes,
+   kept separate from fill so the node still shows its type color. */
+circle.tension-halo { filter: drop-shadow(0 0 5px #f77e7e) drop-shadow(0 0 3px #f77e7e); }
+/* Hidden-edges badge: "+N" hint that a focused rim node has more direct
+   connections than the depth-1 focus shows. */
+text.hidden-badge { fill: #7eb8f7; font-size: 11px; font-weight: 700; paint-order: stroke; stroke: #0d1526; stroke-width: 3px; }
 
 /* ── right column (note panel + chat panel) ── */
 #right-col {
@@ -118,12 +132,24 @@ svg:active { cursor: grabbing; }
   font-size: 12px; width: 200px; outline: none;
 }
 #search-input:focus { border-color: #7eb8f7; }
-#btn-back {
-  display: none; background: #16213e; border: 1px solid #3a4a6a;
-  color: #ccc; border-radius: 5px; padding: 4px 10px;
-  font-size: 12px; cursor: pointer;
+/* Navigation breadcrumb chip — visually distinct from the toggle row (pill,
+   accent border) so it does not read as another view toggle. */
+#focus-crumb {
+  /* Top-center banner (shares this slot with #zoned-hint, which only shows when
+     unfocused) so it never collides with the corner legends. */
+  display: none; position: absolute; top: 52px; left: 50%; transform: translateX(-50%);
+  z-index: 10;
+  background: #1c2b4a; border: 1px solid #7eb8f7; color: #cfe0f7;
+  border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer;
+  max-width: 420px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-#btn-back:hover { background: #2a3a5e; color: #fff; }
+#focus-crumb:hover { background: #26365a; color: #fff; }
+#focus-crumb #focus-crumb-title { font-weight: 600; }
+/* Reinforcement: while focused, the toggle row is disabled to signal you are in
+   a navigated (drilled-in) state rather than just a different view. */
+#btn-layout:disabled, #btn-zoned:disabled, #btn-status:disabled {
+  opacity: 0.4; cursor: not-allowed;
+}
 #btn-layout {
   background: #16213e; border: 1px solid #3a4a6a;
   color: #ccc; border-radius: 5px; padding: 4px 10px;
@@ -218,19 +244,25 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
   <div id="legend"></div>
   <div id="zone-legend">
     <div class="zl-title">Zones (relative to focus)</div>
-    <div class="zl-row"><span class="zl-dir">▲ Top</span>what it answers to — governs, extends, grounded-by</div>
-    <div class="zl-row"><span class="zl-dir">▼ Bottom</span>what builds on it — refines, supports</div>
+    <div class="zl-row"><span class="zl-dir">▲ Top</span>what it answers to — governed by, refines, extends, grounded-by</div>
     <div class="zl-row zl-warn"><span class="zl-dir">◀ Left</span>tension — contradicts, questions</div>
     <div class="zl-row"><span class="zl-dir">▶ Right</span>evidence &amp; tasks — source-of, requires</div>
+    <div class="zl-row"><span class="zl-dir">▼ Bottom</span>what builds on it — governs, refines, supports</div>
     <div class="zl-hint">Click a node to recenter on it.</div>
   </div>
+  <!-- Armed hint: shown when Zoned is on but no node is focused yet. Zones need
+       a focus, so this tells the user to pick one. -->
+  <div id="zoned-hint">Zoned view — click a node to focus and see its zones.</div>
   <div id="search-bar">
-    <button id="btn-back">← Back</button>
     <button id="btn-layout" title="Toggle grouped layout">Grouped</button>
     <button id="btn-zoned" title="Directional zoned ego layout (click a node first)">Zoned</button>
     <button id="btn-status" title="Filter by status">All</button>
     <input id="search-input" type="text" placeholder="Search notes…" autocomplete="off">
   </div>
+  <!-- Navigation breadcrumb: shown only when drilled into a note's ego graph.
+       It is deliberately NOT in the toggle row — drilling in is navigation, not
+       a reversible view toggle, so it gets its own affordance. -->
+  <button id="focus-crumb" title="Return to the full graph"><span id="focus-crumb-title"></span> ✕</button>
   <div id="tray-bar">
     <span id="tray-count">0 selected</span>
     <button id="btn-export" disabled>Review &amp; Export</button>
@@ -329,6 +361,21 @@ const TYPE_COLOR = {
 const DEFAULT_COLOR = "#8899bb";
 function nodeColor(d) { return TYPE_COLOR[d.type] || DEFAULT_COLOR; }
 
+// Edge color by relationship family (the same families that drive zones):
+//   tension (contradicts/questions) = red, matching the left-zone/halo;
+//   provenance & tasks (source-of/requires) = amber; structural (governs/
+//   refines/extends/grounded-by/supports) = blue. Unknown/untyped = gray.
+const LINK_IDLE = "#3a4a6a";
+function linkColor(type) {
+  switch (type) {
+    case "contradicts": case "questions": return "#f77e7e"; // tension
+    case "source-of": case "requires":    return "#f7c66b"; // provenance / task
+    case "governs": case "refines": case "extends":
+    case "grounded-by": case "supports":  return "#7eb8f7"; // structural
+    default: return LINK_IDLE;
+  }
+}
+
 // ── SVG + zoom ─────────────────────────────────────────────────────────────
 const svgEl  = document.querySelector("svg");
 const width  = () => svgEl.clientWidth;
@@ -338,7 +385,10 @@ const LABEL_ZOOM_THRESHOLD = 0.4;
 const zoom = d3.zoom().scaleExtent([.05, 12]).on("zoom", e => {
   g.attr("transform", e.transform);
   const k = e.transform.k;
-  g.selectAll(".node text").style("display", k >= LABEL_ZOOM_THRESHOLD ? null : "none");
+  // In a focused zoned view the layout is meaningless without labels, so keep
+  // them shown regardless of zoom. The armed (unfocused) zoned state and force
+  // mode both still hide labels below the threshold to avoid a 675-label mess.
+  g.selectAll(".node text").style("display", ((zonedMode && egoID) || k >= LABEL_ZOOM_THRESHOLD) ? null : "none");
 });
 // Test helpers
 window.__testSetZoom = (k) => { svg.call(zoom.transform, d3.zoomIdentity.scale(k)); };
@@ -360,9 +410,35 @@ function zoomFit() {
   const bounds = g.node().getBBox();
   if (!bounds.width || !bounds.height) return;
   const pad = 40;
-  const s = Math.min((width() - pad*2) / bounds.width, (height() - pad*2) / bounds.height, 2);
-  const tx = width()/2  - s*(bounds.x + bounds.width/2);
-  const ty = height()/2 - s*(bounds.y + bounds.height/2);
+  const W = width(), H = height();
+  // Inset the fit region by every visible informational overlay so the graph is
+  // fitted into the clear rectangle and never rendered underneath them.
+  const svgRect = svgEl.getBoundingClientRect();
+  let left = 0, right = W, top = 0, bottom = H;
+  ["legend", "zone-legend", "right-col", "focus-crumb", "search-bar", "zoned-hint"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || getComputedStyle(el).display === "none") return;
+    const r = el.getBoundingClientRect();
+    // overlay position relative to the svg
+    const oL = r.left - svgRect.left, oR = r.right - svgRect.left;
+    const oT = r.top - svgRect.top,  oB = r.bottom - svgRect.top;
+    // Reserve against an edge only when the overlay is short in the perpendicular
+    // dimension — otherwise a full-height panel would (wrongly) reserve both top
+    // AND bottom and collapse the clear region to a negative size.
+    const narrow = (oR - oL) < W / 2;   // tall-and-narrow → a side overlay
+    const short  = (oB - oT) < H / 2;   // wide-and-short → a top/bottom overlay
+    // EDGE: how close to an edge counts as "hugging" it. Overlays sit inset by a
+    // margin (~14-18px), so a flush (<=8) test misses them — use a looser band.
+    const EDGE = 40;
+    if (narrow && oL <= EDGE)      left   = Math.max(left, oR);   // hugs left edge
+    if (narrow && oR >= W - EDGE)  right  = Math.min(right, oL);  // hugs right edge
+    if (short  && oT <= EDGE)      top    = Math.max(top, oB);    // hugs top edge
+    if (short  && oB >= H - EDGE)  bottom = Math.min(bottom, oT); // hugs bottom edge
+  });
+  const clearW = Math.max(50, right - left), clearH = Math.max(50, bottom - top);
+  const s = Math.min((clearW - pad*2) / bounds.width, (clearH - pad*2) / bounds.height, 2);
+  const tx = (left + clearW/2) - s*(bounds.x + bounds.width/2);
+  const ty = (top  + clearH/2) - s*(bounds.y + bounds.height/2);
   svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity.translate(tx,ty).scale(s));
 }
 document.getElementById("btn-zoom-in").onclick  = () => zoomBy(1.4);
@@ -422,12 +498,26 @@ document.getElementById("btn-layout").addEventListener("click", () => {
 // relative to the focused ego node. Zones come from `nn` (zoneOf) via the
 // /graph?focus response, so the viewer and CLI share one mapping.
 let zonedMode = false;
-const ZONE_WARN_COLOR = "#f77e7e"; // contradicts / questions (left zone)
+// The armed hint is visible exactly when zoned mode is on but nothing is
+// focused yet — the one state where zones are undefined and we await a focus.
+function updateZonedHint() {
+  document.getElementById("zoned-hint").classList.toggle("visible", zonedMode && !egoID);
+}
 document.getElementById("btn-zoned").addEventListener("click", () => {
   zonedMode = !zonedMode;
   document.getElementById("btn-zoned").classList.toggle("active", zonedMode);
   document.getElementById("zone-legend").classList.toggle("visible", zonedMode);
   if (zonedMode && groupingMode) { groupingMode = false; document.getElementById("btn-layout").classList.remove("active"); }
+  updateZonedHint();
+  {{if .ServeMode}}
+  // Adopt an existing selection: if a node was already clicked, entering Zoned
+  // focuses it immediately instead of dropping to the armed "pick a node" state.
+  if (zonedMode && selected) {
+    const curGraph = currentGraphData || rootGraphData;
+    const sel = curGraph && curGraph.nodes.find(n => n.id === selected);
+    if (sel) { recenterZoned(sel.id, sel.title, sel); return; }
+  }
+  {{end}}
   const d = currentGraphData || rootGraphData;
   if (d) { rebuildSim(d); rebuildLegend(d); }
 });
@@ -435,31 +525,63 @@ document.getElementById("btn-zoned").addEventListener("click", () => {
 // Assign fixed x/y to each node by zone, centered on the ego (0,0).
 // Nodes without a zone (ego itself, unmapped links) stay near center.
 function applyZonedLayout(data) {
-  // SPREAD: distance of each zone from the ego. JITTER: gap between same-zone
-  // nodes along the spread axis (wide enough for labels). STAGGER: alternating
-  // push along the perpendicular axis so adjacent labels don't share a baseline.
-  const SPREAD = 240, JITTER = 240, STAGGER = 70;
+  // SPREAD: base radius of each zone from the ego. WEDGE: total angular spread of
+  // same-zone nodes (kept < 90deg — half-wedge < 45deg — so the dominant axis
+  // never flips and nodes stay inside their cardinal quadrant, preserving zone
+  // classification). RING: extra radius per alternating
+  // node so overlapping labels sit at different distances from the ego.
+  const SPREAD = 240, WEDGE = (60 * Math.PI) / 180, RING = 130;
   const buckets = { top: [], bottom: [], left: [], right: [], none: [] };
   data.nodes.forEach(n => (buckets[n.zone] || buckets.none).push(n));
-  const place = (arr, fx, fy, horizontal) => {
+  // Arc-fan: distribute same-zone nodes across distinct angles within a wedge
+  // centered on the zone's cardinal direction, so every edge leaves the ego at a
+  // distinct angle instead of stacking on a straight perpendicular line. A lone
+  // node sits exactly on the cardinal axis.
+  const place = (arr, cardinal) => {
     const n = arr.length;
     arr.forEach((node, i) => {
-      const offset = n > 1 ? (i - (n - 1) / 2) * JITTER : 0;
-      // Alternate nodes get pushed outward along the zone axis so their labels
-      // (which sit below each node) clear their neighbours.
-      const stagger = (i % 2) * STAGGER;
-      // push alternate nodes further from the ego along the zone's own axis
-      node.x = fx + (horizontal ? stagger * Math.sign(fx || 1) : offset);
-      node.y = fy + (horizontal ? offset : stagger * Math.sign(fy || -1));
+      const frac = n > 1 ? i / (n - 1) - 0.5 : 0; // -0.5..0.5, 0 when lone
+      const theta = cardinal + frac * WEDGE;
+      const radius = SPREAD + (i % 2) * RING;
+      node.x = radius * Math.cos(theta);
+      node.y = radius * Math.sin(theta);
       node.fx = node.x; node.fy = node.y;
     });
   };
-  place(buckets.top,    0, -SPREAD, false);
-  place(buckets.bottom, 0,  SPREAD, false);
-  place(buckets.left,  -SPREAD, 0,  true);
-  place(buckets.right,  SPREAD, 0,  true);
-  place(buckets.none,   0, 0,       false);
+  place(buckets.top,    -Math.PI / 2);
+  place(buckets.bottom,  Math.PI / 2);
+  place(buckets.left,    Math.PI);
+  place(buckets.right,   0);
+  // The true ego sits at the exact origin (the recenter anchor). Any other
+  // zoneless nodes are scattered on a ring around it so their labels stop
+  // stacking on top of the ego's label. If no node matches egoID (e.g. the
+  // full graph with no focus), the first none-node anchors the origin instead.
+  const egoNode = buckets.none.find(n => n.id === egoID) || buckets.none[0];
+  const others = buckets.none.filter(n => n !== egoNode);
+  if (egoNode) { egoNode.x = 0; egoNode.y = 0; egoNode.fx = 0; egoNode.fy = 0; }
+  others.forEach((node, i) => {
+    const theta = (i / Math.max(others.length, 1)) * 2 * Math.PI;
+    const radius = SPREAD * 0.45; // inside the zone ring, off the ego
+    node.x = radius * Math.cos(theta);
+    node.y = radius * Math.sin(theta);
+    node.fx = node.x; node.fy = node.y;
+  });
 }
+
+// Test helper: run the zoned layout on a synthetic dataset and return the
+// computed positions so a browser guard can assert per-zone geometry
+// (distinct edge angles, quadrant preservation) without server fixture data.
+window.__testApplyZonedLayout = (nodes, testEgoID) => {
+  const prevEgo = egoID;
+  if (testEgoID !== undefined) egoID = testEgoID;
+  try {
+    const data = { nodes: nodes.map(n => ({ ...n })) };
+    applyZonedLayout(data);
+    return data.nodes.map(n => ({ id: n.id, zone: n.zone, x: n.x, y: n.y }));
+  } finally {
+    egoID = prevEgo;
+  }
+};
 
 // ── Simulation (rebuildable) ───────────────────────────────────────────────
 let simulation = null;
@@ -471,9 +593,20 @@ function rebuildSim(data) {
   selected = null;
   closePanel();
 
-  const link = gLinks.selectAll("line")
+  // In a focused zoned view, color each edge by its relationship family and give
+  // it a hover tooltip naming the link type; otherwise keep the neutral idle gray.
+  const edgeStroke = d => (zonedMode && egoID) ? linkColor(d.type) : LINK_IDLE;
+  // Transparent WIDE hit-line under each edge: a 1px visible line is nearly
+  // impossible to hover, so this fat invisible line catches the pointer and
+  // carries the link-type tooltip. Kept in sync with the visible line below.
+  const linkHit = gLinks.selectAll("line.link-hit")
     .data(data.edges, d => `${d.source}-${d.target}`)
-    .join("line").attr("class", "link").attr("stroke", "#3a4a6a")
+    .join("line").attr("class", "link-hit")
+    .attr("stroke", "transparent").attr("stroke-width", 10);
+  linkHit.selectAll("title").data(d => d.type ? [d] : []).join("title").text(d => d.type);
+  const link = gLinks.selectAll("line.link")
+    .data(data.edges, d => `${d.source}-${d.target}`)
+    .join("line").attr("class", "link").attr("stroke", edgeStroke)
     .attr("marker-end", "url(#arrow)");
 
   const node = gNodes.selectAll("g")
@@ -504,13 +637,28 @@ function rebuildSim(data) {
   const maxDeg = Math.max(1, ...Object.values(degreeMap));
   const rScale = d3.scaleSqrt().domain([0, maxDeg]).range([5, 28]);
   data.nodes.forEach(n => { n.r = rScale(degreeMap[n.id]||0); });
-  const fillFor = d => (zonedMode && d.zone === "left") ? ZONE_WARN_COLOR : nodeColor(d);
+  // Fill always encodes TYPE (matches the color legend). Left-zone (tension)
+  // nodes get a separate red halo via the .tension-halo class rather than a red
+  // fill — a red fill collides with the protocol type color and hides the type.
   node.selectAll("circle").data(d=>[d]).join("circle")
     .attr("r", d => d.r)
-    .attr("fill", fillFor).attr("stroke", fillFor);
+    .attr("fill", nodeColor).attr("stroke", nodeColor)
+    .classed("tension-halo", d => zonedMode && d.zone === "left");
   node.selectAll("text").data(d=>[d]).join("text")
     .attr("dy", "1.5em").attr("text-anchor", "middle")
     .text(d => d.title.length > 28 ? d.title.slice(0,26)+"…" : d.title);
+  // Full title as a native SVG tooltip, so truncated labels lose no information.
+  node.selectAll("title").data(d=>[d]).join("title").text(d => d.title);
+  // Hidden-edges badge: on a focused rim node, "+N" tells how many of its direct
+  // connections are hidden by the depth-1 focus (total degree minus visible).
+  // degreeMap is the visible (subgraph) degree; d.degree is the full-graph total.
+  const hiddenCount = d => Math.max(0, (d.degree || 0) - (degreeMap[d.id] || 0));
+  node.selectAll("text.hidden-badge").data(d => (egoID && d.id !== egoID && hiddenCount(d) > 0) ? [d] : [])
+    .join("text")
+    .attr("class", "hidden-badge")
+    .attr("dx", d => (d.r || 6) + 2).attr("dy", d => -(d.r || 6))
+    .attr("text-anchor", "start")
+    .text(d => "+" + hiddenCount(d));
 
   // ── Tooltip ──────────────────────────────────────────────────────────────
   const tooltip = document.getElementById("tooltip");
@@ -560,15 +708,9 @@ function rebuildSim(data) {
     {{if .ServeMode}}
     fetch('/event', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: d.id, title: d.title})});
     if (zonedMode) {
-      // Recenter to a server-computed ego subgraph carrying zones, then lay out by zone.
-      fetch(`/graph?focus=${encodeURIComponent(d.id)}&depth=2`)
-        .then(r => r.json())
-        .then(ego => {
-          document.getElementById("btn-back").style.display = "";
-          rebuildSim(ego);
-          rebuildLegend(ego);
-          openPanel(d);
-        });
+      // Recenter to a server-computed ego subgraph carrying zones, then lay out
+      // by zone. depth=1: only direct neighbors, which all carry a zone.
+      recenterZoned(d.id, d.title, d);
       return;
     }
     {{end}}
@@ -633,13 +775,21 @@ function rebuildSim(data) {
     });
   }
 
+  // Position the transparent hit-line along the full source→target span.
+  const placeHit = sel => sel.attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
+                             .attr("x2", d=>d.target.x).attr("y2", d=>d.target.y);
   simulation.on("tick", () => {
     link.attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
         .attr("x2", linkEndX).attr("y2", linkEndY);
+    placeHit(linkHit);
     node.attr("transform", d=>`translate(${d.x},${d.y})`);
   });
 
-  if (zonedMode) {
+  // Zones are defined only relative to a single focus, so the zoned layout is
+  // meaningful only when a node is focused. Without a focus (egoID), fall through
+  // to the force layout — arranging all zoneless nodes by "zone" would collapse
+  // them into one meaningless ball.
+  if (zonedMode && egoID) {
     // Directional zoned layout: fixed positions by zone, no force animation.
     // Glide nodes/links from their prior positions to the new zoned positions
     // so recentering keeps spatial continuity instead of teleporting.
@@ -650,7 +800,11 @@ function rebuildSim(data) {
     link.transition().duration(T)
         .attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
         .attr("x2", linkEndX).attr("y2", linkEndY);
-    zoomFit(); // zoomFit already animates the viewport transform over ~400ms
+    placeHit(linkHit.transition().duration(T));
+    // Fit AFTER the glide settles: zoomFit reads getBBox, which mid-transition
+    // still reflects the old spread-out positions and yields a tiny (wrong)
+    // scale. Wait for the transition to finish so it fits the final zoned layout.
+    setTimeout(zoomFit, T + 20);
     return;
   }
 
@@ -660,25 +814,63 @@ function rebuildSim(data) {
   node.attr("transform", d => `translate(${d.x},${d.y})`);
   link.attr("x1", d=>d.source.x).attr("y1", d=>d.source.y)
       .attr("x2", linkEndX).attr("y2", linkEndY);
+  placeHit(linkHit);
   zoomFit();
   simulation.restart();
 }
 
 function clearHighlight() {
   gNodes.selectAll("g").classed("highlighted", false).classed("dimmed", false).classed("search-dim", false);
-  gLinks.selectAll("line").classed("highlighted", false).attr("stroke", "#3a4a6a");
+  // Restore each edge to its resting color: family color in a focused zoned view,
+  // idle gray otherwise.
+  gLinks.selectAll("line.link").classed("highlighted", false)
+    .attr("stroke", d => (zonedMode && egoID) ? linkColor(d.type) : LINK_IDLE);
 }
 
-// ── Back button (both modes) ──────────────────────────────────────────────
+// ── Focus breadcrumb (drill-in navigation, both modes) ────────────────────
 let rootGraphData = null;
 let currentGraphData = null;
-document.getElementById("btn-back").addEventListener("click", () => {
+const TOGGLE_IDS = ["btn-layout", "btn-zoned", "btn-status"];
+// Entering a focused (drilled-in) state: name the focus in the breadcrumb and
+// disable the view toggles so the control set reflects that you have navigated.
+function enterFocusedState(id, title) {
+  egoID = id;
+  const crumb = document.getElementById("focus-crumb");
+  document.getElementById("focus-crumb-title").textContent = "Focused: " + title;
+  crumb.style.display = "inline-block";
+  TOGGLE_IDS.forEach(tid => { document.getElementById(tid).disabled = true; });
+  updateZonedHint();
+}
+function exitFocusedState() {
+  egoID = null;
+  document.getElementById("focus-crumb").style.display = "none";
+  TOGGLE_IDS.forEach(tid => { document.getElementById(tid).disabled = false; });
+  updateZonedHint();
+}
+document.getElementById("focus-crumb").addEventListener("click", () => {
+  // Clear the focus BEFORE rebuilding: rebuildSim reads egoID to decide whether
+  // to apply the zoned layout, and a stale egoID would zone the whole graph.
+  exitFocusedState();
   if (rootGraphData) {
     rebuildSim(rootGraphData);
     rebuildLegend(rootGraphData);
   }
-  document.getElementById("btn-back").style.display = "none";
 });
+{{if .ServeMode}}
+// Recenter the zoned view on a node: fetch its depth-1 ego subgraph (carrying
+// zones), enter the focused state, and lay it out by zone. Shared by node-click
+// recentering and by adopting an existing selection when Zoned is toggled on.
+function recenterZoned(id, title, panelNote) {
+  fetch(`/graph?focus=${encodeURIComponent(id)}&depth=1`)
+    .then(r => r.json())
+    .then(ego => {
+      enterFocusedState(id, title);
+      rebuildSim(ego);      // rebuildSim calls closePanel(), so open the panel AFTER it
+      rebuildLegend(ego);
+      if (panelNote) openPanel(panelNote);
+    });
+}
+{{end}}
 
 // ── Zoom to fit a set of node IDs ────────────────────────────────────────────
 function zoomToMatchedNodes(matchedIds) {
