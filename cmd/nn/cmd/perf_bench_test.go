@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jaresty/nn/internal/backend/gitlocal"
+	"github.com/jaresty/nn/internal/note"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -122,6 +125,150 @@ func benchCodeFile(b *testing.B, matchCount int) string {
 
 // BenchmarkCmdPerfGrep measures nn grep across notebook size × match count. The
 // per-match ranking path means cost grows with matchCount for a fixed notebook.
+// BenchmarkShowTargetPhases diagnoses the default nn show path for the note ID
+// whose real-notebook invocation exposed an ~8s latency. The fixture uses the
+// same ID so profiles and benchmark output remain directly searchable, while
+// keeping the benchmark hermetic. Compare end_to_end with governance and render
+// to identify whether rules fixpoint evaluation or output work dominates.
+func BenchmarkShowTargetPhases(b *testing.B) {
+	const targetID = "20260724233043-3087"
+
+	nbDir, execute := benchNotebook(b, 600)
+	targetPath := filepath.Join(nbDir, targetID+"-slow-show-target.md")
+	target := fmt.Sprintf("---\nid: %s\ntitle: Slow show target\ntype: concept\nstatus: reviewed\n---\nTarget body.\n", targetID)
+	if err := os.WriteFile(targetPath, []byte(target), 0o644); err != nil {
+		b.Fatal(err)
+	}
+
+	gl, err := gitlocal.New(nbDir)
+	if err != nil {
+		b.Fatal(err)
+	}
+	state := &rootState{notebookDir: nbDir, backend: gl}
+	all, err := state.backend.List()
+	if err != nil {
+		b.Fatal(err)
+	}
+	shown, err := state.backend.Read(targetID)
+	if err != nil {
+		b.Fatal(err)
+	}
+	byID := make(map[string]*note.Note, len(all))
+	for _, n := range all {
+		byID[n.ID] = n
+	}
+	data, err := shown.Marshal()
+	if err != nil {
+		b.Fatal(err)
+	}
+	backlinkers := findBacklinkers(targetID, all)
+
+	b.Run("end_to_end", func(b *testing.B) {
+		for b.Loop() {
+			if _, err := execute("show", targetID); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	b.Run("governance", func(b *testing.B) {
+		for b.Loop() {
+			if ge := buildGovernanceEngine(all); ge == nil {
+				b.Fatal("governance engine build failed")
+			}
+		}
+	})
+	b.Run("render", func(b *testing.B) {
+		raw := string(data)
+		b.ResetTimer()
+		for b.Loop() {
+			_ = renderWithResolvedLinks(raw, shown, byID, backlinkers, false)
+		}
+	})
+}
+
+// TestBuildGovernanceEngineUsesPredicateDirectedEval prevents default show from
+// regressing to complete-ruleset evaluation when it only queries governs_note.
+func TestBuildGovernanceEngineUsesPredicateDirectedEval(t *testing.T) {
+	source, err := os.ReadFile("show.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := strings.Index(string(source), "func buildGovernanceEngine")
+	end := strings.Index(string(source[start:]), "\n}\n")
+	if start < 0 || end < 0 {
+		t.Fatal("func buildGovernanceEngine not found")
+	}
+	body := string(source[start : start+end])
+	if !strings.Contains(body, `EvalFor("governs_note")`) {
+		t.Fatal(`buildGovernanceEngine must use EvalFor("governs_note")`)
+	}
+	if strings.Contains(body, ".Eval()") {
+		t.Fatal("buildGovernanceEngine must not evaluate the complete ruleset")
+	}
+}
+
+// BenchmarkShowLiveTargetPhases isolates the real notebook's default show phases.
+// It is opt-in because it reads mutable local data:
+//
+//	NN_BENCH_NOTEBOOK=/path/to/notebook go test ./cmd/nn/cmd -run '^$' \
+//	  -bench '^BenchmarkShowLiveTargetPhases$' -benchtime=1x
+func BenchmarkShowLiveTargetPhases(b *testing.B) {
+	const targetID = "20260724233043-3087"
+	nbDir := os.Getenv("NN_BENCH_NOTEBOOK")
+	if nbDir == "" {
+		b.Skip("set NN_BENCH_NOTEBOOK to run the live-corpus show benchmark")
+	}
+	gl, err := gitlocal.New(nbDir)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	var all []*note.Note
+	b.Run("list", func(b *testing.B) {
+		for b.Loop() {
+			all, err = gl.List()
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	if all == nil {
+		all, err = gl.List()
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+
+	b.Run("governance", func(b *testing.B) {
+		for b.Loop() {
+			if ge := buildGovernanceEngine(all); ge == nil {
+				b.Fatal("governance engine build failed")
+			}
+		}
+	})
+
+	shown, err := gl.Read(targetID)
+	if err != nil {
+		b.Fatal(err)
+	}
+	byID := make(map[string]*note.Note, len(all))
+	for _, n := range all {
+		byID[n.ID] = n
+	}
+	data, err := shown.Marshal()
+	if err != nil {
+		b.Fatal(err)
+	}
+	backlinkers := findBacklinkers(targetID, all)
+	b.Run("render", func(b *testing.B) {
+		raw := string(data)
+		b.ResetTimer()
+		for b.Loop() {
+			_ = renderWithResolvedLinks(raw, shown, byID, backlinkers, false)
+		}
+	})
+}
+
 func BenchmarkCmdPerfGrep(b *testing.B) {
 	for _, n := range notebookSizes {
 		for _, m := range matchCounts {

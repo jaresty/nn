@@ -625,7 +625,7 @@ func buildGovernanceEngine(all []*note.Note) *governanceEngine {
 		return nil
 	}
 	e.AddRules(builtin)
-	if err := e.Eval(); err != nil {
+	if err := e.EvalFor("governs_note"); err != nil {
 		return nil
 	}
 	return &governanceEngine{engine: e, byID: byID}

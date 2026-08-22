@@ -55,6 +55,41 @@ func TestEvalForIncludesNegatedAndAggregateDependencies(t *testing.T) {
 	}
 }
 
+func TestEvalForIncludesUserDefinedRequestedPredicateDependencies(t *testing.T) {
+	program := mustParse(t,
+		`governs_note(P, X) :- custom_governance(P, X).`,
+		`custom_governance(P, X) :- link(P, X, "supports").`,
+		`unrelated(X) :- note(X, _, _).`,
+	)
+	build := func() *Engine {
+		e := NewEngine()
+		for _, f := range []Fact{
+			{Pred: "link", Args: []string{"protocol", "target", "supports"}},
+			{Pred: "note", Args: []string{"target", "concept", "reviewed"}},
+		} {
+			e.AddFact(f)
+		}
+		e.AddRules(program)
+		return e
+	}
+
+	full := build()
+	if err := full.Eval(); err != nil {
+		t.Fatal(err)
+	}
+	directed := build()
+	requireEvalFor(t, directed, "governs_note")
+	if got, want := queryKeys(directed, "governs_note"), queryKeys(full, "governs_note"); !reflect.DeepEqual(got, want) {
+		t.Fatalf("EvalFor governs_note=%v, Eval governs_note=%v", got, want)
+	}
+	if got := queryKeys(directed, "custom_governance"); !reflect.DeepEqual(got, []string{"custom_governance(protocol,target)"}) {
+		t.Fatalf("user-defined dependency not evaluated: %v", got)
+	}
+	if got := directed.Query("unrelated"); len(got) != 0 {
+		t.Fatalf("unrelated user rules evaluated: %v", got)
+	}
+}
+
 func TestEvalForMatchesFullEvalForRequestedPredicates(t *testing.T) {
 	program := mustParse(t,
 		`reachable(X, Y) :- edge(X, Y).`,
