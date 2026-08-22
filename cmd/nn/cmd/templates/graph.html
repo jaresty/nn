@@ -214,11 +214,16 @@ body.feedback #feedback-banner { display: block; }
 body.feedback #focus-crumb { top: 14px; }
 body.feedback #feedback-banner { top: 50px; max-width: 300px; }
 
-/* Feedback-mode: lock to zoned. Hide the layout toggle row entirely so there is
-   one navigation model, not several competing ones. Also hide the legacy
+/* Feedback-mode: lock to zoned by hiding the layout toggle BUTTONS, but keep the
+   search box — search is how you navigate a scoped graph. Also hide the legacy
    tray-bar/brief-export flow — selection now flows through comments. */
-body.feedback #search-bar { display: none; }
+body.feedback #btn-layout,
+body.feedback #btn-zoned,
+body.feedback #btn-status { display: none; }
 body.feedback #tray-bar { display: none; }
+/* Edges are the thing to react to on the feedback surface, so render them at
+   near-full opacity rather than the exploratory .5 idle fade. */
+body.feedback .link { stroke-opacity: .9; }
 
 /* Front-and-center navigation controls (restore + back). */
 #feedback-nav { display: none; position: absolute; top: 14px; left: 14px; z-index: 16; gap: 6px; }

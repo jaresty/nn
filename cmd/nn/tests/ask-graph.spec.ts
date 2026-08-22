@@ -113,9 +113,14 @@ test('R2: a persistent feedback panel is docked and visible without a modal', as
   await expect(page.locator('#fbpanel-answer')).toBeVisible();
 });
 
-test('R4: layout toggles are hidden (locked to zoned) in feedback mode', async ({ page }) => {
+test('R4/S: layout toggle buttons hidden but the search box stays visible', async ({ page }) => {
   await page.goto(surfaceURL);
-  await expect(page.locator('#search-bar')).toBeHidden();
+  // S1: search remains usable to navigate the scoped graph.
+  await expect(page.locator('#search-input')).toBeVisible();
+  // S2: the layout toggles are hidden (locked to zoned).
+  await expect(page.locator('#btn-layout')).toBeHidden();
+  await expect(page.locator('#btn-zoned')).toBeHidden();
+  await expect(page.locator('#btn-status')).toBeHidden();
 });
 
 test('R5: restore-view and back controls are present', async ({ page }) => {
