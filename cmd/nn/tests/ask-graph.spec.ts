@@ -330,3 +330,30 @@ test('P5: the node whose comment box is open is highlighted in the graph', async
   await page.locator('.node').first().click();
   await expect(page.locator('g.node.comment-active')).toHaveCount(1);
 });
+
+test('H: hovering a node gives it a prominent highlight ring class', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await page.waitForSelector('.node');
+  // Dispatch a hover on a node and assert it gains the .hovered class (the
+  // prominent ring), matching the @-candidate/comment-active affordance.
+  const hovered = await page.evaluate(() => {
+    const n = document.querySelector('g.node') as SVGGElement;
+    n.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    n.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    return n.classList.contains('hovered');
+  });
+  expect(hovered).toBe(true);
+});
+
+test('C: a node with a comment gets a persistent has-comment glow in the graph', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await page.waitForSelector('.node');
+  await page.locator('.node').first().click();
+  await page.locator('#panel-comment').fill('this note matters');
+  // The commented node keeps a persistent glow (distinct from the transient
+  // hover / open-card highlight) so you can see what you've commented on.
+  await expect(page.locator('g.node.has-comment')).toHaveCount(1);
+  // Clearing the comment removes the glow.
+  await page.locator('#panel-comment').fill('');
+  await expect(page.locator('g.node.has-comment')).toHaveCount(0);
+});

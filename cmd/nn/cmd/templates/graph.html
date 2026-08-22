@@ -116,7 +116,10 @@ text.hidden-badge { fill: #7eb8f7; font-size: 11px; font-weight: 700; paint-orde
 .link { stroke-opacity: .5; fill: none; pointer-events: none; }
 /* Hovered edge: thickened and full-opacity so it's clear which edge the tooltip
    is describing. */
-.link.edge-hover { stroke-opacity: 1; stroke-width: 2.5px; }
+/* Hover: prominent highlight matching the @-candidate affordance so it's obvious
+   what you're pointing at. Edge hover was too subtle; node hover had no ring. */
+.link.edge-hover { stroke: #f0c040 !important; stroke-opacity: 1 !important; stroke-width: 3.5px; }
+.node.hovered circle { stroke: #f0c040; stroke-width: 4px; }
 .link.highlighted { stroke-opacity: 1; stroke-width: 2px; }
 .node circle { stroke-width: 1.5px; cursor: pointer; transition: opacity .15s; }
 .node.dimmed circle { opacity: .2; }
@@ -204,6 +207,11 @@ path.link.comment-active { stroke: #7ef7b8 !important; stroke-opacity: 1 !import
    ring so you can see what typing @ would reference. */
 .node.mention-candidate circle { stroke: #f0c040; stroke-width: 4px; stroke-dasharray: 3 2; }
 path.link.mention-candidate { stroke: #f0c040 !important; stroke-opacity: 1 !important; stroke-width: 3px; stroke-dasharray: 4 3; }
+/* Persistent hint that a node/edge already has a comment in the feedback set —
+   a soft green glow that stays after the card closes, so you can see at a glance
+   what you've already commented on. */
+.node.has-comment circle { stroke: #4fae7f; stroke-width: 3px; }
+path.link.has-comment { stroke: #4fae7f !important; stroke-opacity: .95 !important; stroke-width: 2.5px; }
 
 /* ── graph-feedback surface (nn ask --surface graph) ── */
 /* Instruction banner. Docked at top-left (not centered) so it never overlaps
@@ -787,7 +795,22 @@ function closePanel() {
 }
 
 // ── Persistent feedback panel (feedback mode) ──────────────────────────────
+// Mark every node/edge that already has a comment with a persistent .has-comment
+// glow, so you can see at a glance what you've commented on even after closing
+// the card. Kept in sync with the nodeComments/edgeComments membership.
+function syncHasComment() {
+  if (typeof gNodes !== "undefined")
+    gNodes.selectAll("g.node").classed("has-comment", d => nodeComments.has(d.id));
+  if (typeof gLinks !== "undefined")
+    gLinks.selectAll("path.link").classed("has-comment", d => {
+      const s = typeof d.source==="object"?d.source.id:d.source;
+      const t = typeof d.target==="object"?d.target.id:d.target;
+      return edgeComments.has(s+"->"+t);
+    });
+}
+
 function renderFeedbackPanel() {
+  syncHasComment();
   const list = document.getElementById("fbpanel-list");
   const empty = document.getElementById("fbpanel-empty");
   if (!list) return;
@@ -1152,6 +1175,8 @@ function rebuildSim(data) {
   // ── Tooltip ──────────────────────────────────────────────────────────────
   const tooltip = document.getElementById("tooltip");
   node.on("mousemove", (e,d) => {
+    // Prominent hover ring on the pointed-at node (matches the @-candidate look).
+    node.classed("hovered", n => n.id === d.id);
     tooltip.querySelector(".tip-type").textContent  = d.type || "";
     tooltip.querySelector(".tip-title").textContent = d.title;
     // In a focused zoned view, preview the note body so you can judge a neighbor
@@ -1164,7 +1189,7 @@ function rebuildSim(data) {
     tooltip.querySelector(".tip-body").textContent = body;
     tooltip.querySelector(".tip-tags").textContent  = (d.tags||[]).length ? d.tags.map(t=>"#"+t).join("  ") : "";
     positionPopover(tooltip, e.clientX + 16, e.clientY - 10, { dx: 32 });
-  }).on("mouseleave", () => { tooltip.style.display = "none"; });
+  }).on("mouseleave", () => { tooltip.style.display = "none"; node.classed("hovered", false); });
 
   // ── Highlight ─────────────────────────────────────────────────────────────
   function highlight(id) {
@@ -1322,6 +1347,8 @@ function rebuildSim(data) {
   node.attr("transform", d => `translate(${d.x},${d.y})`);
   link.attr("d", linkPath);
   linkHit.attr("d", linkPath);
+  // Re-apply the persistent comment glow to the freshly-created node/edge DOM.
+  syncHasComment();
   zoomFit();
   simulation.restart();
 }
