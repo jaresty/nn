@@ -196,6 +196,15 @@ text.hidden-badge { fill: #7eb8f7; font-size: 11px; font-weight: 700; paint-orde
 /* ── tray-selected node ring ── */
 .node.tray-selected circle { stroke: #f0c040; stroke-width: 3px; }
 
+/* Node/edge currently being commented on (its card is open) — a bright ring so
+   it's clear what the open comment box refers to. */
+.node.comment-active circle { stroke: #7ef7b8; stroke-width: 4px; }
+path.link.comment-active { stroke: #7ef7b8 !important; stroke-opacity: 1 !important; stroke-width: 3px; }
+/* Candidate the @-mention menu is currently pointing at — a distinct amber pulse
+   ring so you can see what typing @ would reference. */
+.node.mention-candidate circle { stroke: #f0c040; stroke-width: 4px; stroke-dasharray: 3 2; }
+path.link.mention-candidate { stroke: #f0c040 !important; stroke-opacity: 1 !important; stroke-width: 3px; stroke-dasharray: 4 3; }
+
 /* ── graph-feedback surface (nn ask --surface graph) ── */
 /* Instruction banner. Docked at top-left (not centered) so it never overlaps
    the focus breadcrumb, which sits centered below the toggle row. */
@@ -685,6 +694,32 @@ const edgeKey = d => `${typeof d.source==="object"?d.source.id:d.source}->${type
 
 // Minimal, safe markdown → HTML for the note body panel. Escapes HTML first,
 // then renders headings, lists, inline code, links, bold/italic, paragraphs.
+// positionPopover places an absolutely-positioned element at (x,y) but keeps it
+// fully within the viewport: if it would overflow the right or bottom edge it is
+// flipped/clamped back so it is never off-screen. Used for tooltips and the
+// @-mention menu. x,y are viewport (client) coordinates.
+function positionPopover(el, x, y, opts) {
+  opts = opts || {};
+  const margin = 8;
+  // Measure after making it visible so width/height are real.
+  const prevVis = el.style.visibility;
+  el.style.visibility = "hidden";
+  el.style.display = opts.display || "block";
+  el.style.left = "0px"; el.style.top = "0px";
+  const w = el.offsetWidth, h = el.offsetHeight;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let left = x, top = y;
+  if (left + w > vw - margin) left = Math.max(margin, x - w - (opts.dx || 0)); // flip left
+  if (left + w > vw - margin) left = vw - w - margin;                          // clamp
+  if (left < margin) left = margin;
+  if (top + h > vh - margin) top = Math.max(margin, y - h - (opts.dy || 0));    // flip up
+  if (top + h > vh - margin) top = vh - h - margin;                            // clamp
+  if (top < margin) top = margin;
+  el.style.left = left + "px";
+  el.style.top = top + "px";
+  el.style.visibility = prevVis || "visible";
+}
+
 function renderMarkdown(src) {
   const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   const lines = esc(src).replace(/\r\n/g,"\n").replace(/^\n+/,"").split("\n");
@@ -739,6 +774,7 @@ function openPanel(d) {
   selectedEdge = null;
   rightCol.classList.remove("edge-mode");
   rightCol.classList.add("open");
+  setCommentActive({ nodeId: d.id });
 }
 
 // closePanel dismisses the note card. In feedback mode the card is dismissed
@@ -747,6 +783,7 @@ function openPanel(d) {
 function closePanel() {
   rightCol.classList.remove("open", "edge-mode");
   clearHighlight(); selected = null; selectedEdge = null;
+  setCommentActive({});
 }
 
 // ── Persistent feedback panel (feedback mode) ──────────────────────────────
@@ -787,6 +824,21 @@ function renderFeedbackPanel() {
   });
 }
 
+// Highlight the node or edge whose comment box is currently open, so it is
+// visually clear what the box refers to. Pass ({nodeId}) or ({edgeKey}) or {} to
+// clear. edgeKey is "source->target".
+function setCommentActive(sel) {
+  sel = sel || {};
+  if (typeof gNodes !== "undefined")
+    gNodes.selectAll("g.node").classed("comment-active", d => d.id === sel.nodeId);
+  if (typeof gLinks !== "undefined")
+    gLinks.selectAll("path.link").classed("comment-active", d => {
+      const s = typeof d.source==="object"?d.source.id:d.source;
+      const t = typeof d.target==="object"?d.target.id:d.target;
+      return (s + "->" + t) === sel.edgeKey;
+    });
+}
+
 // Resolve a node id to its title from the loaded graph (fallback: the id).
 function nodeTitle(id) {
   const d = rootGraphData || currentGraphData;
@@ -814,6 +866,7 @@ function openEdgeCard(d) {
   };
   attachMention(commentEl);
   rightCol.classList.add("open", "edge-mode");
+  setCommentActive({ edgeKey: key });
 }
 
 // ── Legend ────────────────────────────────────────────────────────────────
@@ -1008,14 +1061,12 @@ function rebuildSim(data) {
   linkHit.on("mousemove", (e, d) => {
     if (!d.type) return;
     const tip = document.getElementById("tooltip");
-    tip.style.display = "block";
-    tip.style.left = (e.offsetX + 16) + "px";
-    tip.style.top  = (e.offsetY - 10) + "px";
     tip.querySelector(".tip-type").textContent  = "edge";
     tip.querySelector(".tip-title").textContent = d.type;
     // Show the edge's annotation (its "why") beneath the type when present.
     tip.querySelector(".tip-body").textContent  = d.annotation || "";
     tip.querySelector(".tip-tags").textContent  = "";
+    positionPopover(tip, e.clientX + 16, e.clientY - 10, { dx: 32 });
     // Highlight the paired visible edge so it's clear which one the tip describes.
     link.classed("edge-hover", ld => ld.source === d.source && ld.target === d.target);
   }).on("mouseleave", () => {
@@ -1101,9 +1152,6 @@ function rebuildSim(data) {
   // ── Tooltip ──────────────────────────────────────────────────────────────
   const tooltip = document.getElementById("tooltip");
   node.on("mousemove", (e,d) => {
-    tooltip.style.display = "block";
-    tooltip.style.left = (e.offsetX + 16) + "px";
-    tooltip.style.top  = (e.offsetY - 10) + "px";
     tooltip.querySelector(".tip-type").textContent  = d.type || "";
     tooltip.querySelector(".tip-title").textContent = d.title;
     // In a focused zoned view, preview the note body so you can judge a neighbor
@@ -1115,6 +1163,7 @@ function rebuildSim(data) {
     }
     tooltip.querySelector(".tip-body").textContent = body;
     tooltip.querySelector(".tip-tags").textContent  = (d.tags||[]).length ? d.tags.map(t=>"#"+t).join("  ") : "";
+    positionPopover(tooltip, e.clientX + 16, e.clientY - 10, { dx: 32 });
   }).on("mouseleave", () => { tooltip.style.display = "none"; });
 
   // ── Highlight ─────────────────────────────────────────────────────────────
@@ -1517,32 +1566,65 @@ briefModal.addEventListener("click", e => {
 const mentionMenu = document.getElementById("mention-menu");
 let mentionTarget = null, mentionStart = -1, mentionActiveIdx = 0, mentionMatches = [];
 
+// Candidates are notes AND edges (relationships), so you can reference either.
+// Each is {kind, label, ref, nodeId?, edgeKey?} — ref is what gets inserted.
 function mentionCandidates(q) {
   const d = rootGraphData || currentGraphData;
   const nodes = (d && d.nodes) ? d.nodes : [];
+  const edges = (d && d.edges) ? d.edges : [];
   const ql = q.toLowerCase();
-  return nodes.filter(n => !ql || (n.title||"").toLowerCase().includes(ql) || n.id.includes(ql)).slice(0, 8);
+  const noteHits = [];
+  nodes.forEach(n => {
+    if (!ql || (n.title||"").toLowerCase().includes(ql) || n.id.includes(ql))
+      noteHits.push({ kind: "note", label: n.title || n.id, sub: n.id, ref: `@[${n.title||n.id}](${n.id})`, nodeId: n.id });
+  });
+  const edgeHits = [];
+  edges.forEach(e => {
+    const s = typeof e.source==="object"?e.source.id:e.source;
+    const t = typeof e.target==="object"?e.target.id:e.target;
+    const label = `${nodeTitle(s)} —[${e.type||"link"}]→ ${nodeTitle(t)}`;
+    if (!ql || label.toLowerCase().includes(ql) || (e.type||"").toLowerCase().includes(ql))
+      edgeHits.push({ kind: "edge", label, sub: e.type||"link", ref: `@edge[${nodeTitle(s)}→${nodeTitle(t)}](${s}->${t})`, edgeKey: s+"->"+t });
+  });
+  // Reserve slots for both kinds so edges are always reachable (they'd otherwise
+  // be crowded out by notes when the query is empty or broad).
+  return [...noteHits.slice(0, 5), ...edgeHits.slice(0, 3)];
 }
-function hideMention() { mentionMenu.style.display = "none"; mentionTarget = null; mentionStart = -1; }
+function hideMention() { mentionMenu.style.display = "none"; mentionTarget = null; mentionStart = -1; setCommentCandidate({}); }
+// Highlight (in the graph) the candidate currently arrowed-to in the @-menu.
+function setCommentCandidate(c) {
+  c = c || {};
+  if (typeof gNodes !== "undefined")
+    gNodes.selectAll("g.node").classed("mention-candidate", d => d.id === c.nodeId);
+  if (typeof gLinks !== "undefined")
+    gLinks.selectAll("path.link").classed("mention-candidate", d => {
+      const s = typeof d.source==="object"?d.source.id:d.source;
+      const t = typeof d.target==="object"?d.target.id:d.target;
+      return (s+"->"+t) === c.edgeKey;
+    });
+}
 function renderMention() {
   mentionMenu.innerHTML = "";
-  mentionMatches.forEach((n, i) => {
+  mentionMatches.forEach((c, i) => {
     const el = document.createElement("div");
     el.className = "mention-item" + (i === mentionActiveIdx ? " active" : "");
-    el.innerHTML = `${(n.title||n.id).replace(/</g,"&lt;")} <span class="mention-id">${n.id}</span>`;
-    el.addEventListener("mousedown", e => { e.preventDefault(); pickMention(n); });
+    const icon = c.kind === "edge" ? "↔" : "•";
+    el.innerHTML = `${icon} ${(c.label).replace(/</g,"&lt;")} <span class="mention-id">${c.sub}</span>`;
+    el.addEventListener("mousedown", e => { e.preventDefault(); pickMention(c); });
+    el.addEventListener("mouseenter", () => { mentionActiveIdx = i; setCommentCandidate(c); });
     mentionMenu.appendChild(el);
   });
   mentionMenu.style.display = mentionMatches.length ? "block" : "none";
+  // Highlight the active candidate in the graph so you see what @ refers to.
+  if (mentionMatches.length) setCommentCandidate(mentionMatches[mentionActiveIdx]); else setCommentCandidate({});
 }
-function pickMention(n) {
+function pickMention(c) {
   if (!mentionTarget || mentionStart < 0) return;
   const el = mentionTarget;
   const before = el.value.slice(0, mentionStart);
   const after = el.value.slice(el.selectionStart);
-  const ref = `@[${n.title||n.id}](${n.id})`;
-  el.value = before + ref + " " + after;
-  const pos = (before + ref + " ").length;
+  el.value = before + c.ref + " " + after;
+  const pos = (before + c.ref + " ").length;
   el.setSelectionRange(pos, pos);
   el.dispatchEvent(new Event("input", { bubbles: true }));
   hideMention();
@@ -1556,10 +1638,13 @@ function attachMention(el) {
     if (!m) { hideMention(); return; }
     mentionTarget = el; mentionStart = el.selectionStart - m[0].length;
     mentionMatches = mentionCandidates(m[1]); mentionActiveIdx = 0;
-    const r = el.getBoundingClientRect();
-    mentionMenu.style.left = r.left + "px";
-    mentionMenu.style.top = (r.bottom + 2) + "px";
     renderMention();
+    if (mentionMatches.length) {
+      const r = el.getBoundingClientRect();
+      // Anchor at the box's bottom-left; positionPopover flips it above the box
+      // (dy spanning the box height) if it would overflow the viewport bottom.
+      positionPopover(mentionMenu, r.left, r.bottom + 2, { dy: r.height + 4 });
+    }
   });
   el.addEventListener("keydown", e => {
     if (mentionMenu.style.display !== "block") return;
