@@ -385,4 +385,6 @@ test('K: a keyboard key cycles selection through neighbors and focuses the comme
   const secondTitle = await page.locator('#panel-title').textContent();
   expect(secondTitle).not.toEqual(firstTitle); // K1: selection advanced
   await expect(page.locator('#panel-comment')).toBeFocused(); // K2: comment focused
+  // K3: the keyboard-selected node is visibly marked on the graph (exactly one).
+  await expect(page.locator('g.node.node-selected')).toHaveCount(1);
 });

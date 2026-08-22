@@ -203,6 +203,9 @@ text.hidden-badge { fill: #7eb8f7; font-size: 11px; font-weight: 700; paint-orde
    it's clear what the open comment box refers to. */
 .node.comment-active circle { stroke: #7ef7b8; stroke-width: 4px; }
 path.link.comment-active { stroke: #7ef7b8 !important; stroke-opacity: 1 !important; stroke-width: 3px; }
+/* Currently-selected node (mouse or keyboard) — a bright cyan ring, plus the
+   dim/highlight of the rest of the graph applied by applySelectionHighlight. */
+.node.node-selected circle { stroke: #7eb8f7; stroke-width: 4.5px; }
 /* Candidate the @-mention menu is currently pointing at — a distinct amber pulse
    ring so you can see what typing @ would reference. */
 .node.mention-candidate circle { stroke: #f0c040; stroke-width: 4px; stroke-dasharray: 3 2; }
@@ -801,6 +804,7 @@ function closePanel() {
   rightCol.classList.remove("open", "edge-mode");
   clearHighlight(); selected = null; selectedEdge = null;
   setCommentActive({});
+  clearSelectionHighlight();
 }
 
 // ── Persistent feedback panel (feedback mode) ──────────────────────────────
@@ -859,6 +863,33 @@ function renderFeedbackPanel() {
 // Highlight the node or edge whose comment box is currently open, so it is
 // visually clear what the box refers to. Pass ({nodeId}) or ({edgeKey}) or {} to
 // clear. edgeKey is "source->target".
+// Global equivalent of rebuildSim's local highlight(): mark the selected node,
+// highlight its incident edges, and dim everything else — so a keyboard-selected
+// node is as visually obvious as a mouse-clicked one. Uses the global gNodes/
+// gLinks selections so it works outside rebuildSim's scope.
+function applySelectionHighlight(id) {
+  if (typeof gNodes === "undefined" || typeof gLinks === "undefined") return;
+  const g = currentGraphData || rootGraphData;
+  const edges = (g && g.edges) ? g.edges : [];
+  const eid = e => [typeof e.source==="object"?e.source.id:e.source,
+                    typeof e.target==="object"?e.target.id:e.target];
+  const neighbors = new Set([id]);
+  edges.forEach(e => { const [s,t]=eid(e); if (s===id) neighbors.add(t); if (t===id) neighbors.add(s); });
+  gNodes.selectAll("g.node")
+    .classed("node-selected", d => d.id === id)
+    .classed("highlighted",   d => neighbors.has(d.id))
+    .classed("dimmed",        d => !neighbors.has(d.id));
+  gLinks.selectAll("path.link").classed("highlighted", d => {
+    const [s,t]=eid(d); return s===id || t===id;
+  });
+}
+function clearSelectionHighlight() {
+  if (typeof gNodes !== "undefined")
+    gNodes.selectAll("g.node").classed("node-selected", false).classed("highlighted", false).classed("dimmed", false);
+  if (typeof gLinks !== "undefined")
+    gLinks.selectAll("path.link").classed("highlighted", false);
+}
+
 function setCommentActive(sel) {
   sel = sel || {};
   if (typeof gNodes !== "undefined")
@@ -1237,10 +1268,8 @@ function rebuildSim(data) {
         recenterZoned(d.id, d.title, d);
         return;
       }
-      selected = d.id;
-      highlight(d.id);
-      openPanel(d);
-      focusCommentBox();
+      // Same shared path as keyboard navigation — one selection implementation.
+      selectNodeById(d.id);
       return;
     }
     // shift-click: toggle tray membership
@@ -1722,8 +1751,7 @@ function selectNodeById(id) {
   const d = g && g.nodes ? g.nodes.find(n => n.id === id) : null;
   if (!d) return;
   selected = d.id;
-  // openPanel applies the comment-active ring (a global highlight); the
-  // neighborhood-dimming highlight() is scoped to rebuildSim and not needed here.
+  applySelectionHighlight(d.id); // dim others + highlight edges + select ring
   openPanel(d);
   focusCommentBox();
 }
