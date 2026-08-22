@@ -157,7 +157,7 @@ func TestGraphShowIncomingTextDirection(t *testing.T) {
 	if len(lines) < 2 || !strings.Contains(lines[0], root.ID) {
 		t.Fatalf("incoming text root missing or unordered: %s", out)
 	}
-	want := "← [governs] " + source.ID + "  " + source.Title + " — incoming annotation"
+	want := "← [governs] " + source.ID + "  " + source.Title + "  ↑1 ↓0 — incoming annotation"
 	if !strings.Contains(lines[1], want) {
 		t.Fatalf("incoming text edge = %q, want substring %q", lines[1], want)
 	}

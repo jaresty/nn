@@ -357,18 +357,20 @@ In `--format json` each node gains a `zone` field (omitted when empty — the fo
 
 `--bodies` includes each node's full body inline beneath its title (and, in `--format text`, its tags on a `tags:` line). In `--format json` each node gains a `body` field (omitted when empty). It applies to every text sub-view — zoned, focused-tree, and flat — and does not change which nodes are traversed; it only adds contents to nodes already in the result.
 
+Every node also carries a **degree marker**: `--format text` appends `↑<out> ↓<in>` (outgoing/incoming link counts over the whole notebook) to each node line; `--format json` adds `out_degree`/`in_degree`. High inbound degree marks a **hub** (a load-bearing note many others depend on); near-zero marks a **leaf**. The zoned text view is preceded by a **key** mapping each zone to its link types, and `--color auto|always|never` (default auto) colorizes zones by warmth (auto colors only to a TTY, so piped output and json stay clean).
+
 ### Navigation mode: the zoned navigator with contents
 
-`nn graph show --focus <id> --zones --bodies` is a self-contained **navigation view**: it shows a note's neighbors bucketed by directional zone *and* prints each neighbor's tags and body, so you can both see where you can move and read where you'd land — in one call, without a separate `nn show` per node.
+`nn graph show --focus <id> --zones --bodies --color always` is a self-contained **navigation view**: it shows a note's neighbors bucketed by directional zone *and* prints each neighbor's tags and body, degree, and zone-colored headers — so you can both see where you can move and read where you'd land — in one call, without a separate `nn show` per node. Use `--color always` when presenting to a human in a color-capable terminal.
 
 Use it to walk the graph as a positioned space rather than dumping the whole structure. Hold a **goal** in mind for the walk ("find what contests this design", "trace where this claim came from", "reach the principle underneath") — every step is judged relative to that goal, not to the whole graph.
 
 0. **Enter** — if you have no starting note, find one first: `nn list --search "<topic>" --json --fields id,title,score,link_count` and pick the highest-scoring, best-connected hit as your entry focus. If you already have a note ID (from a prior answer, a link, a backlink), start there.
-1. **Orient** — render the current node's zoned neighborhood with bodies:
+1. **Orient** — render the current node's zoned neighborhood with bodies (add `--color always` when presenting in a color terminal):
    ```
-   nn graph show --focus <id> --depth 1 --direction both --zones --bodies --format text
+   nn graph show --focus <id> --depth 1 --direction both --zones --bodies --color always --format text
    ```
-   You now see, for the current node: TOP (what it answers to), BOTTOM (what builds on it), LEFT (tension), RIGHT (provenance) — each neighbor with its body inline. Empty zones are information too: no LEFT means nothing contests this node; no TOP means it's a root.
+   You now see, for the current node: TOP (what it answers to), BOTTOM (what builds on it), LEFT (tension), RIGHT (provenance) — each neighbor with its body inline, its `↑out ↓in` degree, and a zone key. Empty zones are information too: no LEFT means nothing contests this node; no TOP means it's a root. A neighbor with high inbound degree is a hub worth weighting even if it's off your direct path.
 2. **Read from here** — the bodies let you evaluate a move without leaving the view. Zones tell you *what kind* of move each neighbor is; bodies tell you *whether it's the one you want*. Choose the move that closes distance to your goal:
 
    | Your goal | Zone to step into |
@@ -398,6 +400,8 @@ Use it to walk the graph as a positioned space rather than dumping the whole str
 ```
 
 **(c) Summarize each neighbor + name the moves.** Per zone, give a one-line summary of each neighbor drawn from its body (what it *claims*, not just what it's *called*), then flag the recommended next move relative to the goal. Empty zones carry meaning — call them out ("no LEFT: nothing contests this").
+
+**Vary summary length by degree — as attention budget, not a rule.** Spend more words on the focus and on high-degree neighbors (hubs earn a fuller treatment; leaves get a clause). Degree is a *budget hint you apply when summarizing*, not something the CLI truncates — the CLI always gives the full body; you decide how much to relay. Watch the exception: a high-degree *daily* or index note is a hub by connectivity but not by substance, so don't over-summarize it; a low-degree axiom can be the most important thing on screen, so don't under-summarize it. Let degree bias attention, but let the body's actual claim override.
 
 Without `--bodies` this is the older search→zone→per-node-`nn show` loop; `--bodies` collapses that into a single call. Keep `--depth 1` when zoning — only direct neighbors carry a zone, and the zoned text view omits unzoned nodes. Bodies can be long; drop `--bodies` (titles only) when you just need the shape, add it back when you need to read.
 

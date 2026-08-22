@@ -330,6 +330,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	var representation string
 	var zones bool
 	var bodies bool
+	var colorMode string
 
 	cmd := &cobra.Command{
 		Use:   "show",
@@ -339,6 +340,11 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 			case "text", "json", "mermaid":
 			default:
 				return fmt.Errorf("graph show: unsupported format %q (want text, json, or mermaid)", format)
+			}
+			switch colorMode {
+			case "auto", "always", "never":
+			default:
+				return fmt.Errorf("graph show: unsupported --color %q (want auto, always, or never)", colorMode)
 			}
 			opts, err := newGraphShowTraversalOptions(direction, links, statuses, representation)
 			if err != nil {
@@ -362,12 +368,14 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 			}
 
 			type showNode struct {
-				ID    string   `json:"id"`
-				Title string   `json:"title"`
-				Type  string   `json:"type"`
-				Tags  []string `json:"tags"`
-				Zone  string   `json:"zone,omitempty"`
-				Body  string   `json:"body,omitempty"`
+				ID        string   `json:"id"`
+				Title     string   `json:"title"`
+				Type      string   `json:"type"`
+				Tags      []string `json:"tags"`
+				Zone      string   `json:"zone,omitempty"`
+				Body      string   `json:"body,omitempty"`
+				OutDegree int      `json:"out_degree"`
+				InDegree  int      `json:"in_degree"`
 			}
 			type showEdge struct {
 				From       string `json:"from"`
@@ -451,6 +459,20 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 						resultNodes[i].Body = n.Body
 					}
 				}
+			}
+			// Degree is computed over the whole notebook, not the traversed
+			// subgraph, so it reflects a node's true connectivity (hub vs leaf).
+			inDegree := make(map[string]int, len(notes))
+			for _, n := range notes {
+				for _, lnk := range n.Links {
+					inDegree[lnk.TargetID]++
+				}
+			}
+			for i := range resultNodes {
+				if n, ok := byID[resultNodes[i].ID]; ok {
+					resultNodes[i].OutDegree = len(n.Links)
+				}
+				resultNodes[i].InDegree = inDegree[resultNodes[i].ID]
 			}
 			if resultEdges == nil {
 				resultEdges = []showEdge{}
@@ -550,6 +572,12 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 			for _, n := range resultNodes {
 				nodeByID[n.ID] = n
 			}
+			// degreeMarker renders a node's connectivity as "↑out ↓in" for
+			// text views, so a hub is distinguishable from a leaf at a glance.
+			degreeMarker := func(id string) string {
+				n := nodeByID[id]
+				return fmt.Sprintf("↑%d ↓%d", n.OutDegree, n.InDegree)
+			}
 			renderNodeBody := func(id, indent string) {
 				if !bodies {
 					return
@@ -566,10 +594,33 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					fmt.Fprintf(w, "%s    %s\n", indent, line)
 				}
 			}
+			// useColor resolves the --color mode against stdout's TTY status.
+			useColor := colorMode == "always" || (colorMode == "auto" && isTTYFn())
+			// zoneColor maps a zone key to an ANSI SGR color code; the same
+			// zone→meaning mapping the viewer uses. paint wraps text when color
+			// is active, and is a no-op otherwise (keeping piped output clean).
+			zoneColor := map[string]string{"top": "34", "bottom": "32", "left": "31", "right": "36"}
+			paint := func(zoneKey, s string) string {
+				if !useColor {
+					return s
+				}
+				code, ok := zoneColor[zoneKey]
+				if !ok {
+					return s
+				}
+				return "\x1b[" + code + "m" + s + "\x1b[0m"
+			}
 			if focus != "" && zones {
 				// Zone-grouped view: nodes under directional headers.
-				fmt.Fprintf(w, "%s  %s\n\n", focus, byID[focus].Title)
+				fmt.Fprintf(w, "%s  %s  %s\n\n", focus, byID[focus].Title, degreeMarker(focus))
 				renderNodeBody(focus, "")
+				// Zone → link-type key: names what each zone means, so text
+				// output carries the same legend as the interactive viewer.
+				fmt.Fprintln(w, "Key (zone = link types):")
+				fmt.Fprintf(w, "  %s — answers-to: governs, refines/extends/grounded-by (out)\n", paint("top", "TOP"))
+				fmt.Fprintf(w, "  %s — tension: contradicts, questions\n", paint("left", "LEFT"))
+				fmt.Fprintf(w, "  %s — lateral: source-of, requires\n", paint("right", "RIGHT"))
+				fmt.Fprintf(w, "  %s — builds-on: refines/extends/grounded-by/supports (in)\n\n", paint("bottom", "BOTTOM"))
 				byZone := map[string][]showNode{}
 				for _, n := range resultNodes {
 					if n.ID == focus || n.Zone == "" {
@@ -588,9 +639,9 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					if len(group) == 0 {
 						continue
 					}
-					fmt.Fprintf(w, "%s\n", z.header)
+					fmt.Fprintf(w, "%s\n", paint(z.key, z.header))
 					for _, n := range group {
-						fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+						fmt.Fprintf(w, "  %s  %s  %s\n", n.ID, n.Title, degreeMarker(n.ID))
 						renderNodeBody(n.ID, "  ")
 					}
 					fmt.Fprintln(w)
@@ -620,7 +671,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 						return
 					}
 					if indent == "" {
-						fmt.Fprintf(w, "%s  %s\n", id, n.Title)
+						fmt.Fprintf(w, "%s  %s  %s\n", id, n.Title, degreeMarker(id))
 						renderNodeBody(id, "")
 					}
 					rendered[id] = true
@@ -638,9 +689,9 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 							linkLabel = "link"
 						}
 						if e.Annotation != "" {
-							fmt.Fprintf(w, "%s  %s [%s] %s  %s — %s\n", indent, tree.arrow, linkLabel, tree.neighbor, target.Title, e.Annotation)
+							fmt.Fprintf(w, "%s  %s [%s] %s  %s  %s — %s\n", indent, tree.arrow, linkLabel, tree.neighbor, target.Title, degreeMarker(tree.neighbor), e.Annotation)
 						} else {
-							fmt.Fprintf(w, "%s  %s [%s] %s  %s\n", indent, tree.arrow, linkLabel, tree.neighbor, target.Title)
+							fmt.Fprintf(w, "%s  %s [%s] %s  %s  %s\n", indent, tree.arrow, linkLabel, tree.neighbor, target.Title, degreeMarker(tree.neighbor))
 						}
 						renderNodeBody(tree.neighbor, indent+"  ")
 						renderTree(tree.neighbor, indent+"  ")
@@ -649,7 +700,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				renderTree(focus, "")
 			} else {
 				for _, n := range resultNodes {
-					fmt.Fprintf(w, "%s  %s\n", n.ID, n.Title)
+					fmt.Fprintf(w, "%s  %s  %s\n", n.ID, n.Title, degreeMarker(n.ID))
 					renderNodeBody(n.ID, "")
 				}
 			}
@@ -665,6 +716,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&representation, "representation", "", "Representation required for traversed notes")
 	cmd.Flags().BoolVar(&zones, "zones", false, "Annotate each node with its directional zone (top/bottom/left/right) relative to the focus")
 	cmd.Flags().BoolVar(&bodies, "bodies", false, "Include each node's body (and tags in text output) so the graph can be read as well as navigated")
+	cmd.Flags().StringVar(&colorMode, "color", "auto", "Colorize zoned text output by zone: auto (color only to a TTY), always, or never")
 	return cmd
 }
 

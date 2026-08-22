@@ -194,7 +194,7 @@ func TestGraphShowMermaidPreservesJSONOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("preserved graph JSON: %v", err)
 	}
-	want := "{\n  \"center\": \"20990101000000-1000\",\n  \"nodes\": [\n    {\n      \"id\": \"20990101000000-1000\",\n      \"title\": \"root\",\n      \"type\": \"concept\",\n      \"tags\": []\n    },\n    {\n      \"id\": \"20990101000000-2000\",\n      \"title\": \"child\",\n      \"type\": \"concept\",\n      \"tags\": []\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"20990101000000-1000\",\n      \"to\": \"20990101000000-2000\",\n      \"annotation\": \"stable\",\n      \"type\": \"supports\"\n    }\n  ]\n}\n"
+	want := "{\n  \"center\": \"20990101000000-1000\",\n  \"nodes\": [\n    {\n      \"id\": \"20990101000000-1000\",\n      \"title\": \"root\",\n      \"type\": \"concept\",\n      \"tags\": [],\n      \"out_degree\": 1,\n      \"in_degree\": 0\n    },\n    {\n      \"id\": \"20990101000000-2000\",\n      \"title\": \"child\",\n      \"type\": \"concept\",\n      \"tags\": [],\n      \"out_degree\": 0,\n      \"in_degree\": 1\n    }\n  ],\n  \"edges\": [\n    {\n      \"from\": \"20990101000000-1000\",\n      \"to\": \"20990101000000-2000\",\n      \"annotation\": \"stable\",\n      \"type\": \"supports\"\n    }\n  ]\n}\n"
 	if out != want {
 		t.Fatalf("graph JSON changed:\ngot=%q\nwant=%q", out, want)
 	}
@@ -214,7 +214,7 @@ func TestGraphShowMermaidPreservesTextOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("preserved graph text: %v", err)
 	}
-	want := "20990101000000-1000  root\n  → [supports] 20990101000000-2000  child — stable\n"
+	want := "20990101000000-1000  root  ↑1 ↓0\n  → [supports] 20990101000000-2000  child  ↑0 ↓1 — stable\n"
 	if out != want {
 		t.Fatalf("graph text changed:\ngot=%q\nwant=%q", out, want)
 	}

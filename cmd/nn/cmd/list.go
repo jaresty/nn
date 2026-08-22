@@ -318,9 +318,9 @@ func newListCmd(state *rootState) *cobra.Command {
 					}
 					for _, nb := range buildNeighbors(n, notes) {
 						if nb.Direction == "outgoing" {
-							fmt.Fprintf(w, "  → [[%s|%s]] [%s] — %s\n", nb.ID, nb.Title, nb.Type, nb.Annotation)
+							fmt.Fprintf(w, "  → [[%s|%s]] [%s] ↑%d ↓%d — %s\n", nb.ID, nb.Title, nb.Type, nb.OutDegree, nb.InDegree, nb.Annotation)
 						} else {
-							fmt.Fprintf(w, "  ← [[%s|%s]] [%s] — %s\n", nb.ID, nb.Title, nb.Type, nb.Annotation)
+							fmt.Fprintf(w, "  ← [[%s|%s]] [%s] ↑%d ↓%d — %s\n", nb.ID, nb.Title, nb.Type, nb.OutDegree, nb.InDegree, nb.Annotation)
 						}
 					}
 				}
@@ -443,6 +443,8 @@ type neighborJSON struct {
 	Title      string `json:"title"`
 	Type       string `json:"type"`
 	Annotation string `json:"annotation"`
+	OutDegree  int    `json:"out_degree"`
+	InDegree   int    `json:"in_degree"`
 }
 
 type noteSearchJSON struct {
@@ -472,8 +474,18 @@ func truncateStr(s string, max int) string {
 
 func buildNeighbors(n *note.Note, allNotes []*note.Note) []neighborJSON {
 	byID := make(map[string]*note.Note, len(allNotes))
+	inDegree := make(map[string]int, len(allNotes))
 	for _, a := range allNotes {
 		byID[a.ID] = a
+		for _, lnk := range a.Links {
+			inDegree[lnk.TargetID]++
+		}
+	}
+	degreeOf := func(id string) (out, in int) {
+		if t, ok := byID[id]; ok {
+			out = len(t.Links)
+		}
+		return out, inDegree[id]
 	}
 	var neighbors []neighborJSON
 	for _, lnk := range n.Links {
@@ -481,23 +493,29 @@ func buildNeighbors(n *note.Note, allNotes []*note.Note) []neighborJSON {
 		if t, ok := byID[lnk.TargetID]; ok {
 			title = t.Title
 		}
+		out, in := degreeOf(lnk.TargetID)
 		neighbors = append(neighbors, neighborJSON{
 			Direction:  "outgoing",
 			ID:         lnk.TargetID,
 			Title:      title,
 			Type:       lnk.Type,
 			Annotation: lnk.Annotation,
+			OutDegree:  out,
+			InDegree:   in,
 		})
 	}
 	for _, a := range allNotes {
 		for _, lnk := range a.Links {
 			if lnk.TargetID == n.ID {
+				out, in := degreeOf(a.ID)
 				neighbors = append(neighbors, neighborJSON{
 					Direction:  "incoming",
 					ID:         a.ID,
 					Title:      a.Title,
 					Type:       lnk.Type,
 					Annotation: lnk.Annotation,
+					OutDegree:  out,
+					InDegree:   in,
 				})
 				break
 			}
