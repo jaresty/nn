@@ -600,19 +600,64 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 			// zone→meaning mapping the viewer uses. paint wraps text when color
 			// is active, and is a no-op otherwise (keeping piped output clean).
 			zoneColor := map[string]string{"top": "34", "bottom": "32", "left": "31", "right": "36"}
-			paint := func(zoneKey, s string) string {
-				if !useColor {
-					return s
-				}
-				code, ok := zoneColor[zoneKey]
-				if !ok {
+			ansiWrap := func(code, s string) string {
+				if !useColor || code == "" {
 					return s
 				}
 				return "\x1b[" + code + "m" + s + "\x1b[0m"
 			}
+			paint := func(zoneKey, s string) string {
+				return ansiWrap(zoneColor[zoneKey], s)
+			}
+			// linkFamilyColor maps a link type to the ANSI color of its semantic
+			// family, kept consistent with the zone families: tension (left) = red,
+			// lateral (right) = cyan, structural (top/bottom) = blue.
+			linkFamilyColor := func(linkType string) string {
+				switch linkType {
+				case "contradicts", "questions":
+					return "31" // tension
+				case "source-of", "requires", "related":
+					return "36" // lateral
+				case "refines", "extends", "grounded-by", "governs", "supports":
+					return "34" // structural
+				default:
+					return ""
+				}
+			}
+			// typeColor maps a note type to an ANSI color, matching the viewer's
+			// scheme of coloring nodes by type.
+			typeColor := func(t string) string {
+				switch t {
+				case "concept":
+					return "32"
+				case "model":
+					return "35"
+				case "observation":
+					return "37"
+				case "hypothesis":
+					return "33"
+				case "question":
+					return "36"
+				case "argument":
+					return "31"
+				case "protocol":
+					return "34"
+				default:
+					return ""
+				}
+			}
+			paintNode := func(id, s string) string {
+				return ansiWrap(typeColor(nodeByID[id].Type), s)
+			}
+			paintNodeType := func(noteType, s string) string {
+				return ansiWrap(typeColor(noteType), s)
+			}
+			paintEdge := func(linkType, s string) string {
+				return ansiWrap(linkFamilyColor(linkType), s)
+			}
 			if focus != "" && zones {
 				// Zone-grouped view: nodes under directional headers.
-				fmt.Fprintf(w, "%s  %s  %s\n\n", focus, byID[focus].Title, degreeMarker(focus))
+				fmt.Fprintf(w, "%s  %s  %s\n\n", focus, paintNode(focus, byID[focus].Title), degreeMarker(focus))
 				renderNodeBody(focus, "")
 				// Zone → link-type key: names what each zone means, so text
 				// output carries the same legend as the interactive viewer.
@@ -620,7 +665,19 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				fmt.Fprintf(w, "  %s — answers-to: governs, refines/extends/grounded-by (out)\n", paint("top", "TOP"))
 				fmt.Fprintf(w, "  %s — tension: contradicts, questions\n", paint("left", "LEFT"))
 				fmt.Fprintf(w, "  %s — lateral: source-of, requires\n", paint("right", "RIGHT"))
-				fmt.Fprintf(w, "  %s — builds-on: refines/extends/grounded-by/supports (in)\n\n", paint("bottom", "BOTTOM"))
+				fmt.Fprintf(w, "  %s — builds-on: refines/extends/grounded-by/supports (in)\n", paint("bottom", "BOTTOM"))
+				if useColor {
+					// Color scheme: node titles are colored by note type, edge
+					// labels by link family (same families as the zones).
+					fmt.Fprintf(w, "  node color = type: %s %s %s %s %s %s %s\n",
+						paintNodeType("concept", "concept"), paintNodeType("model", "model"),
+						paintNodeType("observation", "observation"), paintNodeType("hypothesis", "hypothesis"),
+						paintNodeType("question", "question"), paintNodeType("argument", "argument"),
+						paintNodeType("protocol", "protocol"))
+					fmt.Fprintf(w, "  edge color = link family: %s %s %s\n",
+						paintEdge("contradicts", "tension"), paintEdge("source-of", "lateral"), paintEdge("refines", "structural"))
+				}
+				fmt.Fprintln(w)
 				byZone := map[string][]showNode{}
 				for _, n := range resultNodes {
 					if n.ID == focus || n.Zone == "" {
@@ -641,7 +698,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					}
 					fmt.Fprintf(w, "%s\n", paint(z.key, z.header))
 					for _, n := range group {
-						fmt.Fprintf(w, "  %s  %s  %s\n", n.ID, n.Title, degreeMarker(n.ID))
+						fmt.Fprintf(w, "  %s  %s  %s\n", n.ID, paintNode(n.ID, n.Title), degreeMarker(n.ID))
 						renderNodeBody(n.ID, "  ")
 					}
 					fmt.Fprintln(w)
@@ -671,7 +728,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 						return
 					}
 					if indent == "" {
-						fmt.Fprintf(w, "%s  %s  %s\n", id, n.Title, degreeMarker(id))
+						fmt.Fprintf(w, "%s  %s  %s\n", id, paintNode(id, n.Title), degreeMarker(id))
 						renderNodeBody(id, "")
 					}
 					rendered[id] = true
@@ -689,9 +746,9 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 							linkLabel = "link"
 						}
 						if e.Annotation != "" {
-							fmt.Fprintf(w, "%s  %s [%s] %s  %s  %s — %s\n", indent, tree.arrow, linkLabel, tree.neighbor, target.Title, degreeMarker(tree.neighbor), e.Annotation)
+							fmt.Fprintf(w, "%s  %s [%s] %s  %s  %s — %s\n", indent, tree.arrow, paintEdge(e.LinkType, linkLabel), tree.neighbor, paintNode(tree.neighbor, target.Title), degreeMarker(tree.neighbor), e.Annotation)
 						} else {
-							fmt.Fprintf(w, "%s  %s [%s] %s  %s  %s\n", indent, tree.arrow, linkLabel, tree.neighbor, target.Title, degreeMarker(tree.neighbor))
+							fmt.Fprintf(w, "%s  %s [%s] %s  %s  %s\n", indent, tree.arrow, paintEdge(e.LinkType, linkLabel), tree.neighbor, paintNode(tree.neighbor, target.Title), degreeMarker(tree.neighbor))
 						}
 						renderNodeBody(tree.neighbor, indent+"  ")
 						renderTree(tree.neighbor, indent+"  ")
@@ -700,7 +757,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				renderTree(focus, "")
 			} else {
 				for _, n := range resultNodes {
-					fmt.Fprintf(w, "%s  %s  %s\n", n.ID, n.Title, degreeMarker(n.ID))
+					fmt.Fprintf(w, "%s  %s  %s\n", n.ID, paintNode(n.ID, n.Title), degreeMarker(n.ID))
 					renderNodeBody(n.ID, "")
 				}
 			}
