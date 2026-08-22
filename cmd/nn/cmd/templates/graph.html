@@ -1110,6 +1110,7 @@ function rebuildSim(data) {
     if (!document.body.classList.contains("feedback")) return;
     e.stopPropagation();
     openEdgeCard(d);
+    focusCommentBox();
   });
   const link = gLinks.selectAll("path.link")
     .data(data.edges, d => `${d.source}-${d.target}`)
@@ -1239,6 +1240,7 @@ function rebuildSim(data) {
       selected = d.id;
       highlight(d.id);
       openPanel(d);
+      focusCommentBox();
       return;
     }
     // shift-click: toggle tray membership
@@ -1705,6 +1707,42 @@ function attachMention(el) {
   el.addEventListener("blur", () => setTimeout(hideMention, 150));
 }
 
+// Focus the open card's comment box so the human can type immediately after
+// selecting a node/edge (by click or keyboard).
+function focusCommentBox() {
+  const el = document.getElementById(
+    rightCol.classList.contains("edge-mode") ? "edge-comment" : "panel-comment");
+  if (el) el.focus();
+}
+
+// Select a node by id: open its card, highlight it, and focus its comment box.
+// Shared by click and keyboard navigation.
+function selectNodeById(id) {
+  const g = currentGraphData || rootGraphData;
+  const d = g && g.nodes ? g.nodes.find(n => n.id === id) : null;
+  if (!d) return;
+  selected = d.id;
+  // openPanel applies the comment-active ring (a global highlight); the
+  // neighborhood-dimming highlight() is scoped to rebuildSim and not needed here.
+  openPanel(d);
+  focusCommentBox();
+}
+
+// Cycle selection to the next/prev node in the scoped neighborhood, so the whole
+// graph is reachable from the keyboard without a mouse.
+function cycleSelection(dir) {
+  const g = currentGraphData || rootGraphData;
+  const nodes = (g && g.nodes) ? g.nodes : [];
+  if (!nodes.length) return;
+  let idx = nodes.findIndex(n => n.id === selected);
+  // If nothing is selected yet, start at the first node; otherwise step by dir.
+  idx = idx === -1 ? 0 : (idx + dir + nodes.length) % nodes.length;
+  // Never land back on the currently-selected node (advance once more).
+  if (nodes[idx].id === selected && nodes.length > 1)
+    idx = (idx + (dir || 1) + nodes.length) % nodes.length;
+  selectNodeById(nodes[idx].id);
+}
+
 const askSession = new URLSearchParams(location.search).get("session");
 
 // Focus history for Back navigation (feedback mode). Each entry is {id,title}.
@@ -1720,6 +1758,25 @@ function updateNavButtons() {
 
 if (askSession) {
   document.body.classList.add("feedback");
+
+  // Keyboard navigation between neighbors, so the whole scoped neighborhood is
+  // reachable without a mouse. Tab / Shift+Tab and Alt+Arrow cycle selection,
+  // opening each card and focusing its comment box. Tab is intercepted only from
+  // a comment box or the canvas (not other form controls), so form Tab still
+  // works where it should.
+  document.addEventListener("keydown", (e) => {
+    const ae = document.activeElement;
+    const inCommentBox = ae && (ae.id === "panel-comment" || ae.id === "edge-comment");
+    const onCanvas = !ae || ae === document.body || (ae.tagName === "svg") || (ae.closest && ae.closest("svg"));
+    if (e.key === "Tab" && (inCommentBox || onCanvas)) {
+      e.preventDefault();
+      cycleSelection(e.shiftKey ? -1 : 1);
+    } else if (e.altKey && (e.key === "ArrowRight" || e.key === "ArrowDown")) {
+      e.preventDefault(); cycleSelection(1);
+    } else if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowUp")) {
+      e.preventDefault(); cycleSelection(-1);
+    }
+  });
 
   // Enable auto-Zoned once the initial graph load resolves (see loadGraph call
   // below). No polling — the focus is applied deterministically after data.

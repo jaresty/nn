@@ -367,3 +367,22 @@ test('D: the focus breadcrumb is a non-dismissable label on the ask surface', as
   await page.locator('#focus-crumb').click();
   await expect(page.locator('#btn-zoned')).toHaveClass(/active/);
 });
+
+test('F: selecting a node focuses its comment box so you can type immediately', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await page.waitForSelector('.node');
+  await page.locator('.node').first().click();
+  await expect(page.locator('#panel-comment')).toBeFocused();
+});
+
+test('K: a keyboard key cycles selection through neighbors and focuses the comment', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await page.waitForSelector('.node');
+  await page.locator('.node').first().click();
+  const firstTitle = await page.locator('#panel-title').textContent();
+  // Cycle to the next neighbor via the keyboard.
+  await page.keyboard.press('Tab');
+  const secondTitle = await page.locator('#panel-title').textContent();
+  expect(secondTitle).not.toEqual(firstTitle); // K1: selection advanced
+  await expect(page.locator('#panel-comment')).toBeFocused(); // K2: comment focused
+});
