@@ -341,7 +341,7 @@ JSON output: `{ "nodes": [...], "edges": [...] }`
 ### nn graph show (LLM-facing subgraph)
 
 ```
-nn graph show [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--zones] [--format text|json|mermaid]
+nn graph show [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--zones] [--bodies] [--format text|json|mermaid]
 ```
 
 With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 and direction defaults to `outgoing`. `--links` accepts canonical link types, `--status` accepts `draft`, `reviewed`, or `permanent`, and `--representation` accepts one representation value. Filters constrain BFS expansion, so traversal does not pass through an ineligible intermediate note. Without --focus, graph show renders the full graph; explicitly supplied traversal flags, including `--depth`, require `--focus`. Mermaid output preserves stored edge orientation, includes link type and annotation labels, represents missing edge endpoints as deterministic placeholder nodes, and emits deterministic provenance comments for the normalized traversal options. Use `--format json` for structured output or `--format mermaid` for Markdown-compatible diagrams. Prefer focused output when exploring a note's neighborhood.
@@ -354,6 +354,48 @@ With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 a
 - **RIGHT** — lateral provenance / task edges: `source-of`, `requires` (either direction).
 
 In `--format json` each node gains a `zone` field (omitted when empty — the focus itself and nodes with no direct/unmapped link to the focus have no zone). In `--format text` nodes are grouped under `TOP`/`LEFT`/`RIGHT`/`BOTTOM` headers. This is the same zone mapping the interactive HTML graph viewer uses, so the CLI and the viewer stay in agreement.
+
+`--bodies` includes each node's full body inline beneath its title (and, in `--format text`, its tags on a `tags:` line). In `--format json` each node gains a `body` field (omitted when empty). It applies to every text sub-view — zoned, focused-tree, and flat — and does not change which nodes are traversed; it only adds contents to nodes already in the result.
+
+### Navigation mode: the zoned navigator with contents
+
+`nn graph show --focus <id> --zones --bodies` is a self-contained **navigation view**: it shows a note's neighbors bucketed by directional zone *and* prints each neighbor's tags and body, so you can both see where you can move and read where you'd land — in one call, without a separate `nn show` per node.
+
+Use it to walk the graph as a positioned space rather than dumping the whole structure. Hold a **goal** in mind for the walk ("find what contests this design", "trace where this claim came from", "reach the principle underneath") — every step is judged relative to that goal, not to the whole graph.
+
+0. **Enter** — if you have no starting note, find one first: `nn list --search "<topic>" --json --fields id,title,score,link_count` and pick the highest-scoring, best-connected hit as your entry focus. If you already have a note ID (from a prior answer, a link, a backlink), start there.
+1. **Orient** — render the current node's zoned neighborhood with bodies:
+   ```
+   nn graph show --focus <id> --depth 1 --direction both --zones --bodies --format text
+   ```
+   You now see, for the current node: TOP (what it answers to), BOTTOM (what builds on it), LEFT (tension), RIGHT (provenance) — each neighbor with its body inline. Empty zones are information too: no LEFT means nothing contests this node; no TOP means it's a root.
+2. **Read from here** — the bodies let you evaluate a move without leaving the view. Zones tell you *what kind* of move each neighbor is; bodies tell you *whether it's the one you want*. Choose the move that closes distance to your goal:
+
+   | Your goal | Zone to step into |
+   |-----------|-------------------|
+   | What challenges / questions this? | **LEFT** (tension) |
+   | What is this built on / where did it come from? | **TOP** (answers-to) or **RIGHT** (provenance) |
+   | What builds on / operationalizes this? | **BOTTOM** |
+   | Read the principle underneath a concrete note | **BOTTOM** toward `concept`/`model` types |
+
+3. **Recenter** — pick a neighbor's ID and re-run step 1 with that as `--focus`. Navigation is a chain of ego-hops (the ExcaliBrain model in design note 20260820154156-6576), not a pan over a hairball.
+4. **Arrive** — stop when the current node answers your goal, or when the zone you were following is empty (e.g. you were chasing tension and this node has no LEFT — the thread ends here). State what you found relative to where you started.
+
+**When presenting a step to a human, orient them spatially.** Don't just relay the raw command output — mark where they are, lay the zones out by position so the layout itself encodes the relationships, surface each neighbor's substance (not just its title), and name the available moves. A compact ASCII map works well:
+
+```
+              TOP  <what the focus answers to>
+                     ▲
+ LEFT <tension> ◀── ▣ YOU ARE HERE <focus id + title> ──▶ RIGHT <provenance>
+                     ▼
+           BOTTOM <what builds on the focus>
+
+  ▣ focus   ──▶/◀── edge direction   [empty zone = that relationship is absent]
+```
+
+Then, per zone, give a one-line summary of each neighbor drawn from its body (what it *claims*, not just what it's *called*) and flag the recommended next move relative to the goal. Empty zones carry meaning — call them out ("no LEFT: nothing contests this").
+
+Without `--bodies` this is the older search→zone→per-node-`nn show` loop; `--bodies` collapses that into a single call. Keep `--depth 1` when zoning — only direct neighbors carry a zone, and the zoned text view omits unzoned nodes. Bodies can be long; drop `--bodies` (titles only) when you just need the shape, add it back when you need to read.
 
 ### nn graph apply (YAML changeset manifest)
 

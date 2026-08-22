@@ -329,6 +329,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	var statuses string
 	var representation string
 	var zones bool
+	var bodies bool
 
 	cmd := &cobra.Command{
 		Use:   "show",
@@ -366,6 +367,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				Type  string   `json:"type"`
 				Tags  []string `json:"tags"`
 				Zone  string   `json:"zone,omitempty"`
+				Body  string   `json:"body,omitempty"`
 			}
 			type showEdge struct {
 				From       string `json:"from"`
@@ -442,6 +444,13 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					}
 				}
 				sort.Slice(resultNodes, func(i, j int) bool { return resultNodes[i].ID < resultNodes[j].ID })
+			}
+			if bodies {
+				for i := range resultNodes {
+					if n, ok := byID[resultNodes[i].ID]; ok {
+						resultNodes[i].Body = n.Body
+					}
+				}
 			}
 			if resultEdges == nil {
 				resultEdges = []showEdge{}
@@ -534,9 +543,33 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(out)
 			}
+			// renderNodeBody prints a node's tags and body indented beneath its
+			// title line when --bodies is set; a no-op otherwise. indent is the
+			// leading whitespace of the title line the body hangs under.
+			nodeByID := make(map[string]showNode, len(resultNodes))
+			for _, n := range resultNodes {
+				nodeByID[n.ID] = n
+			}
+			renderNodeBody := func(id, indent string) {
+				if !bodies {
+					return
+				}
+				n := nodeByID[id]
+				if len(n.Tags) > 0 {
+					fmt.Fprintf(w, "%s    tags: %s\n", indent, strings.Join(n.Tags, ", "))
+				}
+				body := strings.TrimSpace(n.Body)
+				if body == "" {
+					return
+				}
+				for _, line := range strings.Split(body, "\n") {
+					fmt.Fprintf(w, "%s    %s\n", indent, line)
+				}
+			}
 			if focus != "" && zones {
 				// Zone-grouped view: nodes under directional headers.
 				fmt.Fprintf(w, "%s  %s\n\n", focus, byID[focus].Title)
+				renderNodeBody(focus, "")
 				byZone := map[string][]showNode{}
 				for _, n := range resultNodes {
 					if n.ID == focus || n.Zone == "" {
@@ -558,6 +591,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					fmt.Fprintf(w, "%s\n", z.header)
 					for _, n := range group {
 						fmt.Fprintf(w, "  %s  %s\n", n.ID, n.Title)
+						renderNodeBody(n.ID, "  ")
 					}
 					fmt.Fprintln(w)
 				}
@@ -587,6 +621,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					}
 					if indent == "" {
 						fmt.Fprintf(w, "%s  %s\n", id, n.Title)
+						renderNodeBody(id, "")
 					}
 					rendered[id] = true
 					for _, tree := range adj[id] {
@@ -607,6 +642,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 						} else {
 							fmt.Fprintf(w, "%s  %s [%s] %s  %s\n", indent, tree.arrow, linkLabel, tree.neighbor, target.Title)
 						}
+						renderNodeBody(tree.neighbor, indent+"  ")
 						renderTree(tree.neighbor, indent+"  ")
 					}
 				}
@@ -614,6 +650,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 			} else {
 				for _, n := range resultNodes {
 					fmt.Fprintf(w, "%s  %s\n", n.ID, n.Title)
+					renderNodeBody(n.ID, "")
 				}
 			}
 			return nil
@@ -627,6 +664,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&statuses, "status", "", "Comma-separated note statuses to traverse")
 	cmd.Flags().StringVar(&representation, "representation", "", "Representation required for traversed notes")
 	cmd.Flags().BoolVar(&zones, "zones", false, "Annotate each node with its directional zone (top/bottom/left/right) relative to the focus")
+	cmd.Flags().BoolVar(&bodies, "bodies", false, "Include each node's body (and tags in text output) so the graph can be read as well as navigated")
 	return cmd
 }
 
