@@ -32,11 +32,13 @@ const (
 // Server hosts a single feedback session over an ephemeral loopback listener.
 // The process is disposable; the session directory on disk is durable.
 type Server struct {
-	id   string
-	dir  string
-	ln   net.Listener
-	srv  *http.Server
-	done chan Outcome
+	id    string
+	dir   string
+	ln    net.Listener
+	srv   *http.Server
+	done      chan Outcome
+	graph     GraphSource // optional: supplies data for the graph surface's /graph endpoint
+	graphHTML []byte      // optional: graph-viewer shell served at / for the graph surface
 }
 
 // NewServer creates a server for session id whose files live in dir.
@@ -53,6 +55,10 @@ func (s *Server) Start() error {
 	s.ln = ln
 	mux := http.NewServeMux()
 	mux.HandleFunc("/session/", s.handleSession)
+	// Graph-surface endpoints the viewer (graph.html) fetches at top level. They
+	// are no-ops for the canvas surface (no graph source attached).
+	mux.HandleFunc("/graph", s.handleGetGraph)
+	mux.HandleFunc("/event", s.handleGraphEvent)
 	mux.HandleFunc("/", s.handleStatic)
 	s.srv = &http.Server{Handler: mux}
 	go s.srv.Serve(ln)
@@ -99,6 +105,8 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodGet && !strings.Contains(strings.TrimPrefix(path, "/session/"), "/"):
 		s.handleGet(w, r)
+	case r.Method == http.MethodGet && strings.HasSuffix(path, "/graph"):
+		s.handleGetGraph(w, r)
 	case r.Method == http.MethodGet && strings.HasSuffix(path, "/draft"):
 		s.handleGetDraft(w, r)
 	case r.Method == http.MethodPut && strings.HasSuffix(path, "/draft"):
@@ -123,6 +131,12 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 	}
 	name := strings.TrimPrefix(r.URL.Path, "/")
 	if name == "" {
+		// The graph surface swaps the default canvas bundle for the graph viewer.
+		if s.graphHTML != nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			http.ServeContent(w, r, "index.html", time.Time{}, bytes.NewReader(s.graphHTML))
+			return
+		}
 		name = "index.html"
 	}
 	body, err := webFS.ReadFile("web/" + name)
@@ -162,6 +176,65 @@ func (s *Server) handlePutDraft(w http.ResponseWriter, r *http.Request) {
 
 // handleGetDraft returns the persisted draft so the surface can restore it as
 // initialData on reopen. A missing draft is 404 (no draft yet).
+// handleGetGraph serves the scoped notebook graph for the graph surface. The
+// response is bounded to the request's AllowedNodes: only nodes whose id is in
+// that set, and only edges whose endpoints are both in it, are returned. This
+// is the single server-side enforcement point for the agent-supplied scope.
+func (s *Server) handleGetGraph(w http.ResponseWriter, r *http.Request) {
+	if s.graph == nil {
+		http.Error(w, "no graph source configured", http.StatusInternalServerError)
+		return
+	}
+	nodes, edges, err := s.graph.Graph()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	q, err := ReadRequest(s.dir)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	allowed := make(map[string]bool, len(q.AllowedNodes))
+	for _, id := range q.AllowedNodes {
+		allowed[id] = true
+	}
+
+	// Bound to the agent-supplied scope: keep only in-scope nodes, and only
+	// edges whose both endpoints are in scope. Non-empty AllowedNodes means the
+	// request declared a bound; an empty set serves nothing rather than leaking
+	// the whole notebook.
+	outNodes := make([]GraphNode, 0, len(nodes))
+	for _, n := range nodes {
+		if allowed[n.ID] {
+			outNodes = append(outNodes, n)
+		}
+	}
+	outEdges := make([]GraphEdge, 0, len(edges))
+	for _, e := range edges {
+		if allowed[e.Source] && allowed[e.Target] {
+			outEdges = append(outEdges, e)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Nodes []GraphNode `json:"nodes"`
+		Edges []GraphEdge `json:"edges"`
+	}{outNodes, outEdges})
+}
+
+// handleGraphEvent accepts the viewer's node-click relay POSTs. The graph
+// surface is one-shot (prepare → submit), so these are acknowledged and dropped
+// rather than streamed anywhere.
+func (s *Server) handleGraphEvent(w http.ResponseWriter, r *http.Request) {
+	if r.Body != nil {
+		io.Copy(io.Discard, r.Body)
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) handleGetDraft(w http.ResponseWriter, r *http.Request) {
 	body, err := os.ReadFile(filepath.Join(s.dir, "draft.json"))
 	if err != nil {
@@ -234,6 +307,16 @@ func (s *Server) promoteDraftToResult() error {
 			if _, err := os.Stat(filepath.Join(s.dir, "result.png")); err == nil {
 				result.Artifacts = append(result.Artifacts, Artifact{Format: "png", Path: "result.png"})
 			}
+		case "graph":
+			// The graph draft is the human's selection: the chosen node ids, any
+			// per-node annotations, and a free-text answer. Materialize it as the
+			// native result.graph.json artifact so the agent reads a selection,
+			// not an opaque draft. The bytes are the surface's native output.
+			selPath := filepath.Join(s.dir, "result.graph.json")
+			if err := os.WriteFile(selPath, draft, 0o644); err != nil {
+				return err
+			}
+			result.Artifacts = []Artifact{{Format: "graph-selection", Path: "result.graph.json"}}
 		default:
 			result.Artifacts = []Artifact{{Format: "draft", Path: "draft.json"}}
 		}

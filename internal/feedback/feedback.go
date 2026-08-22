@@ -49,6 +49,12 @@ type FeedbackRequest struct {
 	// when no prior draft exists.
 	Mermaid string `json:"mermaid,omitempty"`
 	Output  string `json:"output"`
+	// Focus is the ego note id for the graph surface: the neighborhood the human
+	// is asked to react to. AllowedNodes is the resolved scope — the exact set of
+	// note ids the surface may show. The agent supplies the scope; the server
+	// never widens it, so what the human sees is bounded by what the agent chose.
+	Focus        string   `json:"focus,omitempty"`
+	AllowedNodes []string `json:"allowed_nodes,omitempty"`
 }
 
 // FeedbackResult is the thin envelope returned after submission. Surface-specific

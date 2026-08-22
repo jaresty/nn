@@ -12,7 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jaresty/nn/internal/backend/gitlocal"
 	"github.com/jaresty/nn/internal/feedback"
+	"github.com/jaresty/nn/internal/note"
 )
 
 // property [14]: nn ask does not require a notebook config — it is note-agnostic
@@ -32,6 +34,129 @@ func TestAskCommandRegistered(t *testing.T) {
 	}
 	if cmd.Flags().Lookup("surface") == nil {
 		t.Fatalf("expected --surface flag to be registered")
+	}
+}
+
+// property [3]: --surface graph requires --focus. Without a focus there is no
+// ego to bound the scope, so the load-bearing scoping constraint (ADR-0021)
+// cannot be satisfied and runAsk must error before opening a surface.
+func TestRunAskGraphRequiresFocus(t *testing.T) {
+	t.Setenv("NN_CONFIG_DIR", t.TempDir())
+
+	opened := false
+	_, err := runAsk(askOptions{
+		surface: "graph",
+		focus:   "",
+		open:    func(string) error { opened = true; return nil },
+		out:     io.Discard,
+	})
+	if err == nil {
+		t.Fatalf("runAsk(surface=graph, focus=\"\") = nil error, want error")
+	}
+	if opened {
+		t.Fatalf("surface opened despite missing --focus; scope guard must block before serving")
+	}
+}
+
+// property [5a]+[5b]: the graph feedback surface's HTML carries a persistently
+// visible commentary affordance (so it is obvious WHERE comments go) and a
+// labeled Done/submit control (so it is obvious HOW to finish). Structural check
+// on the rendered viewer; the behavioral guard is the Playwright spec.
+func TestGraphViewerHTMLHasCommentaryAndDoneControls(t *testing.T) {
+	html, err := renderGraphViewerHTML()
+	if err != nil {
+		t.Fatalf("renderGraphViewerHTML: %v", err)
+	}
+	s := string(html)
+	// property [5a]: a commentary affordance is present and labeled for comments.
+	// Includes the inline per-node comment box (the most discoverable path —
+	// shown on node click, not buried in a modal).
+	for _, want := range []string{`id="brief-answer"`, `id="feedback-banner"`, `id="panel-comment"`} {
+		if !strings.Contains(s, want) {
+			t.Errorf("property [5a]: rendered viewer missing commentary affordance %q", want)
+		}
+	}
+	// property [5b]: a labeled Done/submit control is present.
+	if !strings.Contains(s, `id="btn-done"`) || !strings.Contains(s, "Done") {
+		t.Errorf("property [5b]: rendered viewer missing labeled Done control")
+	}
+	if !strings.Contains(s, `id="btn-submit"`) {
+		t.Errorf("property [5b]: rendered viewer missing submit control")
+	}
+}
+
+// property [2]: for --surface graph, the request written to disk BEFORE the
+// surface opens carries the resolved allowed-node set — the focus's depth-1 ego
+// neighborhood (ego + direct neighbors in both directions), excluding notes
+// outside that neighborhood. This is the agent-supplied scope bound; the server
+// serves only these, so what the human sees is bounded here at prepare time.
+func TestRunAskGraphResolvesEgoScopeIntoRequest(t *testing.T) {
+	nbDir, _ := setupNotebookWithCfg(t)
+	t.Setenv("NN_CONFIG_DIR", t.TempDir())
+
+	ego := newTestNoteForCLI(note.GenerateID(), "Ego", note.TypeModel)
+	out := newTestNoteForCLI(note.GenerateID(), "Outbound", note.TypeConcept)
+	in := newTestNoteForCLI(note.GenerateID(), "Inbound", note.TypeArgument)
+	far := newTestNoteForCLI(note.GenerateID(), "Far", note.TypeConcept)
+	ego.Links = []note.Link{{TargetID: out.ID, Type: "refines", Annotation: "a"}}
+	in.Links = []note.Link{{TargetID: ego.ID, Type: "supports", Annotation: "b"}}
+	// far links only to out, so it is depth-2 from ego and must be excluded.
+	far.Links = []note.Link{{TargetID: out.ID, Type: "supports", Annotation: "c"}}
+	writeNoteFile(t, nbDir, ego)
+	writeNoteFile(t, nbDir, out)
+	writeNoteFile(t, nbDir, in)
+	writeNoteFile(t, nbDir, far)
+
+	b, err := gitlocal.New(nbDir)
+	if err != nil {
+		t.Fatalf("gitlocal.New: %v", err)
+	}
+
+	var checkErr error
+	hook := func(url string) error {
+		u, _ := neturl.Parse(url)
+		id := u.Query().Get("session")
+		req, err := feedback.ReadRequest(feedback.SessionDir(id))
+		if err != nil {
+			checkErr = err
+			return err
+		}
+		got := map[string]bool{}
+		for _, n := range req.AllowedNodes {
+			got[n] = true
+		}
+		want := []string{ego.ID, out.ID, in.ID}
+		for _, w := range want {
+			if !got[w] {
+				checkErr = fmt.Errorf("AllowedNodes missing %s; got %v", w, req.AllowedNodes)
+			}
+		}
+		if got[far.ID] {
+			checkErr = fmt.Errorf("AllowedNodes leaked depth-2 node %s; scope not bounded: %v", far.ID, req.AllowedNodes)
+		}
+		if req.Focus != ego.ID {
+			checkErr = fmt.Errorf("request Focus = %q, want %q", req.Focus, ego.ID)
+		}
+		base := u.Scheme + "://" + u.Host
+		resp, err := http.Post(base+"/session/"+id+"/submit", "application/json", nil)
+		if err != nil {
+			return err
+		}
+		resp.Body.Close()
+		return nil
+	}
+
+	if _, err := runAsk(askOptions{
+		surface: "graph",
+		focus:   ego.ID,
+		backend: b,
+		open:    hook,
+		out:     io.Discard,
+	}); err != nil {
+		t.Fatalf("runAsk: %v", err)
+	}
+	if checkErr != nil {
+		t.Fatal(checkErr)
 	}
 }
 

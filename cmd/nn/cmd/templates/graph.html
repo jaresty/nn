@@ -196,6 +196,55 @@ text.hidden-badge { fill: #7eb8f7; font-size: 11px; font-weight: 700; paint-orde
 /* ── tray-selected node ring ── */
 .node.tray-selected circle { stroke: #f0c040; stroke-width: 3px; }
 
+/* ── graph-feedback surface (nn ask --surface graph) ── */
+/* Persistent banner making it obvious WHERE commentary goes and HOW to finish.
+   Shown only when the viewer is opened as an ask feedback surface (?session). */
+#feedback-banner {
+  display: none;
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  z-index: 20; max-width: 70vw;
+  background: rgba(20,30,58,.96); border: 1px solid #3a6aaa; color: #cfe2ff;
+  border-radius: 6px; padding: 8px 14px; font-size: 12px; line-height: 1.4;
+  box-shadow: 0 2px 12px rgba(0,0,0,.4); text-align: center;
+}
+#feedback-banner b { color: #7eb8f7; }
+body.feedback #feedback-banner { display: block; }
+/* In feedback mode the Done button is always visible (even with nothing yet
+   selected) so the human always sees how to send their response. */
+#btn-done {
+  display: none;
+  background: #1e5e3a; border: 1px solid #3aaa6a; color: #a8f7c8;
+  border-radius: 5px; padding: 4px 12px; font-size: 12px; cursor: pointer; font-weight: 600;
+}
+#btn-done:hover { background: #2a7e4a; color: #fff; }
+body.feedback #btn-done { display: inline-block; }
+#btn-submit {
+  background: #1e5e3a; border: 1px solid #3aaa6a; color: #a8f7c8;
+  border-radius: 5px; padding: 6px 14px; font-size: 12px; cursor: pointer; font-weight: 600;
+}
+#btn-submit:hover { background: #2a7e4a; color: #fff; }
+/* Inline per-node comment box in the detail panel — the most discoverable
+   place to comment, shown the moment a node is clicked (feedback mode only). */
+#panel-feedback { display: none; margin-top: 14px; padding-top: 12px; border-top: 1px solid #2a3a5e; }
+body.feedback #panel-feedback { display: block; }
+#panel-comment-label { display: block; font-size: 12px; font-weight: 600; color: #9fc4ff; margin-bottom: 5px; }
+#panel-comment {
+  width: 100%; background: #1a1a2e; border: 1px solid #3a6aaa; color: #ddd;
+  border-radius: 4px; padding: 6px 8px; font-size: 12px; resize: vertical;
+  min-height: 52px; font-family: inherit; box-sizing: border-box;
+}
+#panel-select-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: #a8f7c8; cursor: pointer; }
+#panel-select { accent-color: #3aaa6a; }
+/* The free-text answer box at the top of the modal, so commentary has an
+   obvious home even before any per-note annotation. */
+#brief-answer-wrap { padding: 10px 16px 0; }
+#brief-answer-label { font-size: 11px; color: #9fc4ff; margin-bottom: 4px; font-weight: 600; }
+#brief-answer {
+  width: 100%; background: #1a1a2e; border: 1px solid #3a6aaa; color: #ccc;
+  border-radius: 4px; padding: 5px 8px; font-size: 12px; resize: vertical;
+  min-height: 54px; font-family: inherit;
+}
+
 /* ── context brief modal ── */
 #brief-modal {
   background: #13192e; border: 1px solid #3a4a6a; border-radius: 8px;
@@ -274,12 +323,22 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
        It is deliberately NOT in the toggle row — drilling in is navigation, not
        a reversible view toggle, so it gets its own affordance. -->
   <button id="focus-crumb" title="Click to return to the full graph"><span id="focus-crumb-title"></span><span id="focus-crumb-hint"> — click a neighbor to recenter</span> ✕</button>
+  <div id="feedback-banner">
+    <span id="feedback-instructions">You were asked to react to this neighborhood.
+    <b>Shift-click</b> notes to select them, write your comments, then click
+    <b>✎ Done</b> to send your feedback.</span>
+  </div>
   <div id="tray-bar">
     <span id="tray-count">0 selected</span>
     <button id="btn-export" disabled>Review &amp; Export</button>
+    <button id="btn-done" title="Add comments and send your feedback">✎ Done — send feedback</button>
   </div>
   <dialog id="brief-modal">
     <div id="brief-modal-header">Context brief (<span id="brief-modal-count">0</span> notes)</div>
+    <div id="brief-answer-wrap">
+      <div id="brief-answer-label">Your comment / answer</div>
+      <textarea id="brief-answer" placeholder="Type your overall response here…"></textarea>
+    </div>
     <div id="brief-note-list"></div>
     <div id="brief-question-wrap">
       <div id="brief-question-label">Your question</div>
@@ -287,6 +346,7 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
 </textarea>
     </div>
     <div id="brief-actions">
+      <button id="btn-submit">Send feedback</button>
       <button id="btn-copy">Copy to clipboard</button>
       <button id="btn-clear-tray">Clear selection</button>
       <textarea id="brief-fallback" readonly></textarea>
@@ -310,6 +370,11 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
     </div>
     <div id="panel-tags"></div>
     <div id="panel-body"></div>
+    <div id="panel-feedback">
+      <label id="panel-comment-label" for="panel-comment">💬 Comment on this note</label>
+      <textarea id="panel-comment" placeholder="Your thoughts on this note…"></textarea>
+      <label id="panel-select-row"><input type="checkbox" id="panel-select"> Include this note in my feedback</label>
+    </div>
   </div>
 </div>
 <script>
@@ -355,7 +420,11 @@ async function loadGraph(focusID) {
   }
 }
 
-loadGraph(null);
+// Load the (scoped) graph, then — on the ask feedback surface — enter the Zoned
+// ego layout. Chaining off the load promise avoids racing the data fetch.
+loadGraph(null).then(() => {
+  if (window.__askEnterZonedOnEgo) return window.__askEnterZonedOnEgo();
+});
 {{else}}
 const graph = {{.GraphJSON}};
 {{end}}
@@ -482,6 +551,11 @@ const panelTags  = document.getElementById("panel-tags");
 const panelBody  = document.getElementById("panel-body");
 document.getElementById("panel-close").addEventListener("click", closePanel);
 
+// Per-node feedback state, populated inline from the detail panel (feedback
+// mode). These are the source of truth the Send step reads.
+const nodeComments = new Map(); // id → comment text
+const nodeSelected = new Set(); // ids the human marked to include
+
 function openPanel(d) {
   panelTitle.textContent = d.title;
   panelType.textContent  = d.type || "";
@@ -492,7 +566,33 @@ function openPanel(d) {
   } else {
     panelBody.innerHTML = '<span id="panel-empty">No body.</span>';
   }
+  // Feedback mode: bind the inline comment box + include-toggle to this node.
+  if (document.body.classList.contains("feedback")) {
+    const commentEl = document.getElementById("panel-comment");
+    const selectEl  = document.getElementById("panel-select");
+    commentEl.value = nodeComments.get(d.id) || "";
+    selectEl.checked = nodeSelected.has(d.id);
+    commentEl.oninput = () => {
+      const v = commentEl.value.trim();
+      if (v) { nodeComments.set(d.id, v); nodeSelected.add(d.id); }
+      else nodeComments.delete(d.id);
+      selectEl.checked = nodeSelected.has(d.id);
+      syncTrayFromSelection(d);
+    };
+    selectEl.onchange = () => {
+      if (selectEl.checked) nodeSelected.add(d.id); else nodeSelected.delete(d.id);
+      syncTrayFromSelection(d);
+    };
+  }
   rightCol.classList.add("open");
+}
+
+// Keep the selection tray (the existing shift-click mechanism) in sync with the
+// inline include-toggle so both paths feed one selection set.
+function syncTrayFromSelection(d) {
+  if (nodeSelected.has(d.id)) tray.set(d.id, d); else tray.delete(d.id);
+  updateTrayUI();
+  if (typeof gNodes !== "undefined") gNodes.selectAll("g").classed("tray-selected", n => tray.has(n.id));
 }
 function closePanel() {
   rightCol.classList.remove("open");
@@ -1125,7 +1225,7 @@ function openBriefModal() {
     row.innerHTML = `
       <div class="brief-note-title">${d.title}</div>
       <div class="brief-note-id">${id}</div>
-      <textarea class="brief-ann" placeholder="Why this note matters…" rows="2"></textarea>
+      <textarea class="brief-ann" placeholder="Why this note matters…" rows="2">${(nodeComments.get(id)||"").replace(/</g,"&lt;")}</textarea>
       <div class="brief-body-row">
         <input type="checkbox" class="brief-body-toggle" id="body-${id}">
         <label for="body-${id}">Include body</label>
@@ -1164,6 +1264,83 @@ document.getElementById("btn-clear-tray").addEventListener("click", () => {
 briefModal.addEventListener("click", e => {
   if (e.target === briefModal) briefModal.close();
 });
+
+// ── Graph feedback surface (nn ask --surface graph) ───────────────────────
+// Activated when the viewer is opened as a feedback surface (?session=<id>).
+// The human selects notes, comments, and clicks Done/Send to submit a
+// graph-selection result the agent reads. Absent a session this is inert, so
+// the normal `nn graph export --serve` viewer is unchanged.
+const askSession = new URLSearchParams(location.search).get("session");
+if (askSession) {
+  document.body.classList.add("feedback");
+
+  // Enable auto-Zoned once the initial graph load resolves (see loadGraph call
+  // below). No polling — the focus is applied deterministically after data.
+  window.__askEnterZonedOnEgo = async function () {
+    const req = await (await fetch(`/session/${askSession}`)).json();
+    const focus = req && req.focus;
+    if (!focus) return;
+    const d = rootGraphData || currentGraphData;
+    const node = d && d.nodes ? d.nodes.find(n => n.id === focus) : null;
+    // Open in the Zoned spatial layout focused on the ego, so the human sees the
+    // directional organization (tension left, builds-on below, …) rather than a
+    // flat force ball. Reuses the same recenterZoned path the toggle uses.
+    zonedMode = true;
+    document.getElementById("btn-zoned").classList.add("active");
+    updateZonedHint();
+    recenterZoned(focus, node ? node.title : focus, node || null);
+  };
+
+  // Done is always available in feedback mode — it opens the brief modal so the
+  // human can comment even if they selected nothing (a free-text-only answer is
+  // valid feedback).
+  document.getElementById("btn-done").addEventListener("click", () => {
+    // Fold any inline-selected nodes into the tray so the modal shows them too.
+    nodeSelected.forEach(id => {
+      if (!tray.has(id) && rootGraphData) {
+        const d = rootGraphData.nodes.find(n => n.id === id);
+        if (d) tray.set(id, d);
+      }
+    });
+    updateTrayUI();
+    openBriefModal();
+  });
+
+  document.getElementById("btn-submit").addEventListener("click", async () => {
+    // Gather annotations from both paths: the inline per-node comments (primary,
+    // most discoverable) and any modal rows. Selection is the union of the tray
+    // (shift-click) and the inline include-toggles.
+    const annotations = {};
+    nodeComments.forEach((v, id) => { if (v) annotations[id] = v; });
+    document.querySelectorAll("#brief-note-list .brief-note-row").forEach(row => {
+      const id  = row.querySelector(".brief-note-id").textContent;
+      const ann = row.querySelector("textarea.brief-ann").value.trim();
+      if (ann) annotations[id] = ann;
+    });
+    const selected = [...new Set([...tray.keys(), ...nodeSelected])];
+    const payload = {
+      selected,
+      annotations,
+      answer: document.getElementById("brief-answer").value.trim(),
+    };
+    try {
+      await fetch(`/session/${askSession}/draft`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      await fetch(`/session/${askSession}/submit`, { method: "POST" });
+      briefModal.close();
+      document.body.innerHTML =
+        '<div style="color:#a8f7c8;font:16px system-ui;padding:40px;text-align:center">' +
+        'Feedback sent. You can close this tab.</div>';
+    } catch (e) {
+      const fb = document.getElementById("brief-fallback");
+      fb.style.display = "block";
+      fb.value = "Could not reach nn to submit: " + e;
+    }
+  });
+}
 
 // ── Initial render ────────────────────────────────────────────────────────
 {{if .ServeMode}}
