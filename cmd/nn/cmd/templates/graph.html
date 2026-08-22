@@ -260,6 +260,21 @@ body.feedback #panel-feedback { display: block; }
 }
 #panel-comment-hint { font-size: 11px; color: #7a90b0; margin-top: 5px; }
 
+/* Edge (relationship) card — occupies the same right-col slot as the note
+   panel; the two are mutually exclusive (right-col gets .edge-mode). */
+#edge-card { display: none; padding: 14px; }
+#right-col.edge-mode #panel { display: none; }
+#right-col.edge-mode #edge-card { display: block; }
+#edge-rel { font-size: 14px; font-weight: 600; color: #cfe2ff; line-height: 1.4; }
+#edge-rel .edge-rel-type { color: #7eb8f7; }
+#edge-comment-label { display: block; font-size: 12px; font-weight: 600; color: #9fc4ff; margin: 14px 0 5px; }
+#edge-comment {
+  width: 100%; background: #1a1a2e; border: 1px solid #3a6aaa; color: #ddd;
+  border-radius: 4px; padding: 6px 8px; font-size: 12px; resize: vertical;
+  min-height: 52px; font-family: inherit; box-sizing: border-box;
+}
+#edge-comment-hint { font-size: 11px; color: #7a90b0; margin-top: 5px; }
+
 /* Persistent feedback panel — docked on the far right, always open in feedback
    mode. The single place feedback is reviewed and sent. */
 #fbpanel {
@@ -443,6 +458,20 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
       <label id="panel-comment-label" for="panel-comment">💬 Comment on this note</label>
       <textarea id="panel-comment" placeholder="Type a comment to add this note to your feedback… (type @ to reference another note)"></textarea>
       <div id="panel-comment-hint">Adding a comment includes this note in your feedback.</div>
+    </div>
+  </div>
+  <!-- Edge (relationship) card: shown when an edge is clicked in feedback mode.
+       Comment on the relationship itself (e.g. "this support is really a
+       contradiction"). Reuses the same card column as the note panel. -->
+  <div id="edge-card">
+    <div id="panel-header">
+      <div id="edge-rel"></div>
+      <button id="edge-close" title="Close">✕</button>
+    </div>
+    <div id="edge-feedback">
+      <label id="edge-comment-label" for="edge-comment">💬 Comment on this relationship</label>
+      <textarea id="edge-comment" placeholder="Type a comment to add this relationship to your feedback… (type @ to reference a note)"></textarea>
+      <div id="edge-comment-hint">Adding a comment includes this relationship in your feedback.</div>
     </div>
   </div>
 </div>
@@ -633,12 +662,16 @@ const panelType  = document.getElementById("panel-type");
 const panelTags  = document.getElementById("panel-tags");
 const panelBody  = document.getElementById("panel-body");
 document.getElementById("panel-close").addEventListener("click", closePanel);
+document.getElementById("edge-close").addEventListener("click", closePanel);
 
 // Feedback state: a note is "in the feedback set" exactly when it has a
 // non-empty comment (membership follows the comment — no separate select step).
 // feedbackData holds the node datum so the panel can show titles after navigation.
 const nodeComments = new Map(); // id → comment text
 const feedbackData = new Map(); // id → node datum (for panel rendering)
+// Edge feedback: keyed "source->target"; value {source,target,type,comment}.
+const edgeComments = new Map();
+const edgeKey = d => `${typeof d.source==="object"?d.source.id:d.source}->${typeof d.target==="object"?d.target.id:d.target}`;
 
 // Minimal, safe markdown → HTML for the note body panel. Escapes HTML first,
 // then renders headings, lists, inline code, links, bold/italic, paragraphs.
@@ -690,6 +723,11 @@ function openPanel(d) {
     };
     attachMention(commentEl);
   }
+  // Showing a node card: ensure edge-mode is cleared so #panel (not #edge-card)
+  // is the visible card. Without this, clicking a node after an edge leaves the
+  // node comment field hidden.
+  selectedEdge = null;
+  rightCol.classList.remove("edge-mode");
   rightCol.classList.add("open");
 }
 
@@ -697,8 +735,8 @@ function openPanel(d) {
 // ONLY by the explicit ✕ (this function), never by click-off or click-again —
 // those are handled as view/recenter navigation instead.
 function closePanel() {
-  rightCol.classList.remove("open");
-  clearHighlight(); selected = null;
+  rightCol.classList.remove("open", "edge-mode");
+  clearHighlight(); selected = null; selectedEdge = null;
 }
 
 // ── Persistent feedback panel (feedback mode) ──────────────────────────────
@@ -707,26 +745,65 @@ function renderFeedbackPanel() {
   const empty = document.getElementById("fbpanel-empty");
   if (!list) return;
   list.innerHTML = "";
-  if (nodeComments.size === 0) { if (empty) empty.style.display = "block"; return; }
+  if (nodeComments.size === 0 && edgeComments.size === 0) { if (empty) empty.style.display = "block"; return; }
   if (empty) empty.style.display = "none";
-  nodeComments.forEach((comment, id) => {
-    const d = feedbackData.get(id) || { title: id };
+  const addItem = (titleText, comment, onRemove) => {
     const item = document.createElement("div");
     item.className = "fbitem";
     const head = document.createElement("div"); head.className = "fbitem-head";
-    const title = document.createElement("div"); title.className = "fbitem-title"; title.textContent = d.title;
+    const title = document.createElement("div"); title.className = "fbitem-title"; title.textContent = titleText;
     const rm = document.createElement("button"); rm.className = "fbitem-remove"; rm.textContent = "✕"; rm.title = "Remove from feedback";
-    rm.addEventListener("click", () => {
-      nodeComments.delete(id); feedbackData.delete(id);
-      // Keep the open card's comment box in sync if it shows this note.
-      if (selected === id) { const c = document.getElementById("panel-comment"); if (c) c.value = ""; }
-      renderFeedbackPanel();
-    });
+    rm.addEventListener("click", onRemove);
     head.appendChild(title); head.appendChild(rm);
     const body = document.createElement("div"); body.className = "fbitem-comment"; body.textContent = comment;
     item.appendChild(head); item.appendChild(body);
     list.appendChild(item);
+  };
+  nodeComments.forEach((comment, id) => {
+    const d = feedbackData.get(id) || { title: id };
+    addItem(d.title, comment, () => {
+      nodeComments.delete(id); feedbackData.delete(id);
+      if (selected === id) { const c = document.getElementById("panel-comment"); if (c) c.value = ""; }
+      renderFeedbackPanel();
+    });
   });
+  edgeComments.forEach((e, key) => {
+    const label = `${nodeTitle(e.source)} —[${e.type||"link"}]→ ${nodeTitle(e.target)}`;
+    addItem(label, e.comment, () => {
+      edgeComments.delete(key);
+      if (selectedEdge === key) { const c = document.getElementById("edge-comment"); if (c) c.value = ""; }
+      renderFeedbackPanel();
+    });
+  });
+}
+
+// Resolve a node id to its title from the loaded graph (fallback: the id).
+function nodeTitle(id) {
+  const d = rootGraphData || currentGraphData;
+  const n = d && d.nodes ? d.nodes.find(x => x.id === id) : null;
+  return n ? n.title : id;
+}
+
+// openEdgeCard shows the relationship + a comment box; commenting adds the edge
+// to the feedback panel (comment ⇔ membership), mirroring note comments.
+let selectedEdge = null;
+function openEdgeCard(d) {
+  const src = typeof d.source==="object" ? d.source.id : d.source;
+  const tgt = typeof d.target==="object" ? d.target.id : d.target;
+  const key = `${src}->${tgt}`;
+  selectedEdge = key;
+  document.getElementById("edge-rel").innerHTML =
+    `${nodeTitle(src)} <span class="edge-rel-type">—[${d.type||"link"}]→</span> ${nodeTitle(tgt)}`;
+  const commentEl = document.getElementById("edge-comment");
+  commentEl.value = (edgeComments.get(key) || {}).comment || "";
+  commentEl.oninput = () => {
+    const v = commentEl.value.trim();
+    if (v) edgeComments.set(key, { source: src, target: tgt, type: d.type || "", comment: v });
+    else edgeComments.delete(key);
+    renderFeedbackPanel();
+  };
+  attachMention(commentEl);
+  rightCol.classList.add("open", "edge-mode");
 }
 
 // ── Legend ────────────────────────────────────────────────────────────────
@@ -934,6 +1011,12 @@ function rebuildSim(data) {
   }).on("mouseleave", () => {
     document.getElementById("tooltip").style.display = "none";
     link.classed("edge-hover", false);
+  });
+  // Feedback mode: clicking an edge opens the relationship comment card.
+  linkHit.on("click", (e, d) => {
+    if (!document.body.classList.contains("feedback")) return;
+    e.stopPropagation();
+    openEdgeCard(d);
   });
   const link = gLinks.selectAll("path.link")
     .data(data.edges, d => `${d.source}-${d.target}`)
@@ -1543,6 +1626,7 @@ if (askSession) {
     const payload = {
       selected: [...nodeComments.keys()],
       annotations,
+      edges: [...edgeComments.values()],
       answer: document.getElementById("fbpanel-answer").value.trim(),
     };
     try {

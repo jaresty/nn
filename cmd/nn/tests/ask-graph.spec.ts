@@ -12,6 +12,7 @@ let proc: ChildProcess | null = null;
 let notebookDir = '';
 let sessionDir = '';
 let surfaceURL = '';
+let cfgDir = '';
 
 // The four notes: ego + two direct neighbors (in scope) + one depth-2 node
 // (out of scope, must never render on the surface).
@@ -38,7 +39,10 @@ Body of ${title}.
 ${linksSection}`);
 }
 
+// Setup does a go build plus launches a session, which can exceed the default
+// 15s hook budget on a cold build.
 test.beforeAll(async () => {
+  test.setTimeout(60000);
   notebookDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nn-askg-'));
   execSync('git init && git config user.email "t@t.com" && git config user.name "T"', { cwd: notebookDir, stdio: 'ignore' });
   writeNote(notebookDir, EGO, 'Ego Note', [{ to: NBR_OUT, type: 'refines' }]);
@@ -50,26 +54,35 @@ test.beforeAll(async () => {
   const repoRoot = path.resolve(__dirname, '../../..');
   execSync('go build -o /tmp/nn-askg ./cmd/nn', { cwd: repoRoot, stdio: 'ignore' });
 
-  const cfgDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nn-askg-cfg-'));
+  cfgDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nn-askg-cfg-'));
   fs.writeFileSync(path.join(cfgDir, 'config.toml'),
     `[notebooks]\ndefault = "test"\n\n[notebooks.test]\npath = ${JSON.stringify(notebookDir)}\nbackend = "gitlocal"\n`);
 
-  proc = spawn('/tmp/nn-askg', ['ask', '--surface', 'graph', '--focus', EGO, '--instructions', 'React to this neighborhood.'],
-    { env: { ...process.env, NN_CONFIG_DIR: cfgDir, NN_ASK_PRINT_URL_ONLY: '1' } });
+  // A shared, read-only session for the non-submitting tests. `nn ask` is
+  // one-shot — submitting ends its server — so tests that Send launch their own
+  // session via launchSession() rather than consuming this shared one.
+  const s = await launchSession();
+  proc = s.proc; surfaceURL = s.url; sessionDir = s.dir;
+});
 
-  // Capture the surface URL the process prints instead of opening a browser.
-  surfaceURL = await new Promise<string>((resolve, reject) => {
+// launchSession spawns a fresh `nn ask --surface graph` and returns its URL,
+// session dir, and process. Each submitting test gets its own so the shared
+// server survives for the read-only tests regardless of run order.
+async function launchSession(): Promise<{ url: string; dir: string; proc: ChildProcess }> {
+  const p = spawn('/tmp/nn-askg', ['ask', '--surface', 'graph', '--focus', EGO, '--instructions', 'React to this neighborhood.'],
+    { env: { ...process.env, NN_CONFIG_DIR: cfgDir, NN_ASK_PRINT_URL_ONLY: '1' } });
+  const url = await new Promise<string>((resolve, reject) => {
     let buf = '';
     const to = setTimeout(() => reject(new Error('no ASK_SURFACE_URL within 8s: ' + buf)), 8000);
-    proc!.stdout!.on('data', d => {
+    p.stdout!.on('data', d => {
       buf += d.toString();
       const m = buf.match(/ASK_SURFACE_URL (\S+)/);
       if (m) { clearTimeout(to); resolve(m[1]); }
     });
   });
-  const sid = new URL(surfaceURL).searchParams.get('session')!;
-  sessionDir = path.join(cfgDir, 'feedback', sid);
-});
+  const sid = new URL(url).searchParams.get('session')!;
+  return { url, dir: path.join(cfgDir, 'feedback', sid), proc: p };
+}
 
 test.afterAll(() => {
   proc?.kill();
@@ -148,19 +161,71 @@ test('R1: commenting on a note adds it to the feedback panel; clearing removes i
 });
 
 test('Send writes a graph-selection result from the collected comments + answer', async ({ page }) => {
-  await page.goto(surfaceURL);
+  const s = await launchSession();
+  await page.goto(s.url);
   await page.waitForSelector('.node');
   await page.locator('.node').first().click();
   await page.locator('#panel-comment').fill('this note is load-bearing');
   await page.locator('#fbpanel-answer').fill('the outbound neighbor is the strongest support');
   await page.locator('#fbpanel-send').click();
 
-  await expect.poll(() => fs.existsSync(path.join(sessionDir, 'result.json')), { timeout: 5000 }).toBe(true);
-  const result = JSON.parse(fs.readFileSync(path.join(sessionDir, 'result.json'), 'utf8'));
+  await expect.poll(() => fs.existsSync(path.join(s.dir, 'result.json')), { timeout: 5000 }).toBe(true);
+  const result = JSON.parse(fs.readFileSync(path.join(s.dir, 'result.json'), 'utf8'));
   const art = result.artifacts.find((a: any) => a.format === 'graph-selection');
   expect(art).toBeTruthy();
-  const sel = JSON.parse(fs.readFileSync(path.join(sessionDir, art.path), 'utf8'));
+  const sel = JSON.parse(fs.readFileSync(path.join(s.dir, art.path), 'utf8'));
   expect(sel.answer).toContain('strongest support');
   expect(Object.values(sel.annotations)).toContain('this note is load-bearing');
   expect(sel.selected.length).toBeGreaterThan(0);
+});
+
+// Clicking a thin/curved SVG stroke by coordinate is flaky, so drive the edge's
+// own click handler directly — the same event the user's pointer produces.
+async function clickFirstEdge(page: Page) {
+  // link-hit paths are transparent (not "visible"), so wait for attachment.
+  await page.waitForSelector('path.link-hit', { state: 'attached' });
+  await page.evaluate(() => {
+    const hit = document.querySelector('path.link-hit') as SVGElement;
+    hit.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+}
+
+test('E1+E3: clicking an edge opens a relationship comment box', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await clickFirstEdge(page);
+  await expect(page.locator('#edge-comment')).toBeVisible();
+  // The affordance names the relationship (a link type is shown).
+  await expect(page.locator('#edge-rel')).toBeVisible();
+});
+
+test('E4: after viewing an edge, clicking a node restores the node comment field', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await clickFirstEdge(page);
+  await expect(page.locator('#edge-comment')).toBeVisible();
+  // Switching to a node must clear edge-mode so the node comment box shows.
+  await page.locator('.node').first().click();
+  await expect(page.locator('#panel-comment')).toBeVisible();
+  await expect(page.locator('#edge-card')).toBeHidden();
+});
+
+test('E1+E2: commenting on an edge collects it and Send carries it in edges[]', async ({ page }) => {
+  const s = await launchSession();
+  await page.goto(s.url);
+  await clickFirstEdge(page);
+  await page.locator('#edge-comment').fill('this relationship is actually a contradiction');
+  // The edge appears in the persistent feedback panel.
+  await expect(page.locator('#fbpanel-list')).toContainText('this relationship is actually a contradiction');
+
+  await page.locator('#fbpanel-send').click();
+  await expect.poll(() => fs.existsSync(path.join(s.dir, 'result.json')), { timeout: 5000 }).toBe(true);
+  const result = JSON.parse(fs.readFileSync(path.join(s.dir, 'result.json'), 'utf8'));
+  const art = result.artifacts.find((a: any) => a.format === 'graph-selection');
+  const sel = JSON.parse(fs.readFileSync(path.join(s.dir, art.path), 'utf8'));
+  expect(Array.isArray(sel.edges)).toBe(true);
+  expect(sel.edges.length).toBeGreaterThan(0);
+  const e = sel.edges[0];
+  expect(e).toHaveProperty('source');
+  expect(e).toHaveProperty('target');
+  expect(e).toHaveProperty('type');
+  expect(e.comment).toContain('actually a contradiction');
 });
