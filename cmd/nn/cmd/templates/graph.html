@@ -617,7 +617,9 @@ function zoomFit() {
   const svgRect = svgEl.getBoundingClientRect();
   let left = 0, right = W, top = 0, bottom = H;
   ["legend", "mlegend-top", "mlegend-bottom", "mlegend-left", "mlegend-right",
-   "right-col", "focus-crumb", "search-bar", "zoned-hint"].forEach(id => {
+   "right-col", "focus-crumb", "search-bar", "zoned-hint",
+   // feedback-surface overlays, so the graph never fits underneath them
+   "feedback-banner", "feedback-nav", "fbpanel"].forEach(id => {
     const el = document.getElementById(id);
     if (!el || getComputedStyle(el).display === "none") return;
     const r = el.getBoundingClientRect();
