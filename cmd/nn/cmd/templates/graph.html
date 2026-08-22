@@ -1611,7 +1611,11 @@ function renderMention() {
     const icon = c.kind === "edge" ? "↔" : "•";
     el.innerHTML = `${icon} ${(c.label).replace(/</g,"&lt;")} <span class="mention-id">${c.sub}</span>`;
     el.addEventListener("mousedown", e => { e.preventDefault(); pickMention(c); });
-    el.addEventListener("mouseenter", () => { mentionActiveIdx = i; setCommentCandidate(c); });
+    // mousemove (not mouseenter) so hovering only reacts to real pointer motion,
+    // not to items being recreated under a stationary cursor during keyboard nav.
+    el.addEventListener("mousemove", () => {
+      if (mentionActiveIdx !== i) { mentionActiveIdx = i; renderMention(); }
+    });
     mentionMenu.appendChild(el);
   });
   mentionMenu.style.display = mentionMatches.length ? "block" : "none";
@@ -1632,6 +1636,12 @@ function pickMention(c) {
 }
 function attachMention(el) {
   if (!el) return;
+  // Idempotent: openPanel/openEdgeCard call this on every card open, but the
+  // comment textareas are persistent elements. Attaching listeners more than
+  // once stacks them, so each ArrowDown fires N times and skips entries. Guard
+  // with a marker so listeners are wired exactly once per element.
+  if (el.dataset.mentionAttached) return;
+  el.dataset.mentionAttached = "1";
   el.addEventListener("input", () => {
     const upto = el.value.slice(0, el.selectionStart);
     const m = upto.match(/@([^\s@]*)$/);

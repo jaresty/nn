@@ -255,3 +255,78 @@ test('E1+E2: commenting on an edge collects it and Send carries it in edges[]', 
   expect(e).toHaveProperty('type');
   expect(e.comment).toContain('actually a contradiction');
 });
+
+test('P: @-mention ArrowDown advances the active item by exactly one (no skips)', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await page.waitForSelector('.node');
+  // Open several node cards first: attachMention runs on each openPanel, and if
+  // it stacks keydown listeners on the shared textarea, ArrowDown fires N times
+  // and skips entries. Reopen a few times to expose that.
+  const nodes = page.locator('.node');
+  const count = await nodes.count();
+  for (let i = 0; i < Math.min(count, 3); i++) await nodes.nth(i).click();
+  await nodes.first().click();
+  await page.locator('#panel-comment').fill('@');
+  await page.waitForSelector('#mention-menu .mention-item');
+
+  const activeIdx = () =>
+    page.$$eval('#mention-menu .mention-item', els =>
+      els.findIndex(el => el.classList.contains('active')));
+
+  const seq: number[] = [await activeIdx()];
+  for (let k = 0; k < 3; k++) {
+    await page.locator('#panel-comment').press('ArrowDown');
+    seq.push(await activeIdx());
+  }
+  // Correct sequence increments by exactly 1 each press: [0,1,2,3].
+  expect(seq).toEqual([0, 1, 2, 3]);
+});
+
+// P1+P2: popovers stay within the viewport (regression guards for the earlier
+// round where tooltips and the @-menu rendered off-screen for bottom elements).
+test('P1: the hover tooltip for the lowest node stays within the viewport', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await page.waitForSelector('.node');
+  const inViewport = await page.evaluate(() => {
+    const nodes = [...document.querySelectorAll('g.node')] as SVGGElement[];
+    const lowest = nodes.sort((a, b) => b.getBoundingClientRect().top - a.getBoundingClientRect().top)[0];
+    const r = lowest.getBoundingClientRect();
+    lowest.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: r.left, clientY: r.top }));
+    const tip = document.getElementById('tooltip')!;
+    if (tip.style.display !== 'block') return 'no-tip';
+    const t = tip.getBoundingClientRect();
+    return t.right <= window.innerWidth + 1 && t.bottom <= window.innerHeight + 1 && t.left >= -1 && t.top >= -1;
+  });
+  expect(inViewport).toBe(true);
+});
+
+test('P2: the @-mention menu stays within the viewport from a low comment box', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await page.waitForSelector('.node');
+  await page.locator('.node').first().click();
+  await page.locator('#panel-comment').fill('@');
+  await page.waitForSelector('#mention-menu .mention-item');
+  const inViewport = await page.evaluate(() => {
+    const m = document.getElementById('mention-menu')!.getBoundingClientRect();
+    return m.right <= window.innerWidth + 1 && m.bottom <= window.innerHeight + 1 && m.left >= -1 && m.top >= -1;
+  });
+  expect(inViewport).toBe(true);
+});
+
+test('P4: @-mention candidates include edges (relationships)', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await page.waitForSelector('.node');
+  await page.locator('.node').first().click();
+  await page.locator('#panel-comment').fill('@');
+  await page.waitForSelector('#mention-menu .mention-item');
+  const hasEdge = await page.$$eval('#mention-menu .mention-item', els =>
+    els.some(el => (el.textContent || '').trim().startsWith('↔')));
+  expect(hasEdge).toBe(true);
+});
+
+test('P5: the node whose comment box is open is highlighted in the graph', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await page.waitForSelector('.node');
+  await page.locator('.node').first().click();
+  await expect(page.locator('g.node.comment-active')).toHaveCount(1);
+});
