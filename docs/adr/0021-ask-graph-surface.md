@@ -2,7 +2,10 @@
 
 ## Status
 
-Proposed
+Accepted — implemented in `cmd/nn/cmd/ask.go`, `internal/feedback/`, and
+`cmd/nn/cmd/templates/graph.html`. The surface also gained a comment-driven
+persistent feedback panel, markdown rendering, @-mention references, and edge
+(relationship) commenting beyond the original one-shot node-selection contract.
 
 ## Context
 
