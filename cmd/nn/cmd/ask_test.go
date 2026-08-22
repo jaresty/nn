@@ -27,6 +27,34 @@ func TestAskDoesNotRequireNotebookConfig(t *testing.T) {
 	}
 }
 
+// property [U]: runAsk prints the surface URL to its output before blocking on
+// Wait(), so the human always has a clickable fallback when auto-open silently
+// fails (exec "open" .Start() swallows failure).
+func TestRunAskPrintsSurfaceURL(t *testing.T) {
+	t.Setenv("NN_CONFIG_DIR", t.TempDir())
+
+	var out bytes.Buffer
+	var openedURL string
+	hook := func(url string) error {
+		openedURL = url
+		u, _ := neturl.Parse(url)
+		id := u.Query().Get("session")
+		base := u.Scheme + "://" + u.Host
+		resp, err := http.Post(base+"/session/"+id+"/submit", "application/json", nil)
+		if err != nil {
+			return err
+		}
+		resp.Body.Close()
+		return nil
+	}
+	if _, err := runAsk(askOptions{surface: "canvas", open: hook, out: &out}); err != nil {
+		t.Fatalf("runAsk: %v", err)
+	}
+	if !strings.Contains(out.String(), openedURL) {
+		t.Fatalf("output does not contain the surface URL %q:\n%s", openedURL, out.String())
+	}
+}
+
 func TestAskCommandRegistered(t *testing.T) {
 	cmd := newAskCmd(&rootState{})
 	if !strings.HasPrefix(cmd.Use, "ask") {

@@ -190,6 +190,10 @@ func runAsk(opts askOptions) (askSession, error) {
 	// embedded frontend reads ?session=<id> and drives the /session/<id>
 	// endpoints. Opening /session/<id> directly would show raw JSON.
 	sessionURL := fmt.Sprintf("http://%s/?session=%s", srv.Addr(), id)
+	// Print the URL before attempting to open the browser. Auto-open is
+	// best-effort (exec "open".Start() swallows failure and can "succeed" while
+	// no tab appears), so an always-printed URL is the reliable fallback.
+	fmt.Fprintf(opts.out, "Feedback surface: %s\n", sessionURL)
 	if err := opts.open(sessionURL); err != nil {
 		return sess, err
 	}
