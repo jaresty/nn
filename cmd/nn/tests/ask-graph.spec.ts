@@ -93,44 +93,68 @@ test('scope is bounded to the focus ego neighborhood — the depth-2 node is nev
   expect(ids).not.toContain(FAR); // load-bearing: agent scope bounds what the human sees
 });
 
-test('the surface shows a discoverable commentary banner and a Done button', async ({ page }) => {
+test('R2: a persistent feedback panel is docked and visible without a modal', async ({ page }) => {
   await page.goto(surfaceURL);
-  await expect(page.locator('#feedback-banner')).toBeVisible();
-  await expect(page.locator('#feedback-banner')).toContainText('comment');
-  await expect(page.locator('#btn-done')).toBeVisible();
+  await expect(page.locator('#fbpanel')).toBeVisible();
+  await expect(page.locator('#fbpanel-send')).toBeVisible();
+  await expect(page.locator('#fbpanel-answer')).toBeVisible();
+});
+
+test('R4: layout toggles are hidden (locked to zoned) in feedback mode', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await expect(page.locator('#search-bar')).toBeHidden();
+});
+
+test('R5: restore-view and back controls are present', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await expect(page.locator('#btn-restore')).toBeVisible();
+  await expect(page.locator('#btn-back')).toBeVisible();
 });
 
 test('the surface opens in Zoned spatial layout focused on the ego', async ({ page }) => {
   await page.goto(surfaceURL);
-  // Zoned reuses the directional spatial organization; the surface should adopt
-  // it automatically rather than dropping the human into the flat force layout.
   await expect(page.locator('#btn-zoned')).toHaveClass(/active/);
   await expect(page.locator('#focus-crumb')).toBeVisible();
 });
 
-test('clicking a node reveals an inline comment box (commentary is discoverable on click)', async ({ page }) => {
+test('R3+R6: clicking a node views it (no dismiss on re-click of empty canvas)', async ({ page }) => {
   await page.goto(surfaceURL);
   await page.waitForSelector('.node');
   await page.locator('.node').first().click();
   await expect(page.locator('#panel-comment')).toBeVisible();
-  await expect(page.locator('#panel-comment-label')).toContainText('Comment');
+  // Clicking empty canvas must NOT dismiss the card in feedback mode.
+  await page.locator('svg').click({ position: { x: 5, y: 5 } });
+  await expect(page.locator('#panel-comment')).toBeVisible();
 });
 
-test('Done → Send writes a graph-selection result with the inline comment and answer', async ({ page }) => {
+test('R7: the panel renders markdown, not raw text', async ({ page }) => {
   await page.goto(surfaceURL);
   await page.waitForSelector('.node');
+  await page.locator('.node').first().click();
+  // Body "Body of Ego Note." is plain, but the panel container should hold
+  // rendered elements (a <p>), not a raw text node with leading newlines.
+  await expect(page.locator('#panel-body p').first()).toBeVisible();
+});
 
-  // Comment on a node inline, which also marks it selected.
+test('R1: commenting on a note adds it to the feedback panel; clearing removes it', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await page.waitForSelector('.node');
+  await page.locator('.node').first().click();
+  await page.locator('#panel-comment').fill('load-bearing note');
+  await expect(page.locator('.fbitem')).toHaveCount(1);
+  await expect(page.locator('#fbpanel-list')).toContainText('load-bearing note');
+  await page.locator('#panel-comment').fill('');
+  await expect(page.locator('.fbitem')).toHaveCount(0);
+});
+
+test('Send writes a graph-selection result from the collected comments + answer', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await page.waitForSelector('.node');
   await page.locator('.node').first().click();
   await page.locator('#panel-comment').fill('this note is load-bearing');
+  await page.locator('#fbpanel-answer').fill('the outbound neighbor is the strongest support');
+  await page.locator('#fbpanel-send').click();
 
-  // Finish: open the brief, add a free-text answer, send.
-  await page.locator('#btn-done').click();
-  await expect(page.locator('#brief-modal')).toBeVisible();
-  await page.locator('#brief-answer').fill('the outbound neighbor is the strongest support');
-  await page.locator('#btn-submit').click();
-
-  // The result envelope + graph-selection artifact land on disk.
   await expect.poll(() => fs.existsSync(path.join(sessionDir, 'result.json')), { timeout: 5000 }).toBe(true);
   const result = JSON.parse(fs.readFileSync(path.join(sessionDir, 'result.json'), 'utf8'));
   const art = result.artifacts.find((a: any) => a.format === 'graph-selection');

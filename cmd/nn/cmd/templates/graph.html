@@ -197,34 +197,59 @@ text.hidden-badge { fill: #7eb8f7; font-size: 11px; font-weight: 700; paint-orde
 .node.tray-selected circle { stroke: #f0c040; stroke-width: 3px; }
 
 /* ── graph-feedback surface (nn ask --surface graph) ── */
-/* Persistent banner making it obvious WHERE commentary goes and HOW to finish.
-   Shown only when the viewer is opened as an ask feedback surface (?session). */
+/* Instruction banner. Docked at top-left (not centered) so it never overlaps
+   the focus breadcrumb, which sits centered below the toggle row. */
 #feedback-banner {
   display: none;
-  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-  z-index: 20; max-width: 70vw;
+  position: absolute; top: 52px; left: 14px;
+  z-index: 15; max-width: 340px;
   background: rgba(20,30,58,.96); border: 1px solid #3a6aaa; color: #cfe2ff;
-  border-radius: 6px; padding: 8px 14px; font-size: 12px; line-height: 1.4;
-  box-shadow: 0 2px 12px rgba(0,0,0,.4); text-align: center;
+  border-radius: 6px; padding: 8px 12px; font-size: 12px; line-height: 1.45;
+  box-shadow: 0 2px 12px rgba(0,0,0,.4);
 }
 #feedback-banner b { color: #7eb8f7; }
 body.feedback #feedback-banner { display: block; }
-/* In feedback mode the Done button is always visible (even with nothing yet
-   selected) so the human always sees how to send their response. */
-#btn-done {
-  display: none;
-  background: #1e5e3a; border: 1px solid #3aaa6a; color: #a8f7c8;
+/* Feedback mode frees the top row (toggles hidden), so lift the breadcrumb to
+   the top-center and drop the banner below the nav — no overlap between them. */
+body.feedback #focus-crumb { top: 14px; }
+body.feedback #feedback-banner { top: 50px; max-width: 300px; }
+
+/* Feedback-mode: lock to zoned. Hide the layout toggle row entirely so there is
+   one navigation model, not several competing ones. Also hide the legacy
+   tray-bar/brief-export flow — selection now flows through comments. */
+body.feedback #search-bar { display: none; }
+body.feedback #tray-bar { display: none; }
+
+/* Front-and-center navigation controls (restore + back). */
+#feedback-nav { display: none; position: absolute; top: 14px; left: 14px; z-index: 16; gap: 6px; }
+body.feedback #feedback-nav { display: flex; }
+/* In feedback mode, stack the top-left overlays in a single non-overlapping
+   column: nav row (14px) → banner (50px) → type legend (below the banner).
+   The zoom controls keep the bottom-left corner to themselves. */
+body.feedback #legend { top: 128px; left: 14px; bottom: auto; }
+/* Collapse the four directional zone legends into one compact key stacked in
+   the bottom-left, out of the node field, so they never occlude zone nodes.
+   Each ID override resets top/left/transform (ID specificity) and stacks them. */
+body.feedback #mlegend-top,
+body.feedback #mlegend-bottom,
+body.feedback #mlegend-left,
+body.feedback #mlegend-right {
+  left: 62px; right: auto; top: auto; transform: none;
+  max-width: 240px; text-align: left;
+}
+body.feedback #mlegend-top    { bottom: 92px; }
+body.feedback #mlegend-left   { bottom: 70px; }
+body.feedback #mlegend-right  { bottom: 48px; }
+body.feedback #mlegend-bottom { bottom: 26px; }
+#feedback-nav button {
+  background: #16213e; border: 1px solid #3a4a6a; color: #cfe2ff;
   border-radius: 5px; padding: 4px 12px; font-size: 12px; cursor: pointer; font-weight: 600;
 }
-#btn-done:hover { background: #2a7e4a; color: #fff; }
-body.feedback #btn-done { display: inline-block; }
-#btn-submit {
-  background: #1e5e3a; border: 1px solid #3aaa6a; color: #a8f7c8;
-  border-radius: 5px; padding: 6px 14px; font-size: 12px; cursor: pointer; font-weight: 600;
-}
-#btn-submit:hover { background: #2a7e4a; color: #fff; }
-/* Inline per-node comment box in the detail panel — the most discoverable
-   place to comment, shown the moment a node is clicked (feedback mode only). */
+#feedback-nav button:hover { background: #26365a; color: #fff; }
+#feedback-nav button:disabled { opacity: .4; cursor: default; }
+
+/* Inline per-node comment box in the note card. Typing here adds the note to
+   the feedback panel (membership follows a non-empty comment). */
 #panel-feedback { display: none; margin-top: 14px; padding-top: 12px; border-top: 1px solid #2a3a5e; }
 body.feedback #panel-feedback { display: block; }
 #panel-comment-label { display: block; font-size: 12px; font-weight: 600; color: #9fc4ff; margin-bottom: 5px; }
@@ -233,17 +258,57 @@ body.feedback #panel-feedback { display: block; }
   border-radius: 4px; padding: 6px 8px; font-size: 12px; resize: vertical;
   min-height: 52px; font-family: inherit; box-sizing: border-box;
 }
-#panel-select-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: #a8f7c8; cursor: pointer; }
-#panel-select { accent-color: #3aaa6a; }
-/* The free-text answer box at the top of the modal, so commentary has an
-   obvious home even before any per-note annotation. */
-#brief-answer-wrap { padding: 10px 16px 0; }
-#brief-answer-label { font-size: 11px; color: #9fc4ff; margin-bottom: 4px; font-weight: 600; }
-#brief-answer {
+#panel-comment-hint { font-size: 11px; color: #7a90b0; margin-top: 5px; }
+
+/* Persistent feedback panel — docked on the far right, always open in feedback
+   mode. The single place feedback is reviewed and sent. */
+#fbpanel {
+  display: none; position: absolute; top: 0; right: 0; bottom: 0; width: 300px;
+  background: #10152a; border-left: 1px solid #2a3a5e; z-index: 25;
+  flex-direction: column; padding: 0;
+}
+body.feedback #fbpanel { display: flex; }
+/* When the note card (right-col) is open in feedback mode, slide it left of the
+   feedback panel so both are visible. */
+body.feedback #right-col.open { margin-right: 300px; }
+#fbpanel-header { padding: 12px 14px; font-size: 14px; font-weight: 600; color: #cfe2ff; border-bottom: 1px solid #2a3a5e; }
+#fbpanel-empty { padding: 14px; font-size: 12px; color: #7a90b0; line-height: 1.5; }
+#fbpanel-list { flex: 1; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; }
+.fbitem { border: 1px solid #2a3a5e; border-radius: 6px; background: #0e1228; padding: 8px 10px; }
+.fbitem-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.fbitem-title { font-size: 12px; font-weight: 600; color: #cfe2ff; }
+.fbitem-remove { background: none; border: none; color: #8899bb; cursor: pointer; font-size: 13px; padding: 0 2px; }
+.fbitem-remove:hover { color: #f0a0a0; }
+.fbitem-comment { font-size: 12px; color: #bcd; margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
+#fbpanel-answer-wrap { padding: 10px 14px; border-top: 1px solid #2a3a5e; }
+#fbpanel-answer-label { font-size: 11px; color: #9fc4ff; margin-bottom: 4px; font-weight: 600; }
+#fbpanel-answer {
   width: 100%; background: #1a1a2e; border: 1px solid #3a6aaa; color: #ccc;
   border-radius: 4px; padding: 5px 8px; font-size: 12px; resize: vertical;
-  min-height: 54px; font-family: inherit;
+  min-height: 60px; font-family: inherit; box-sizing: border-box;
 }
+#fbpanel-send {
+  margin: 0 14px 14px; background: #1e5e3a; border: 1px solid #3aaa6a; color: #a8f7c8;
+  border-radius: 5px; padding: 8px 14px; font-size: 13px; cursor: pointer; font-weight: 600;
+}
+#fbpanel-send:hover { background: #2a7e4a; color: #fff; }
+
+/* @-mention dropdown for comment boxes. */
+#mention-menu {
+  display: none; position: absolute; z-index: 40; max-height: 200px; overflow-y: auto;
+  background: #16213e; border: 1px solid #3a6aaa; border-radius: 5px; min-width: 220px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.5);
+}
+#mention-menu .mention-item { padding: 6px 10px; font-size: 12px; color: #cfe2ff; cursor: pointer; }
+#mention-menu .mention-item:hover, #mention-menu .mention-item.active { background: #26365a; }
+#mention-menu .mention-id { color: #7a90b0; font-size: 10px; font-family: monospace; }
+
+/* Panel body rendered as markdown. */
+#panel-body h1, #panel-body h2, #panel-body h3 { color: #cfe2ff; margin: 10px 0 4px; line-height: 1.3; }
+#panel-body h1 { font-size: 16px; } #panel-body h2 { font-size: 14px; } #panel-body h3 { font-size: 13px; }
+#panel-body p { margin: 6px 0; } #panel-body ul, #panel-body ol { margin: 6px 0; padding-left: 20px; }
+#panel-body code { background: #1a1a2e; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+#panel-body a { color: #7eb8f7; }
 
 /* ── context brief modal ── */
 #brief-modal {
@@ -324,14 +389,18 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
        a reversible view toggle, so it gets its own affordance. -->
   <button id="focus-crumb" title="Click to return to the full graph"><span id="focus-crumb-title"></span><span id="focus-crumb-hint"> — click a neighbor to recenter</span> ✕</button>
   <div id="feedback-banner">
-    <span id="feedback-instructions">You were asked to react to this neighborhood.
-    <b>Shift-click</b> notes to select them, write your comments, then click
-    <b>✎ Done</b> to send your feedback.</span>
+    <span id="feedback-instructions"><b>Click a note</b> to view it, then <b>type a comment</b> to add it to your feedback.
+    Click a node again to recenter. Review everything in the panel on the right, then <b>Send feedback</b>.</span>
+  </div>
+  <!-- Feedback-mode navigation controls: restore the original ego view and step
+       back through focus history. Front-and-center (top-left of the canvas). -->
+  <div id="feedback-nav">
+    <button id="btn-back" title="Go back to the previous view">← Back</button>
+    <button id="btn-restore" title="Return to the original neighborhood">⌂ Restore original view</button>
   </div>
   <div id="tray-bar">
     <span id="tray-count">0 selected</span>
     <button id="btn-export" disabled>Review &amp; Export</button>
-    <button id="btn-done" title="Add comments and send your feedback">✎ Done — send feedback</button>
   </div>
   <dialog id="brief-modal">
     <div id="brief-modal-header">Context brief (<span id="brief-modal-count">0</span> notes)</div>
@@ -372,11 +441,25 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
     <div id="panel-body"></div>
     <div id="panel-feedback">
       <label id="panel-comment-label" for="panel-comment">💬 Comment on this note</label>
-      <textarea id="panel-comment" placeholder="Your thoughts on this note…"></textarea>
-      <label id="panel-select-row"><input type="checkbox" id="panel-select"> Include this note in my feedback</label>
+      <textarea id="panel-comment" placeholder="Type a comment to add this note to your feedback… (type @ to reference another note)"></textarea>
+      <div id="panel-comment-hint">Adding a comment includes this note in your feedback.</div>
     </div>
   </div>
 </div>
+<!-- Persistent feedback panel (feedback mode only): the single place feedback
+     lives. Stays open, collects every commented note, holds the overall answer
+     and the Send button. -->
+<div id="fbpanel">
+  <div id="fbpanel-header">Your feedback</div>
+  <div id="fbpanel-empty">Click a note and comment on it to start. Commented notes collect here.</div>
+  <div id="fbpanel-list"></div>
+  <div id="fbpanel-answer-wrap">
+    <div id="fbpanel-answer-label">Overall comment / answer</div>
+    <textarea id="fbpanel-answer" placeholder="Your overall response… (type @ to reference a note)"></textarea>
+  </div>
+  <button id="fbpanel-send">Send feedback</button>
+</div>
+<div id="mention-menu"></div>
 <script>
 // ── D3 bundle ──────────────────────────────────────────────────────────────
 {{.D3}}
@@ -551,52 +634,99 @@ const panelTags  = document.getElementById("panel-tags");
 const panelBody  = document.getElementById("panel-body");
 document.getElementById("panel-close").addEventListener("click", closePanel);
 
-// Per-node feedback state, populated inline from the detail panel (feedback
-// mode). These are the source of truth the Send step reads.
+// Feedback state: a note is "in the feedback set" exactly when it has a
+// non-empty comment (membership follows the comment — no separate select step).
+// feedbackData holds the node datum so the panel can show titles after navigation.
 const nodeComments = new Map(); // id → comment text
-const nodeSelected = new Set(); // ids the human marked to include
+const feedbackData = new Map(); // id → node datum (for panel rendering)
+
+// Minimal, safe markdown → HTML for the note body panel. Escapes HTML first,
+// then renders headings, lists, inline code, links, bold/italic, paragraphs.
+function renderMarkdown(src) {
+  const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const lines = esc(src).replace(/\r\n/g,"\n").replace(/^\n+/,"").split("\n");
+  let html = "", inList = false;
+  const inline = s => s
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  for (let raw of lines) {
+    const line = raw.trimEnd();
+    const h = line.match(/^(#{1,3})\s+(.*)$/);
+    const li = line.match(/^[-*]\s+(.*)$/);
+    if (li) { if (!inList) { html += "<ul>"; inList = true; } html += "<li>" + inline(li[1]) + "</li>"; continue; }
+    if (inList) { html += "</ul>"; inList = false; }
+    if (h) { const n = h[1].length; html += `<h${n}>` + inline(h[2]) + `</h${n}>`; }
+    else if (line === "") { /* blank line = paragraph break */ }
+    else { html += "<p>" + inline(line) + "</p>"; }
+  }
+  if (inList) html += "</ul>";
+  return html || '<span id="panel-empty">No body.</span>';
+}
 
 function openPanel(d) {
   panelTitle.textContent = d.title;
   panelType.textContent  = d.type || "";
   panelType.style.color  = TYPE_COLOR[d.type] || DEFAULT_COLOR;
   panelTags.textContent  = (d.tags||[]).length ? d.tags.map(t=>"#"+t).join("  ") : "";
+  // Render the body as markdown (leading blank lines stripped) rather than
+  // dumping raw text, so headings/lists/code read properly in the panel.
   if (d.body && d.body.trim()) {
-    panelBody.textContent = d.body;
+    panelBody.innerHTML = renderMarkdown(d.body);
   } else {
     panelBody.innerHTML = '<span id="panel-empty">No body.</span>';
   }
-  // Feedback mode: bind the inline comment box + include-toggle to this node.
+  // Feedback mode: bind the inline comment box. Typing a comment adds the note
+  // to the feedback panel; clearing it removes the note (comment ⇔ membership).
   if (document.body.classList.contains("feedback")) {
     const commentEl = document.getElementById("panel-comment");
-    const selectEl  = document.getElementById("panel-select");
     commentEl.value = nodeComments.get(d.id) || "";
-    selectEl.checked = nodeSelected.has(d.id);
     commentEl.oninput = () => {
       const v = commentEl.value.trim();
-      if (v) { nodeComments.set(d.id, v); nodeSelected.add(d.id); }
-      else nodeComments.delete(d.id);
-      selectEl.checked = nodeSelected.has(d.id);
-      syncTrayFromSelection(d);
+      if (v) { nodeComments.set(d.id, v); feedbackData.set(d.id, d); }
+      else { nodeComments.delete(d.id); feedbackData.delete(d.id); }
+      renderFeedbackPanel();
     };
-    selectEl.onchange = () => {
-      if (selectEl.checked) nodeSelected.add(d.id); else nodeSelected.delete(d.id);
-      syncTrayFromSelection(d);
-    };
+    attachMention(commentEl);
   }
   rightCol.classList.add("open");
 }
 
-// Keep the selection tray (the existing shift-click mechanism) in sync with the
-// inline include-toggle so both paths feed one selection set.
-function syncTrayFromSelection(d) {
-  if (nodeSelected.has(d.id)) tray.set(d.id, d); else tray.delete(d.id);
-  updateTrayUI();
-  if (typeof gNodes !== "undefined") gNodes.selectAll("g").classed("tray-selected", n => tray.has(n.id));
-}
+// closePanel dismisses the note card. In feedback mode the card is dismissed
+// ONLY by the explicit ✕ (this function), never by click-off or click-again —
+// those are handled as view/recenter navigation instead.
 function closePanel() {
   rightCol.classList.remove("open");
   clearHighlight(); selected = null;
+}
+
+// ── Persistent feedback panel (feedback mode) ──────────────────────────────
+function renderFeedbackPanel() {
+  const list = document.getElementById("fbpanel-list");
+  const empty = document.getElementById("fbpanel-empty");
+  if (!list) return;
+  list.innerHTML = "";
+  if (nodeComments.size === 0) { if (empty) empty.style.display = "block"; return; }
+  if (empty) empty.style.display = "none";
+  nodeComments.forEach((comment, id) => {
+    const d = feedbackData.get(id) || { title: id };
+    const item = document.createElement("div");
+    item.className = "fbitem";
+    const head = document.createElement("div"); head.className = "fbitem-head";
+    const title = document.createElement("div"); title.className = "fbitem-title"; title.textContent = d.title;
+    const rm = document.createElement("button"); rm.className = "fbitem-remove"; rm.textContent = "✕"; rm.title = "Remove from feedback";
+    rm.addEventListener("click", () => {
+      nodeComments.delete(id); feedbackData.delete(id);
+      // Keep the open card's comment box in sync if it shows this note.
+      if (selected === id) { const c = document.getElementById("panel-comment"); if (c) c.value = ""; }
+      renderFeedbackPanel();
+    });
+    head.appendChild(title); head.appendChild(rm);
+    const body = document.createElement("div"); body.className = "fbitem-comment"; body.textContent = comment;
+    item.appendChild(head); item.appendChild(body);
+    list.appendChild(item);
+  });
 }
 
 // ── Legend ────────────────────────────────────────────────────────────────
@@ -919,6 +1049,22 @@ function rebuildSim(data) {
   // ── Click: ego-graph (client-side, both modes) ───────────────────────────
   node.on("click", (e,d) => {
     e.stopPropagation();
+    // Feedback mode: explicit two-step navigation. First click on a node opens
+    // its card for viewing (no layout change). Clicking the SAME node again
+    // recenters the ego onto it. The card is never dismissed by a click here —
+    // only its ✕ closes it. This keeps the human oriented.
+    if (document.body.classList.contains("feedback")) {
+      if (selected === d.id) {
+        fetch('/event', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: d.id, title: d.title})});
+        pushFocusHistory();
+        recenterZoned(d.id, d.title, d);
+        return;
+      }
+      selected = d.id;
+      highlight(d.id);
+      openPanel(d);
+      return;
+    }
     // shift-click: toggle tray membership
     if (e.shiftKey) {
       if (tray.has(d.id)) { tray.delete(d.id); } else { tray.set(d.id, d); }
@@ -967,7 +1113,9 @@ function rebuildSim(data) {
       }
     });
   });
-  svg.on("click", () => { closePanel(); });
+  // Clicking empty canvas closes the card — except in feedback mode, where the
+  // card is dismissed only via its ✕ (clicking off is disorienting there).
+  svg.on("click", () => { if (!document.body.classList.contains("feedback")) closePanel(); });
 
   // ── Simulation ────────────────────────────────────────────────────────────
   const chargeStrength = Math.max(-800, -350 - data.nodes.length * 0.8);
@@ -1270,7 +1418,79 @@ briefModal.addEventListener("click", e => {
 // The human selects notes, comments, and clicks Done/Send to submit a
 // graph-selection result the agent reads. Absent a session this is inert, so
 // the normal `nn graph export --serve` viewer is unchanged.
+// ── @-mention: reference another note inside a comment box ─────────────────
+// Typing "@" opens a search menu over the notes in scope; picking one inserts
+// "@[title](id)" so the human can say "connect this to that".
+const mentionMenu = document.getElementById("mention-menu");
+let mentionTarget = null, mentionStart = -1, mentionActiveIdx = 0, mentionMatches = [];
+
+function mentionCandidates(q) {
+  const d = rootGraphData || currentGraphData;
+  const nodes = (d && d.nodes) ? d.nodes : [];
+  const ql = q.toLowerCase();
+  return nodes.filter(n => !ql || (n.title||"").toLowerCase().includes(ql) || n.id.includes(ql)).slice(0, 8);
+}
+function hideMention() { mentionMenu.style.display = "none"; mentionTarget = null; mentionStart = -1; }
+function renderMention() {
+  mentionMenu.innerHTML = "";
+  mentionMatches.forEach((n, i) => {
+    const el = document.createElement("div");
+    el.className = "mention-item" + (i === mentionActiveIdx ? " active" : "");
+    el.innerHTML = `${(n.title||n.id).replace(/</g,"&lt;")} <span class="mention-id">${n.id}</span>`;
+    el.addEventListener("mousedown", e => { e.preventDefault(); pickMention(n); });
+    mentionMenu.appendChild(el);
+  });
+  mentionMenu.style.display = mentionMatches.length ? "block" : "none";
+}
+function pickMention(n) {
+  if (!mentionTarget || mentionStart < 0) return;
+  const el = mentionTarget;
+  const before = el.value.slice(0, mentionStart);
+  const after = el.value.slice(el.selectionStart);
+  const ref = `@[${n.title||n.id}](${n.id})`;
+  el.value = before + ref + " " + after;
+  const pos = (before + ref + " ").length;
+  el.setSelectionRange(pos, pos);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  hideMention();
+  el.focus();
+}
+function attachMention(el) {
+  if (!el) return;
+  el.addEventListener("input", () => {
+    const upto = el.value.slice(0, el.selectionStart);
+    const m = upto.match(/@([^\s@]*)$/);
+    if (!m) { hideMention(); return; }
+    mentionTarget = el; mentionStart = el.selectionStart - m[0].length;
+    mentionMatches = mentionCandidates(m[1]); mentionActiveIdx = 0;
+    const r = el.getBoundingClientRect();
+    mentionMenu.style.left = r.left + "px";
+    mentionMenu.style.top = (r.bottom + 2) + "px";
+    renderMention();
+  });
+  el.addEventListener("keydown", e => {
+    if (mentionMenu.style.display !== "block") return;
+    if (e.key === "ArrowDown") { e.preventDefault(); mentionActiveIdx = (mentionActiveIdx+1) % mentionMatches.length; renderMention(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); mentionActiveIdx = (mentionActiveIdx-1+mentionMatches.length) % mentionMatches.length; renderMention(); }
+    else if (e.key === "Enter") { e.preventDefault(); pickMention(mentionMatches[mentionActiveIdx]); }
+    else if (e.key === "Escape") { hideMention(); }
+  });
+  el.addEventListener("blur", () => setTimeout(hideMention, 150));
+}
+
 const askSession = new URLSearchParams(location.search).get("session");
+
+// Focus history for Back navigation (feedback mode). Each entry is {id,title}.
+const focusHistory = [];
+function pushFocusHistory() {
+  if (egoID) focusHistory.push({ id: egoID, title: (feedbackData.get(egoID)||{}).title || egoID });
+  updateNavButtons();
+}
+function updateNavButtons() {
+  const back = document.getElementById("btn-back");
+  if (back) back.disabled = focusHistory.length === 0;
+}
+
 if (askSession) {
   document.body.classList.add("feedback");
 
@@ -1280,6 +1500,7 @@ if (askSession) {
     const req = await (await fetch(`/session/${askSession}`)).json();
     const focus = req && req.focus;
     if (!focus) return;
+    window.__askOriginalFocus = focus;
     const d = rootGraphData || currentGraphData;
     const node = d && d.nodes ? d.nodes.find(n => n.id === focus) : null;
     // Open in the Zoned spatial layout focused on the ego, so the human sees the
@@ -1291,37 +1512,38 @@ if (askSession) {
     recenterZoned(focus, node ? node.title : focus, node || null);
   };
 
-  // Done is always available in feedback mode — it opens the brief modal so the
-  // human can comment even if they selected nothing (a free-text-only answer is
-  // valid feedback).
-  document.getElementById("btn-done").addEventListener("click", () => {
-    // Fold any inline-selected nodes into the tray so the modal shows them too.
-    nodeSelected.forEach(id => {
-      if (!tray.has(id) && rootGraphData) {
-        const d = rootGraphData.nodes.find(n => n.id === id);
-        if (d) tray.set(id, d);
-      }
-    });
-    updateTrayUI();
-    openBriefModal();
+  // Restore: return to the original neighborhood the agent asked about.
+  document.getElementById("btn-restore").addEventListener("click", () => {
+    const focus = window.__askOriginalFocus;
+    if (!focus) return;
+    const d = rootGraphData || currentGraphData;
+    const node = d && d.nodes ? d.nodes.find(n => n.id === focus) : null;
+    focusHistory.length = 0; updateNavButtons();
+    recenterZoned(focus, node ? node.title : focus, node || null);
   });
 
-  document.getElementById("btn-submit").addEventListener("click", async () => {
-    // Gather annotations from both paths: the inline per-node comments (primary,
-    // most discoverable) and any modal rows. Selection is the union of the tray
-    // (shift-click) and the inline include-toggles.
+  // Back: step to the previously focused node.
+  document.getElementById("btn-back").addEventListener("click", () => {
+    const prev = focusHistory.pop();
+    updateNavButtons();
+    if (!prev) return;
+    const d = rootGraphData || currentGraphData;
+    const node = d && d.nodes ? d.nodes.find(n => n.id === prev.id) : null;
+    recenterZoned(prev.id, prev.title, node || null);
+  });
+  updateNavButtons();
+
+  attachMention(document.getElementById("fbpanel-answer"));
+
+  // Send: package the collected comments (comment ⇔ membership) + overall answer
+  // into the graph-selection result the agent reads.
+  document.getElementById("fbpanel-send").addEventListener("click", async () => {
     const annotations = {};
     nodeComments.forEach((v, id) => { if (v) annotations[id] = v; });
-    document.querySelectorAll("#brief-note-list .brief-note-row").forEach(row => {
-      const id  = row.querySelector(".brief-note-id").textContent;
-      const ann = row.querySelector("textarea.brief-ann").value.trim();
-      if (ann) annotations[id] = ann;
-    });
-    const selected = [...new Set([...tray.keys(), ...nodeSelected])];
     const payload = {
-      selected,
+      selected: [...nodeComments.keys()],
       annotations,
-      answer: document.getElementById("brief-answer").value.trim(),
+      answer: document.getElementById("fbpanel-answer").value.trim(),
     };
     try {
       await fetch(`/session/${askSession}/draft`, {
@@ -1330,14 +1552,11 @@ if (askSession) {
         body: JSON.stringify(payload),
       });
       await fetch(`/session/${askSession}/submit`, { method: "POST" });
-      briefModal.close();
       document.body.innerHTML =
         '<div style="color:#a8f7c8;font:16px system-ui;padding:40px;text-align:center">' +
         'Feedback sent. You can close this tab.</div>';
     } catch (e) {
-      const fb = document.getElementById("brief-fallback");
-      fb.style.display = "block";
-      fb.value = "Could not reach nn to submit: " + e;
+      alert("Could not reach nn to submit: " + e);
     }
   });
 }

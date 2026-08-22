@@ -68,20 +68,22 @@ func TestGraphViewerHTMLHasCommentaryAndDoneControls(t *testing.T) {
 		t.Fatalf("renderGraphViewerHTML: %v", err)
 	}
 	s := string(html)
-	// property [5a]: a commentary affordance is present and labeled for comments.
-	// Includes the inline per-node comment box (the most discoverable path —
-	// shown on node click, not buried in a modal).
-	for _, want := range []string{`id="brief-answer"`, `id="feedback-banner"`, `id="panel-comment"`} {
+	// property [5a]: commentary affordances are present — the inline per-node
+	// comment box, the persistent feedback panel, and the instruction banner.
+	for _, want := range []string{`id="panel-comment"`, `id="fbpanel"`, `id="feedback-banner"`, `id="fbpanel-answer"`} {
 		if !strings.Contains(s, want) {
 			t.Errorf("property [5a]: rendered viewer missing commentary affordance %q", want)
 		}
 	}
-	// property [5b]: a labeled Done/submit control is present.
-	if !strings.Contains(s, `id="btn-done"`) || !strings.Contains(s, "Done") {
-		t.Errorf("property [5b]: rendered viewer missing labeled Done control")
+	// property [5b]: a labeled Send control is present in the feedback panel.
+	if !strings.Contains(s, `id="fbpanel-send"`) || !strings.Contains(s, "Send feedback") {
+		t.Errorf("property [5b]: rendered viewer missing labeled Send control")
 	}
-	if !strings.Contains(s, `id="btn-submit"`) {
-		t.Errorf("property [5b]: rendered viewer missing submit control")
+	// round-2 navigation controls: restore + back.
+	for _, want := range []string{`id="btn-restore"`, `id="btn-back"`} {
+		if !strings.Contains(s, want) {
+			t.Errorf("round-2: rendered viewer missing navigation control %q", want)
+		}
 	}
 }
 
