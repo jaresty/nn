@@ -1,7 +1,7 @@
 ---
 name: nn-guide
-description: Use when you need to look up an nn command, flag, or usage pattern. Load with `nn skills get nn-guide`.
-when_to_use: When you need to look up an nn command, flag, or usage pattern. Invoke with /nn-guide.
+description: Use when you need to look up an nn command, flag, or usage pattern, or to walk a note's neighborhood hop-by-hop (the Navigation mode workflow). Load with `nn skills get nn-guide`.
+when_to_use: When you need to look up an nn command, flag, or usage pattern — or to explore a note's context, walk the graph, or ask "where does this connect / what's the neighborhood" (see Navigation mode: the zoned navigator). Invoke with /nn-guide.
 ---
 
 # nn-guide
@@ -337,6 +337,8 @@ nn graph [--json]
 ```
 
 JSON output: `{ "nodes": [...], "edges": [...] }`
+
+> **Exploring a note's neighborhood interactively?** Jump to [Navigation mode: the zoned navigator](#navigation-mode-the-zoned-navigator-with-contents) below — a hop-by-hop workflow (enter → orient → read → recenter → arrive) built on `nn graph show --zones --bodies --color always`.
 
 ### nn graph show (LLM-facing subgraph)
 
