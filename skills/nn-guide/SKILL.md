@@ -381,7 +381,11 @@ Use it to walk the graph as a positioned space rather than dumping the whole str
 3. **Recenter** — pick a neighbor's ID and re-run step 1 with that as `--focus`. Navigation is a chain of ego-hops (the ExcaliBrain model in design note 20260820154156-6576), not a pan over a hairball.
 4. **Arrive** — stop when the current node answers your goal, or when the zone you were following is empty (e.g. you were chasing tension and this node has no LEFT — the thread ends here). State what you found relative to where you started.
 
-**When presenting a step to a human, orient them spatially.** Don't just relay the raw command output — mark where they are, lay the zones out by position so the layout itself encodes the relationships, surface each neighbor's substance (not just its title), and name the available moves. A compact ASCII map works well:
+**When presenting a step to a human, give all three parts below.** They are jointly required — none is sufficient alone. The summary supplies *substance* (what this note and its neighbors mean), the map supplies *structure* (how they're positioned), and the moves supply *direction* (where to go). A map without summaries is a skeleton you can't read; summaries without a map lose the spatial relationships. Do not relay the raw command output.
+
+**(a) Summarize the current note.** Before the map, characterize where the reader is standing: what this note *is* (its type/status and its central claim, drawn from its body — what it argues, not just its title), and one sentence on how it sits in its neighborhood (what it refines above, what challenges it, what builds on it). This is the anchor the rest of the view hangs off.
+
+**(b) Draw the map.** Lay the zones out by position so the layout itself encodes the relationships:
 
 ```
               TOP  <what the focus answers to>
@@ -393,7 +397,7 @@ Use it to walk the graph as a positioned space rather than dumping the whole str
   ▣ focus   ──▶/◀── edge direction   [empty zone = that relationship is absent]
 ```
 
-Then, per zone, give a one-line summary of each neighbor drawn from its body (what it *claims*, not just what it's *called*) and flag the recommended next move relative to the goal. Empty zones carry meaning — call them out ("no LEFT: nothing contests this").
+**(c) Summarize each neighbor + name the moves.** Per zone, give a one-line summary of each neighbor drawn from its body (what it *claims*, not just what it's *called*), then flag the recommended next move relative to the goal. Empty zones carry meaning — call them out ("no LEFT: nothing contests this").
 
 Without `--bodies` this is the older search→zone→per-node-`nn show` loop; `--bodies` collapses that into a single call. Keep `--depth 1` when zoning — only direct neighbors carry a zone, and the zoned text view omits unzoned nodes. Bodies can be long; drop `--bodies` (titles only) when you just need the shape, add it back when you need to read.
 
