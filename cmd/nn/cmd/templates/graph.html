@@ -209,10 +209,17 @@ text.hidden-badge { fill: #7eb8f7; font-size: 11px; font-weight: 700; paint-orde
 }
 #feedback-banner b { color: #7eb8f7; }
 body.feedback #feedback-banner { display: block; }
-/* Feedback mode frees the top row (toggles hidden), so lift the breadcrumb to
-   the top-center and drop the banner below the nav — no overlap between them. */
-body.feedback #focus-crumb { top: 14px; }
-body.feedback #feedback-banner { top: 50px; max-width: 300px; }
+/* Feedback mode: every top-area overlay is LEFT-anchored so nothing is pinned to
+   the right to collide with as the window narrows (the note card + feedback panel
+   already claim the right side). Row 1: nav + search side by side. Below it a
+   left stack: breadcrumb → banner → type legend. Width-independent, no overlaps. */
+body.feedback #search-bar { top: 14px; left: 270px; right: auto; }
+body.feedback #focus-crumb {
+  top: 52px; left: 14px; right: auto; transform: none;
+  max-width: min(80vw, 600px); margin: 0;
+}
+body.feedback #feedback-banner { top: 88px; left: 14px; max-width: min(80vw, 360px); }
+body.feedback #legend { top: 190px; left: 14px; bottom: auto; }
 
 /* Feedback-mode: lock to zoned by hiding the layout toggle BUTTONS, but keep the
    search box — search is how you navigate a scoped graph. Also hide the legacy
@@ -228,10 +235,6 @@ body.feedback .link { stroke-opacity: .9; }
 /* Front-and-center navigation controls (restore + back). */
 #feedback-nav { display: none; position: absolute; top: 14px; left: 14px; z-index: 16; gap: 6px; }
 body.feedback #feedback-nav { display: flex; }
-/* In feedback mode, stack the top-left overlays in a single non-overlapping
-   column: nav row (14px) → banner (50px) → type legend (below the banner).
-   The zoom controls keep the bottom-left corner to themselves. */
-body.feedback #legend { top: 128px; left: 14px; bottom: auto; }
 /* Collapse the four directional zone legends into one compact key stacked in
    the bottom-left, out of the node field, so they never occlude zone nodes.
    Each ID override resets top/left/transform (ID specificity) and stacks them. */

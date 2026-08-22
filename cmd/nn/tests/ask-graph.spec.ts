@@ -123,6 +123,27 @@ test('R4/S: layout toggle buttons hidden but the search box stays visible', asyn
   await expect(page.locator('#btn-status')).toBeHidden();
 });
 
+test('O: no top-area overlays overlap each other (banner/nav/crumb/search/legend)', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await page.waitForSelector('.node');
+  const overlaps = await page.evaluate(() => {
+    const ids = ['feedback-nav', 'focus-crumb', 'feedback-banner', 'search-bar', 'legend'];
+    const rects: Record<string, DOMRect> = {};
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && getComputedStyle(el).display !== 'none') rects[id] = el.getBoundingClientRect();
+    });
+    const inter = (a: DOMRect, b: DOMRect) => !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
+    const keys = Object.keys(rects);
+    const pairs: string[] = [];
+    for (let i = 0; i < keys.length; i++)
+      for (let j = i + 1; j < keys.length; j++)
+        if (inter(rects[keys[i]], rects[keys[j]])) pairs.push(keys[i] + ' × ' + keys[j]);
+    return pairs;
+  });
+  expect(overlaps).toEqual([]);
+});
+
 test('R5: restore-view and back controls are present', async ({ page }) => {
   await page.goto(surfaceURL);
   await expect(page.locator('#btn-restore')).toBeVisible();
