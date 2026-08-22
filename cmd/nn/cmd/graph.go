@@ -594,66 +594,68 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					fmt.Fprintf(w, "%s    %s\n", indent, line)
 				}
 			}
-			// useColor resolves the --color mode against stdout's TTY status.
-			useColor := colorMode == "always" || (colorMode == "auto" && isTTYFn())
-			// zoneColor maps a zone key to an ANSI SGR color code; the same
-			// zone→meaning mapping the viewer uses. paint wraps text when color
-			// is active, and is a no-op otherwise (keeping piped output clean).
-			zoneColor := map[string]string{"top": "34", "bottom": "32", "left": "31", "right": "36"}
-			ansiWrap := func(code, s string) string {
-				if !useColor || code == "" {
-					return s
-				}
-				return "\x1b[" + code + "m" + s + "\x1b[0m"
-			}
-			paint := func(zoneKey, s string) string {
-				return ansiWrap(zoneColor[zoneKey], s)
-			}
-			// linkFamilyColor maps a link type to the ANSI color of its semantic
-			// family, kept consistent with the zone families: tension (left) = red,
-			// lateral (right) = cyan, structural (top/bottom) = blue.
-			linkFamilyColor := func(linkType string) string {
+			// Markers are colored-circle emoji, which survive markdown/relay
+			// (unlike ANSI, which only renders in a raw terminal). --color always
+			// forces them; auto emits them only to a TTY so default/piped output
+			// stays clean and parseable; never suppresses them.
+			useMarkers := colorMode == "always" || (colorMode == "auto" && isTTYFn())
+			// zoneEmoji: the same zone→meaning mapping the viewer uses.
+			zoneEmoji := map[string]string{"top": "🔵", "bottom": "🟢", "left": "🔴", "right": "🔷"}
+			// familyEmoji maps a link type to its semantic family circle, kept
+			// consistent with the zone families: tension = red, lateral = blue,
+			// structural = blue-square.
+			familyEmoji := func(linkType string) string {
 				switch linkType {
 				case "contradicts", "questions":
-					return "31" // tension
+					return "🔴" // tension
 				case "source-of", "requires", "related":
-					return "36" // lateral
+					return "🔵" // lateral
 				case "refines", "extends", "grounded-by", "governs", "supports":
-					return "34" // structural
+					return "🟦" // structural
 				default:
 					return ""
 				}
 			}
-			// typeColor maps a note type to an ANSI color, matching the viewer's
-			// scheme of coloring nodes by type.
-			typeColor := func(t string) string {
+			// typeEmoji maps a note type to its color circle, matching the
+			// viewer's scheme of coloring nodes by type.
+			typeEmoji := func(t string) string {
 				switch t {
 				case "concept":
-					return "32"
+					return "🟢"
 				case "model":
-					return "35"
+					return "🟣"
 				case "observation":
-					return "37"
+					return "⚪"
 				case "hypothesis":
-					return "33"
+					return "🟡"
 				case "question":
-					return "36"
+					return "🔵"
 				case "argument":
-					return "31"
+					return "🔴"
 				case "protocol":
-					return "34"
+					return "🟦"
 				default:
 					return ""
 				}
 			}
+			// prefix attaches an emoji marker before s when markers are active.
+			prefix := func(emoji, s string) string {
+				if !useMarkers || emoji == "" {
+					return s
+				}
+				return emoji + " " + s
+			}
+			paint := func(zoneKey, s string) string {
+				return prefix(zoneEmoji[zoneKey], s)
+			}
 			paintNode := func(id, s string) string {
-				return ansiWrap(typeColor(nodeByID[id].Type), s)
+				return prefix(typeEmoji(nodeByID[id].Type), s)
 			}
 			paintNodeType := func(noteType, s string) string {
-				return ansiWrap(typeColor(noteType), s)
+				return prefix(typeEmoji(noteType), s)
 			}
 			paintEdge := func(linkType, s string) string {
-				return ansiWrap(linkFamilyColor(linkType), s)
+				return prefix(familyEmoji(linkType), s)
 			}
 			if focus != "" && zones {
 				// Zone-grouped view: nodes under directional headers.
@@ -666,15 +668,15 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				fmt.Fprintf(w, "  %s — tension: contradicts, questions\n", paint("left", "LEFT"))
 				fmt.Fprintf(w, "  %s — lateral: source-of, requires\n", paint("right", "RIGHT"))
 				fmt.Fprintf(w, "  %s — builds-on: refines/extends/grounded-by/supports (in)\n", paint("bottom", "BOTTOM"))
-				if useColor {
-					// Color scheme: node titles are colored by note type, edge
-					// labels by link family (same families as the zones).
-					fmt.Fprintf(w, "  node color = type: %s %s %s %s %s %s %s\n",
+				if useMarkers {
+					// Marker scheme: node titles carry a note-type circle, edge
+					// labels a link-family circle (same families as the zones).
+					fmt.Fprintf(w, "  node marker = type: %s %s %s %s %s %s %s\n",
 						paintNodeType("concept", "concept"), paintNodeType("model", "model"),
 						paintNodeType("observation", "observation"), paintNodeType("hypothesis", "hypothesis"),
 						paintNodeType("question", "question"), paintNodeType("argument", "argument"),
 						paintNodeType("protocol", "protocol"))
-					fmt.Fprintf(w, "  edge color = link family: %s %s %s\n",
+					fmt.Fprintf(w, "  edge marker = link family: %s %s %s\n",
 						paintEdge("contradicts", "tension"), paintEdge("source-of", "lateral"), paintEdge("refines", "structural"))
 				}
 				fmt.Fprintln(w)

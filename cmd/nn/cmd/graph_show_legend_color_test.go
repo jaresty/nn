@@ -66,8 +66,13 @@ func TestGraphShowColor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("color always: %v", err)
 	}
-	if !strings.Contains(always, esc) {
-		t.Errorf("property [4a]: --color always must emit ANSI escapes:\n%q", always)
+	// Markers are emoji, not ANSI: --color always emits a zone-marker emoji and
+	// never a raw ANSI escape (property [4b]).
+	if strings.Contains(always, esc) {
+		t.Errorf("property [4b]: --color always must not emit raw ANSI escapes:\n%q", always)
+	}
+	if !strings.Contains(always, "🔵") {
+		t.Errorf("property [4a]: --color always must emit emoji markers:\n%q", always)
 	}
 
 	js, err := execute("graph", "show", "--focus", ego.ID, "--depth", "1", "--direction", "both", "--zones", "--color", "always", "--format", "json")
