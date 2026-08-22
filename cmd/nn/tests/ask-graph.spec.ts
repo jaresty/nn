@@ -357,3 +357,13 @@ test('C: a node with a comment gets a persistent has-comment glow in the graph',
   await page.locator('#panel-comment').fill('');
   await expect(page.locator('g.node.has-comment')).toHaveCount(0);
 });
+
+test('D: the focus breadcrumb is a non-dismissable label on the ask surface', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await page.waitForSelector('.node');
+  // Dx: the ✕ dismiss glyph is not visible on the crumb in feedback mode.
+  await expect(page.locator('#focus-crumb-x')).toBeHidden();
+  // Dc: clicking the crumb must NOT drop out of the zoned scoped view.
+  await page.locator('#focus-crumb').click();
+  await expect(page.locator('#btn-zoned')).toHaveClass(/active/);
+});

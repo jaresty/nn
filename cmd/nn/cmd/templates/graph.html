@@ -210,8 +210,12 @@ path.link.mention-candidate { stroke: #f0c040 !important; stroke-opacity: 1 !imp
 /* Persistent hint that a node/edge already has a comment in the feedback set —
    a soft green glow that stays after the card closes, so you can see at a glance
    what you've already commented on. */
-.node.has-comment circle { stroke: #4fae7f; stroke-width: 3px; }
-path.link.has-comment { stroke: #4fae7f !important; stroke-opacity: .95 !important; stroke-width: 2.5px; }
+/* has-comment: its own visual family — a violet double-dash ring, a hue used by
+   no link type (which are red/amber/blue) and distinct from hover (amber solid),
+   @-candidate (amber dash), and comment-active (green solid). Reads clearly as
+   "you commented here" without being confused for graph coloring. */
+.node.has-comment circle { stroke: #c17ef7; stroke-width: 3.5px; stroke-dasharray: 2 3; }
+path.link.has-comment { stroke: #c17ef7 !important; stroke-opacity: 1 !important; stroke-width: 3px; stroke-dasharray: 2 4; }
 
 /* ── graph-feedback surface (nn ask --surface graph) ── */
 /* Instruction banner. Docked at top-left (not centered) so it never overlaps
@@ -237,6 +241,11 @@ body.feedback #focus-crumb {
 }
 body.feedback #feedback-banner { top: 88px; left: 14px; max-width: min(80vw, 360px); }
 body.feedback #legend { top: 190px; left: 14px; bottom: auto; }
+/* The scope IS the focus on the ask surface, so the breadcrumb is a location
+   label, not a dismiss control: no ✕, no recenter hint, no pointer cursor. */
+body.feedback #focus-crumb-x,
+body.feedback #focus-crumb-hint { display: none; }
+body.feedback #focus-crumb { cursor: default; }
 
 /* Feedback-mode: lock to zoned by hiding the layout toggle BUTTONS, but keep the
    search box — search is how you navigate a scoped graph. Also hide the legacy
@@ -427,7 +436,7 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
   <!-- Navigation breadcrumb: shown only when drilled into a note's ego graph.
        It is deliberately NOT in the toggle row — drilling in is navigation, not
        a reversible view toggle, so it gets its own affordance. -->
-  <button id="focus-crumb" title="Click to return to the full graph"><span id="focus-crumb-title"></span><span id="focus-crumb-hint"> — click a neighbor to recenter</span> ✕</button>
+  <button id="focus-crumb" title="Click to return to the full graph"><span id="focus-crumb-title"></span><span id="focus-crumb-hint"> — click a neighbor to recenter</span><span id="focus-crumb-x"> ✕</span></button>
   <div id="feedback-banner">
     <span id="feedback-instructions"><b>Click a note</b> to view it, then <b>type a comment</b> to add it to your feedback.
     Click a node again to recenter. Review everything in the panel on the right, then <b>Send feedback</b>.</span>
@@ -1382,6 +1391,9 @@ function exitFocusedState() {
   updateZonedHint();
 }
 document.getElementById("focus-crumb").addEventListener("click", () => {
+  // On the ask surface the scope is the focus neighborhood — there is no full
+  // graph to return to, so the crumb is a non-dismissable label.
+  if (document.body.classList.contains("feedback")) return;
   exitFocusToFullGraph();
 });
 // Leave the focused view and render the full graph in the force layout. Clears
