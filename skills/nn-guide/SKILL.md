@@ -385,7 +385,7 @@ Use it to walk the graph as a positioned space rather than dumping the whole str
 
 **When presenting a step to a human, give all three parts below.** They are jointly required — none is sufficient alone. The summary supplies *substance* (what this note and its neighbors mean), the map supplies *structure* (how they're positioned), and the moves supply *direction* (where to go). A map without summaries is a skeleton you can't read; summaries without a map lose the spatial relationships. Do not relay the raw command output.
 
-**(a) Summarize the current note.** Before the map, characterize where the reader is standing: what this note *is* (its type/status and its central claim, drawn from its body — what it argues, not just its title), and one sentence on how it sits in its neighborhood (what it refines above, what challenges it, what builds on it). This is the anchor the rest of the view hangs off.
+**(a) Summarize the current note — length scaled to its degree (see the tiers in (c)).** Before the map, characterize where the reader is standing: what this note *is* (its type/status and its central claim, drawn from its body — what it argues, not just its title), and how it sits in its neighborhood (what it refines above, what challenges it, what builds on it). Apply the same degree tiers as the neighbors: a high-degree focus (a hub you've landed on) earns the fuller 2–3 sentence treatment; a low-degree focus (a leaf you're passing through) gets a brief one. This is the anchor the rest of the view hangs off.
 
 **(b) Draw the map.** Lay the zones out by position so the layout itself encodes the relationships:
 
@@ -399,9 +399,15 @@ Use it to walk the graph as a positioned space rather than dumping the whole str
   ▣ focus   ──▶/◀── edge direction   [empty zone = that relationship is absent]
 ```
 
-**(c) Summarize each neighbor + name the moves.** Per zone, give a one-line summary of each neighbor drawn from its body (what it *claims*, not just what it's *called*), then flag the recommended next move relative to the goal. Empty zones carry meaning — call them out ("no LEFT: nothing contests this").
+**(c) Summarize each neighbor + name the moves — scale each summary's length to that neighbor's inbound degree (`↓`).** Draw each summary from the body (what it *claims*, not just what it's *called*), then flag the recommended next move relative to the goal. Do not give every neighbor a uniform one-liner — that is the failure this step exists to prevent. Use these tiers:
 
-**Vary summary length by degree — as attention budget, not a rule.** Spend more words on the focus and on high-degree neighbors (hubs earn a fuller treatment; leaves get a clause). Degree is a *budget hint you apply when summarizing*, not something the CLI truncates — the CLI always gives the full body; you decide how much to relay. Watch the exception: a high-degree *daily* or index note is a hub by connectivity but not by substance, so don't over-summarize it; a low-degree axiom can be the most important thing on screen, so don't under-summarize it. Let degree bias attention, but let the body's actual claim override.
+| Inbound degree | Length |
+|----------------|--------|
+| leaf (↓0–1) | title + type + one clause |
+| connected (↓2–4) | one full sentence on its claim |
+| hub (↓5+, or the highest-degree node in view) | 2–3 sentences: its claim *and* why it's load-bearing |
+
+The CLI never truncates — it always gives the full body; degree only tells *you* how much to relay. Two overrides: a high-degree *daily* or index note is a hub by connectivity, not substance — treat it as connected (one sentence) and say so; and a low-degree axiom whose body is clearly central gets promoted a tier — let the body's actual claim override the degree. Empty zones carry meaning — call them out ("no LEFT: nothing contests this").
 
 Without `--bodies` this is the older search→zone→per-node-`nn show` loop; `--bodies` collapses that into a single call. Keep `--depth 1` when zoning — only direct neighbors carry a zone, and the zoned text view omits unzoned nodes. Bodies can be long; drop `--bodies` (titles only) when you just need the shape, add it back when you need to read.
 
