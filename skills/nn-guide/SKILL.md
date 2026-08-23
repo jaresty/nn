@@ -440,6 +440,8 @@ Pick the rendering by surface capability, exactly as you pick whether to offer t
 
 Use `peek` when Read-from-here isn't enough to judge a move — you want to see one step past the neighbor before committing.
 
+Because `peek` does not move, it **returns you to the walk at the same Recenter decision** you left. When a human is driving and the harness supports a chooser, re-offer that decision as a Recenter chooser after presenting what the peek revealed — do not drop back into prose options. The peek's finding just updates the option descriptions (e.g. "→ 4302 — peek confirms it resolves the open question"); it does not exempt the return from the chooser discipline.
+
 #### `teleport` — move far (relocate focus)
 
 `teleport` is how you *get* a focus when you have none, or jump to a distant region. Unlike `scan`/`peek` (which look), `teleport` **relocates** — it changes where you are. Two modes:
