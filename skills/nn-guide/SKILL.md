@@ -351,6 +351,14 @@ nn graph show [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [-
 
 With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 and direction defaults to `outgoing`. `--links` accepts canonical link types, `--status` accepts `draft`, `reviewed`, or `permanent`, and `--representation` accepts one representation value. Filters constrain BFS expansion, so traversal does not pass through an ineligible intermediate note. Without --focus, graph show renders the full graph; explicitly supplied traversal flags, including `--depth`, require `--focus`. Mermaid output preserves stored edge orientation, includes link type and annotation labels, represents missing edge endpoints as deterministic placeholder nodes, and emits deterministic provenance comments for the normalized traversal options. Use `--format json` for structured output or `--format mermaid` for Markdown-compatible diagrams. Prefer focused output when exploring a note's neighborhood.
 
+### nn graph routes (typed destination discovery)
+
+```
+nn graph routes --focus ID --links TYPES --search QUERY --limit N --json
+```
+
+Discovers query-relevant destinations that are reachable from `ID` by following stored links in their source→target direction, restricted to comma-separated canonical `TYPES`. It scores every note against the full corpus, normalizes by the largest positive score, excludes the focus, unreachable notes, and zero-score notes, then ranks by `relevance_score` descending, shortest-hop count ascending, and destination ID ascending. Each JSON array entry contains `destination` (`id`, `title`, `relevance_score`) plus aligned shortest-witness `nodes` and `edges`; edge `i` connects `nodes[i]` to `nodes[i+1]`. `--json` is required.
+
 `--zones` (requires `--focus`) annotates each node with the directional screen zone it occupies relative to the focus, derived from the node's direct link to the focus and that link's direction:
 
 - **TOP** — what the focus answers to / depends on: `governs`/`supports` incoming, or `refines`/`extends`/`grounded-by` outgoing from the focus. Evidence rule: `grounded-by OUT → TOP`; `supports IN → TOP`.
@@ -530,6 +538,22 @@ For the **global** anchor the map is a **different shape** — not a hop-tree fr
 ```
 
 Pick the rendering by surface capability, exactly as you pick whether to offer the recenter chooser — richer form only when the surface supports it, text otherwise. After scanning, resume the walk: recenter on a neighbor as before, or hop to a similar-but-unlinked note by making it the new `--focus` (and consider linking it, since the absence of an edge is what `scan` just exposed).
+
+#### Typed destination discovery
+
+When the walk has a current focus and a goal query but no destination yet, run:
+
+```
+nn graph routes --focus ID --links TYPES --search QUERY --limit N --json
+```
+
+This intersects semantic relevance with actual directed reachability under the selected relationship types. A result is a candidate landing plus one deterministic shortest witness, not proof that it is the only or best conceptual destination.
+
+- **Orient** — run typed destination discovery when the goal implies a relationship family but the destination is unknown; present the highest-ranked reachable destinations beside the local map.
+- **Scan** — use the ranked destination set to see query-relevant territory reachable under `TYPES`; absence means no positive-scoring directed route under that filter, not global disconnection.
+- **Peek** — inspect a selected result's complete `nodes` and `edges` witness without changing focus.
+- **Recenter** — choose a destination, move to `nodes[1]`, and rerun Orient; do not jump directly to the destination while claiming to walk its witness.
+- **Arrive** — when focus reaches `destination.id`, explain the traversed edge types and annotations and report the destination's `relevance_score` as discovery evidence, not relationship strength.
 
 #### Typed path route overlay
 
