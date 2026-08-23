@@ -1,200 +1,111 @@
-# ADR-0022: `nn ask` asynchronous surfaces — open-with-context / submit-out-of-band, via a pluggable opener (MCP, skill, peer-binary)
+# ADR-0022: `nn ask` resumable sessions — nn owns a durable pending-question envelope; the LLM couriers the result
 
 ## Status
 
-Proposed. Design only; no implementation. This ADR captures the shape of the
-feature and, more importantly, the **submission problem** it forces — which is
-the "second interaction mode" that ADR-0020 and ADR-0021 explicitly deferred.
-
-## The essential shape (not MCP-specific)
-
-The primitive is **not** "invoke an MCP server." MCP is one transport. The
-invariant, stated in three moves, is:
-
-1. **Open** — hand some surface the context: the question, its scope, and a
-   **correlation id**.
-2. **Wait** — the human acts on their own clock, on their own device; the
-   invoking call has no reason to stay alive.
-3. **Submit** — the result finds its way back to a known path, tied to the
-   request by the correlation id.
-
-The *opener* is pluggable. Concrete openers, all interchangeable at move 1:
-- an **MCP** `tools/call` that provisions a surface, optionally followed by
-  opening it. **wiretext is an MCP server** of this kind: `nn` calls the wiretext
-  tool, which produces/hosts a wireframe (Figma-like), and then `nn` **opens the
-  browser** on the returned URL for the human to view and annotate. Note the
-  opener here is *two moves* — provision (MCP call) then present (browser open) —
-  not a single blocking call and not a text-back-from-your-phone flow.
-- a **skill** invocation that opens whatever the skill fronts,
-- a **peer binary** (the existing delegated pattern, but non-blocking).
-
-Openers therefore split on *how the human is reached*: some (wiretext) call MCP
-to provision, then `nn` opens a local browser — the human is present now; others
-could hand off entirely to a surface the human reaches on their own later. The
-first is browser-open (like `--surface canvas`/`graph`); the second is the
-genuinely out-of-band case. **Both still share moves 2 and 3** — the human acts
-on their own clock and the result returns by correlation id — which is why they
-are one feature; whether a browser is opened locally is an opener detail.
+Proposed. Design only; no implementation. Supersedes an earlier draft of this
+ADR that made `nn` an MCP client with a pluggable opener interface — that design
+is abandoned in favor of the simpler courier model below.
 
 ## Context
 
 ADR-0020 established `nn ask` as a routed human-feedback primitive: the *job* is
 "ask a human to close a knowledge gap and capture their structured response"; the
-*surface* is a routing decision keyed on the shape of the answer. Two adapter
-kinds exist today:
+*surface* is a routing decision keyed on the shape of the answer. The two adapter
+kinds that exist today — **hosted** (canvas, graph) and **delegated** (document/
+Plannotator) — are both **synchronous**: `runAsk` "prepares a feedback session,
+launches its surface via the injected open hook, blocks until the human submits
+or cancels, and prints the result path." The result is at a known path *before*
+the call returns.
 
-- **Hosted** — `nn` owns an ephemeral `localhost` server + embedded UI for the
-  duration of one blocking call (canvas/Excalidraw, graph viewer).
-- **Delegated (synchronous)** — `nn` invokes a peer binary on a
-  request-path-in → result-path-out contract and **blocks until it returns**
-  (document/Plannotator, via the `runPlannotator func(argv []string) error`
-  injection point in `ask.go`).
+The desire: let `nn ask` reach a human through an **arbitrary MCP server or
+skill** — e.g. wiretext (a wireframe/Figma-style MCP: call the tool to provision
+a wireframe, then open a browser on it for the human to annotate). Human answers
+here can be **asynchronous** — the person works on their own clock, so the answer
+is decoupled in time from the invocation.
 
-Both existing kinds are **one-shot and synchronous**: `runAsk` "prepares a
-feedback session, launches its surface via the injected open hook, **blocks until
-the human submits or cancels**, and prints the result path." The result lands at
-a known path in the session dir before the `nn ask` process exits.
+### The key simplification: nn is not the MCP client
 
-The request here is a **third adapter kind**: point `nn ask` at an arbitrary MCP
-server so the human-feedback question can be routed through *any* MCP-exposed
-surface (a Slack approval, a ticketing form, a web form, a mobile push a person
-answers). The MCP server, not `nn`, owns the UI.
+An earlier version of this design had `nn` act as the MCP client — spawning
+servers, calling `tools/call`, with `--server`/`--tool`/`--open` flags and a
+pluggable `opener` interface. That is unnecessary complexity: **the LLM driving
+`nn` is already an MCP (and skill) client.** It can call any MCP tool or invoke
+any skill natively.
 
-### Why MCP forces a new interaction mode
-
-MCP tool calls come in two shapes, and only one fits the existing model:
-
-- **Synchronous MCP tool** (returns a value in the JSON-RPC response). This is
-  just the *delegated adapter generalized* — swap the argv/exit-code transport
-  for `tools/call` over JSON-RPC. The call *is* the submit. Buildable today, but
-  largely redundant with what an agent already does by calling MCP natively, and
-  it isn't really "ask a human" — there is no human. **Out of scope for this
-  ADR** (noted only to distinguish it).
-
-- **Asynchronous human surface** (the MCP call *opens* something a person answers
-  later; the answer arrives out of band, possibly minutes or hours later, after
-  the `nn ask` process would normally have exited). **This is the case this ADR
-  is about**, and it does not fit routed-ask, because routed-ask assumes the
-  result is available at a known path *before the call returns*. The whole
-  difficulty is: **the submission is decoupled in time from the invocation.**
-
-This is exactly the boundary both prior notes drew. From the job/surface concept
-(note 4977): *"Routed-ask covers one-shot prepared-request surfaces (prepare →
-submit → result at a known path). A live/streaming collaborative surface falls
-outside and needs a second interaction mode."* The async MCP surface is a
-concrete instance of that deferred second mode.
-
-## The submission problem (the crux)
-
-For a synchronous surface, "submit" is trivial: the surface writes `result.json`
-and `nn ask` reads it. For an **asynchronous** surface, the human submits *after*
-the invoking call has no reason to still be running. Three possible resolutions,
-in increasing order of infrastructure:
-
-1. **Poll a rendezvous path (fits the file-based model best).**
-   - `nn ask --surface mcp` calls the MCP tool to *open* the surface, passing it
-     a **correlation id** and a **result path** (or a callback command).
-     Then `nn ask` **blocks and polls** the session dir for `result.json`, on a
-     timeout.
-   - The MCP surface (or a small companion) writes `result.json` at that path
-     when the human answers. This is the same known-path contract as delegated —
-     only the *writer* is remote and the *wait* is long.
-   - Pro: reuses the entire ADR-0020 envelope; the only new thing is a bounded
-     blocking poll. Con: `nn ask` must stay alive for the human's whole latency,
-     which is fine for minutes, wrong for hours.
-
-2. **Detach + resume (two-phase ask).**
-   - `nn ask --surface mcp ... --detach` returns *immediately* with a
-     **pending session id** after firing the MCP open-call; it does not block.
-   - A second command — `nn ask resume <session-id>` — reads `result.json` once
-     the human has answered (erroring if still pending). The agent (or a hook)
-     calls resume later.
-   - Pro: no long-lived process; supports hour/day latencies. Con: introduces a
-     durable *pending* session state and a resume verb — the first real break
-     from "one-shot prepare→submit→result".
-
-3. **Callback endpoint (`nn` briefly becomes a server for the reply).**
-   - `nn ask` (or a lightweight `nn ask serve`) exposes a local callback the MCP
-     surface hits on submit, mirroring the graph surface's `/event` relay hook —
-     but for a *remote, delayed* submit rather than a local one-shot.
-   - Pro: event-driven, no polling. Con: requires the MCP surface to reach the
-     callback (networking, auth), heaviest option.
-
-The **correlation id** is common to all three and is the load-bearing new
-concept: because submission is decoupled from invocation, every async surface
-needs a token that ties a later inbound result back to the specific `ask`
-request. Synchronous surfaces never needed one (the blocking call *is* the
-correlation).
+So `nn` should not call MCP, spawn servers, or know about openers, tools, or
+transports at all. `nn` owns **only a resumable session envelope**; the LLM does
+the calling and couriers the result back. This makes MCP and skills work
+*identically* — `nn` is opener-agnostic because it never touches the opener — and
+it removes the need for `--async`, `--server`, `--tool`, and `--open` entirely.
 
 ## Decision
 
-**Deferred pending a chosen submission model.** The decision that matters is the
-**async submission mechanism**, not the opener. Recommend **option 2 (detach +
-resume)** as the target if pursued, because it is the only one that honestly
-supports human latencies (minutes to hours — an approval someone gets to
-tomorrow, a wireframe review left open in a tab) without holding a process open,
-and it generalizes: a
-`pending` session + `nn ask resume` is reusable by *every* opener. Options 1 and
-3 are optimizations of the wait, not new capabilities.
-
-Model the **opener as an interface**, not a fixed surface flag:
+`nn ask` gains a **resumable-session (courier) mode**. `nn`'s entire
+responsibility is a durable scratchpad for an in-flight human question:
 
 ```
-type opener interface {
-    // Open hands the surface the prepared request (question + scope +
-    // correlationID + resultPath) and returns once the surface has been
-    // *opened* — NOT once the human has answered.
-    Open(req askRequest) error
-}
+1. START   nn ask start --instructions "review this wireframe" [--context ...]
+                └─ nn creates a durable PENDING session, returns a session <id>.
+                   nn calls nothing and never blocks.
+
+2. LLM acts   the LLM calls the wiretext MCP tool (or a skill) ITSELF, with its
+              own client. the surface opens; the human works; the LLM receives
+              the answer back in its own context.
+
+3. SUBMIT  nn ask submit <id> --from <file>        (or --result "<json>")
+                └─ the LLM couriers the answer into the session; nn stores it
+                   and marks the session resolved.
+
+4. RESUME  nn ask resume <id>
+                └─ reads the stored result, or reports "still pending".
+                   useful in a later turn or for a different agent.
 ```
 
-with implementations `mcpOpener` (`tools/call`, optionally followed by a browser
-open on a returned URL — this is the wiretext pattern: call the MCP tool to
-provision a wireframe, then open the browser on it), `skillOpener`, and
-`binaryOpener` (delegated, non-blocking). Each is injected for testing, mirroring
-the existing `runPlannotator` hook. `Open` returns once the surface is *up*, not
-once the human has answered — so an opener that also opens a local browser (like
-wiretext) still returns promptly and the submission still arrives via moves 2–3.
+- **No `--async` flag.** `start` never blocks, so there is no synchronous variant
+  to distinguish it from. Sync-vs-async was only a distinction when *nn* did the
+  opening; since the LLM opens, `start` is always non-blocking.
+- **No `--server`/`--tool`/`--open`.** The LLM is the client; `nn` needs to know
+  nothing about MCP or skills. This is what makes both work with zero MCP code in
+  `nn`.
+- **Courier submission (chosen).** The LLM calls the tool, receives the result in
+  its own context, and pushes it into the session via `submit`. `nn` never
+  watches a path, polls, or waits for a file that might never arrive. (Rejected
+  alternative: the surface writes to an `nn`-owned `resultPath` and `resume`
+  reads it — that reintroduces path-watching and a may-never-arrive file.)
+- **Correlation id = session id.** Because `start` returns before the answer
+  exists, a token ties the later `submit` back to the request; the session id
+  serves as that token. Synchronous surfaces never needed one (the blocking call
+  *was* the correlation).
+- **Thin envelope unchanged (ADR-0020).** The couriered result names native
+  artifacts; nothing is filed automatically. What becomes a note, an `nn link`,
+  or nothing is a downstream agent decision.
 
-Invocation sketch (not final) — the opener is selected, the async contract is
-uniform:
+Command surface:
 
-```
-nn ask --async --open mcp --server wiretext --tool <open-tool> [--args <json>]
-nn ask --async --open mcp --server <name> --tool <open-tool> [--args <json>]
-nn ask --async --open skill --skill <name> [--args <json>]
-  → opener fires with a correlation id + result path
-  → prints: pending session <id>       (does NOT block)
-  ... (human answers on their own surface, minutes/hours later) ...
-nn ask resume <id>
-  → reads result.json (or: "still pending")
-```
-
-- The **thin-envelope discipline is unchanged** (ADR-0020): `result.json` names
-  native artifacts by path; nothing is filed automatically.
-- MCP-, skill-, and link-specific config (which server/skill/URL, transport,
-  auth) lives behind its opener; the async machinery (pending session,
-  correlation id, resume) is opener-agnostic.
+| Command | Does |
+|---|---|
+| `nn ask start` | create a pending session; return its id (and the prepared request) |
+| `nn ask submit <id>` | store the LLM-couriered result; mark resolved |
+| `nn ask resume <id>` | read the stored result, or report still-pending |
+| `nn ask list` (optional) | show pending sessions |
 
 ## Consequences
 
-- Introduces the first **asynchronous, durable-pending** ask session — a genuine
-  new interaction mode, not another surface. This is the cost, and it is why the
-  synchronous MCP case (which needs none of this) is explicitly excluded.
-- Adds a **correlation id** to the ask contract for async surfaces.
-- Once `detach`/`resume` + correlation exist, other async surfaces (email, SMS,
-  long-running human review) become cheap — the MCP surface is the forcing
-  function, not the only beneficiary.
-- MCP-client configuration (which servers, transport, auth) becomes part of
-  `nn`'s config surface — new territory for a tool that has so far only *been*
-  called, not *called out* to MCP.
+- `nn`'s new code is small and MCP-free: a durable session store plus three verbs
+  (`start`/`submit`/`resume`). No MCP client library, no opener interface, no
+  `runMCP` hook, no server/transport config.
+- The first **durable, pending** ask session (existing sessions are ephemeral and
+  one-shot). Session dirs already have a 7-day retention window (`feedbackRetention`
+  in `ask.go`); a pending session reuses it.
+- Works for **any** opener — MCP, skill, or a future one — because `nn` is
+  ignorant of the opener by construction. The forcing example is wiretext, but
+  nothing is wiretext-specific.
+- Moves the "call the surface" responsibility to the LLM, where the client
+  already lives — avoiding a second MCP client implementation inside `nn`.
 
 ## Deferred (explicitly out of scope for this ADR)
 
-- **Synchronous MCP tools as a surface.** Buildable under the existing delegated
-  contract, but redundant with native agent tool-calling and not "ask a human".
-  Not pursued here.
-- **Which submission model (1/2/3).** Recommended: option 2. Not decided.
-- **Routing inference.** As in ADR-0020/0021, `--surface mcp` would be explicit
-  selection only.
-- **Write-back / live loop.** Unchanged from prior ADRs.
+- **Synchronous MCP tools as a surface.** A pure-compute MCP call is not "ask a
+  human" and the LLM can already do it natively; not modeled here.
+- **`nn` opening the surface itself.** Explicitly rejected — the LLM opens.
+- **Routing inference.** As in ADR-0020/0021, mode selection is explicit.
+- **Write-back / live conversational loop.** Unchanged from prior ADRs.
