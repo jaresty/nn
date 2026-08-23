@@ -382,7 +382,7 @@ Use it to walk the graph as a positioned space rather than dumping the whole str
    | What builds on / operationalizes this? | **BOTTOM** |
    | Read the principle underneath a concrete note | **BOTTOM** toward `concept`/`model` types |
 
-3. **Recenter** — pick a neighbor's ID and re-run step 1 with that as `--focus`. Navigation is a chain of ego-hops (the ExcaliBrain model in design note 20260820154156-6576), not a pan over a hairball.
+3. **Recenter** — pick a neighbor's ID and re-run step 1 with that as `--focus`. Navigation is a chain of ego-hops (the ExcaliBrain model in design note 20260820154156-6576), not a pan over a hairball. Whenever a step (this one, or a return from `peek`/`teleport`) presents the view to a human, apply the [Presentation discipline](#presentation-discipline) (P1–P4).
 4. **Arrive** — stop when the current node answers your goal, or when the zone you were following is empty (e.g. you were chasing tension and this node has no LEFT — the thread ends here). State what you found relative to where you started.
 
 These three verbs are **not** `nn` subcommands or flags — they are named moves *you* (the agent) perform by composing existing primitives, exactly like the walk steps above. There is **no new CLI surface**. Modes and options named below (e.g. "flat mode") are presentation choices you make, not shell flags.
@@ -440,7 +440,7 @@ Pick the rendering by surface capability, exactly as you pick whether to offer t
 
 Use `peek` when Read-from-here isn't enough to judge a move — you want to see one step past the neighbor before committing.
 
-Because `peek` does not move, it **returns you to the walk at the same Recenter decision** you left. When a human is driving and the harness supports a chooser, re-offer that decision as a Recenter chooser after presenting what the peek revealed — do not drop back into prose options. The peek's finding just updates the option descriptions (e.g. "→ 4302 — peek confirms it resolves the open question"); it does not exempt the return from the chooser discipline.
+Because `peek` does not move, it **returns you to the walk at the same Recenter decision** you left, so the return carries the full [Presentation discipline](#presentation-discipline) (P1–P4) — in particular P3: re-offer that decision as a Recenter chooser rather than dropping into prose. The peek's finding updates the option descriptions (e.g. "→ 4302 — peek confirms it resolves the open question"); it does not exempt the return from the chooser discipline.
 
 #### `teleport` — move far (relocate focus)
 
@@ -449,9 +449,9 @@ Because `peek` does not move, it **returns you to the walk at the same Recenter 
 - **`teleport` with a query** — run a search but land on **structure, not a ranked hit list**: `nn list --search "<topic>"` to find candidates, then surface the **landing zones** — `nn clusters` (which regions the hits fall in) and high-degree hubs among them — and recenter on a hub or cluster representative. Search identifies *relevance*; you land on the *structure* around it.
 - **`teleport` random** — a serendipitous jump: `nn random` (optionally `--tag`/`--type`) or `nn shuf` to land somewhere unplanned, then start a fresh walk from there.
 
-`teleport` only relocates — it does not render deep detail (that is `peek`'s job). After landing, **re-enter the walk at Orient (step 1) from the new focus, carrying the walk's full presentation discipline** — do not treat the landing as a shortcut past it. Concretely, the post-landing Orient must, when presenting to a human on a capable surface: run `nn graph show ... --zones --bodies --color always` (colors on), **give all three jointly-required parts** (focus-note summary + a positional/ASCII map + tiered neighbor summaries & moves — see the three-part rule below), and **offer the onward move as a Recenter chooser** when the harness supports one. Landing then narrating in prose, without colors, map, or chooser, is the failure mode this handoff exists to prevent. This is the one move worth invoking from cold — it is named in the session-start CLI-reference pointer for that reason.
+`teleport` only relocates — it does not render deep detail (that is `peek`'s job). After landing, **re-enter the walk at Orient (step 1) from the new focus, carrying the full [Presentation discipline](#presentation-discipline) (P1–P4)** — the landing is not a shortcut past it; landing then narrating in prose without colors, map, or chooser is exactly the seam-drift that discipline exists to prevent. This is the one move worth invoking from cold — it is named in the session-start CLI-reference pointer for that reason.
 
-**Offer the landing zones as a chooser when the harness supports one and a human is driving** — teleport's landing *is* a Recenter decision ("which region/hub do I land on?"), so the same rule the Recenter step uses applies here. When both hold — the harness exposes a chooser affordance **and** a human is co-navigating — render the candidate landings (recommended hub, each cluster/sub-territory, and a `teleport --random` escape) as selectable options rather than prose, following the same option discipline as the Recenter chooser: scope to the goal-relevant landings, label each with its target + a one-line claim, order the recommended landing first, and include the random jump as the "somewhere else" escape. When either is false — navigating autonomously toward a goal, or stdout is not a TTY — pick the landing yourself per the goal and continue.
+**The landing itself is a chooser point** — teleport's landing *is* a Recenter decision ("which region/hub do I land on?"), so [Presentation discipline](#presentation-discipline) P3 applies: when a human is driving on a chooser-capable harness, render the candidate landings as a chooser. Teleport-specific option set: recommended hub, each cluster/sub-territory, and a `teleport --random` escape as the "somewhere else" option; otherwise follow the standard chooser mechanics below.
 
 **Offer the recenter as a chooser when the harness supports one and a human is driving the walk.** The Recenter step is a decision — "which neighbor next?" — and a harness chooser (a selectable-option prompt) renders it as clickable moves rather than a wall of prose. Use it *only* when both hold: the harness exposes a chooser affordance, **and** a human is co-navigating this walk. When either is false — you are navigating autonomously toward a goal, or stdout is not a TTY — do **not** invoke a chooser: pick the move yourself per the goal and continue (nn is non-interactive by default when stdout is not a TTY).
 
@@ -465,7 +465,17 @@ When you do offer a chooser:
 
 Then recenter on their pick (or arrive) and re-run step 1 from the new focus.
 
-**When presenting a step to a human, give all three parts below.** They are jointly required — none is sufficient alone. The summary supplies *substance* (what this note and its neighbors mean), the map supplies *structure* (how they're positioned), and the moves supply *direction* (where to go). A map without summaries is a skeleton you can't read; summaries without a map lose the spatial relationships. Do not relay the raw command output.
+<a id="presentation-discipline"></a>
+#### Presentation discipline (the named block every seam cites)
+
+**This is the single source of truth for how any walk view is presented to a human. Every point that presents a positioned view — Orient, the return after `peek`, the landing after `teleport`, `scan` — cites this block by name rather than restating it. A rule stated only at one step definition does not travel across a seam that re-enters the walk from elsewhere; centralizing it here is what stops per-seam drift.** When presenting to a human on a capable surface, all four apply jointly:
+
+- **P1 — Colors on.** Run the underlying `nn graph show … --zones --bodies --color always` so zone/type/edge markers survive relay. Omit `--color always` only when stdout is not a color surface.
+- **P2 — All three jointly-required parts.** Give the *summary* (substance — what the focus note and neighbors mean), the *positional/ASCII map* (structure — how they're placed by zone), and *neighbor summaries + named moves* (direction — where to go). None is sufficient alone: a map without summaries is a skeleton you can't read; summaries without a map lose the spatial relationships. Never relay raw command output. (Detailed as (a)/(b)/(c) below.)
+- **P3 — Recenter chooser.** When the harness exposes a chooser affordance **and** a human is co-navigating, render the onward move as a chooser (per the chooser discipline above); otherwise pick the move yourself per the goal. This applies wherever the walk presents an onward decision, including after `peek` and `teleport`.
+- **P4 — Degree-scaled summaries.** Scale each summary's length to the node's inbound degree (the tiers in (c)); daily/index hubs are connectors-by-aggregation, not substance.
+
+The three parts, in detail:
 
 **(a) Summarize the current note — length scaled to its degree (see the tiers in (c)).** Before the map, characterize where the reader is standing: what this note *is* (its type/status and its central claim, drawn from its body — what it argues, not just its title), and how it sits in its neighborhood (what it refines above, what challenges it, what builds on it). Apply the same degree tiers as the neighbors: a high-degree focus (a hub you've landed on) earns the fuller 2–3 sentence treatment; a low-degree focus (a leaf you're passing through) gets a brief one. This is the anchor the rest of the view hangs off.
 
