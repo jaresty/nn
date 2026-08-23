@@ -54,11 +54,18 @@ responsibility is a durable scratchpad for an in-flight human question:
 3. SUBMIT  nn ask submit <id> --from <file>        (or --result "<json>")
                 └─ the LLM couriers the answer into the session; nn stores it
                    and marks the session resolved.
-
-4. RESUME  nn ask resume <id>
-                └─ reads the stored result, or reports "still pending".
-                   useful in a later turn or for a different agent.
 ```
+
+**No `resume` verb.** The agent that calls `start` is the same agent that calls
+the MCP/skill and receives the answer — so it already holds the result when it
+calls `submit`. It never needs to *read back* a result it is holding, so a
+`resume`/continue verb is dead weight. The word "resume" also smuggles in a
+false assumption: that `nn` suspends and continues a flow. `nn` runs no flow — it
+holds a slot. A genuine `resume`/poll belongs only in the *other* model, where
+the answer arrives after the opening agent is gone (cross-agent handoff) and the
+surface must write to an `nn`-watched path — the model rejected below. For simple
+read-back convenience, a plain getter (`nn ask show <id>`, `nn ask list`) covers
+it without suspend/continue semantics.
 
 - **No `--async` flag.** `start` never blocks, so there is no synchronous variant
   to distinguish it from. Sync-vs-async was only a distinction when *nn* did the
@@ -85,14 +92,20 @@ Command surface:
 |---|---|
 | `nn ask start` | create a pending session; return its id (and the prepared request) |
 | `nn ask submit <id>` | store the LLM-couriered result; mark resolved |
-| `nn ask resume <id>` | read the stored result, or report still-pending |
+| `nn ask show <id>` (optional) | plain read-back of a stored result |
 | `nn ask list` (optional) | show pending sessions |
+
+**Possible further collapse.** `start` earns its place only if a durable
+"open question" slot is wanted *between* the tool call and the submit — trackable
+via `list`, surviving a crash. If that durability is not needed, the whole thing
+collapses to a single create-and-store `submit`. Whether to keep `start` is the
+one open question; everything else is fixed.
 
 ## Consequences
 
-- `nn`'s new code is small and MCP-free: a durable session store plus three verbs
-  (`start`/`submit`/`resume`). No MCP client library, no opener interface, no
-  `runMCP` hook, no server/transport config.
+- `nn`'s new code is small and MCP-free: a durable session store plus two verbs
+  (`start`/`submit`, with optional `show`/`list` getters). No MCP client library,
+  no opener interface, no `runMCP` hook, no server/transport config.
 - The first **durable, pending** ask session (existing sessions are ephemeral and
   one-shot). Session dirs already have a 7-day retention window (`feedbackRetention`
   in `ask.go`); a pending session reuses it.
