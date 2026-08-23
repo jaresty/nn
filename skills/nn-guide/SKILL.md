@@ -394,13 +394,15 @@ Use it to walk the graph as a positioned space rather than dumping the whole str
 - **Region + load-bearing** — which topic cluster this node sits in (`nn clusters`) and whether it sits on a bridge between clusters (`nn graph bridges`). A node on a bridge is a crossing point between territories; a node deep in one cluster is interior.
 - **Reachable-but-unlinked** — `nn list --similar <id>`: nearby notes that share vocabulary but have no edge to walk. This is the one signal a step-wise walk can *never* surface — it names territory the navigation can't reach yet (candidate missing edges).
 
-**Make it spatial — render the territory as a map.** The three signals above are lists; scan-out is about *where you are in space*, so when you're relaying to a human in a markdown-capable surface, also emit the 2-hop neighborhood as a diagram that renders as an actual picture:
+**Make it spatial — the text tree is the default map.** Scan-out is about *where you are in space*, but the spatial view is already the `--format text` tree from the **Degree + reach** signal above: its indentation *is* the reach (how many hops out each node sits), and the `↑out ↓in` markers *are* the terrain (dense knots are hubs, long single-child chains are ancestry threads). Read that tree for territory, not relationship — no extra command needed, and it survives any surface (plain terminal, agent relay, non-markdown chat).
+
+**Optional Mermaid upgrade — only when the harness renders Mermaid.** Same gating rule as the recenter chooser: reach for the richer affordance *only* when the surface supports it. If — and only if — you're relaying to a human in a Mermaid-rendering surface, you may also emit a picture:
 
 ```
 nn graph show --focus <id> --depth 2 --direction both --format mermaid
 ```
 
-This is a genuine map, not the ASCII zone-sketch used in the zoned *step* — that sketch is single-focus (one ego, four zones); scan-out spans many nodes across hops, so a flowchart is the right shape. Read the picture for *territory*, not relationship: dense knots are hubs, long single-file chains are ancestry threads, and a node with edges reaching into an otherwise separate clump is a bridge. Full annotations make edge labels long — for a purely spatial read the *shape* carries the meaning, so skim the labels.
+Otherwise do **not** — an unrendered Mermaid block is a wall of `flowchart` source, and even when rendered a depth-2 graph with full edge annotations gets very wide. Prefer the text tree; use Mermaid as an occasional upgrade, not the default.
 
 After scanning out, resume the walk: recenter on a neighbor as before, or hop to a similar-but-unlinked note by making it the new `--focus` (and consider linking it, since the absence of an edge is what scan-out just exposed).
 
