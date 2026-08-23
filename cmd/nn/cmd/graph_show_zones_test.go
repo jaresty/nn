@@ -21,7 +21,7 @@ func TestGraphShowZones(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 
 	ego := newTestNoteForCLI(note.GenerateID(), "Ego", note.TypeModel)
-	up := newTestNoteForCLI(note.GenerateID(), "Up", note.TypeConcept)      // ego -> up (extends out => TOP)
+	up := newTestNoteForCLI(note.GenerateID(), "Up", note.TypeConcept)                  // ego -> up (extends out => TOP)
 	challenger := newTestNoteForCLI(note.GenerateID(), "Challenger", note.TypeArgument) // challenger -> ego (questions in => LEFT)
 	ego.Created, ego.Modified = now, now
 	up.Created, up.Modified = now, now
@@ -65,6 +65,45 @@ func TestGraphShowZones(t *testing.T) {
 	// property Z3: ego itself has empty zone
 	if zoneByID[ego.ID] != "" {
 		t.Errorf("property Z3: ego zone = %q, want empty", zoneByID[ego.ID])
+	}
+}
+
+func TestGraphShowZonesReciprocalEvidenceEdgesAgree(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	claim := newTestNoteForCLI(note.GenerateID(), "Claim", note.TypeConcept)
+	evidence := newTestNoteForCLI(note.GenerateID(), "Evidence", note.TypeObservation)
+	claim.Links = []note.Link{{TargetID: evidence.ID, Type: "grounded-by", Annotation: "depends on evidence"}}
+	evidence.Links = []note.Link{{TargetID: claim.ID, Type: "supports", Annotation: "corroborates claim"}}
+	writeNoteFile(t, nbDir, claim)
+	writeNoteFile(t, nbDir, evidence)
+
+	zoneFor := func(focusID, relatedID string) string {
+		out, err := execute("graph", "show", "--focus", focusID, "--depth", "1", "--direction", "both", "--zones", "--format", "json")
+		if err != nil {
+			t.Fatalf("graph show reciprocal evidence zones: %v", err)
+		}
+		var result struct {
+			Nodes []struct {
+				ID   string `json:"id"`
+				Zone string `json:"zone"`
+			} `json:"nodes"`
+		}
+		if err := json.Unmarshal([]byte(out), &result); err != nil {
+			t.Fatalf("graph show reciprocal evidence JSON: %v\n%s", err, out)
+		}
+		for _, n := range result.Nodes {
+			if n.ID == relatedID {
+				return n.Zone
+			}
+		}
+		return "missing"
+	}
+
+	if got := zoneFor(claim.ID, evidence.ID); got != "top" {
+		t.Errorf("claim should see reciprocal evidence in TOP, got %q", got)
+	}
+	if got := zoneFor(evidence.ID, claim.ID); got != "bottom" {
+		t.Errorf("evidence should see reciprocal claim in BOTTOM, got %q", got)
 	}
 }
 

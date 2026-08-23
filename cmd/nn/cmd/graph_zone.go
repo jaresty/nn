@@ -27,8 +27,8 @@ const (
 // the related node should occupy in the Zoned ego layout.
 //
 // Mapping (see note 20260820154156-6576):
-//   - TOP    (what ego answers to): governs IN, refines/extends/grounded-by OUT
-//   - BOTTOM (what builds on ego):  governs OUT, refines/extends/grounded-by/supports IN
+//   - TOP    (what ego answers to): governs/supports IN, refines/extends/grounded-by OUT
+//   - BOTTOM (what builds on ego):  governs/supports OUT, refines/extends/grounded-by IN
 //   - LEFT   (tension):             contradicts, questions (either dir)
 //   - RIGHT  (lateral):             source-of, requires (either dir)
 func zoneOf(linkType string, dir linkDir) zone {
@@ -53,10 +53,13 @@ func zoneOf(linkType string, dir linkDir) zone {
 		}
 		return zoneBottom
 	case "supports":
+		// supports points from corroborating evidence to the supported claim.
+		// The claim answers to incoming evidence (TOP); the supported claim
+		// builds on outgoing evidence (BOTTOM).
 		if dir == dirIn {
-			return zoneBottom
+			return zoneTop
 		}
-		return zoneNone
+		return zoneBottom
 	default:
 		return zoneNone
 	}

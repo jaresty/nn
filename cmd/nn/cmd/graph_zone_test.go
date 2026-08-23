@@ -1,6 +1,10 @@
 package cmd
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
 
 // TestZoneOf pins the link-type -> screen-zone mapping for the Zoned ego layout.
 // See design note 20260820154156-6576.
@@ -22,7 +26,7 @@ func TestZoneOf(t *testing.T) {
 		{"refines into ego", "refines", dirIn, zoneBottom},
 		{"extends into ego", "extends", dirIn, zoneBottom},
 		{"grounded-by into ego", "grounded-by", dirIn, zoneBottom},
-		{"supports into ego", "supports", dirIn, zoneBottom},
+		{"supports out of ego", "supports", dirOut, zoneBottom},
 
 		// LEFT — tension (either direction)
 		{"contradicts out", "contradicts", dirOut, zoneLeft},
@@ -39,9 +43,8 @@ func TestZoneOf(t *testing.T) {
 		{"related out", "related", dirOut, zoneRight},
 		{"related in", "related", dirIn, zoneRight},
 
-		// supports OUT is not a top/bottom relation (ego corroborates target) -> lateral-none is acceptable;
-		// pin it to none so the mapping stays total and intentional.
-		{"supports out of ego", "supports", dirOut, zoneNone},
+		// Evidence that supports the ego is something the ego answers to.
+		{"supports into ego", "supports", dirIn, zoneTop},
 	}
 
 	for _, tc := range cases {
@@ -51,5 +54,17 @@ func TestZoneOf(t *testing.T) {
 				t.Errorf("zoneOf(%q, %q) = %q, want %q", tc.linkType, tc.dir, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestNavigationGuideDocumentsEvidenceZoneDirections(t *testing.T) {
+	guide, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"grounded-by OUT → TOP", "supports OUT → BOTTOM", "supports IN → TOP"} {
+		if !strings.Contains(string(guide), required) {
+			t.Errorf("nn-guide missing evidence-zone rule %q", required)
+		}
 	}
 }

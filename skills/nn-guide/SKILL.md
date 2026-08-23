@@ -353,8 +353,8 @@ With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 a
 
 `--zones` (requires `--focus`) annotates each node with the directional screen zone it occupies relative to the focus, derived from the node's direct link to the focus and that link's direction:
 
-- **TOP** — what the focus answers to / depends on: `governs`, or `refines`/`extends`/`grounded-by` outgoing from the focus.
-- **BOTTOM** — what builds on the focus: `refines`/`extends`/`grounded-by`/`supports` incoming to the focus.
+- **TOP** — what the focus answers to / depends on: `governs`/`supports` incoming, or `refines`/`extends`/`grounded-by` outgoing from the focus. Evidence rule: `grounded-by OUT → TOP`; `supports IN → TOP`.
+- **BOTTOM** — what builds on the focus: `governs`/`supports` outgoing, or `refines`/`extends`/`grounded-by` incoming to the focus. Evidence rule: `grounded-by IN → BOTTOM`; `supports OUT → BOTTOM`.
 - **LEFT** — tension: `contradicts`, `questions` (either direction).
 - **RIGHT** — lateral provenance / task edges: `source-of`, `requires` (either direction).
 
@@ -537,7 +537,7 @@ When the walk has both a current focus `<a>` and a known destination `<b>`, use 
 
 Integrate the overlay into the navigation actions as follows:
 
-- **Orient** — compute the typed path when the goal implies a relationship family (for example `grounded-by,supports` for evidence or `requires` for task dependencies), and show the route beside the local map.
+- **Orient** — compute the typed path when the goal implies a relationship family and show the route beside the local map. Relationship direction matters: use `grounded-by` to walk claim→evidence, `supports` to walk evidence→claim, and `requires` for source task→required dependency. Do not combine opposite semantic directions merely because both concern evidence.
 - **Teleport** — keep instant relocation as the default. Offer the typed path only when the human wants an explainable semantic route instead of jumping directly to a distant landing.
 - **Scan** — assess whether candidate targets or regions have a semantically coherent route from the current focus; do not confuse absence under one filter with global disconnection.
 - **Peek** — preview the complete node-and-edge witness without changing focus.

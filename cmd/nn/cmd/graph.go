@@ -703,10 +703,10 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				// Zone → link-type key: names what each zone means, so text
 				// output carries the same legend as the interactive viewer.
 				fmt.Fprintln(w, "Key (zone = link types):")
-				fmt.Fprintf(w, "  %s — answers-to: governs, refines/extends/grounded-by (out)\n", paint("top", "TOP"))
+				fmt.Fprintf(w, "  %s — answers-to: governs/supports (in), refines/extends/grounded-by (out)\n", paint("top", "TOP"))
 				fmt.Fprintf(w, "  %s — tension: contradicts, questions\n", paint("left", "LEFT"))
 				fmt.Fprintf(w, "  %s — lateral: source-of, requires\n", paint("right", "RIGHT"))
-				fmt.Fprintf(w, "  %s — builds-on: refines/extends/grounded-by/supports (in)\n", paint("bottom", "BOTTOM"))
+				fmt.Fprintf(w, "  %s — builds-on: governs/supports (out), refines/extends/grounded-by (in)\n", paint("bottom", "BOTTOM"))
 				if useMarkers {
 					// Marker scheme: node titles carry a note-type circle, edge
 					// labels a link-family circle (same families as the zones).
