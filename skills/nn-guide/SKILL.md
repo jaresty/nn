@@ -407,7 +407,21 @@ Pick the rendering by surface capability, exactly as you pick whether to offer t
 - **The highways — `nn graph bridges`** — the notebook's integration points: notes whose links join otherwise-separate regions, ranked by how load-bearing they are. These are the crossings you'd take to travel between territories. (Daily/index notes often rank high because they touch many topics — treat those as connectors-by-aggregation, not substantive bridges, the same override the neighbor-summary tiers use.)
 - **The whole shape — `nn graph show`** *(no `--focus`)* — the entire graph if you truly need it; usually the two above are enough and this is a last resort (it's large).
 
-Same presenter discipline: read these as data and *describe* the landscape ("your note sits in a small 25-note region off the large 259-note central cluster; the nearest highway between them is note X") rather than pasting cluster dumps. Then descend back to the walk.
+**Make the orbital view spatial too — draw a continent map.** Same presenter discipline as scan-out: `clusters` and `bridges` are the data, and you *draw* the landscape rather than pasting dumps. But the orbital map is a **different shape** from the scan-out tree — not a hop-tree from one ego, but **regions as blobs sized by note-count, with bridges as the lines joining them** (a continent map, not a family tree). Mark where you are. On a plain surface, an ASCII sketch:
+
+```
+  ┌──────────────────────────┐
+  │  cluster 1  (259) ●●●●●●  │  central continent (prompting/token core)
+  └───────────┬──────────────┘
+        bridge: 5853 "vocab is a composition barrier"
+              │
+     ┌────────┴─────┐   ┌──────────┐   ┌──────────┐
+     │ c3 (25) ◆YOU │   │ c2 (28)  │   │ c4 (24)  │   … 35 more small regions
+     │ graph-tooling│   └──────────┘   └──────────┘
+     └──────────────┘
+```
+
+On a Mermaid-rendering surface, draw the same thing as a compact graph (region nodes, bridge edges) instead. Either way, size conveys mass, lines convey the highways, and `◆YOU` marks your region. Then descend back to the walk.
 
 After scanning out, resume the walk: recenter on a neighbor as before, or hop to a similar-but-unlinked note by making it the new `--focus` (and consider linking it, since the absence of an edge is what scan-out just exposed).
 
