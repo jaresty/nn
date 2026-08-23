@@ -385,6 +385,18 @@ Use it to walk the graph as a positioned space rather than dumping the whole str
 3. **Recenter** — pick a neighbor's ID and re-run step 1 with that as `--focus`. Navigation is a chain of ego-hops (the ExcaliBrain model in design note 20260820154156-6576), not a pan over a hairball.
 4. **Arrive** — stop when the current node answers your goal, or when the zone you were following is empty (e.g. you were chasing tension and this node has no LEFT — the thread ends here). State what you found relative to where you started.
 
+**Offer the recenter as a chooser when the harness supports one and a human is driving the walk.** The Recenter step is a decision — "which neighbor next?" — and a harness chooser (a selectable-option prompt) renders it as clickable moves rather than a wall of prose. Use it *only* when both hold: the harness exposes a chooser affordance, **and** a human is co-navigating this walk. When either is false — you are navigating autonomously toward a goal, or stdout is not a TTY — do **not** invoke a chooser: pick the move yourself per the goal and continue (nn is non-interactive by default when stdout is not a TTY).
+
+When you do offer a chooser:
+
+- **Scope options to the goal-relevant zone(s), not every neighbor.** A hub can have many neighbors; a flat list of all of them loses the zone structure that is the whole point. Offer the zone the goal points into (LEFT for tension, TOP/RIGHT for provenance, BOTTOM for what-builds-on), optionally plus one "explore another zone" escape.
+- **Label** each option with its zone arrow + the neighbor's title (e.g. `→ 6576 ExcaliBrain layout`, `↓ 4004 control-family principle`).
+- **Describe** each option with its zone + `↑out ↓in` degree + a one-line claim drawn from the body (what it *argues*, not just its title) — the same substance the prose summaries carry.
+- **Order** the recommended move (the one that closes the most distance to the goal) first.
+- **Always include an "Arrive — stop here" option** so the human can end the walk without a forced hop.
+
+Then recenter on their pick (or arrive) and re-run step 1 from the new focus.
+
 **When presenting a step to a human, give all three parts below.** They are jointly required — none is sufficient alone. The summary supplies *substance* (what this note and its neighbors mean), the map supplies *structure* (how they're positioned), and the moves supply *direction* (where to go). A map without summaries is a skeleton you can't read; summaries without a map lose the spatial relationships. Do not relay the raw command output.
 
 **(a) Summarize the current note — length scaled to its degree (see the tiers in (c)).** Before the map, characterize where the reader is standing: what this note *is* (its type/status and its central claim, drawn from its body — what it argues, not just its title), and how it sits in its neighborhood (what it refines above, what challenges it, what builds on it). Apply the same degree tiers as the neighbors: a high-degree focus (a hub you've landed on) earns the fuller 2–3 sentence treatment; a low-degree focus (a leaf you're passing through) gets a brief one. This is the anchor the rest of the view hangs off.
