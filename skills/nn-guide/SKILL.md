@@ -385,29 +385,37 @@ Use it to walk the graph as a positioned space rather than dumping the whole str
 3. **Recenter** — pick a neighbor's ID and re-run step 1 with that as `--focus`. Navigation is a chain of ego-hops (the ExcaliBrain model in design note 20260820154156-6576), not a pan over a hairball.
 4. **Arrive** — stop when the current node answers your goal, or when the zone you were following is empty (e.g. you were chasing tension and this node has no LEFT — the thread ends here). State what you found relative to where you started.
 
-**Scan out — an always-available aside, not a step.** At any point in the walk (Enter, Orient, Read, Recenter) you can stop stepping sideways and *zoom out* to see the landscape around the current node, then return to the walk where you left it. Scan-out is deliberately **not zoned**: zones are defined only relative to one ego (design note 20260821155048-7280), so they answer "how do my neighbors relate to me" (relationship) — scan-out answers "what territory am I standing in" (structure at altitude), which zones cannot express. Use it when you feel lost, when Orient shows an unexpectedly dense or sparse neighborhood, or before committing to a direction. It composes existing primitives — no zoned view — and renders three zoom-out signals:
+These three verbs are **not** `nn` subcommands or flags — they are named moves *you* (the agent) perform by composing existing primitives, exactly like the walk steps above. There is **no new CLI surface**. Modes and options named below (e.g. "flat mode") are presentation choices you make, not shell flags.
 
-- **Degree + reach** — the current node's `↑out ↓in` (hub or leaf?) plus its 2-hop extent, unzoned, so you see how far you can actually walk:
+#### `scan` — look wide (an always-available aside, not a step)
+
+At any point in the walk (Enter, Orient, Read, Recenter) you can stop stepping sideways and *zoom out* to see the landscape around the current node, then return to the walk where you left it. `scan` is deliberately **not zoned**: zones are defined only relative to one ego (design note 20260821155048-7280), so they answer "how do my neighbors relate to me" (relationship) — `scan` answers "what territory am I standing in" (structure at altitude), which zones cannot express. Use it when you feel lost, when Orient shows an unexpectedly dense or sparse neighborhood, or before committing to a direction.
+
+`scan` spans **both altitudes in one look** — your ego territory *and* the global landscape. Do not raise `--depth` to "look farther out": past depth 2 more hops give an exponential tangle, not a broader view — the real broadening is the **ego→global shift**, not more depth. Render both anchors (never start at an intermediate level), combining these existing primitives:
+
+**Your territory (ego, depth 2)** — where you stand and how far you can walk:
+- **Degree + reach** — the current node's `↑out ↓in` (hub or leaf?) plus its 2-hop extent, unzoned:
   ```
   nn graph show --focus <id> --depth 2 --direction both --format text
   ```
-- **Region + load-bearing** — which topic cluster this node sits in (`nn clusters`) and whether it sits on a bridge between clusters (`nn graph bridges`). A node on a bridge is a crossing point between territories; a node deep in one cluster is interior.
-- **Reachable-but-unlinked** — `nn list --similar <id>`: nearby notes that share vocabulary but have no edge to walk. This is the one signal a step-wise walk can *never* surface — it names territory the navigation can't reach yet (candidate missing edges).
+- **Region + load-bearing** — which cluster this node sits in (`nn clusters`) and whether it sits on a bridge between clusters (`nn graph bridges`). A node on a bridge is a crossing point; a node deep in one cluster is interior.
+- **Reachable-but-unlinked** — `nn list --similar <id>`: nearby notes that share vocabulary but have no edge to walk. This is the one signal a step-wise walk can *never* surface — territory the navigation can't reach yet (candidate missing edges).
 
-**Make it spatial — you draw the map, the command is just the data.** The `--format text` tree from **Degree + reach** is the *data source*, not the thing you relay. Don't paste the raw output. Read it — its indentation is the reach (hops out), its `↑out ↓in` markers are the terrain (hubs vs. leaves) — then *draw* a map in whatever form fits the surface you're relaying to (the same "CLI is a faithful data source, the agent is the presenter" split the zoned step uses when it says do not relay raw output). Sensible renderings, cheapest first:
+**The wider landscape (global)** — where your region sits in everything (drops the ego entirely):
+- **The landmass — `nn clusters`** — every topic cluster and its size: how many regions the notebook has, which one you're in, and whether it's the giant central cluster or a small satellite.
+- **The highways — `nn graph bridges`** — integration points whose links join otherwise-separate regions, ranked by load-bearing weight. (Daily/index notes often rank high because they touch many topics — treat those as connectors-by-aggregation, not substantive bridges.)
+- **The whole shape — `nn graph show`** *(no `--focus`)* — the entire graph, a last resort (it's large); usually the two above are enough.
 
-- **Indented / positional text** — an annotated tree, or a rough spatial sketch placing the hub at the center with ancestry above and descendants fanning below. Works on any surface, including plain terminals and agent relay. This is the default.
-- **A Mermaid diagram** — only when you're relaying to a human on a surface that *renders* Mermaid. Build it yourself from the graph data; keep it compact (drop edge annotations, abbreviate titles) so a depth-2 map doesn't sprawl. An unrendered Mermaid block is just a wall of source, so don't reach for it otherwise.
+**Two presentation modes — you choose at look time:**
+- **Default (labeled sections)** — render the two anchors above as *Your territory (ego)* and *The wider landscape (global)*, kept distinct. This is the default: the labels honor the relationship-vs-territory and ego-vs-global distinctions.
+- **Flat mode (blended)** — merge both anchors into one landscape with no tier labels, when the user asks for the merged view. Same lookups, different rendering.
 
-Pick the rendering by surface capability, exactly as you pick whether to offer the recenter chooser — richer form only when the surface supports it, text otherwise.
+**Make it spatial — you draw the map, the command is just the data.** The `--format text` trees are the *data source*, not the thing you relay. Don't paste raw output. Read it — indentation is reach (hops out), `↑out ↓in` markers are terrain (hubs vs. leaves) — then *draw* a map in whatever form fits the surface (the same "CLI is a faithful data source, the agent is the presenter" split the zoned step uses). Cheapest first:
 
-**Orbital view — scan out all the way to the whole notebook.** Scan-out is still ego-relative (it centers on your node). One altitude higher drops the ego entirely and asks *where does my region sit in everything* — the global structure. Reach for it when even the 2-hop territory feels like it's all one region and you want to know how that region relates to the rest of the notebook, or when you're lost about which topic-area you're even in. Note this is a **shift from ego to global, not more `--depth`** — raising depth past 2 just grows an exponential tangle without answering a new question; the orbital view answers a *different* question with whole-graph primitives:
+- **Indented / positional text** — an annotated tree, or a rough sketch placing the hub at the center with ancestry above and descendants fanning below. Works on any surface, including plain terminals and agent relay. This is the default.
+- **A Mermaid diagram** — only when relaying to a human on a surface that *renders* Mermaid. Build it yourself; keep it compact (drop edge annotations, abbreviate titles). An unrendered Mermaid block is just a wall of source.
 
-- **The landmass — `nn clusters`** — every topic cluster and its size. This tells you how many regions the notebook has, which one your node is in, and whether it's the giant central cluster or a small satellite. (A notebook typically has one large cluster and a long tail of small ones.)
-- **The highways — `nn graph bridges`** — the notebook's integration points: notes whose links join otherwise-separate regions, ranked by how load-bearing they are. These are the crossings you'd take to travel between territories. (Daily/index notes often rank high because they touch many topics — treat those as connectors-by-aggregation, not substantive bridges, the same override the neighbor-summary tiers use.)
-- **The whole shape — `nn graph show`** *(no `--focus`)* — the entire graph if you truly need it; usually the two above are enough and this is a last resort (it's large).
-
-**Make the orbital view spatial too — draw a continent map.** Same presenter discipline as scan-out: `clusters` and `bridges` are the data, and you *draw* the landscape rather than pasting dumps. But the orbital map is a **different shape** from the scan-out tree — not a hop-tree from one ego, but **regions as blobs sized by note-count, with bridges as the lines joining them** (a continent map, not a family tree). Mark where you are. On a plain surface, an ASCII sketch:
+For the **global** anchor the map is a **different shape** — not a hop-tree from one ego, but **regions as blobs sized by note-count, with bridges as the lines joining them** (a continent map, not a family tree). Mark where you are. On a plain surface, an ASCII sketch:
 
 ```
   ┌──────────────────────────┐
@@ -421,9 +429,25 @@ Pick the rendering by surface capability, exactly as you pick whether to offer t
      └──────────────┘
 ```
 
-On a Mermaid-rendering surface, draw the same thing as a compact graph (region nodes, bridge edges) instead. Either way, size conveys mass, lines convey the highways, and `◆YOU` marks your region. Then descend back to the walk.
+Pick the rendering by surface capability, exactly as you pick whether to offer the recenter chooser — richer form only when the surface supports it, text otherwise. After scanning, resume the walk: recenter on a neighbor as before, or hop to a similar-but-unlinked note by making it the new `--focus` (and consider linking it, since the absence of an edge is what `scan` just exposed).
 
-After scanning out, resume the walk: recenter on a neighbor as before, or hop to a similar-but-unlinked note by making it the new `--focus` (and consider linking it, since the absence of an edge is what scan-out just exposed).
+#### `peek` — look deep without moving (read-only, focus stays put)
+
+`peek` previews detail **without changing focus** — this is what makes it distinct from a one-step recenter. If it moved focus it would just be a slow walk. Two forms:
+
+- **`peek` on the current node** — expand detail in place: read the current node's full body and its neighbors' bodies without recentering (`nn graph show --focus <id> --depth 1 --direction both --zones --bodies` is already the read-in-place view; peeking just means you consume it without committing to a move).
+- **`peek` in a direction** — preview what is down one zone (TOP / BOTTOM / LEFT / RIGHT) before deciding to go there: `nn show <neighbor-id> --depth 2` reads that neighbor and *its* onward links, so you see where the move leads without taking it. Focus stays on your current node throughout.
+
+Use `peek` when Read-from-here isn't enough to judge a move — you want to see one step past the neighbor before committing.
+
+#### `teleport` — move far (relocate focus)
+
+`teleport` is how you *get* a focus when you have none, or jump to a distant region. Unlike `scan`/`peek` (which look), `teleport` **relocates** — it changes where you are. Two modes:
+
+- **`teleport` with a query** — run a search but land on **structure, not a ranked hit list**: `nn list --search "<topic>"` to find candidates, then surface the **landing zones** — `nn clusters` (which regions the hits fall in) and high-degree hubs among them — and recenter on a hub or cluster representative. Search identifies *relevance*; you land on the *structure* around it.
+- **`teleport` random** — a serendipitous jump: `nn random` (optionally `--tag`/`--type`) or `nn shuf` to land somewhere unplanned, then start a fresh walk from there.
+
+`teleport` only relocates — it does not render deep detail (that is `peek`'s job). After landing, run Orient (step 1) from the new focus. This is the one move worth invoking from cold — it is named in the session-start CLI-reference pointer for that reason.
 
 **Offer the recenter as a chooser when the harness supports one and a human is driving the walk.** The Recenter step is a decision — "which neighbor next?" — and a harness chooser (a selectable-option prompt) renders it as clickable moves rather than a wall of prose. Use it *only* when both hold: the harness exposes a chooser affordance, **and** a human is co-navigating this walk. When either is false — you are navigating autonomously toward a goal, or stdout is not a TTY — do **not** invoke a chooser: pick the move yourself per the goal and continue (nn is non-interactive by default when stdout is not a TTY).
 
