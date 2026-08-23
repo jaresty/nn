@@ -9,11 +9,24 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
+type bridgeSearchWitnessEdge struct {
+	ID         string `json:"id"`
+	Title      string `json:"title"`
+	Type       string `json:"type"`
+	Annotation string `json:"annotation"`
+}
+
+type bridgeSearchWitness struct {
+	Incoming bridgeSearchWitnessEdge `json:"incoming"`
+	Outgoing bridgeSearchWitnessEdge `json:"outgoing"`
+}
+
 type bridgeSearchResult struct {
-	ID             string  `json:"id"`
-	Title          string  `json:"title"`
-	Score          int     `json:"score"`
-	RelevanceScore float64 `json:"relevance_score"`
+	ID             string              `json:"id"`
+	Title          string              `json:"title"`
+	Score          int                 `json:"score"`
+	RelevanceScore float64             `json:"relevance_score"`
+	Witness        bridgeSearchWitness `json:"witness"`
 }
 
 func TestGraphBridgesSearchProjectsOntoFullGraphBridges(t *testing.T) {
@@ -22,8 +35,16 @@ func TestGraphBridgesSearchProjectsOntoFullGraphBridges(t *testing.T) {
 	left := newTestNoteForCLI("20260101000000-0001", "Left context", note.TypeConcept)
 	matchingBridge := newTestNoteForCLI("20260101000000-0002", "Quasarbridge crossing", note.TypeConcept)
 	right := newTestNoteForCLI("20260101000000-0003", "Right context", note.TypeConcept)
-	left.Links = []note.Link{{TargetID: matchingBridge.ID}}
-	matchingBridge.Links = []note.Link{{TargetID: right.ID}}
+	// Put the lexicographically later edge first so witness selection cannot
+	// depend on stored edge order.
+	left.Links = []note.Link{
+		{TargetID: matchingBridge.ID, Type: "supports", Annotation: "later inbound"},
+		{TargetID: matchingBridge.ID, Type: "extends", Annotation: "chosen inbound"},
+	}
+	matchingBridge.Links = []note.Link{
+		{TargetID: right.ID, Type: "supports", Annotation: "later outgoing"},
+		{TargetID: right.ID, Type: "grounded-by", Annotation: "chosen outgoing"},
+	}
 
 	matchingNonBridge := newTestNoteForCLI("20260101000000-0004", "Quasarbridge isolated", note.TypeConcept)
 	otherLeft := newTestNoteForCLI("20260101000000-0005", "Other left", note.TypeConcept)
@@ -49,6 +70,39 @@ func TestGraphBridgesSearchProjectsOntoFullGraphBridges(t *testing.T) {
 	}
 	if got[0].Score <= 0 || got[0].RelevanceScore <= 0 {
 		t.Fatalf("bridge result lacks structural and relevance scores: %#v", got[0])
+	}
+	if want := (bridgeSearchWitnessEdge{ID: left.ID, Title: left.Title, Type: "extends", Annotation: "chosen inbound"}); got[0].Witness.Incoming != want {
+		t.Errorf("incoming witness = %#v, want %#v", got[0].Witness.Incoming, want)
+	}
+	if want := (bridgeSearchWitnessEdge{ID: right.ID, Title: right.Title, Type: "grounded-by", Annotation: "chosen outgoing"}); got[0].Witness.Outgoing != want {
+		t.Errorf("outgoing witness = %#v, want %#v", got[0].Witness.Outgoing, want)
+	}
+}
+
+func TestGraphBridgesLegacyJSONOmitsCrossingWitness(t *testing.T) {
+	left := newTestNoteForCLI("20260101000000-0001", "Left", note.TypeConcept)
+	bridge := newTestNoteForCLI("20260101000000-0002", "Bridge", note.TypeConcept)
+	right := newTestNoteForCLI("20260101000000-0003", "Right", note.TypeConcept)
+	left.Links = []note.Link{{TargetID: bridge.ID, Type: "supports"}}
+	bridge.Links = []note.Link{{TargetID: right.ID, Type: "extends"}}
+
+	nbDir, execute := setupNotebook(t)
+	for _, n := range []*note.Note{left, bridge, right} {
+		writeNoteFile(t, nbDir, n)
+	}
+	out, err := execute("graph", "bridges", "--format", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("legacy bridges JSON: %v\n%s", err, out)
+	}
+	if len(got) != 1 {
+		t.Fatalf("legacy bridge count = %d, want 1: %s", len(got), out)
+	}
+	if _, exists := got[0]["witness"]; exists {
+		t.Fatalf("legacy bridge JSON unexpectedly contains witness: %s", out)
 	}
 }
 
@@ -116,7 +170,7 @@ func TestGraphBridgesSearchIsDocumentedForScan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"nn graph bridges --search \"<query>\" --format json", "Peek", "Recenter"} {
+	for _, required := range []string{"nn graph bridges --search \"<query>\" --format json", "Peek", "Recenter", "witness.incoming", "crossing example, not proof"} {
 		if !strings.Contains(string(guide), required) {
 			t.Errorf("nn-guide missing %q", required)
 		}

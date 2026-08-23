@@ -331,15 +331,73 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 
 			w := outWriter(cmd)
 			if format == "json" {
-				type je struct {
-					ID             string  `json:"id"`
-					Title          string  `json:"title"`
-					Score          int     `json:"score"`
-					RelevanceScore float64 `json:"relevance_score,omitempty"`
+				if searchMode {
+					type witnessEdge struct {
+						ID         string `json:"id"`
+						Title      string `json:"title"`
+						Type       string `json:"type"`
+						Annotation string `json:"annotation"`
+					}
+					type witness struct {
+						Incoming witnessEdge `json:"incoming"`
+						Outgoing witnessEdge `json:"outgoing"`
+					}
+					type searchEntry struct {
+						ID             string  `json:"id"`
+						Title          string  `json:"title"`
+						Score          int     `json:"score"`
+						RelevanceScore float64 `json:"relevance_score"`
+						Witness        witness `json:"witness"`
+					}
+
+					titles := make(map[string]string, len(notes))
+					for _, n := range notes {
+						titles[n.ID] = n.Title
+					}
+					less := func(a, b witnessEdge) bool {
+						if a.ID != b.ID {
+							return a.ID < b.ID
+						}
+						if a.Type != b.Type {
+							return a.Type < b.Type
+						}
+						return a.Annotation < b.Annotation
+					}
+					out := make([]searchEntry, len(entries))
+					for i, e := range entries {
+						var crossing witness
+						incomingSet, outgoingSet := false, false
+						for _, n := range notes {
+							for _, lnk := range n.Links {
+								if lnk.TargetID == e.id {
+									candidate := witnessEdge{ID: n.ID, Title: n.Title, Type: lnk.Type, Annotation: lnk.Annotation}
+									if !incomingSet || less(candidate, crossing.Incoming) {
+										crossing.Incoming, incomingSet = candidate, true
+									}
+								}
+								if n.ID == e.id {
+									candidate := witnessEdge{ID: lnk.TargetID, Title: titles[lnk.TargetID], Type: lnk.Type, Annotation: lnk.Annotation}
+									if !outgoingSet || less(candidate, crossing.Outgoing) {
+										crossing.Outgoing, outgoingSet = candidate, true
+									}
+								}
+							}
+						}
+						out[i] = searchEntry{ID: e.id, Title: e.title, Score: e.score, RelevanceScore: e.relevance, Witness: crossing}
+					}
+					enc := json.NewEncoder(w)
+					enc.SetIndent("", "  ")
+					return enc.Encode(out)
 				}
-				out := make([]je, len(entries))
+
+				type legacyEntry struct {
+					ID    string `json:"id"`
+					Title string `json:"title"`
+					Score int    `json:"score"`
+				}
+				out := make([]legacyEntry, len(entries))
 				for i, e := range entries {
-					out[i] = je{ID: e.id, Title: e.title, Score: e.score, RelevanceScore: e.relevance}
+					out[i] = legacyEntry{ID: e.id, Title: e.title, Score: e.score}
 				}
 				enc := json.NewEncoder(w)
 				enc.SetIndent("", "  ")
