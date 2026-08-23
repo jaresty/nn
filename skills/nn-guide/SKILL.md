@@ -394,15 +394,12 @@ Use it to walk the graph as a positioned space rather than dumping the whole str
 - **Region + load-bearing** — which topic cluster this node sits in (`nn clusters`) and whether it sits on a bridge between clusters (`nn graph bridges`). A node on a bridge is a crossing point between territories; a node deep in one cluster is interior.
 - **Reachable-but-unlinked** — `nn list --similar <id>`: nearby notes that share vocabulary but have no edge to walk. This is the one signal a step-wise walk can *never* surface — it names territory the navigation can't reach yet (candidate missing edges).
 
-**Make it spatial — the text tree is the default map.** Scan-out is about *where you are in space*, but the spatial view is already the `--format text` tree from the **Degree + reach** signal above: its indentation *is* the reach (how many hops out each node sits), and the `↑out ↓in` markers *are* the terrain (dense knots are hubs, long single-child chains are ancestry threads). Read that tree for territory, not relationship — no extra command needed, and it survives any surface (plain terminal, agent relay, non-markdown chat).
+**Make it spatial — you draw the map, the command is just the data.** The `--format text` tree from **Degree + reach** is the *data source*, not the thing you relay. Don't paste the raw output. Read it — its indentation is the reach (hops out), its `↑out ↓in` markers are the terrain (hubs vs. leaves) — then *draw* a map in whatever form fits the surface you're relaying to (the same "CLI is a faithful data source, the agent is the presenter" split the zoned step uses when it says do not relay raw output). Sensible renderings, cheapest first:
 
-**Optional Mermaid upgrade — only when the harness renders Mermaid.** Same gating rule as the recenter chooser: reach for the richer affordance *only* when the surface supports it. If — and only if — you're relaying to a human in a Mermaid-rendering surface, you may also emit a picture:
+- **Indented / positional text** — an annotated tree, or a rough spatial sketch placing the hub at the center with ancestry above and descendants fanning below. Works on any surface, including plain terminals and agent relay. This is the default.
+- **A Mermaid diagram** — only when you're relaying to a human on a surface that *renders* Mermaid. Build it yourself from the graph data; keep it compact (drop edge annotations, abbreviate titles) so a depth-2 map doesn't sprawl. An unrendered Mermaid block is just a wall of source, so don't reach for it otherwise.
 
-```
-nn graph show --focus <id> --depth 2 --direction both --format mermaid
-```
-
-Otherwise do **not** — an unrendered Mermaid block is a wall of `flowchart` source, and even when rendered a depth-2 graph with full edge annotations gets very wide. Prefer the text tree; use Mermaid as an occasional upgrade, not the default.
+Pick the rendering by surface capability, exactly as you pick whether to offer the recenter chooser — richer form only when the surface supports it, text otherwise.
 
 After scanning out, resume the walk: recenter on a neighbor as before, or hop to a similar-but-unlinked note by making it the new `--focus` (and consider linking it, since the absence of an edge is what scan-out just exposed).
 
