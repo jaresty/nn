@@ -359,6 +359,16 @@ nn graph routes --focus ID --links TYPES --search QUERY --limit N --json
 
 Discovers query-relevant destinations that are reachable from `ID` by following stored links in their source→target direction, restricted to comma-separated canonical `TYPES`. Eligibility requires positive direct lexical BM25 evidence in the destination's title, body, or tags; graph-derived relevance such as a matching link annotation alone is insufficient. It scores every note against the full corpus, normalizes by the largest positive score, excludes the focus, unreachable notes, and destinations without direct evidence, then ranks eligible destinations by the normalized full-corpus `relevance_score` descending, shortest-hop count ascending, and destination ID ascending. Each JSON array entry contains `destination` (`id`, `title`, `relevance_score`) plus aligned shortest-witness `nodes` and `edges`; edge `i` connects `nodes[i]` to `nodes[i+1]`. `--json` is required.
 
+### nn graph impact (explicit typed impact traversal)
+
+```
+nn graph impact --focus ID --links TYPES --direction incoming|outgoing --depth N --json
+```
+
+Returns every note reached by a cycle-safe, depth-bounded BFS through the selected canonical link types. All flags are explicit and required: focus must be a nonblank existing ID, `TYPES` must be a nonblank comma-separated list without empty or unknown members, direction must be exactly `incoming` or `outgoing`, depth must be positive, and `--json` must be true. The JSON object reports `focus`, direction, normalized sorted unique `links`, requested depth, and `impacts` excluding focus sorted by depth then ID. Each impact has `node`, depth, and one deterministic shortest focus→impact witness in `nodes` and `edges`; adjacency is ordered by traversed endpoint ID, edge type, then annotation.
+
+`outgoing` follows each stored source→target edge. `incoming` traverses the reverse adjacency from stored target to stored source, but witness edges always retain their stored source/from → target/to orientation and annotation. Thus incoming `edges` point opposite consecutive focus→impact traversal nodes. Evidence examples: from an observation, `--links grounded-by --direction incoming` finds claims stored as claim→observation; from evidence stored as evidence→claim, `--links supports --direction outgoing` finds supported claims in stored direction.
+
 `--zones` (requires `--focus`) annotates each node with the directional screen zone it occupies relative to the focus, derived from the node's direct link to the focus and that link's direction:
 
 - **TOP** — what the focus answers to / depends on: `governs`/`supports` incoming, or `refines`/`extends`/`grounded-by` outgoing from the focus. Evidence rule: `grounded-by OUT → TOP`; `supports IN → TOP`.
@@ -555,6 +565,21 @@ This intersects semantic relevance with actual directed reachability under the s
 - **Peek** — inspect a selected result's complete `nodes` and `edges` witness without changing focus.
 - **Recenter** — choose a destination, move to `nodes[1]`, and rerun Orient; do not jump directly to the destination while claiming to walk its witness.
 - **Arrive** — when focus reaches `destination.id`, explain the traversed edge types and annotations and report the destination's `relevance_score` as discovery evidence, not relationship strength.
+
+#### Explicit typed impact overlay
+
+When the walk asks what a retained focus affects or what relies on it through a known relationship family, run:
+
+```
+nn graph impact --focus ID --links TYPES --direction incoming|outgoing --depth N --json
+```
+
+This is a bounded structural impact set, not relevance ranking or inferred closure. Choose direction from stored semantics: `grounded-by` incoming from an evidence focus finds claims that depend on it, while `supports` outgoing from an evidence focus finds claims it corroborates.
+
+- **Scan** — read the complete returned impact set to the requested depth; absence under one type/direction filter is not proof of global isolation.
+- **Peek** — inspect a selected impact's full `nodes` and `edges` witness without changing focus. For incoming traversal, the nodes run focus→impact while stored witness edges point in the opposite direction.
+- **Recenter** — move only to `nodes[1]`, retain the selected types/direction/depth deliberately, and rerun from the new focus; do not jump to a distant impact while claiming to walk the witness.
+- **Arrive** — when focus reaches the selected `node.id`, explain the traversed edge types and annotations. Read each incoming edge in its stored source→target orientation rather than reversing its claim.
 
 #### Typed path route overlay
 

@@ -87,6 +87,7 @@ func newGraphCmd(state *rootState) *cobra.Command {
 		newGraphOrphansCmd(state),
 		newGraphBridgesCmd(state),
 		newGraphRoutesCmd(state),
+		newGraphImpactCmd(state),
 		newGraphShowCmd(state),
 		newGraphExportCmd(state),
 		newGraphApplyCmd(state),
