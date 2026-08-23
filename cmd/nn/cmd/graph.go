@@ -449,6 +449,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	var representation string
 	var zones bool
 	var bodies bool
+	var presentationHints bool
 	var colorMode string
 
 	cmd := &cobra.Command{
@@ -486,15 +487,22 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				byID[n.ID] = n
 			}
 
+			type summaryBudget struct {
+				Tier    string   `json:"tier"`
+				Length  string   `json:"length"`
+				Include []string `json:"include"`
+				Note    string   `json:"note,omitempty"`
+			}
 			type showNode struct {
-				ID        string   `json:"id"`
-				Title     string   `json:"title"`
-				Type      string   `json:"type"`
-				Tags      []string `json:"tags"`
-				Zone      string   `json:"zone,omitempty"`
-				Body      string   `json:"body,omitempty"`
-				OutDegree int      `json:"out_degree"`
-				InDegree  int      `json:"in_degree"`
+				ID            string         `json:"id"`
+				Title         string         `json:"title"`
+				Type          string         `json:"type"`
+				Tags          []string       `json:"tags"`
+				Zone          string         `json:"zone,omitempty"`
+				Body          string         `json:"body,omitempty"`
+				OutDegree     int            `json:"out_degree"`
+				InDegree      int            `json:"in_degree"`
+				SummaryBudget *summaryBudget `json:"summary_budget,omitempty"`
 			}
 			type showEdge struct {
 				From       string `json:"from"`
@@ -592,6 +600,22 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					resultNodes[i].OutDegree = len(n.Links)
 				}
 				resultNodes[i].InDegree = inDegree[resultNodes[i].ID]
+				if presentationHints {
+					budget := summaryBudget{Tier: "leaf", Length: "one clause", Include: []string{"title", "type", "central claim"}}
+					if resultNodes[i].InDegree >= 2 {
+						budget = summaryBudget{Tier: "connected", Length: "one sentence", Include: []string{"central claim", "relationship to focus"}}
+					}
+					if resultNodes[i].InDegree >= 5 {
+						budget = summaryBudget{Tier: "hub", Length: "2–3 sentences", Include: []string{"central claim", "why load-bearing", "relationship to focus"}}
+						for _, tag := range resultNodes[i].Tags {
+							if strings.EqualFold(tag, "daily") || strings.EqualFold(tag, "index") {
+								budget = summaryBudget{Tier: "connected", Length: "one sentence", Include: []string{"central claim", "connector role"}, Note: "aggregation hub: summarize as connected"}
+								break
+							}
+						}
+					}
+					resultNodes[i].SummaryBudget = &budget
+				}
 			}
 			if resultEdges == nil {
 				resultEdges = []showEdge{}
@@ -697,6 +721,17 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				n := nodeByID[id]
 				return fmt.Sprintf("↑%d ↓%d", n.OutDegree, n.InDegree)
 			}
+			renderPresentationHint := func(id, indent string) {
+				budget := nodeByID[id].SummaryBudget
+				if budget == nil {
+					return
+				}
+				fmt.Fprintf(w, "%s    relay budget: %s — include %s", indent, budget.Length, strings.Join(budget.Include, ", "))
+				if budget.Note != "" {
+					fmt.Fprintf(w, " — %s", budget.Note)
+				}
+				fmt.Fprintln(w)
+			}
 			renderNodeBody := func(id, indent string) {
 				if !bodies {
 					return
@@ -778,7 +813,9 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 			}
 			if focus != "" && zones {
 				// Zone-grouped view: nodes under directional headers.
-				fmt.Fprintf(w, "%s  %s  %s\n\n", focus, paintNode(focus, byID[focus].Title), degreeMarker(focus))
+				fmt.Fprintf(w, "%s  %s  %s\n", focus, paintNode(focus, byID[focus].Title), degreeMarker(focus))
+				renderPresentationHint(focus, "")
+				fmt.Fprintln(w)
 				renderNodeBody(focus, "")
 				// Zone → link-type key: names what each zone means, so text
 				// output carries the same legend as the interactive viewer.
@@ -820,6 +857,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					fmt.Fprintf(w, "%s\n", paint(z.key, z.header))
 					for _, n := range group {
 						fmt.Fprintf(w, "  %s  %s  %s\n", n.ID, paintNode(n.ID, n.Title), degreeMarker(n.ID))
+						renderPresentationHint(n.ID, "  ")
 						renderNodeBody(n.ID, "  ")
 					}
 					fmt.Fprintln(w)
@@ -850,6 +888,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					}
 					if indent == "" {
 						fmt.Fprintf(w, "%s  %s  %s\n", id, paintNode(id, n.Title), degreeMarker(id))
+						renderPresentationHint(id, "")
 						renderNodeBody(id, "")
 					}
 					rendered[id] = true
@@ -871,6 +910,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 						} else {
 							fmt.Fprintf(w, "%s  %s [%s] %s  %s  %s\n", indent, tree.arrow, paintEdge(e.LinkType, linkLabel), tree.neighbor, paintNode(tree.neighbor, target.Title), degreeMarker(tree.neighbor))
 						}
+						renderPresentationHint(tree.neighbor, indent+"  ")
 						renderNodeBody(tree.neighbor, indent+"  ")
 						renderTree(tree.neighbor, indent+"  ")
 					}
@@ -879,6 +919,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 			} else {
 				for _, n := range resultNodes {
 					fmt.Fprintf(w, "%s  %s  %s\n", n.ID, paintNode(n.ID, n.Title), degreeMarker(n.ID))
+					renderPresentationHint(n.ID, "")
 					renderNodeBody(n.ID, "")
 				}
 			}
@@ -894,6 +935,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&representation, "representation", "", "Representation required for traversed notes")
 	cmd.Flags().BoolVar(&zones, "zones", false, "Annotate each node with its directional zone (top/bottom/left/right) relative to the focus")
 	cmd.Flags().BoolVar(&bodies, "bodies", false, "Include each node's body (and tags in text output) so the graph can be read as well as navigated")
+	cmd.Flags().BoolVar(&presentationHints, "presentation-hints", false, "Annotate nodes with degree-based LLM relay budgets without truncating bodies")
 	cmd.Flags().StringVar(&colorMode, "color", "auto", "Colorize zoned text output by zone: auto (color only to a TTY), always, or never")
 	return cmd
 }

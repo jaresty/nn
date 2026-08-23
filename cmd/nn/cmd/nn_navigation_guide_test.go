@@ -30,6 +30,7 @@ func TestNNGuideDocumentsCanonicalHumanNavigationContract(t *testing.T) {
 			"Navigation presentation check:",
 			"[ ] focus type and status shown",
 			"[ ] Arrive available",
+			"--presentation-hints",
 		},
 		"arrive report": {
 			"## Arrive report",
