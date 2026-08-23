@@ -19,18 +19,22 @@ invariant, stated in three moves, is:
    request by the correlation id.
 
 The *opener* is pluggable. Concrete openers, all interchangeable at move 1:
-- an **MCP** `tools/call` that opens a server-owned surface. This already covers
-  send-a-link-to-a-human surfaces: **wiretext.app is itself an MCP server** —
-  `nn` calls its tool, wiretext texts the person a link, the person replies from
-  their phone, and the reply comes back out of band. So "send a link the human
-  answers elsewhere" is not a separate opener kind; it is simply what an MCP
-  opener does when the MCP server fronts a messaging surface.
+- an **MCP** `tools/call` that provisions a surface, optionally followed by
+  opening it. **wiretext is an MCP server** of this kind: `nn` calls the wiretext
+  tool, which produces/hosts a wireframe (Figma-like), and then `nn` **opens the
+  browser** on the returned URL for the human to view and annotate. Note the
+  opener here is *two moves* — provision (MCP call) then present (browser open) —
+  not a single blocking call and not a text-back-from-your-phone flow.
 - a **skill** invocation that opens whatever the skill fronts,
 - a **peer binary** (the existing delegated pattern, but non-blocking).
 
-What makes all of these *the same feature* is moves 2 and 3: **asynchronous
-submission decoupled in time from invocation.** That is the real new capability;
-the opener is a detail behind an interface.
+Openers therefore split on *how the human is reached*: some (wiretext) call MCP
+to provision, then `nn` opens a local browser — the human is present now; others
+could hand off entirely to a surface the human reaches on their own later. The
+first is browser-open (like `--surface canvas`/`graph`); the second is the
+genuinely out-of-band case. **Both still share moves 2 and 3** — the human acts
+on their own clock and the result returns by correlation id — which is why they
+are one feature; whether a browser is opened locally is an opener detail.
 
 ## Context
 
@@ -127,8 +131,9 @@ correlation).
 **Deferred pending a chosen submission model.** The decision that matters is the
 **async submission mechanism**, not the opener. Recommend **option 2 (detach +
 resume)** as the target if pursued, because it is the only one that honestly
-supports human latencies (minutes to hours — a texted-back reply, an approval
-someone gets to tomorrow) without holding a process open, and it generalizes: a
+supports human latencies (minutes to hours — an approval someone gets to
+tomorrow, a wireframe review left open in a tab) without holding a process open,
+and it generalizes: a
 `pending` session + `nn ask resume` is reusable by *every* opener. Options 1 and
 3 are optimizations of the wait, not new capabilities.
 
@@ -143,12 +148,13 @@ type opener interface {
 }
 ```
 
-with implementations `mcpOpener` (`tools/call` — this is what wiretext.app uses,
-since it is an MCP server that texts the human a link), `skillOpener`, and
-`binaryOpener` (delegated, non-blocking). There is no separate link opener:
-sending a human a link is a property of the MCP server behind `mcpOpener`, not a
-distinct opener kind. Each is injected for testing, mirroring the existing
-`runPlannotator` hook.
+with implementations `mcpOpener` (`tools/call`, optionally followed by a browser
+open on a returned URL — this is the wiretext pattern: call the MCP tool to
+provision a wireframe, then open the browser on it), `skillOpener`, and
+`binaryOpener` (delegated, non-blocking). Each is injected for testing, mirroring
+the existing `runPlannotator` hook. `Open` returns once the surface is *up*, not
+once the human has answered — so an opener that also opens a local browser (like
+wiretext) still returns promptly and the submission still arrives via moves 2–3.
 
 Invocation sketch (not final) — the opener is selected, the async contract is
 uniform:
