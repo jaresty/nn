@@ -711,11 +711,11 @@ Detect topological clusters of notes using label propagation. Each note starts w
 - `--min N` omits clusters smaller than N notes (default: 2). Notes with no links are singletons and omitted by default.
 - `--singletons` includes singleton clusters (notes with no links).
 - `--search QUERY` preserves clustering over the complete graph, then returns only clusters containing positive-scoring search hits. It requires `--json`.
-- `--summary` is search-only and omits full cluster `notes` while retaining `size`, `match_count`, `score`, `representative`, and ranked `matches`. Navigate into a summarized region by using `representative.id` as the next `--focus`; rerun without `--summary` only when complete membership is needed.
+- `--summary` is search-only and omits full cluster `notes` while retaining `size`, `match_count`, `match_density`, `score`, `representative`, and ranked `matches`. Navigate into a summarized region by using `representative.id` as the next `--focus`; rerun without `--summary` only when complete membership is needed.
 
 Text output: one cluster per block — `cluster N (K notes):\n  ID  Title\n  ...`
 
-Legacy `--json` output remains `[{"notes": [{"id": "...", "title": "..."}]}]`. Search-mode JSON ranks regions by the sum of their top three normalized match scores, preventing large regions from winning through an unbounded accumulation of weak matches. It includes `size`, total `match_count`, `score`, all ranked `matches`, `representative`, and—unless `--summary` is set—the full cluster `notes`. The representative is the highest-total-degree member, with note ID as the stable tie-breaker.
+Legacy `--json` output remains `[{"notes": [{"id": "...", "title": "..."}]}]`. Search-mode JSON ranks regions by the sum of their top three normalized match scores, preventing large regions from winning through an unbounded accumulation of weak matches. It includes `size`, total `match_count`, `match_density`, `score`, all ranked `matches`, `representative`, and—unless `--summary` is set—the full cluster `notes`. `match_density` is `match_count / size`, an explanatory signal, not a ranking input. The representative is the highest-total-degree member, with note ID as the stable tie-breaker.
 
 ## nn ast
 

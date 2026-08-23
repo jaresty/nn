@@ -23,6 +23,7 @@ type clusterSearchTestNote struct {
 type clusterSearchTestRegion struct {
 	Size           int                     `json:"size"`
 	MatchCount     int                     `json:"match_count"`
+	MatchDensity   float64                 `json:"match_density"`
 	Score          float64                 `json:"score"`
 	Representative clusterSearchTestNote   `json:"representative"`
 	Matches        []clusterSearchTestNote `json:"matches"`
@@ -103,6 +104,53 @@ func TestClustersSearchProjectsHitsOntoFullGraphClusters(t *testing.T) {
 				t.Fatalf("unrelated cluster was returned: %s", out)
 			}
 		}
+	}
+}
+
+func TestClustersSearchReportsMatchDensityInFullAndSummaryJSON(t *testing.T) {
+	match := newTestNoteForCLI("20260101000000-0001", "Needle", note.TypeConcept)
+	contextA := newTestNoteForCLI("20260101000000-0002", "Context alpha", note.TypeConcept)
+	contextB := newTestNoteForCLI("20260101000000-0003", "Context beta", note.TypeConcept)
+	match.Links = []note.Link{{TargetID: contextA.ID, Type: "extends"}, {TargetID: contextB.ID, Type: "extends"}}
+	notes := []*note.Note{match, contextA, contextB}
+
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{name: "full", args: []string{"--search", "needle", "--json"}},
+		{name: "summary", args: []string{"--search", "needle", "--json", "--summary"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out := executeClustersWithNotes(t, notes, tc.args...)
+			var regions []clusterSearchTestRegion
+			if err := json.Unmarshal([]byte(out), &regions); err != nil {
+				t.Fatalf("clusters match density JSON: %v\n%s", err, out)
+			}
+			if len(regions) != 1 {
+				t.Fatalf("regions = %d, want 1: %s", len(regions), out)
+			}
+			if regions[0].Size != 3 || regions[0].MatchCount != 1 {
+				t.Fatalf("size/match_count = %d/%d, want 3/1: %s", regions[0].Size, regions[0].MatchCount, out)
+			}
+			if got, want := regions[0].MatchDensity, 1.0/3.0; math.Abs(got-want) > 1e-12 {
+				t.Errorf("match_density = %v, want match_count/size = %v: %s", got, want, out)
+			}
+		})
+	}
+}
+
+func TestClustersMatchDensityDoesNotChangeLegacyJSON(t *testing.T) {
+	a := newTestNoteForCLI("20260101000000-0001", "Alpha", note.TypeConcept)
+	b := newTestNoteForCLI("20260101000000-0002", "Beta", note.TypeConcept)
+	a.Links = []note.Link{{TargetID: b.ID, Type: "extends"}}
+	out := executeClustersWithNotes(t, []*note.Note{a, b}, "--json")
+	var clusters []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &clusters); err != nil {
+		t.Fatalf("legacy clusters JSON: %v\n%s", err, out)
+	}
+	if len(clusters) != 1 || len(clusters[0]) != 1 || clusters[0]["notes"] == nil {
+		t.Fatalf("legacy cluster keys changed: %s", out)
 	}
 }
 
@@ -250,7 +298,7 @@ func TestClustersSearchSummaryOmitsNotesAndPreservesLandingHandles(t *testing.T)
 	if len(regions) != 1 {
 		t.Fatalf("summary regions = %d, want 1: %s", len(regions), out)
 	}
-	wantKeys := []string{"size", "match_count", "score", "representative", "matches"}
+	wantKeys := []string{"size", "match_count", "match_density", "score", "representative", "matches"}
 	if len(regions[0]) != len(wantKeys) {
 		t.Fatalf("summary keys = %v, want exactly %v", regions[0], wantKeys)
 	}
@@ -302,6 +350,17 @@ func TestClustersSearchIsDocumentedForTeleport(t *testing.T) {
 	guide, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
 	if err != nil {
 		t.Fatal(err)
+	}
+	adr, err := os.ReadFile("../../../docs/adr/0025-query-conditioned-cluster-projection.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, contents := range map[string]string{"nn-guide": string(guide), "ADR 0025": string(adr)} {
+		for _, required := range []string{"match_density", "explanatory signal, not a ranking input"} {
+			if !strings.Contains(contents, required) {
+				t.Errorf("%s missing %q", name, required)
+			}
+		}
 	}
 	for _, required := range []string{"nn clusters --search \"<query>\" --json --summary", "default landing-zone source", "representative.id", "recenter", "top three normalized match scores"} {
 		if !strings.Contains(string(guide), required) {

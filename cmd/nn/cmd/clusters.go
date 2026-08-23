@@ -210,6 +210,7 @@ func newClustersCmd(state *rootState) *cobra.Command {
 					type searchClusterEntry struct {
 						Size           int         `json:"size"`
 						MatchCount     int         `json:"match_count"`
+						MatchDensity   float64     `json:"match_density"`
 						Score          float64     `json:"score"`
 						Representative noteEntry   `json:"representative"`
 						Matches        []noteEntry `json:"matches"`
@@ -230,7 +231,7 @@ func newClustersCmd(state *rootState) *cobra.Command {
 						}
 						rep := c.representative
 						out[i] = searchClusterEntry{
-							Size: len(c.notes), MatchCount: len(c.matches), Score: c.score,
+							Size: len(c.notes), MatchCount: len(c.matches), MatchDensity: float64(len(c.matches)) / float64(len(c.notes)), Score: c.score,
 							Representative: noteEntry{ID: rep.ID, Title: rep.Title},
 							Matches:        matches, Notes: entries,
 						}

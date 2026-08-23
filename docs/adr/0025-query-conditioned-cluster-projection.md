@@ -26,6 +26,7 @@ For each returned region:
 
 - `size` is full cluster size;
 - `match_count` is the number of positive-scoring members;
+- `match_density` is `match_count / size`, an explanatory signal, not a ranking input;
 - `score` is the sum of the three strongest normalized member search scores (or all matches when fewer than three exist);
 - `matches` lists matching members with scores;
 - `notes` lists every full-cluster member;
@@ -33,7 +34,7 @@ For each returned region:
 
 Regions sort by score descending, then representative ID ascending. Matches sort by score descending, then note ID ascending. Bounding the aggregate at three lets corroborating strong matches matter without allowing a giant region to win through an unbounded count of weak matches. `match_count` and `matches` still report every positive hit. Existing text and JSON output remain unchanged when `--search` is absent.
 
-Search mode also accepts `--summary`. Summary output omits only the full `notes` array while retaining `size`, `match_count`, `score`, `representative`, and ranked `matches`. The representative ID is the region's navigation handle: Teleport recenters on it and re-enters Orient. `--summary` requires both `--search` and `--json`; ordinary search JSON remains unchanged without it.
+Search mode also accepts `--summary`. Summary output omits only the full `notes` array while retaining `size`, `match_count`, `match_density`, `score`, `representative`, and ranked `matches`. The representative ID is the region's navigation handle: Teleport recenters on it and re-enters Orient. `--summary` requires both `--search` and `--json`; ordinary search JSON remains unchanged without it.
 
 ## Consequences
 
