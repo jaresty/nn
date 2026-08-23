@@ -154,7 +154,6 @@ func newClustersCmd(state *rootState) *cobra.Command {
 					for _, n := range members {
 						if score := normalizedSearchScores[n.ID]; score > 0 {
 							c.matches = append(c.matches, n)
-							c.score += score
 						}
 					}
 					if len(c.matches) == 0 {
@@ -173,6 +172,13 @@ func newClustersCmd(state *rootState) *cobra.Command {
 						}
 						return c.matches[i].ID < c.matches[j].ID
 					})
+					scoreLimit := len(c.matches)
+					if scoreLimit > 3 {
+						scoreLimit = 3
+					}
+					for _, match := range c.matches[:scoreLimit] {
+						c.score += normalizedSearchScores[match.ID]
+					}
 				}
 				clusters = append(clusters, c)
 			}

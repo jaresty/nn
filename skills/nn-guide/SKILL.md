@@ -712,7 +712,7 @@ Detect topological clusters of notes using label propagation. Each note starts w
 
 Text output: one cluster per block — `cluster N (K notes):\n  ID  Title\n  ...`
 
-Legacy `--json` output remains `[{"notes": [{"id": "...", "title": "..."}]}]`. Search-mode JSON ranks regions by aggregate normalized search evidence and includes `size`, `match_count`, `score`, `representative`, `matches`, and—unless `--summary` is set—the full cluster `notes`. The representative is the highest-total-degree member, with note ID as the stable tie-breaker.
+Legacy `--json` output remains `[{"notes": [{"id": "...", "title": "..."}]}]`. Search-mode JSON ranks regions by the sum of their top three normalized match scores, preventing large regions from winning through an unbounded accumulation of weak matches. It includes `size`, total `match_count`, `score`, all ranked `matches`, `representative`, and—unless `--summary` is set—the full cluster `notes`. The representative is the highest-total-degree member, with note ID as the stable tie-breaker.
 
 ## nn ast
 

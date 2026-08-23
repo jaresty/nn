@@ -26,12 +26,12 @@ For each returned region:
 
 - `size` is full cluster size;
 - `match_count` is the number of positive-scoring members;
-- `score` is the sum of normalized member search scores;
+- `score` is the sum of the three strongest normalized member search scores (or all matches when fewer than three exist);
 - `matches` lists matching members with scores;
 - `notes` lists every full-cluster member;
 - `representative` is the highest-total-degree member, breaking ties by note ID.
 
-Regions sort by score descending, then representative ID ascending. Matches sort by score descending, then note ID ascending. Existing text and JSON output remain unchanged when `--search` is absent.
+Regions sort by score descending, then representative ID ascending. Matches sort by score descending, then note ID ascending. Bounding the aggregate at three lets corroborating strong matches matter without allowing a giant region to win through an unbounded count of weak matches. `match_count` and `matches` still report every positive hit. Existing text and JSON output remain unchanged when `--search` is absent.
 
 Search mode also accepts `--summary`. Summary output omits only the full `notes` array while retaining `size`, `match_count`, `score`, `representative`, and ranked `matches`. The representative ID is the region's navigation handle: Teleport recenters on it and re-enters Orient. `--summary` requires both `--search` and `--json`; ordinary search JSON remains unchanged without it.
 
@@ -39,5 +39,5 @@ Search mode also accepts `--summary`. Summary output omits only the full `notes`
 
 - Teleport can request compact relevant landing regions directly instead of correlating a search hit list with every cluster or loading every member of large matching clusters.
 - Region membership remains grounded in global topology.
-- Large clusters are not rewarded merely for size; only matching-note evidence contributes to score.
+- Large clusters are not rewarded merely for size or an unbounded accumulation of weak matches; only their three strongest matching-note scores contribute to ranking.
 - The first slice retains single-membership label propagation. Overlapping, hierarchical, and stable region identities remain future decisions informed by observed navigation quality.

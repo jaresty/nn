@@ -3,6 +3,8 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"math"
 	"os"
 	"reflect"
 	"strings"
@@ -101,6 +103,52 @@ func TestClustersSearchProjectsHitsOntoFullGraphClusters(t *testing.T) {
 				t.Fatalf("unrelated cluster was returned: %s", out)
 			}
 		}
+	}
+}
+
+func TestClustersSearchCapsRankingEvidenceAtTopThreeMatches(t *testing.T) {
+	strongHub := newTestNoteForCLI("20260101000000-0100", "Needle primary", note.TypeConcept)
+	strongA := newTestNoteForCLI("20260101000000-0101", "Needle secondary", note.TypeConcept)
+	strongB := newTestNoteForCLI("20260101000000-0102", "Needle tertiary", note.TypeConcept)
+	strongHub.Links = []note.Link{{TargetID: strongA.ID, Type: "extends"}, {TargetID: strongB.ID, Type: "extends"}}
+
+	weakHub := newTestNoteForCLI("20260101000000-0200", "Generic hub", note.TypeConcept)
+	weakNotes := []*note.Note{weakHub}
+	for i := 1; i <= 4; i++ {
+		n := newTestNoteForCLI(fmt.Sprintf("20260101000000-020%d", i), fmt.Sprintf("Generic %d", i), note.TypeConcept)
+		n.Body = "This body mentions needle once."
+		weakHub.Links = append(weakHub.Links, note.Link{TargetID: n.ID, Type: "extends"})
+		weakNotes = append(weakNotes, n)
+	}
+	weakHub.Body = "This body mentions needle once."
+
+	notes := append([]*note.Note{strongHub, strongA, strongB}, weakNotes...)
+	out := executeClustersWithNotes(t, notes, "--search", "needle", "--json")
+	var regions []clusterSearchTestRegion
+	if err := json.Unmarshal([]byte(out), &regions); err != nil {
+		t.Fatalf("clusters capped ranking JSON: %v\n%s", err, out)
+	}
+	if len(regions) != 2 {
+		t.Fatalf("regions = %d, want 2: %s", len(regions), out)
+	}
+	for _, region := range regions {
+		limit := len(region.Matches)
+		if limit > 3 {
+			limit = 3
+		}
+		wantScore := 0.0
+		for _, match := range region.Matches[:limit] {
+			wantScore += match.Score
+		}
+		if math.Abs(region.Score-wantScore) > 1e-12 {
+			t.Errorf("region %s score = %v, want top-three sum %v", region.Representative.ID, region.Score, wantScore)
+		}
+		if region.Representative.ID == weakHub.ID && (region.MatchCount != 5 || len(region.Matches) != 5 || len(region.Notes) != 5) {
+			t.Errorf("weak region evidence was truncated: %#v", region)
+		}
+	}
+	if regions[0].Representative.ID != strongHub.ID {
+		t.Errorf("few strong matches should outrank many weak matches: %#v", regions)
 	}
 }
 
@@ -255,7 +303,7 @@ func TestClustersSearchIsDocumentedForTeleport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"nn clusters --search \"<query>\" --json --summary", "default landing-zone source", "representative.id", "recenter"} {
+	for _, required := range []string{"nn clusters --search \"<query>\" --json --summary", "default landing-zone source", "representative.id", "recenter", "top three normalized match scores"} {
 		if !strings.Contains(string(guide), required) {
 			t.Errorf("nn-guide missing %q", required)
 		}
