@@ -502,7 +502,7 @@ At any point in the walk (Enter, Orient, Read, Recenter) you can stop stepping s
 - **Reachable-but-unlinked** — `nn list --similar <id>`: nearby notes that share vocabulary but have no edge to walk. This is the one signal a step-wise walk can *never* surface — territory the navigation can't reach yet (candidate missing edges).
 
 **The wider landscape (global)** — where your region sits in everything (drops the ego entirely):
-- **The landmass — `nn clusters`** — every topic cluster and its size: how many regions the notebook has, which one you're in, and whether it's the giant central cluster or a small satellite.
+- **The landmass — `nn clusters`** — every topic cluster and its size. When the walk has a goal query, prefer `nn clusters --search "<query>" --json --summary` to project that query onto full-graph regions without loading every unrelated cluster or every member of a matching cluster.
 - **The highways — `nn graph bridges`** — integration points whose links join otherwise-separate regions, ranked by load-bearing weight. (Daily/index notes often rank high because they touch many topics — treat those as connectors-by-aggregation, not substantive bridges.)
 - **The whole shape — `nn graph show`** *(no `--focus`)* — the entire graph, a last resort (it's large); usually the two above are enough.
 
@@ -546,7 +546,7 @@ Because `peek` does not move, it **returns you to the walk at the same Recenter 
 
 `teleport` is how you *get* a focus when you have none, or jump to a distant region. Unlike `scan`/`peek` (which look), `teleport` **relocates** — it changes where you are. Two modes:
 
-- **`teleport` with a query** — run a search but land on **structure, not a ranked hit list**: `nn list --search "<topic>"` to find candidates, then surface the **landing zones** — `nn clusters` (which regions the hits fall in) and high-degree hubs among them — and recenter on a hub or cluster representative. Search identifies *relevance*; you land on the *structure* around it.
+- **`teleport` with a query** — land on **structure, not a ranked hit list**. Use `nn clusters --search "<query>" --json --summary` as the **default landing-zone source**: it clusters the complete graph, returns only regions containing search hits, ranks them by aggregate matching evidence, and supplies a representative without dumping full region membership. Recenter on the chosen region's `representative.id`, then re-enter Orient from that note; alternatively recenter on a ranked `matches[].id` to enter through specific evidence. Use `nn list --search "<query>"` separately only when you need note-level evidence beyond the region result, or rerun without `--summary` when complete region membership is explicitly needed.
 - **`teleport` random** — a serendipitous jump: `nn random` (optionally `--tag`/`--type`) or `nn shuf` to land somewhere unplanned, then start a fresh walk from there.
 
 `teleport` only relocates — it does not render deep detail (that is `peek`'s job). After landing, **re-enter the walk at Orient (step 1) from the new focus, carrying the full [Presentation discipline](#presentation-discipline) (P1–P4)** — the landing is not a shortcut past it; landing then narrating in prose without colors, map, or chooser is exactly the seam-drift that discipline exists to prevent. This is the one move worth invoking from cold — it is named in the session-start CLI-reference pointer for that reason.
@@ -669,16 +669,19 @@ Text output: each note on its own line with an `→` separator between hops.
 
 ```
 nn clusters [--min N] [--singletons] [--json]
+nn clusters --search "<query>" --json [--summary] [--min N] [--singletons]
 ```
 
 Detect topological clusters of notes using label propagation. Each note starts with its own label and iteratively adopts the most common label among its linked neighbours.
 
 - `--min N` omits clusters smaller than N notes (default: 2). Notes with no links are singletons and omitted by default.
 - `--singletons` includes singleton clusters (notes with no links).
+- `--search QUERY` preserves clustering over the complete graph, then returns only clusters containing positive-scoring search hits. It requires `--json`.
+- `--summary` is search-only and omits full cluster `notes` while retaining `size`, `match_count`, `score`, `representative`, and ranked `matches`. Navigate into a summarized region by using `representative.id` as the next `--focus`; rerun without `--summary` only when complete membership is needed.
 
 Text output: one cluster per block — `cluster N (K notes):\n  ID  Title\n  ...`
 
-`--json` output: `[{"notes": [{"id": "...", "title": "..."}]}]`
+Legacy `--json` output remains `[{"notes": [{"id": "...", "title": "..."}]}]`. Search-mode JSON ranks regions by aggregate normalized search evidence and includes `size`, `match_count`, `score`, `representative`, `matches`, and—unless `--summary` is set—the full cluster `notes`. The representative is the highest-total-degree member, with note ID as the stable tie-breaker.
 
 ## nn ast
 
