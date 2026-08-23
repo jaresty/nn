@@ -695,7 +695,7 @@ Rank notes that receive at least one incoming link and emit at least one outgoin
 - `--search QUERY` computes bridge scores over the complete graph, then keeps only bridge notes with a positive full-corpus search score. It requires `--format json` and a non-blank query.
 - Search results rank by normalized `relevance_score` descending, then structural `score` descending, then note ID ascending.
 - Each search result includes `witness.incoming` (`endpoint → bridge`) and `witness.outgoing` (`bridge → endpoint`) with endpoint ID/title plus edge type/annotation. This is one deterministic crossing example, not proof that the endpoints occupy distinct territories. Use it to explain why a bridge is a plausible Scan move before Peek or Recenter.
-- `--limit N` is applied after relevance filtering and ranking (default: 10).
+- During Scan, pass the retained focus as `--exclude <focus-id>` so the current position is not offered as a movement candidate. `--exclude` is repeatable, removes ranked candidates without changing full-graph bridge computation, and is applied before `--limit` (default: 10), so excluded results are replaced rather than leaving a short list.
 
 Legacy JSON remains `[{"id":"...","title":"...","score":N}]`. Search JSON adds `relevance_score` and the crossing witness. Use the returned `id` as a navigation handle: Peek to inspect the bridge without moving, or Recenter on it and resume Orient.
 

@@ -244,12 +244,24 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 	var limit int
 	var format string
 	var search string
+	var exclude []string
 
 	cmd := &cobra.Command{
 		Use:   "bridges",
 		Short: "Notes that connect otherwise-disconnected parts of the graph",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			searchMode := cmd.Flags().Changed("search")
+			if len(exclude) > 0 && !searchMode {
+				return fmt.Errorf("graph bridges: --exclude requires --search")
+			}
+			excludeSet := make(map[string]bool, len(exclude))
+			for _, id := range exclude {
+				id = strings.TrimSpace(id)
+				if id == "" {
+					return fmt.Errorf("graph bridges: --exclude requires a non-blank ID")
+				}
+				excludeSet[id] = true
+			}
 			if searchMode && strings.TrimSpace(search) == "" {
 				return fmt.Errorf("graph bridges: --search requires a non-blank query")
 			}
@@ -325,6 +337,15 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 				}
 				return entries[i].id < entries[j].id
 			})
+			if len(excludeSet) > 0 {
+				filtered := entries[:0]
+				for _, e := range entries {
+					if !excludeSet[e.id] {
+						filtered = append(filtered, e)
+					}
+				}
+				entries = filtered
+			}
 			if limit > 0 && len(entries) > limit {
 				entries = entries[:limit]
 			}
@@ -412,6 +433,7 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 	cmd.Flags().IntVar(&limit, "limit", 10, "Maximum entries to show")
 	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json")
 	cmd.Flags().StringVar(&search, "search", "", "Return only full-graph bridges matching this query (requires --format json)")
+	cmd.Flags().StringArrayVar(&exclude, "exclude", nil, "Exclude a bridge note ID from search results (repeatable; requires --search)")
 	return cmd
 }
 

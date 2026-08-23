@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -143,6 +144,46 @@ func TestGraphBridgesSearchRanksByRelevanceBeforeBridgeScore(t *testing.T) {
 	}
 }
 
+func TestGraphBridgesSearchExcludesBeforeLimit(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	var notes []*note.Note
+	for i := 1; i <= 3; i++ {
+		left := newTestNoteForCLI(fmt.Sprintf("20260101000000-10%d1", i), fmt.Sprintf("Left %d", i), note.TypeConcept)
+		bridge := newTestNoteForCLI(fmt.Sprintf("20260101000000-10%d2", i), strings.Repeat("Needle ", 4-i)+fmt.Sprintf("bridge %d", i), note.TypeConcept)
+		right := newTestNoteForCLI(fmt.Sprintf("20260101000000-10%d3", i), fmt.Sprintf("Right %d", i), note.TypeConcept)
+		left.Links = []note.Link{{TargetID: bridge.ID, Type: "supports"}}
+		bridge.Links = []note.Link{{TargetID: right.ID, Type: "extends"}}
+		notes = append(notes, left, bridge, right)
+	}
+	for _, n := range notes {
+		writeNoteFile(t, nbDir, n)
+	}
+
+	decode := func(args ...string) []bridgeSearchResult {
+		out, err := execute(args...)
+		if err != nil {
+			t.Fatalf("graph bridges %v: %v", args, err)
+		}
+		var got []bridgeSearchResult
+		if err := json.Unmarshal([]byte(out), &got); err != nil {
+			t.Fatalf("graph bridges JSON: %v\n%s", err, out)
+		}
+		return got
+	}
+	baseline := decode("graph", "bridges", "--search", "needle", "--format", "json")
+	if len(baseline) != 3 {
+		t.Fatalf("baseline bridge count = %d, want 3", len(baseline))
+	}
+	got := decode("graph", "bridges", "--search", "needle", "--format", "json", "--exclude", baseline[0].ID, "--exclude", baseline[1].ID, "--limit", "1")
+	if len(got) != 1 || got[0].ID != baseline[2].ID {
+		t.Fatalf("excluded limited bridges = %#v, want baseline third %s", got, baseline[2].ID)
+	}
+	withUnknown := decode("graph", "bridges", "--search", "needle", "--format", "json", "--exclude", "unknown-note")
+	if len(withUnknown) != len(baseline) {
+		t.Fatalf("unknown exclusion changed results: got %d, want %d", len(withUnknown), len(baseline))
+	}
+}
+
 func TestGraphBridgesSearchRequiresJSONAndNonBlankQuery(t *testing.T) {
 	_, execute := setupNotebook(t)
 	_, err := execute("graph", "bridges", "--search", "needle")
@@ -155,6 +196,14 @@ func TestGraphBridgesSearchRequiresJSONAndNonBlankQuery(t *testing.T) {
 			t.Errorf("bridge search %q error = %v", query, err)
 		}
 	}
+	_, err = execute("graph", "bridges", "--search", "needle", "--format", "json", "--exclude", " \t ")
+	if err == nil || !strings.Contains(err.Error(), "--exclude requires a non-blank ID") {
+		t.Errorf("blank bridge exclusion error = %v", err)
+	}
+	_, err = execute("graph", "bridges", "--exclude", "note-id")
+	if err == nil || !strings.Contains(err.Error(), "--exclude requires --search") {
+		t.Errorf("bridge exclusion without search error = %v", err)
+	}
 }
 
 func TestGraphBridgesSearchIsDocumentedForScan(t *testing.T) {
@@ -163,14 +212,16 @@ func TestGraphBridgesSearchIsDocumentedForScan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(help, "--search") {
-		t.Fatalf("bridges help missing --search:\n%s", help)
+	for _, flag := range []string{"--search", "--exclude"} {
+		if !strings.Contains(help, flag) {
+			t.Fatalf("bridges help missing %s:\n%s", flag, help)
+		}
 	}
 	guide, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"nn graph bridges --search \"<query>\" --format json", "Peek", "Recenter", "witness.incoming", "crossing example, not proof"} {
+	for _, required := range []string{"nn graph bridges --search \"<query>\" --format json", "--exclude <focus-id>", "before `--limit`", "Peek", "Recenter", "witness.incoming", "crossing example, not proof"} {
 		if !strings.Contains(string(guide), required) {
 			t.Errorf("nn-guide missing %q", required)
 		}
