@@ -401,6 +401,14 @@ Use it to walk the graph as a positioned space rather than dumping the whole str
 
 Pick the rendering by surface capability, exactly as you pick whether to offer the recenter chooser — richer form only when the surface supports it, text otherwise.
 
+**Orbital view — scan out all the way to the whole notebook.** Scan-out is still ego-relative (it centers on your node). One altitude higher drops the ego entirely and asks *where does my region sit in everything* — the global structure. Reach for it when even the 2-hop territory feels like it's all one region and you want to know how that region relates to the rest of the notebook, or when you're lost about which topic-area you're even in. Note this is a **shift from ego to global, not more `--depth`** — raising depth past 2 just grows an exponential tangle without answering a new question; the orbital view answers a *different* question with whole-graph primitives:
+
+- **The landmass — `nn clusters`** — every topic cluster and its size. This tells you how many regions the notebook has, which one your node is in, and whether it's the giant central cluster or a small satellite. (A notebook typically has one large cluster and a long tail of small ones.)
+- **The highways — `nn graph bridges`** — the notebook's integration points: notes whose links join otherwise-separate regions, ranked by how load-bearing they are. These are the crossings you'd take to travel between territories. (Daily/index notes often rank high because they touch many topics — treat those as connectors-by-aggregation, not substantive bridges, the same override the neighbor-summary tiers use.)
+- **The whole shape — `nn graph show`** *(no `--focus`)* — the entire graph if you truly need it; usually the two above are enough and this is a last resort (it's large).
+
+Same presenter discipline: read these as data and *describe* the landscape ("your note sits in a small 25-note region off the large 259-note central cluster; the nearest highway between them is note X") rather than pasting cluster dumps. Then descend back to the walk.
+
 After scanning out, resume the walk: recenter on a neighbor as before, or hop to a similar-but-unlinked note by making it the new `--focus` (and consider linking it, since the absence of an edge is what scan-out just exposed).
 
 **Offer the recenter as a chooser when the harness supports one and a human is driving the walk.** The Recenter step is a decision — "which neighbor next?" — and a harness chooser (a selectable-option prompt) renders it as clickable moves rather than a wall of prose. Use it *only* when both hold: the harness exposes a chooser affordance, **and** a human is co-navigating this walk. When either is false — you are navigating autonomously toward a goal, or stdout is not a TTY — do **not** invoke a chooser: pick the move yourself per the goal and continue (nn is non-interactive by default when stdout is not a TTY).
