@@ -367,6 +367,87 @@ Every node also carries a **degree marker**: `--format text` appends `↑<out> �
 
 Use it to walk the graph as a positioned space rather than dumping the whole structure. Hold a **goal** in mind for the walk ("find what contests this design", "trace where this claim came from", "reach the principle underneath") — every step is judged relative to that goal, not to the whole graph.
 
+## Human-driven navigation invariant
+
+Every presented navigation step **MUST OFFER** four action classes:
+
+1. **Recenter — move focus**
+2. **Peek — inspect without moving**
+3. **Scan — zoom out without moving**
+4. **Arrive — stop**
+
+An action may be omitted only when structurally unavailable, and the response **MUST** state why. **Peek and Scan MUST be discoverable** in a human-driven walk. They need not both be executed or occupy chooser rows when the interface exposes persistent navigation controls elsewhere.
+
+Before every chooser, present:
+
+A. **Focus** — type, status, degree, central claim, neighborhood role
+B. **Map** — positional zones, edge meanings, empty zones
+C. **Moves** — degree-scaled neighbor summaries and recommended direction
+
+This **MUST PRESENT** rule applies before the mode-specific details below; Teleport, Peek, Scan, and Recenter all reference it rather than weakening it.
+
+## Canonical navigation chooser
+
+When a human is driving and a chooser is available, **offer at most four options**:
+
+1. Recommended **Recenter**
+2. **Peek** into the most relevant direction
+3. **Scan** the current landscape
+4. **Arrive — stop**
+
+During cold teleport, replace Recenter with the recommended landing zone and offer additional landing regions only as capacity permits; Peek, Scan, and Arrive remain discoverable. If persistent controls expose an action outside the chooser, say so. Do not replace this contract with a neighbor-only list.
+
+**Bad:**
+- Move to A
+- Move to B
+- Arrive
+
+**Why bad:** it hides Peek and Scan and treats navigation as neighbor traversal only.
+
+**Compliant:**
+- Recenter ↓ checkpoint principle
+- Peek ↑ Bar fragility
+- Scan friction landscape
+- Arrive — stop
+
+**Navigation presentation check:**
+- [ ] focus type and status shown
+- [ ] focus degree shown
+- [ ] central claim summarized
+- [ ] neighborhood role explained
+- [ ] positional map rendered
+- [ ] edge meanings visible
+- [ ] high-degree neighbors receive expanded summaries
+- [ ] Recenter available
+- [ ] Peek available
+- [ ] Scan available
+- [ ] Arrive available
+
+Run this check internally before invoking a chooser. A missing item blocks presentation unless it is structurally unavailable and the response explains why.
+
+## Arrive report
+
+State:
+- starting query or focus;
+- final note ID, type, and status;
+- region reached;
+- what was learned relative to the starting goal;
+- which paths remain unexplored;
+- that focus remains at the final note.
+
+## Virtual navigation protocol seed
+
+A compact virtual protocol should use `applies_when: human-driven nn graph navigation` and require:
+
+1. load `nn-guide` (or a future dedicated `nn-navigation` skill);
+2. run the required graph command;
+3. render Focus + Map + Moves;
+4. expose Recenter, Peek, Scan, and Arrive;
+5. preserve focus for Peek and Scan;
+6. change focus only after Teleport or Recenter.
+
+This seed is the enforcement contract if navigation is later split from the broad command reference. Creating `nn-navigation` and `nn-navigation-presenter` is a **MAY** architecture change, not a prerequisite for this compact contract.
+
 0. **Enter** — if you have no starting note, find one first: `nn list --search "<topic>" --json --fields id,title,score,link_count` and pick the highest-scoring, best-connected hit as your entry focus. If you already have a note ID (from a prior answer, a link, a backlink), start there.
 1. **Orient** — render the current node's zoned neighborhood with bodies (add `--color always` when presenting in a color terminal):
    ```
@@ -383,7 +464,7 @@ Use it to walk the graph as a positioned space rather than dumping the whole str
    | Read the principle underneath a concrete note | **BOTTOM** toward `concept`/`model` types |
 
 3. **Recenter** — pick a neighbor's ID and re-run step 1 with that as `--focus`. Navigation is a chain of ego-hops (the ExcaliBrain model in design note 20260820154156-6576), not a pan over a hairball. Whenever a step (this one, or a return from `peek`/`teleport`) presents the view to a human, apply the [Presentation discipline](#presentation-discipline) (P1–P4).
-4. **Arrive** — stop when the current node answers your goal, or when the zone you were following is empty (e.g. you were chasing tension and this node has no LEFT — the thread ends here). State what you found relative to where you started.
+4. **Arrive** — stop when the current node answers your goal, or when the zone you were following is empty (e.g. you were chasing tension and this node has no LEFT — the thread ends here). Emit the complete [Arrive report](#arrive-report), including the region reached and what changed relative to the starting goal.
 
 These three verbs are **not** `nn` subcommands or flags — they are named moves *you* (the agent) perform by composing existing primitives, exactly like the walk steps above. There is **no new CLI surface**. Modes and options named below (e.g. "flat mode") are presentation choices you make, not shell flags.
 
@@ -455,15 +536,7 @@ Because `peek` does not move, it **returns you to the walk at the same Recenter 
 
 **Offer the recenter as a chooser when the harness supports one and a human is driving the walk.** The Recenter step is a decision — "which neighbor next?" — and a harness chooser (a selectable-option prompt) renders it as clickable moves rather than a wall of prose. Use it *only* when both hold: the harness exposes a chooser affordance, **and** a human is co-navigating this walk. When either is false — you are navigating autonomously toward a goal, or stdout is not a TTY — do **not** invoke a chooser: pick the move yourself per the goal and continue (nn is non-interactive by default when stdout is not a TTY).
 
-When you do offer a chooser:
-
-- **Scope options to the goal-relevant zone(s), not every neighbor.** A hub can have many neighbors; a flat list of all of them loses the zone structure that is the whole point. Offer the zone the goal points into (LEFT for tension, TOP/RIGHT for provenance, BOTTOM for what-builds-on), optionally plus one "explore another zone" escape.
-- **Label** each option with its zone arrow + the neighbor's title (e.g. `→ 6576 ExcaliBrain layout`, `↓ 4004 control-family principle`).
-- **Describe** each option with its zone + `↑out ↓in` degree + a one-line claim drawn from the body (what it *argues*, not just its title) — the same substance the prose summaries carry.
-- **Order** the recommended move (the one that closes the most distance to the goal) first.
-- **Always include an "Arrive — stop here" option** so the human can end the walk without a forced hop.
-
-Then recenter on their pick (or arrive) and re-run step 1 from the new focus.
+When you do offer a chooser, use the [Canonical navigation chooser](#canonical-navigation-chooser), not a neighbor-only chooser. The recommended Recenter targets the goal-relevant zone (LEFT for tension, TOP/RIGHT for provenance, BOTTOM for what-builds-on) and its description includes the zone, `↑out ↓in` degree, and a one-line body-derived claim. Peek targets the most useful direction, Scan names the landscape view, and Arrive remains the stop action. Then execute the selected action; only Recenter or Teleport may change focus.
 
 <a id="presentation-discipline"></a>
 #### Presentation discipline (the named block every seam cites)
@@ -471,8 +544,8 @@ Then recenter on their pick (or arrive) and re-run step 1 from the new focus.
 **This is the single source of truth for how any walk view is presented to a human. Every point that presents a positioned view — Orient, the return after `peek`, the landing after `teleport`, `scan` — cites this block by name rather than restating it. A rule stated only at one step definition does not travel across a seam that re-enters the walk from elsewhere; centralizing it here is what stops per-seam drift.** When presenting to a human on a capable surface, all four apply jointly:
 
 - **P1 — Colors on.** Run the underlying `nn graph show … --zones --bodies --color always` so zone/type/edge markers survive relay. Omit `--color always` only when stdout is not a color surface.
-- **P2 — All three jointly-required parts.** Give the *summary* (substance — what the focus note and neighbors mean), the *positional/ASCII map* (structure — how they're placed by zone), and *neighbor summaries + named moves* (direction — where to go). None is sufficient alone: a map without summaries is a skeleton you can't read; summaries without a map lose the spatial relationships. Never relay raw command output. (Detailed as (a)/(b)/(c) below.)
-- **P3 — Recenter chooser.** When the harness exposes a chooser affordance **and** a human is co-navigating, render the onward move as a chooser (per the chooser discipline above); otherwise pick the move yourself per the goal. This applies wherever the walk presents an onward decision, including after `peek` and `teleport`.
+- **P2 — Focus + Map + Moves.** Give the Focus summary (substance), positional/ASCII Map (structure), and degree-scaled Moves (direction) defined above. None is sufficient alone: a map without summaries is a skeleton you can't read; summaries without a map lose the spatial relationships. Never relay raw command output. (Detailed as (a)/(b)/(c) below.)
+- **P3 — Canonical four-action chooser.** When the harness exposes a chooser affordance **and** a human is co-navigating, use the canonical Recenter / Peek / Scan / Arrive contract; otherwise pick the move yourself per the goal while keeping all four actions discoverable in the presentation. This applies wherever the walk presents an onward decision, including after `peek` and `teleport`.
 - **P4 — Degree-scaled summaries.** Scale each summary's length to the node's inbound degree (the tiers in (c)); daily/index hubs are connectors-by-aggregation, not substance.
 
 The three parts, in detail:
