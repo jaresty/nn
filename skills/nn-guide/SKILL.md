@@ -346,7 +346,7 @@ JSON output: `{ "nodes": [...], "edges": [...] }`
 ### nn graph show (LLM-facing subgraph)
 
 ```
-nn graph show [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--zones] [--bodies] [--format text|json|mermaid]
+nn graph show [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--zones] [--bodies] [--presentation-hints] [--format text|json|mermaid]
 ```
 
 With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 and direction defaults to `outgoing`. `--links` accepts canonical link types, `--status` accepts `draft`, `reviewed`, or `permanent`, and `--representation` accepts one representation value. Filters constrain BFS expansion, so traversal does not pass through an ineligible intermediate note. Without --focus, graph show renders the full graph; explicitly supplied traversal flags, including `--depth`, require `--focus`. Mermaid output preserves stored edge orientation, includes link type and annotation labels, represents missing edge endpoints as deterministic placeholder nodes, and emits deterministic provenance comments for the normalized traversal options. Use `--format json` for structured output or `--format mermaid` for Markdown-compatible diagrams. Prefer focused output when exploring a note's neighborhood.
@@ -471,14 +471,15 @@ A compact virtual protocol should use `applies_when: human-driven nn graph navig
 3. render Focus + Map + Moves;
 4. expose Recenter, Peek, Scan, and Arrive;
 5. preserve focus for Peek and Scan;
-6. change focus only after Teleport or Recenter.
+6. change focus only after Teleport or Recenter;
+7. when the relationship family is known but the destination is unknown, run `nn graph routes --focus ID --links TYPES --search QUERY --limit N --json` and treat its witness as a route candidate, not relationship proof.
 
 This seed is the enforcement contract if navigation is later split from the broad command reference. Creating `nn-navigation` and `nn-navigation-presenter` is a **MAY** architecture change, not a prerequisite for this compact contract.
 
 0. **Enter** — if you have no starting note, find one first: `nn list --search "<topic>" --json --fields id,title,score,link_count` and pick the highest-scoring, best-connected hit as your entry focus. If you already have a note ID (from a prior answer, a link, a backlink), start there.
 1. **Orient** — render the current node's zoned neighborhood with bodies (add `--color always` when presenting in a color terminal):
    ```
-   nn graph show --focus <id> --depth 1 --direction both --zones --bodies --color always --format text
+   nn graph show --focus <id> --depth 1 --direction both --zones --bodies --presentation-hints --color always --format text
    ```
    You now see, for the current node: TOP (what it answers to), BOTTOM (what builds on it), LEFT (tension), RIGHT (provenance) — each neighbor with its body inline, its `↑out ↓in` degree, and a zone key. Empty zones are information too: no LEFT means nothing contests this node; no TOP means it's a root. A neighbor with high inbound degree is a hub worth weighting even if it's off your direct path.
 2. **Read from here** — the bodies let you evaluate a move without leaving the view. Zones tell you *what kind* of move each neighbor is; bodies tell you *whether it's the one you want*. Choose the move that closes distance to your goal:

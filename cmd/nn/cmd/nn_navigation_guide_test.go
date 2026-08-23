@@ -54,6 +54,9 @@ func TestNNGuideDocumentsCanonicalHumanNavigationContract(t *testing.T) {
 			"applies_when: human-driven nn graph navigation",
 			"preserve focus for Peek and Scan",
 			"change focus only after Teleport or Recenter",
+			"--zones --bodies --presentation-hints --color always",
+			"relationship family is known but the destination is unknown",
+			"nn graph routes --focus ID --links TYPES --search QUERY --limit N --json",
 		},
 		"navigate resume shortcut": {
 			"## `navigate` — resume navigation",
@@ -70,6 +73,18 @@ func TestNNGuideDocumentsCanonicalHumanNavigationContract(t *testing.T) {
 			"MUST NOT offer a separate `Visit` action",
 			"genuinely ambiguous",
 		},
+	}
+	if !strings.Contains(content, "[--presentation-hints]") {
+		t.Errorf("graph-show syntax missing --presentation-hints")
+	}
+	embedded, err := os.ReadFile("show.go")
+	if err != nil {
+		t.Fatalf("read embedded CLI reference: %v", err)
+	}
+	for _, required := range []string{"match_density", "match_count / size", "explanatory signal, not a ranking input"} {
+		if !strings.Contains(string(embedded), required) {
+			t.Errorf("embedded CLI reference missing %q", required)
+		}
 	}
 	for assertion, required := range assertions {
 		for _, snippet := range required {

@@ -170,7 +170,7 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"**nn show** `<id> --depth N` — traverse N hops of outgoing links from a note\n\n" +
 			"**nn path** `<id-a> <id-b> [--links TYPE,...] [--json]` — shortest undirected path by default; `--links` returns a directed typed witness, with ordered nodes and edges in JSON for Navigation Recenter\n\n" +
 			"**nn graph routes** `nn graph routes --focus ID --links TYPES --search QUERY --limit N --json` — discover query-relevant destinations reachable from the focus through only the selected typed, directed links; returns ranked destinations with aligned shortest node-and-edge witnesses for Orient, Scan, Peek, Recenter, and Arrive\n\n" +
-			"**nn clusters** — topological clusters via label propagation\n\n" +
+			"**nn clusters** — topological clusters via label propagation; search JSON includes `match_density` = `match_count / size` as an explanatory signal, not a ranking input\n\n" +
 			"**nn random** `[--tag TEXT] [--type TYPE] [--status STATUS] [--json] [--depth N] [--max-backlinks N]` — return a randomly selected note; `--depth N` traverses outgoing links up to N hops; `--max-backlinks N` filters to notes with at most N inbound links (surface underlinked notes for integration review)\n\n" +
 			"**nn list** `--similar <id>` — BM25 similarity (notes sharing vocabulary but not linked)\n\n" +
 			"**nn graph** `[--json]` — export full graph as JSON `{ \"nodes\": [...], \"edges\": [...] }`\n\n" +
