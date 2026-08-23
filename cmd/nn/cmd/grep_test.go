@@ -637,3 +637,33 @@ func TestGrepCmdSkipsLargeFiles(t *testing.T) {
 		t.Errorf("expected large file to be skipped; got match output:\n%s", out)
 	}
 }
+
+// Assertion: TestGrepCmdIgnoreCase — with -i, a lowercase pattern matches an
+// uppercase line; without -i, the same pattern does not match.
+func TestGrepCmdIgnoreCase(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(f, []byte("package main\n\nfunc HandleAuth() {}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Without -i: lowercase pattern must NOT match the uppercase line.
+	out, err := execute("grep", "handleauth", f)
+	if err != nil {
+		t.Fatalf("nn grep (case-sensitive): %v", err)
+	}
+	if strings.Contains(out, "HandleAuth") {
+		t.Errorf("case-sensitive grep should not match 'HandleAuth' for pattern 'handleauth'; got:\n%s", out)
+	}
+
+	// With -i: the same pattern must match the uppercase line.
+	out, err = execute("grep", "-i", "handleauth", f)
+	if err != nil {
+		t.Fatalf("nn grep -i: %v", err)
+	}
+	if !strings.Contains(out, "HandleAuth") {
+		t.Errorf("case-insensitive grep -i should match 'HandleAuth' for pattern 'handleauth'; got:\n%s", out)
+	}
+}

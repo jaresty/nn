@@ -27,6 +27,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 	var traceFlag bool
 	var maxMatches int
 	var contextReport bool
+	var ignoreCase bool
 
 	cmd := &cobra.Command{
 		Use:   "grep <pattern> [path...]",
@@ -34,6 +35,9 @@ func newGrepCmd(state *rootState) *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pattern := args[0]
+			if ignoreCase {
+				pattern = "(?i)" + pattern
+			}
 			re, err := regexp.Compile(pattern)
 			if err != nil {
 				return fmt.Errorf("invalid pattern %q: %w", pattern, err)
@@ -310,6 +314,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 	cmd.Flags().IntVar(&maxMatches, "max-matches", 50, "Maximum number of matches to show (0 = unlimited)")
 	cmd.Flags().BoolVar(&traceFlag, "trace", false, "Invoke nn trace inline for each traceable matched file")
 	cmd.Flags().BoolVar(&contextReport, "context-report", false, "Report source context block and overlap metrics")
+	cmd.Flags().BoolVarP(&ignoreCase, "ignore-case", "i", false, "Case-insensitive matching")
 	return cmd
 }
 
