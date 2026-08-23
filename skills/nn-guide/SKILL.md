@@ -394,6 +394,14 @@ Use it to walk the graph as a positioned space rather than dumping the whole str
 - **Region + load-bearing** — which topic cluster this node sits in (`nn clusters`) and whether it sits on a bridge between clusters (`nn graph bridges`). A node on a bridge is a crossing point between territories; a node deep in one cluster is interior.
 - **Reachable-but-unlinked** — `nn list --similar <id>`: nearby notes that share vocabulary but have no edge to walk. This is the one signal a step-wise walk can *never* surface — it names territory the navigation can't reach yet (candidate missing edges).
 
+**Make it spatial — render the territory as a map.** The three signals above are lists; scan-out is about *where you are in space*, so when you're relaying to a human in a markdown-capable surface, also emit the 2-hop neighborhood as a diagram that renders as an actual picture:
+
+```
+nn graph show --focus <id> --depth 2 --direction both --format mermaid
+```
+
+This is a genuine map, not the ASCII zone-sketch used in the zoned *step* — that sketch is single-focus (one ego, four zones); scan-out spans many nodes across hops, so a flowchart is the right shape. Read the picture for *territory*, not relationship: dense knots are hubs, long single-file chains are ancestry threads, and a node with edges reaching into an otherwise separate clump is a bridge. Full annotations make edge labels long — for a purely spatial read the *shape* carries the meaning, so skim the labels.
+
 After scanning out, resume the walk: recenter on a neighbor as before, or hop to a similar-but-unlinked note by making it the new `--focus` (and consider linking it, since the absence of an edge is what scan-out just exposed).
 
 **Offer the recenter as a chooser when the harness supports one and a human is driving the walk.** The Recenter step is a decision — "which neighbor next?" — and a harness chooser (a selectable-option prompt) renders it as clickable moves rather than a wall of prose. Use it *only* when both hold: the harness exposes a chooser affordance, **and** a human is co-navigating this walk. When either is false — you are navigating autonomously toward a goal, or stdout is not a TTY — do **not** invoke a chooser: pick the move yourself per the goal and continue (nn is non-interactive by default when stdout is not a TTY).
