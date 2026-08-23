@@ -109,6 +109,7 @@ Invoke it with `/nn-workflow`.
 | `nn link <from> <to> --annotation "..." --type TYPE` | Add a link |
 | `nn bulk-link <from> --to <id> --annotation "..." --type TYPE ...` | Add multiple links (1 commit) |
 | `nn unlink <from> <to> [--type TYPE]` | Remove a link; `--type` scopes to one edge type, omit to remove all edges between the pair |
+| `nn bulk-unlink <from-id> --to <id> [--to <id> ...] [--type TYPE ...]` | Remove multiple links atomically (≤1 commit); omit type for all edges, or broadcast/pair types |
 | `nn graph --json` | Export link graph |
 | `nn status [--json] [--hubs N]` | Notebook health: orphans, drafts, broken links, draft links, long notes, hub notes |
 | `nn links <id> [--type TYPE] [--status draft\|reviewed] [--json]` | Outgoing links; filter by type or status |

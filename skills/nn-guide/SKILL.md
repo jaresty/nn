@@ -296,17 +296,18 @@ Update annotation, type, and/or status of existing links in place — no unlink/
 
 `nn bulk-update-link` applies all updates in a single git commit. `--type` and `--annotation` are paired with `--to` by position; if provided, their counts must match `--to`. `--status` applies to all `--to` targets.
 
-## nn link / nn unlink / nn bulk-link
+## nn link / nn unlink / nn bulk-link / nn bulk-unlink
 
 ```
 nn link <from-id-or-title> <to-id-or-title> --annotation "relationship description" --type TYPE [--status draft|reviewed]
 nn unlink <from-id-or-title> <to-id-or-title> [--type TYPE]
 nn bulk-link <from-id> --to <id> --annotation "..." --type TYPE [--status draft|reviewed] [--to <id> --annotation "..." --type TYPE]...
+nn bulk-unlink <from-id> --to <id> [--to <id> ...] [--type TYPE ...]
 ```
 
-`nn link` and `nn unlink` accept title substrings for both arguments. `nn bulk-link` requires IDs.
+`nn link` and `nn unlink` accept title substrings for both arguments. `nn bulk-link` and `nn bulk-unlink` require IDs; raw target IDs allow `bulk-unlink` to clean up links whose target note is missing.
 
-`nn unlink --type TYPE` removes only edges of that type between the pair; without `--type`, all edges between the pair are removed. Multiple typed edges between the same pair are allowed (uniqueness is `(from, to, type)`).
+`nn unlink --type TYPE` removes only edges of that type between the pair; without `--type`, all edges between the pair are removed. Multiple typed edges between the same pair are allowed (uniqueness is `(from, to, type)`). `nn bulk-unlink` preserves these semantics across repeated `--to` targets: omit `--type` to remove every edge type to each target, pass one `--type` to broadcast it, or pass one `--type` per target positionally.
 
 > **`[[id]]` inline references are presentational only.** Writing `[[20260423-1234]]` in a note's prose body does not create a graph edge — it is not parsed by `nn graph`, `nn backlinks`, `nn path`, or `nn links`. Use `nn link` to create edges. This is intentional: the link graph is the authoritative record of relationships, not the prose.
 
@@ -329,6 +330,8 @@ Type definitions — choose the type whose definition matches the relationship y
 `--status` defaults to `draft`. Pass `--status reviewed` when a human is explicitly creating and endorsing the link at creation time.
 
 `nn bulk-link` creates all links in a single git commit. `--to`, `--annotation`, and `--type` are paired by position; counts must match. `--status` applies to all targets.
+
+`nn bulk-unlink` validates the full flag shape before mutation, removes all requested links from one source-note snapshot, and writes at most one Git commit. Missing edges are idempotent no-ops.
 
 ## nn graph
 

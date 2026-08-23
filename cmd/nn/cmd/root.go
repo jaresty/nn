@@ -51,6 +51,7 @@ Workflow guidance is embedded in the binary:
 		newBulkNewCmd(state),
 		newBulkUpdateCmd(state),
 		newBulkLinkCmd(state),
+		newBulkUnlinkCmd(state),
 		newUpdateLinkCmd(state),
 		newBulkUpdateLinkCmd(state),
 		newUnlinkCmd(state),

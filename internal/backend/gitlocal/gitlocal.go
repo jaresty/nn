@@ -533,6 +533,53 @@ func (b *Backend) RemoveLinkByType(fromID, toID, linkType string) error {
 	return b.commitWithLockHeld(path, msg)
 }
 
+// RemoveLinks removes multiple links from fromID in a single git commit.
+// An empty removal type removes all link types to that target.
+func (b *Backend) RemoveLinks(fromID string, removals []backend.LinkRemoval) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.RemoveLinks: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
+
+	n, err := b.Read(fromID)
+	if err != nil {
+		return fmt.Errorf("gitlocal.RemoveLinks: %w", err)
+	}
+	removeAll := make(map[string]bool, len(removals))
+	removeTypes := make(map[string]map[string]bool, len(removals))
+	for _, removal := range removals {
+		if removal.Type == "" {
+			removeAll[removal.ToID] = true
+			continue
+		}
+		if removeTypes[removal.ToID] == nil {
+			removeTypes[removal.ToID] = make(map[string]bool)
+		}
+		removeTypes[removal.ToID][removal.Type] = true
+	}
+
+	filtered := n.Links[:0]
+	for _, lnk := range n.Links {
+		if removeAll[lnk.TargetID] || removeTypes[lnk.TargetID][lnk.Type] {
+			continue
+		}
+		filtered = append(filtered, lnk)
+	}
+	n.Links = filtered
+	data, err := n.Marshal()
+	if err != nil {
+		return fmt.Errorf("gitlocal.RemoveLinks: marshal: %w", err)
+	}
+	path := filepath.Join(b.dir, n.Filename())
+	if err := atomicWriteFile(path, data); err != nil {
+		return fmt.Errorf("gitlocal.RemoveLinks: write: %w", err)
+	}
+	msg := fmt.Sprintf("note: bulk-unlink %s → %d notes", fromID, len(removals))
+	return b.commitWithLockHeld(path, msg)
+}
+
 // BulkUpdateLinks applies multiple link updates to fromID in a single git commit.
 func (b *Backend) BulkUpdateLinks(fromID string, updates []backend.LinkUpdate) error {
 	b.mu.Lock()

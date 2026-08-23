@@ -26,6 +26,7 @@ func (s *stubBackend) AddLink(fromID, toID, annotation, linkType, linkStatus str
 func (s *stubBackend) AddLinks(fromID string, targets []backend.LinkTarget) error          { return nil }
 func (s *stubBackend) RemoveLink(fromID, toID string) error                               { return nil }
 func (s *stubBackend) RemoveLinkByType(fromID, toID, linkType string) error               { return nil }
+func (s *stubBackend) RemoveLinks(fromID string, removals []backend.LinkRemoval) error     { return nil }
 func (s *stubBackend) Promote(id string, from time.Time, to note.Status) error            { return nil }
 func (s *stubBackend) Update(n *note.Note, since *time.Time) error                        { return nil }
 func (s *stubBackend) UpdateLink(fromID, toID string, annotation, linkType, linkStatus *string) error {

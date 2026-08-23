@@ -15,6 +15,12 @@ type LinkTarget struct {
 	Status     string // "draft" or "reviewed"; defaults to "draft" if empty
 }
 
+// LinkRemoval identifies links removed by RemoveLinks. An empty Type removes all types to ToID.
+type LinkRemoval struct {
+	ToID string
+	Type string
+}
+
 // LinkUpdate is a (toID, optional annotation, optional type, optional status) used by BulkUpdateLinks.
 type LinkUpdate struct {
 	ToID       string
@@ -34,6 +40,7 @@ type Backend interface {
 	AddLinks(fromID string, targets []LinkTarget) error
 	RemoveLink(fromID, toID string) error
 	RemoveLinkByType(fromID, toID, linkType string) error
+	RemoveLinks(fromID string, removals []LinkRemoval) error
 	Promote(id string, from time.Time, to note.Status) error
 	Update(n *note.Note, since *time.Time) error
 	UpdateLink(fromID, toID string, annotation, linkType, linkStatus *string) error
