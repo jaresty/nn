@@ -38,6 +38,10 @@ func TestNNGuideDocumentsCanonicalHumanNavigationContract(t *testing.T) {
 			"region reached",
 			"which paths remain unexplored",
 			"focus remains at the final note",
+			"understand the destination without opening the note separately",
+			"2–3 sentences is a minimum for simple notes, not a cap",
+			"Hub, model, protocol, or contested note",
+			"A field-only checklist or one-line summary is not a compliant arrival",
 		},
 		"normative examples": {
 			"Peek and Scan MUST be discoverable",
@@ -49,6 +53,13 @@ func TestNNGuideDocumentsCanonicalHumanNavigationContract(t *testing.T) {
 			"applies_when: human-driven nn graph navigation",
 			"preserve focus for Peek and Scan",
 			"change focus only after Teleport or Recenter",
+		},
+		"navigate resume shortcut": {
+			"## `navigate` — resume navigation",
+			"conversational shortcut, not an `nn` subcommand",
+			"resume from the retained final focus",
+			"re-run Orient",
+			"If no focus is retained",
 		},
 	}
 	for assertion, required := range assertions {

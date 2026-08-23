@@ -435,6 +435,22 @@ State:
 - which paths remain unexplored;
 - that focus remains at the final note.
 
+### Arrival depth
+
+An Arrive report **MUST** explain the landing note, not merely identify it. Provide enough explanation for the human to understand the destination without opening the note separately. Scale depth to the destination's complexity, degree, and role; **2–3 sentences is a minimum for simple notes, not a cap**.
+
+- **Leaf or simple note:** at least one substantive paragraph explaining its central claim and why it answers or reframes the starting goal.
+- **Connected note:** usually 2–3 paragraphs covering its claim, neighborhood role, most important relationships, and practical takeaway.
+- **Hub, model, protocol, or contested note:** provide a fuller synthesis of its central claim, why it is load-bearing, major supporting and opposing relationships, visible tensions or uncertainty, implications, and what remains unresolved.
+
+A field-only checklist or one-line summary is not a compliant arrival. The report should optimize for understanding rather than sentence count, while avoiding a raw dump of the note body or graph output.
+
+## `navigate` — resume navigation
+
+`navigate` is a **conversational shortcut, not an `nn` subcommand**. When the human says `navigate` after Arrive or after discussing the landed note, resume from the retained final focus: re-run Orient for that note, render Focus + Map + Moves, and offer the canonical Recenter / Peek / Scan / Arrive chooser. Do not search for a new entry point or change focus merely because navigation was reopened.
+
+If no focus is retained, say that resume is structurally unavailable and treat `navigate <query>` as a cold Teleport request. A bare `navigate` with no retained focus should ask for a query or offer Scan and Arrive rather than inventing a destination.
+
 ## Virtual navigation protocol seed
 
 A compact virtual protocol should use `applies_when: human-driven nn graph navigation` and require:
