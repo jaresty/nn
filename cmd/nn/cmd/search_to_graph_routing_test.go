@@ -32,9 +32,9 @@ func TestSearchToGraphRoutingDocumented(t *testing.T) {
 		t.Errorf("protocol missing the BM25-is-not-a-relationship caveat; got:\n%s", out)
 	}
 
-	// property [4]: bridges are referenced as a structural query.
-	if !strings.Contains(out, "nn graph bridges") {
-		t.Errorf("protocol missing nn graph bridges reference; got:\n%s", out)
+	// property [4]: bridges are referenced as a query-conditioned structural projection.
+	if !strings.Contains(out, "nn graph bridges --search \"<query>\" --format json") {
+		t.Errorf("protocol missing query-conditioned nn graph bridges reference; got:\n%s", out)
 	}
 
 	// property [5]: the default neighborhood is inspected with --zones so the

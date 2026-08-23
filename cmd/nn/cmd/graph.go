@@ -243,11 +243,19 @@ func newGraphOrphansCmd(state *rootState) *cobra.Command {
 func newGraphBridgesCmd(state *rootState) *cobra.Command {
 	var limit int
 	var format string
+	var search string
 
 	cmd := &cobra.Command{
 		Use:   "bridges",
 		Short: "Notes that connect otherwise-disconnected parts of the graph",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			searchMode := cmd.Flags().Changed("search")
+			if searchMode && strings.TrimSpace(search) == "" {
+				return fmt.Errorf("graph bridges: --search requires a non-blank query")
+			}
+			if searchMode && format != "json" {
+				return fmt.Errorf("graph bridges: --search requires --format json")
+			}
 			notes, err := state.backend.List()
 			if err != nil {
 				return fmt.Errorf("graph bridges: %w", err)
@@ -270,19 +278,48 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 				}
 			}
 
+			var normalizedSearchScores map[string]float64
+			if searchMode {
+				scoringNotes := append([]*note.Note(nil), notes...)
+				sort.Slice(scoringNotes, func(i, j int) bool { return scoringNotes[i].ID < scoringNotes[j].ID })
+				rawScores := RankedByQuery(scoringNotes, scoringNotes, search, state.notebookDir)
+				maxScore := 0.0
+				for _, score := range rawScores {
+					if score > maxScore {
+						maxScore = score
+					}
+				}
+				normalizedSearchScores = make(map[string]float64, len(rawScores))
+				if maxScore > 0 {
+					for id, score := range rawScores {
+						if score > 0 {
+							normalizedSearchScores[id] = score / maxScore
+						}
+					}
+				}
+			}
+
 			type entry struct {
 				id, title string
 				score     int
+				relevance float64
 			}
 			var entries []entry
 			for _, n := range notes {
 				inCount := len(inboundFrom[n.ID])
 				outCount := len(outboundTo[n.ID])
 				if inCount > 0 && outCount > 0 {
-					entries = append(entries, entry{n.ID, n.Title, inCount * outCount})
+					relevance := normalizedSearchScores[n.ID]
+					if searchMode && relevance <= 0 {
+						continue
+					}
+					entries = append(entries, entry{id: n.ID, title: n.Title, score: inCount * outCount, relevance: relevance})
 				}
 			}
 			sort.Slice(entries, func(i, j int) bool {
+				if searchMode && entries[i].relevance != entries[j].relevance {
+					return entries[i].relevance > entries[j].relevance
+				}
 				if entries[i].score != entries[j].score {
 					return entries[i].score > entries[j].score
 				}
@@ -295,13 +332,14 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 			w := outWriter(cmd)
 			if format == "json" {
 				type je struct {
-					ID    string `json:"id"`
-					Title string `json:"title"`
-					Score int    `json:"score"`
+					ID             string  `json:"id"`
+					Title          string  `json:"title"`
+					Score          int     `json:"score"`
+					RelevanceScore float64 `json:"relevance_score,omitempty"`
 				}
 				out := make([]je, len(entries))
 				for i, e := range entries {
-					out[i] = je{e.id, e.title, e.score}
+					out[i] = je{ID: e.id, Title: e.title, Score: e.score, RelevanceScore: e.relevance}
 				}
 				enc := json.NewEncoder(w)
 				enc.SetIndent("", "  ")
@@ -315,6 +353,7 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 	}
 	cmd.Flags().IntVar(&limit, "limit", 10, "Maximum entries to show")
 	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json")
+	cmd.Flags().StringVar(&search, "search", "", "Return only full-graph bridges matching this query (requires --format json)")
 	return cmd
 }
 

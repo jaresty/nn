@@ -503,7 +503,7 @@ At any point in the walk (Enter, Orient, Read, Recenter) you can stop stepping s
 
 **The wider landscape (global)** — where your region sits in everything (drops the ego entirely):
 - **The landmass — `nn clusters`** — every topic cluster and its size. When the walk has a goal query, prefer `nn clusters --search "<query>" --json --summary` to project that query onto full-graph regions without loading every unrelated cluster or every member of a matching cluster.
-- **The highways — `nn graph bridges`** — integration points whose links join otherwise-separate regions, ranked by load-bearing weight. (Daily/index notes often rank high because they touch many topics — treat those as connectors-by-aggregation, not substantive bridges.)
+- **The highways — `nn graph bridges`** — integration points whose links join otherwise-separate regions, ranked by load-bearing weight. When the walk has a goal query, use `nn graph bridges --search "<query>" --format json` to project relevance onto bridges computed from the complete graph. Peek through a returned bridge `id` to inspect where it leads without moving, or Recenter on that `id` to cross into its neighborhood. (Daily/index notes often rank high because they touch many topics — treat those as connectors-by-aggregation, not substantive bridges.)
 - **The whole shape — `nn graph show`** *(no `--focus`)* — the entire graph, a last resort (it's large); usually the two above are enough.
 
 **Two presentation modes — you choose at look time:**
@@ -664,6 +664,21 @@ Find and print the shortest undirected path between two notes via the link graph
 Text output: each note on its own line with an `→` separator between hops.
 
 `--json` output: `[{"id": "...", "title": "..."}]` — ordered path from A to B.
+
+## nn graph bridges
+
+```
+nn graph bridges [--limit N] [--format text|json]
+nn graph bridges --search "<query>" --format json [--limit N]
+```
+
+Rank notes that receive at least one incoming link and emit at least one outgoing link by `incoming-neighbor count × outgoing-neighbor count`. This is a load-bearing connector heuristic, not an articulation-point proof.
+
+- `--search QUERY` computes bridge scores over the complete graph, then keeps only bridge notes with a positive full-corpus search score. It requires `--format json` and a non-blank query.
+- Search results rank by normalized `relevance_score` descending, then structural `score` descending, then note ID ascending.
+- `--limit N` is applied after relevance filtering and ranking (default: 10).
+
+Legacy JSON remains `[{"id":"...","title":"...","score":N}]`. Search JSON adds `relevance_score`. Use the returned `id` as a navigation handle: Peek to inspect the bridge without moving, or Recenter on it and resume Orient.
 
 ## nn clusters
 
