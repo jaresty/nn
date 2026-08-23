@@ -570,10 +570,10 @@ Resolve each related note before the next action...
 ## nn grep
 
 ```
-nn grep <pattern> [path...] [--context N] [--notes-per-match K] [--max-matches N] [--trace] [--context-report]
+nn grep <pattern> [path...] [-i|--ignore-case] [--context N] [--notes-per-match K] [--max-matches N] [--trace] [--context-report]
 ```
 
-Search files for a regular-expression pattern and annotate each retained match with related nn notes. `--context N` controls the source window around each match; `--max-matches N` limits the retained windows.
+Search files for a regular-expression pattern and annotate each retained match with related nn notes. `-i`/`--ignore-case` makes matching case-insensitive. `--context N` controls the source window around each match; `--max-matches N` limits the retained windows.
 
 `--context-report` appends an exact source-overlap summary for the retained windows: context-block count, gross context-line occurrences, unique `(path, line)` identities, and overlap occurrences (`gross - unique`). Without the flag, normal grep output is unchanged. This first report measures source windows only; it does not deduplicate related notes or track content previously supplied in a session.
 
