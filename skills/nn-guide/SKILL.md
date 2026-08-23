@@ -531,6 +531,19 @@ For the **global** anchor the map is a **different shape** — not a hop-tree fr
 
 Pick the rendering by surface capability, exactly as you pick whether to offer the recenter chooser — richer form only when the surface supports it, text otherwise. After scanning, resume the walk: recenter on a neighbor as before, or hop to a similar-but-unlinked note by making it the new `--focus` (and consider linking it, since the absence of an edge is what `scan` just exposed).
 
+#### Typed path route overlay
+
+When the walk has both a current focus `<a>` and a known destination `<b>`, use `nn path <a> <b> --links <types> --json` as an optional semantic route overlay. It returns one shortest directed witness whose edges use only the requested relationship types. This is a concrete route, not Datalog closure: Datalog answers whether and what follows transitively; typed path shows the ordered hops that Navigation can execute and explain.
+
+Integrate the overlay into the navigation actions as follows:
+
+- **Orient** — compute the typed path when the goal implies a relationship family (for example `grounded-by,supports` for evidence or `requires` for task dependencies), and show the route beside the local map.
+- **Teleport** — keep instant relocation as the default. Offer the typed path only when the human wants an explainable semantic route instead of jumping directly to a distant landing.
+- **Scan** — assess whether candidate targets or regions have a semantically coherent route from the current focus; do not confuse absence under one filter with global disconnection.
+- **Peek** — preview the complete node-and-edge witness without changing focus.
+- **Recenter** — move to `nodes[1]`, the next hop, then rerun Orient. Never jump to the final node while claiming to walk the route.
+- **Arrive** — explain the traversed `edges` sequence, including relationship types and annotations, as the semantic account of how origin and destination connect.
+
 #### `peek` — look deep without moving (read-only, focus stays put)
 
 `peek` previews detail **without changing focus** — this is what makes it distinct from a one-step recenter. If it moved focus it would just be a slow walk. Two forms:
@@ -657,13 +670,16 @@ Text output: one entry per link — `targetID  title {status}\n  [type] annotati
 
 ```
 nn path <id-a> <id-b> [--json]
+nn path <a> <b> --links <types> [--json]
 ```
 
-Find and print the shortest undirected path between two notes via the link graph (BFS). Returns an error when no path exists.
+Without `--links`, find the shortest undirected path between two notes via the link graph (BFS). Existing text and JSON behavior remain unchanged.
+
+`--links TYPE,...` switches to directed traversal: follow only stored source→target links whose types are listed. Unknown or empty filters fail. The result remains a shortest-hop path under that filter.
 
 Text output: each note on its own line with an `→` separator between hops.
 
-`--json` output: `[{"id": "...", "title": "..."}]` — ordered path from A to B.
+Legacy `--json` output: `[{"id": "...", "title": "..."}]`. Typed `--json` output is `{"nodes":[...],"edges":[{"from":"...","to":"...","type":"...","annotation":"..."}]}`. The edge at index `i` connects `nodes[i]` to `nodes[i+1]`; Navigation Recenter uses `nodes[1]` as the next hop.
 
 ## nn graph bridges
 
