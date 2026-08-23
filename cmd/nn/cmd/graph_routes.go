@@ -124,6 +124,7 @@ func newGraphRoutesCmd(state *rootState) *cobra.Command {
 
 			scoringNotes := append([]*note.Note(nil), notes...)
 			sort.Slice(scoringNotes, func(i, j int) bool { return scoringNotes[i].ID < scoringNotes[j].ID })
+			directScores := note.BM25Scores(scoringNotes, search, nil)
 			rawScores := RankedByQuery(scoringNotes, scoringNotes, search, state.notebookDir)
 			maxScore := 0.0
 			for _, score := range rawScores {
@@ -139,6 +140,9 @@ func newGraphRoutesCmd(state *rootState) *cobra.Command {
 						continue
 					}
 					if _, reachable := prev[n.ID]; !reachable {
+						continue
+					}
+					if directScores[n.ID] <= 0 {
 						continue
 					}
 					if score := rawScores[n.ID]; score > 0 {

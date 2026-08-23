@@ -122,6 +122,26 @@ func TestGraphRoutesLimitAndEmptyArray(t *testing.T) {
 	}
 }
 
+func TestGraphRoutesNonsenseQueryAgainstReachableNotesReturnsEmpty(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	focus := newTestNoteForCLI("20260101000000-0001", "Origin", note.TypeConcept)
+	via := newTestNoteForCLI("20260101000000-0002", "Ordinary waypoint", note.TypeConcept)
+	destination := newTestNoteForCLI("20260101000000-0003", "Ordinary destination", note.TypeConcept)
+	focus.Links = []note.Link{{TargetID: via.ID, Type: "supports", Annotation: "ordinary route"}}
+	via.Links = []note.Link{{TargetID: destination.ID, Type: "supports", Annotation: "nonsensequasar"}}
+	for _, n := range []*note.Note{focus, via, destination} {
+		writeNoteFile(t, nbDir, n)
+	}
+
+	out, err := execute("graph", "routes", "--focus", focus.ID, "--links", "supports", "--search", "nonsensequasar", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out) != "[]" {
+		t.Fatalf("nonsense query routes = %q, want [] without direct note evidence", out)
+	}
+}
+
 func TestGraphRoutesValidatesRequiredInputs(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	focus := newTestNoteForCLI("20260101000000-0001", "Origin", note.TypeConcept)
@@ -214,6 +234,7 @@ func TestGraphRoutesIsDocumentedForNavigation(t *testing.T) {
 	}
 	for _, required := range []string{
 		"nn graph routes --focus ID --links TYPES --search QUERY --limit N --json",
+		"positive direct lexical BM25 evidence",
 		"Orient", "Scan", "Peek", "Recenter", "Arrive", "relevance_score", "nodes[1]",
 	} {
 		if !strings.Contains(string(guide), required) {

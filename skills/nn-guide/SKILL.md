@@ -357,7 +357,7 @@ With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 a
 nn graph routes --focus ID --links TYPES --search QUERY --limit N --json
 ```
 
-Discovers query-relevant destinations that are reachable from `ID` by following stored links in their source→target direction, restricted to comma-separated canonical `TYPES`. It scores every note against the full corpus, normalizes by the largest positive score, excludes the focus, unreachable notes, and zero-score notes, then ranks by `relevance_score` descending, shortest-hop count ascending, and destination ID ascending. Each JSON array entry contains `destination` (`id`, `title`, `relevance_score`) plus aligned shortest-witness `nodes` and `edges`; edge `i` connects `nodes[i]` to `nodes[i+1]`. `--json` is required.
+Discovers query-relevant destinations that are reachable from `ID` by following stored links in their source→target direction, restricted to comma-separated canonical `TYPES`. Eligibility requires positive direct lexical BM25 evidence in the destination's title, body, or tags; graph-derived relevance such as a matching link annotation alone is insufficient. It scores every note against the full corpus, normalizes by the largest positive score, excludes the focus, unreachable notes, and destinations without direct evidence, then ranks eligible destinations by the normalized full-corpus `relevance_score` descending, shortest-hop count ascending, and destination ID ascending. Each JSON array entry contains `destination` (`id`, `title`, `relevance_score`) plus aligned shortest-witness `nodes` and `edges`; edge `i` connects `nodes[i]` to `nodes[i+1]`. `--json` is required.
 
 `--zones` (requires `--focus`) annotates each node with the directional screen zone it occupies relative to the focus, derived from the node's direct link to the focus and that link's direction:
 
@@ -551,7 +551,7 @@ nn graph routes --focus ID --links TYPES --search QUERY --limit N --json
 This intersects semantic relevance with actual directed reachability under the selected relationship types. A result is a candidate landing plus one deterministic shortest witness, not proof that it is the only or best conceptual destination.
 
 - **Orient** — run typed destination discovery when the goal implies a relationship family but the destination is unknown; present the highest-ranked reachable destinations beside the local map.
-- **Scan** — use the ranked destination set to see query-relevant territory reachable under `TYPES`; absence means no positive-scoring directed route under that filter, not global disconnection.
+- **Scan** — use the ranked destination set to see query-relevant territory reachable under `TYPES`; absence means no directed route to a destination with positive direct lexical evidence under that filter, not global disconnection.
 - **Peek** — inspect a selected result's complete `nodes` and `edges` witness without changing focus.
 - **Recenter** — choose a destination, move to `nodes[1]`, and rerun Orient; do not jump directly to the destination while claiming to walk its witness.
 - **Arrive** — when focus reaches `destination.id`, explain the traversed edge types and annotations and report the destination's `relevance_score` as discovery evidence, not relationship strength.
