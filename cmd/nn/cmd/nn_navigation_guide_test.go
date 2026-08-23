@@ -61,6 +61,14 @@ func TestNNGuideDocumentsCanonicalHumanNavigationContract(t *testing.T) {
 			"re-run Orient",
 			"If no focus is retained",
 		},
+		"teleport automatic landing": {
+			"selected landing automatically becomes the retained focus",
+			"Immediately run Orient",
+			"present Focus + Map + Moves",
+			"MUST NOT ask for a second confirmation",
+			"MUST NOT offer a separate `Visit` action",
+			"genuinely ambiguous",
+		},
 	}
 	for assertion, required := range assertions {
 		for _, snippet := range required {
