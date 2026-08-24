@@ -474,6 +474,22 @@ A field-only checklist or one-line summary is not a compliant arrival. The repor
 
 If no focus is retained, say that resume is structurally unavailable and treat `navigate <query>` as a cold Teleport request. A bare `navigate` with no retained focus should ask for a query or offer Scan and Arrive rather than inventing a destination.
 
+## Conversational navigation history and bookmarks
+
+These are guide-level conversational moves and conversation-scoped state, not `nn` subcommands or persisted notebook data. A **navigation frame** is the retained focus plus its active traversal context and filters: preserve enough information to reproduce the positioned view, including the walk goal/query and any active direction, link-type, status, representation, depth, route, or impact context. Restoring only a note ID is not sufficient when filters or traversal context were active.
+
+Maintain a current frame, a Back stack, a Forward stack, and bookmarks:
+
+- After a successful Teleport, Visit, Recenter, or Go to, push the prior frame onto Back and clear Forward. `Visit` here means an independently requested move when that vocabulary is already present; it is never the prohibited second confirmation after a completed Teleport landing. If there is no prior/current focus, an initial landing cannot push a frame.
+- **Back** moves the current frame onto Forward and restores the latest Back frame. **Forward** moves the current frame onto Back and restores the latest Forward frame. After either restoration, rerun Orient and present Focus + Map + Moves under the [Presentation discipline](#presentation-discipline).
+- **Bookmark <name>** stores the complete current frame under a case-sensitive name. Creating a new name needs no confirmation; an existing exact-case name requires explicit confirmation before replacing it. A declined replacement changes nothing.
+- **Go to <name>** restores its saved frame as a Teleport landing. It therefore follows the successful-move rule: push the prior current frame onto Back, clear Forward, rerun Orient, and present Focus + Map + Moves.
+- **Where am I?** reports the current focus, active traversal context and filters, immediate Back and Forward destinations (if any), and bookmark names. It does not mutate navigation state.
+
+Failed or no-op operations never mutate history or bookmarks. If the Back or Forward stack is empty, say, for example, “Back stack is empty” or “Forward stack is empty,” retain the current frame, and do not rerun a fictitious landing. For an unknown bookmark, say the name was not found, list the available case-sensitive bookmark names, and retain all state. A move that resolves to the complete current frame is a no-op.
+
+This state lasts only for the conversation. Any compaction handoff MUST include the full current frame, Back and Forward stacks, and every bookmark, preserving stack order and each bookmark's case-sensitive name and complete saved frame. If that handoff is missing or incomplete after compaction, state is unknown: never invent history, filters, destinations, or bookmarks; report that navigation state cannot be recovered and ask the human to establish a new landing or restate it.
+
 ## Virtual navigation protocol seed
 
 A compact virtual protocol should use `applies_when: human-driven nn graph navigation` and require:
@@ -483,8 +499,10 @@ A compact virtual protocol should use `applies_when: human-driven nn graph navig
 3. render Focus + Map + Moves;
 4. expose Recenter, Peek, Scan, and Arrive;
 5. preserve focus for Peek and Scan;
-6. change focus only after Teleport or Recenter;
-7. when the relationship family is known but the destination is unknown, run `nn graph routes --focus ID --links TYPES --search QUERY --limit N --json` and treat its bounded witnesses as route candidates, not relationship proof.
+6. adopt a new destination only after a successful Teleport, Visit, Recenter, or Go to; Back and Forward may change focus only by restoring a retained frame;
+7. when the relationship family is known but the destination is unknown, run `nn graph routes --focus ID --links TYPES --search QUERY --limit N --json` and treat its bounded witnesses as route candidates, not relationship proof;
+8. preserve complete-frame Back/Forward and case-sensitive bookmark semantics exactly as specified above, mutating them only after successful focus-changing moves; and
+9. carry the complete navigation state through compaction, or report it unknown rather than reconstructing it.
 
 This seed is the enforcement contract if navigation is later split from the broad command reference. Creating `nn-navigation` and `nn-navigation-presenter` is a **MAY** architecture change, not a prerequisite for this compact contract.
 
@@ -625,7 +643,7 @@ Because `peek` does not move, it **returns you to the walk at the same Recenter 
 
 **Offer the recenter as a chooser when the harness supports one and a human is driving the walk.** The Recenter step is a decision — "which neighbor next?" — and a harness chooser (a selectable-option prompt) renders it as clickable moves rather than a wall of prose. Use it *only* when both hold: the harness exposes a chooser affordance, **and** a human is co-navigating this walk. When either is false — you are navigating autonomously toward a goal, or stdout is not a TTY — do **not** invoke a chooser: pick the move yourself per the goal and continue (nn is non-interactive by default when stdout is not a TTY).
 
-When you do offer a chooser, use the [Canonical navigation chooser](#canonical-navigation-chooser), not a neighbor-only chooser. The recommended Recenter targets the goal-relevant zone (LEFT for tension, TOP/RIGHT for provenance, BOTTOM for what-builds-on) and its description includes the zone, `↑out ↓in` degree, and a one-line body-derived claim. Peek targets the most useful direction, Scan names the landscape view, and Arrive remains the stop action. Then execute the selected action; only Recenter or Teleport may change focus.
+When you do offer a chooser, use the [Canonical navigation chooser](#canonical-navigation-chooser), not a neighbor-only chooser. The recommended Recenter targets the goal-relevant zone (LEFT for tension, TOP/RIGHT for provenance, BOTTOM for what-builds-on) and its description includes the zone, `↑out ↓in` degree, and a one-line body-derived claim. Peek targets the most useful direction, Scan names the landscape view, and Arrive remains the stop action. Then execute the selected action. Teleport, Visit, Recenter, and Go to may adopt a new destination; Back and Forward may only restore retained frames. No other action changes focus.
 
 <a id="presentation-discipline"></a>
 #### Presentation discipline (the named block every seam cites)

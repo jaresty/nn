@@ -53,7 +53,7 @@ func TestNNGuideDocumentsCanonicalHumanNavigationContract(t *testing.T) {
 		"navigation protocol": {
 			"applies_when: human-driven nn graph navigation",
 			"preserve focus for Peek and Scan",
-			"change focus only after Teleport or Recenter",
+			"adopt a new destination only after a successful Teleport, Visit, Recenter, or Go to",
 			"--zones --bodies --presentation-hints --color always",
 			"relationship family is known but the destination is unknown",
 			"nn graph routes --focus ID --links TYPES --search QUERY --limit N --json",
@@ -73,6 +73,36 @@ func TestNNGuideDocumentsCanonicalHumanNavigationContract(t *testing.T) {
 			"MUST NOT offer a separate `Visit` action",
 			"genuinely ambiguous",
 		},
+		"conversational navigation frame": {
+			"## Conversational navigation history and bookmarks",
+			"retained focus plus its active traversal context and filters",
+			"conversation-scoped state, not `nn` subcommands",
+		},
+		"history transitions": {
+			"successful Teleport, Visit, Recenter, or Go to",
+			"push the prior frame onto Back and clear Forward",
+			"initial landing cannot push a frame",
+			"moves the current frame onto Forward and restores the latest Back frame",
+			"moves the current frame onto Back and restores the latest Forward frame",
+			"rerun Orient and present Focus + Map + Moves",
+		},
+		"bookmarks and inspection": {
+			"Bookmark <name>",
+			"case-sensitive name",
+			"explicit confirmation before replacing",
+			"Go to <name>",
+			"restores its saved frame as a Teleport landing",
+			"Where am I?",
+			"immediate Back and Forward destinations",
+			"does not mutate navigation state",
+		},
+		"failure and continuity": {
+			"Failed or no-op operations never mutate",
+			"Back stack is empty",
+			"unknown bookmark",
+			"full current frame, Back and Forward stacks, and every bookmark",
+			"state is unknown: never invent",
+		},
 	}
 	if !strings.Contains(content, "[--presentation-hints]") {
 		t.Errorf("graph-show syntax missing --presentation-hints")
@@ -81,8 +111,23 @@ func TestNNGuideDocumentsCanonicalHumanNavigationContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read embedded CLI reference: %v", err)
 	}
-	for _, required := range []string{"match_density", "match_count / size", "explanatory signal, not a ranking input"} {
-		if !strings.Contains(string(embedded), required) {
+	embeddedContent := string(embedded)
+	for _, required := range []string{
+		"match_density",
+		"match_count / size",
+		"explanatory signal, not a ranking input",
+		"Navigation frame = retained focus plus active traversal context and filters",
+		"pushes the prior frame onto Back and clears Forward",
+		"Back moves current to Forward",
+		"Forward moves current to Back",
+		"Bookmark names are case-sensitive",
+		"explicit confirmation",
+		"Where am I? reports",
+		"Failed and no-op operations never mutate history or bookmarks",
+		"compaction handoff",
+		"state is unknown; never invent it",
+	} {
+		if !strings.Contains(embeddedContent, required) {
 			t.Errorf("embedded CLI reference missing %q", required)
 		}
 	}
