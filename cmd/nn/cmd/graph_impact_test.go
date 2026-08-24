@@ -16,10 +16,9 @@ type graphImpactTestNode struct {
 }
 
 type graphImpactTestEntry struct {
-	Node  graphImpactTestNode   `json:"node"`
-	Depth int                   `json:"depth"`
-	Nodes []graphImpactTestNode `json:"nodes"`
-	Edges []pathWitnessEdge     `json:"edges"`
+	Node      graphImpactTestNode `json:"node"`
+	Depth     int                 `json:"depth"`
+	Witnesses []typedWitnessTest  `json:"witnesses"`
 }
 
 type graphImpactTestResult struct {
@@ -28,6 +27,10 @@ type graphImpactTestResult struct {
 	Links     []string               `json:"links"`
 	Depth     int                    `json:"depth"`
 	Impacts   []graphImpactTestEntry `json:"impacts"`
+}
+
+type graphImpactOutputShape struct {
+	Impacts []map[string]json.RawMessage `json:"impacts"`
 }
 
 func TestGraphImpactCommandIsRegistered(t *testing.T) {
@@ -93,23 +96,37 @@ func TestGraphImpactOutgoingIsCycleSafeDeterministicAndDepthBounded(t *testing.T
 	if depths := []int{got.Impacts[0].Depth, got.Impacts[1].Depth, got.Impacts[2].Depth}; !reflect.DeepEqual(depths, []int{1, 1, 2}) {
 		t.Fatalf("impact depths = %v", depths)
 	}
-	if got.Impacts[0].Edges[0] != (pathWitnessEdge{From: focus.ID, To: viaA.ID, Type: "grounded-by", Annotation: "a annotation"}) {
-		t.Fatalf("deterministic first edge = %#v", got.Impacts[0].Edges[0])
+	if len(got.Impacts[0].Witnesses) != 3 || got.Impacts[0].Witnesses[0].Edges[0] != (typedWitnessTestEdge{From: focus.ID, To: viaA.ID, Type: "grounded-by", Annotation: "a annotation"}) {
+		t.Fatalf("deterministic direct witnesses = %#v", got.Impacts[0].Witnesses)
 	}
-	wantNodes := []graphImpactTestNode{
+	if len(got.Impacts[2].Witnesses) != 3 {
+		t.Fatalf("deep witnesses = %#v, want bounded diverse cap", got.Impacts[2].Witnesses)
+	}
+	witness := got.Impacts[2].Witnesses[0]
+	wantNodes := []typedWitnessTestNode{
 		{ID: focus.ID, Title: focus.Title},
 		{ID: viaA.ID, Title: viaA.Title},
 		{ID: impact.ID, Title: impact.Title},
 	}
-	if !reflect.DeepEqual(got.Impacts[2].Nodes, wantNodes) {
-		t.Fatalf("shortest witness nodes = %#v, want %#v", got.Impacts[2].Nodes, wantNodes)
+	if !reflect.DeepEqual(witness.Nodes, wantNodes) {
+		t.Fatalf("shortest witness nodes = %#v, want %#v", witness.Nodes, wantNodes)
 	}
-	wantEdges := []pathWitnessEdge{
+	wantEdges := []typedWitnessTestEdge{
 		{From: focus.ID, To: viaA.ID, Type: "grounded-by", Annotation: "a annotation"},
 		{From: viaA.ID, To: impact.ID, Type: "supports", Annotation: "shortest predecessor A"},
 	}
-	if !reflect.DeepEqual(got.Impacts[2].Edges, wantEdges) {
-		t.Fatalf("shortest witness edges = %#v, want %#v", got.Impacts[2].Edges, wantEdges)
+	if !reflect.DeepEqual(witness.Edges, wantEdges) {
+		t.Fatalf("shortest witness edges = %#v, want %#v", witness.Edges, wantEdges)
+	}
+	if got.Impacts[2].Witnesses[2].Nodes[1].ID != viaB.ID {
+		t.Fatalf("first-hop diversity lost equal route B: %#v", got.Impacts[2].Witnesses)
+	}
+	var raw graphImpactOutputShape
+	if err := json.Unmarshal([]byte(out), &raw); err != nil || len(raw.Impacts) != 3 {
+		t.Fatalf("raw impact shape: %v / %v", raw, err)
+	}
+	if len(raw.Impacts[2]) != 3 || raw.Impacts[2]["node"] == nil || raw.Impacts[2]["depth"] == nil || raw.Impacts[2]["witnesses"] == nil {
+		t.Fatalf("impact entry shape = %v, want node+depth+witnesses only", raw.Impacts[2])
 	}
 }
 
@@ -147,17 +164,26 @@ func TestGraphImpactIncomingKeepsStoredWitnessOrientation(t *testing.T) {
 	if deep.Node.ID != higher.ID || deep.Depth != 2 {
 		t.Fatalf("deep incoming impact = %#v", deep)
 	}
-	wantNodes := []graphImpactTestNode{
+	if len(deep.Witnesses) != 1 {
+		t.Fatalf("deep incoming witnesses = %#v, want one", deep.Witnesses)
+	}
+	witness := deep.Witnesses[0]
+	wantNodes := []typedWitnessTestNode{
 		{ID: evidence.ID, Title: evidence.Title},
 		{ID: claimA.ID, Title: claimA.Title},
 		{ID: higher.ID, Title: higher.Title},
 	}
-	wantEdges := []pathWitnessEdge{
+	wantEdges := []typedWitnessTestEdge{
 		{From: claimA.ID, To: evidence.ID, Type: "grounded-by", Annotation: "A depends on observation"},
 		{From: higher.ID, To: claimA.ID, Type: "grounded-by", Annotation: "higher depends on A"},
 	}
-	if !reflect.DeepEqual(deep.Nodes, wantNodes) || !reflect.DeepEqual(deep.Edges, wantEdges) {
-		t.Fatalf("incoming witness = nodes %#v edges %#v; want nodes %#v edges %#v", deep.Nodes, deep.Edges, wantNodes, wantEdges)
+	if !reflect.DeepEqual(witness.Nodes, wantNodes) || !reflect.DeepEqual(witness.Edges, wantEdges) {
+		t.Fatalf("incoming witness = nodes %#v edges %#v; want nodes %#v edges %#v", witness.Nodes, witness.Edges, wantNodes, wantEdges)
+	}
+	for i, edge := range witness.Edges {
+		if edge.From != witness.Nodes[i+1].ID || edge.To != witness.Nodes[i].ID {
+			t.Errorf("incoming edge %d lost stored orientation: nodes=%#v edge=%#v", i, witness.Nodes, edge)
+		}
 	}
 }
 
@@ -180,7 +206,7 @@ func TestGraphImpactSupportsOutgoingEvidenceExample(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
 		t.Fatal(err)
 	}
-	if len(got.Impacts) != 2 || got.Impacts[1].Node.ID != conclusion.ID || got.Impacts[1].Edges[0].From != evidence.ID || got.Impacts[1].Edges[1].To != conclusion.ID {
+	if len(got.Impacts) != 2 || got.Impacts[1].Node.ID != conclusion.ID || len(got.Impacts[1].Witnesses) != 1 || got.Impacts[1].Witnesses[0].Edges[0].From != evidence.ID || got.Impacts[1].Witnesses[0].Edges[1].To != conclusion.ID {
 		t.Fatalf("supports outgoing impacts = %s", out)
 	}
 }
@@ -246,7 +272,7 @@ func TestGraphImpactIsDocumentedForNavigation(t *testing.T) {
 	guideText := string(guide)
 	for _, required := range []string{
 		"nn graph impact --focus ID --links TYPES --direction incoming|outgoing --depth N --json",
-		"Scan", "Peek", "Recenter", "Arrive",
+		"Scan", "Peek", "Recenter", "Arrive", "witnesses", "at most 3", "first-hop", "type-sequence",
 		"grounded-by", "incoming", "supports", "outgoing",
 		"stored source", "target", "opposite",
 	} {
@@ -258,8 +284,13 @@ func TestGraphImpactIsDocumentedForNavigation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(show), "nn graph impact --focus ID --links TYPES --direction incoming|outgoing --depth N --json") {
-		t.Error("embedded CLI reference missing graph impact command")
+	for _, required := range []string{
+		"nn graph impact --focus ID --links TYPES --direction incoming|outgoing --depth N --json",
+		"`node`/`depth`", "`witnesses`", "at most 3", "nodes run focus→impact", "stored source→target orientation",
+	} {
+		if !strings.Contains(string(show), required) {
+			t.Errorf("embedded CLI reference missing graph impact guidance %q", required)
+		}
 	}
 	adr, err := os.ReadFile("../../../docs/adr/0033-explicit-impact-traversal.md")
 	if err != nil {

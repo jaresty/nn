@@ -357,7 +357,7 @@ With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 a
 nn graph routes --focus ID --links TYPES --search QUERY --limit N --json
 ```
 
-Discovers query-relevant destinations that are reachable from `ID` by following stored links in their source→target direction, restricted to comma-separated canonical `TYPES`. Eligibility requires positive direct lexical BM25 evidence in the destination's title, body, or tags; graph-derived relevance such as a matching link annotation alone is insufficient. It scores every note against the full corpus, normalizes by the largest positive score, excludes the focus, unreachable notes, and destinations without direct evidence, then ranks eligible destinations by the normalized full-corpus `relevance_score` descending, shortest-hop count ascending, and destination ID ascending. Each JSON array entry contains `destination` (`id`, `title`, `relevance_score`) plus aligned shortest-witness `nodes` and `edges`; edge `i` connects `nodes[i]` to `nodes[i+1]`. `--json` is required.
+Discovers query-relevant destinations that are reachable from `ID` by following stored links in their source→target direction, restricted to comma-separated canonical `TYPES`. Eligibility requires positive direct lexical BM25 evidence in the destination's title, body, or tags; graph-derived relevance such as a matching link annotation alone is insufficient. It scores every note against the full corpus, normalizes by the largest positive score, excludes the focus, unreachable notes, and destinations without direct evidence, then ranks eligible destinations by the normalized full-corpus `relevance_score` descending, shortest-hop count ascending, and destination ID ascending. Each JSON array entry contains `destination` (`id`, `title`, `relevance_score`) plus `witnesses`, an array of at most 3 aligned shortest node-and-edge paths. Ranking is unchanged by witness multiplicity. Witness selection prioritizes distinct first-hop nodes, then distinct complete edge type-sequence values, then the lexical full-path key. Within each witness, edge `i` connects `nodes[i]` to `nodes[i+1]`. `--json` is required.
 
 ### nn graph impact (explicit typed impact traversal)
 
@@ -365,7 +365,7 @@ Discovers query-relevant destinations that are reachable from `ID` by following 
 nn graph impact --focus ID --links TYPES --direction incoming|outgoing --depth N --json
 ```
 
-Returns every note reached by a cycle-safe, depth-bounded BFS through the selected canonical link types. All flags are explicit and required: focus must be a nonblank existing ID, `TYPES` must be a nonblank comma-separated list without empty or unknown members, direction must be exactly `incoming` or `outgoing`, depth must be positive, and `--json` must be true. The JSON object reports `focus`, direction, normalized sorted unique `links`, requested depth, and `impacts` excluding focus sorted by depth then ID. Each impact has `node`, depth, and one deterministic shortest focus→impact witness in `nodes` and `edges`; adjacency is ordered by traversed endpoint ID, edge type, then annotation.
+Returns every note reached by a cycle-safe, depth-bounded BFS through the selected canonical link types. All flags are explicit and required: focus must be a nonblank existing ID, `TYPES` must be a nonblank comma-separated list without empty or unknown members, direction must be exactly `incoming` or `outgoing`, depth must be positive, and `--json` must be true. The JSON object reports `focus`, direction, normalized sorted unique `links`, requested depth, and `impacts` excluding focus sorted by depth then ID. Each impact has `node`, depth, and `witnesses`: at most 3 deterministic shortest focus→impact paths selected for first-hop diversity, then complete edge type-sequence diversity, then lexical full-path order. BFS retains every equal-shortest predecessor transition while reconstruction keeps a fixed bounded portfolio, so cycles and combinatorial convergence cannot cause unbounded path enumeration.
 
 `outgoing` follows each stored source→target edge. `incoming` traverses the reverse adjacency from stored target to stored source, but witness edges always retain their stored source/from → target/to orientation and annotation. Thus incoming `edges` point opposite consecutive focus→impact traversal nodes. Evidence examples: from an observation, `--links grounded-by --direction incoming` finds claims stored as claim→observation; from evidence stored as evidence→claim, `--links supports --direction outgoing` finds supported claims in stored direction.
 
@@ -482,7 +482,7 @@ A compact virtual protocol should use `applies_when: human-driven nn graph navig
 4. expose Recenter, Peek, Scan, and Arrive;
 5. preserve focus for Peek and Scan;
 6. change focus only after Teleport or Recenter;
-7. when the relationship family is known but the destination is unknown, run `nn graph routes --focus ID --links TYPES --search QUERY --limit N --json` and treat its witness as a route candidate, not relationship proof.
+7. when the relationship family is known but the destination is unknown, run `nn graph routes --focus ID --links TYPES --search QUERY --limit N --json` and treat its bounded witnesses as route candidates, not relationship proof.
 
 This seed is the enforcement contract if navigation is later split from the broad command reference. Creating `nn-navigation` and `nn-navigation-presenter` is a **MAY** architecture change, not a prerequisite for this compact contract.
 
@@ -559,14 +559,14 @@ nn graph routes --focus ID --links TYPES --search QUERY --limit N --json
 nn graph routes --focus ID --links TYPES --search QUERY --limit N --json --explain
 ```
 
-This intersects semantic relevance with actual directed reachability under the selected relationship types. A result is a candidate landing plus one deterministic shortest witness, not proof that it is the only or best conceptual destination. Without `--explain`, the JSON remains the legacy top-level route array exactly. Opt-in `--explain` (which requires `--json`) wraps that array as `{routes:[...], diagnostics:{...}}` with bounded aggregate diagnostics only—never note bodies, titles, or candidate dumps.
+This intersects semantic relevance with actual directed reachability under the selected relationship types. A result is a candidate landing plus `witnesses`, at most 3 deterministic shortest paths selected by first-hop diversity, then edge type-sequence diversity, then lexical full-path order; none proves that the destination is the only or best conceptual landing. Without `--explain`, JSON remains a top-level route array. Opt-in `--explain` (which requires `--json`) wraps that same array as `{routes:[...], diagnostics:{...}}` with bounded aggregate diagnostics only—never note bodies, titles, or candidate dumps.
 
 Diagnostics report normalized `query_tokens`; `total_notes`; `direct_lexical_matches` over title, body, and tags without annotations; `focus_excluded` (0 or 1); `typed_reachable` excluding focus; `eligible_destinations` (direct lexical matches intersected with typed reachability, excluding focus); `returned`; and boolean `truncated_by_limit`. `graph_scored_matches` is a separate count from the full graph-aware relevance scorer and may exceed direct lexical matches because inbound/outbound annotations can score. Annotation-only scores never make a route eligible. Routes has no depth flag, so the diagnostics do not report or imply a traversal depth.
 
 - **Orient** — run typed destination discovery when the goal implies a relationship family but the destination is unknown; present the highest-ranked reachable destinations beside the local map.
 - **Scan** — use the ranked destination set to see query-relevant territory reachable under `TYPES`; absence means no directed route to a destination with positive direct lexical evidence under that filter, not global disconnection.
-- **Peek** — inspect a selected result's complete `nodes` and `edges` witness without changing focus.
-- **Recenter** — choose a destination, move to `nodes[1]`, and rerun Orient; do not jump directly to the destination while claiming to walk its witness.
+- **Peek** — inspect a selected result's complete `witnesses`; each member has aligned `nodes` and `edges`. Compare alternatives without changing focus.
+- **Recenter** — choose one witness, move to `witnesses[k].nodes[1]`, and rerun Orient; do not jump directly to the destination while claiming to walk that witness.
 - **Arrive** — when focus reaches `destination.id`, explain the traversed edge types and annotations and report the destination's `relevance_score` as discovery evidence, not relationship strength.
 
 #### Explicit typed impact overlay
@@ -580,21 +580,21 @@ nn graph impact --focus ID --links TYPES --direction incoming|outgoing --depth N
 This is a bounded structural impact set, not relevance ranking or inferred closure. Choose direction from stored semantics: `grounded-by` incoming from an evidence focus finds claims that depend on it, while `supports` outgoing from an evidence focus finds claims it corroborates.
 
 - **Scan** — read the complete returned impact set to the requested depth; absence under one type/direction filter is not proof of global isolation.
-- **Peek** — inspect a selected impact's full `nodes` and `edges` witness without changing focus. For incoming traversal, the nodes run focus→impact while stored witness edges point in the opposite direction.
-- **Recenter** — move only to `nodes[1]`, retain the selected types/direction/depth deliberately, and rerun from the new focus; do not jump to a distant impact while claiming to walk the witness.
+- **Peek** — inspect a selected impact's full `witnesses` array without changing focus. For every incoming witness, `nodes` run focus→impact while each stored edge retains source→target orientation and therefore points opposite its consecutive traversal nodes.
+- **Recenter** — choose one witness and move only to `witnesses[k].nodes[1]`, retain the selected types/direction/depth deliberately, and rerun from the new focus; do not jump to a distant impact while claiming to walk the witness.
 - **Arrive** — when focus reaches the selected `node.id`, explain the traversed edge types and annotations. Read each incoming edge in its stored source→target orientation rather than reversing its claim.
 
 #### Typed path route overlay
 
-When the walk has both a current focus `<a>` and a known destination `<b>`, use `nn path <a> <b> --links <types> --json` as an optional semantic route overlay. It returns one shortest directed witness whose edges use only the requested relationship types. This is a concrete route, not Datalog closure: Datalog answers whether and what follows transitively; typed path shows the ordered hops that Navigation can execute and explain.
+When the walk has both a current focus `<a>` and a known destination `<b>`, use `nn path <a> <b> --links <types> --json` as an optional semantic route overlay. It returns `witnesses`, at most 3 shortest directed paths whose edges use only the requested relationship types. Selection prioritizes distinct first-hop nodes, then distinct edge type-sequence values, then lexical full-path order. These are concrete routes, not Datalog closure: Datalog answers whether and what follows transitively; typed path shows ordered hops that Navigation can execute and explain.
 
 Integrate the overlay into the navigation actions as follows:
 
 - **Orient** — compute the typed path when the goal implies a relationship family and show the route beside the local map. Relationship direction matters: use `grounded-by` to walk claim→evidence, `supports` to walk evidence→claim, and `requires` for source task→required dependency. Do not combine opposite semantic directions merely because both concern evidence.
 - **Teleport** — keep instant relocation as the default. Offer the typed path only when the human wants an explainable semantic route instead of jumping directly to a distant landing.
 - **Scan** — assess whether candidate targets or regions have a semantically coherent route from the current focus; do not confuse absence under one filter with global disconnection.
-- **Peek** — preview the complete node-and-edge witness without changing focus.
-- **Recenter** — move to `nodes[1]`, the next hop, then rerun Orient. Never jump to the final node while claiming to walk the route.
+- **Peek** — preview every complete node-and-edge witness without changing focus.
+- **Recenter** — choose one witness and move to its `nodes[1]`, the next hop, then rerun Orient. Never jump to the final node while claiming to walk the route.
 - **Arrive** — explain the traversed `edges` sequence, including relationship types and annotations, as the semantic account of how origin and destination connect.
 
 #### `peek` — look deep without moving (read-only, focus stays put)
@@ -730,11 +730,11 @@ nn path <a> <b> --links <types> [--json]
 
 Without `--links`, find the shortest undirected path between two notes via the link graph (BFS). Existing text and JSON behavior remain unchanged.
 
-`--links TYPE,...` switches to directed traversal: follow only stored source→target links whose types are listed. Unknown or empty filters fail. The result remains a shortest-hop path under that filter.
+`--links TYPE,...` switches to directed traversal: follow only stored source→target links whose types are listed. Unknown or empty filters fail. The result contains only shortest-hop paths under that filter, capped at 3. Among equal-shortest alternatives, deterministic selection takes distinct first-hop nodes first, then distinct complete edge type-sequence values, then lexical full-path order.
 
-Text output: each note on its own line with an `→` separator between hops.
+Legacy untyped text remains each note on its own line with an `→` separator between hops. Typed text labels and renders every selected witness consistently, including each edge type and annotation.
 
-Legacy `--json` output: `[{"id": "...", "title": "..."}]`. Typed `--json` output is `{"nodes":[...],"edges":[{"from":"...","to":"...","type":"...","annotation":"..."}]}`. The edge at index `i` connects `nodes[i]` to `nodes[i+1]`; Navigation Recenter uses `nodes[1]` as the next hop.
+Legacy untyped `--json` output remains exactly `[{"id": "...", "title": "..."}]`. Typed `--json` output is `{"witnesses":[{"nodes":[...],"edges":[{"from":"...","to":"...","type":"...","annotation":"..."}]}]}`. In any witness, edge `i` connects `nodes[i]` to `nodes[i+1]`; Navigation Recenter chooses a witness and uses its `nodes[1]` as the next hop.
 
 ## nn graph bridges
 

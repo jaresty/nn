@@ -11,25 +11,14 @@ import (
 	"github.com/jaresty/nn/internal/note"
 )
 
-type graphImpactAdjacencyEdge struct {
-	next    string
-	witness pathWitnessEdge
-}
-
-type graphImpactNode struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-}
-
 type graphImpactEntry struct {
-	Node  graphImpactNode   `json:"node"`
-	Depth int               `json:"depth"`
-	Nodes []graphImpactNode `json:"nodes"`
-	Edges []pathWitnessEdge `json:"edges"`
+	Node      typedWitnessNode `json:"node"`
+	Depth     int              `json:"depth"`
+	Witnesses []typedWitness   `json:"witnesses"`
 }
 
 type graphImpactOutput struct {
-	Focus     graphImpactNode    `json:"focus"`
+	Focus     typedWitnessNode   `json:"focus"`
 	Direction string             `json:"direction"`
 	Links     []string           `json:"links"`
 	Depth     int                `json:"depth"`
@@ -99,107 +88,58 @@ func newGraphImpactCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("graph impact: %w", err)
 			}
 			byID := make(map[string]*note.Note, len(notes))
+			titles := make(map[string]string, len(notes))
 			for _, n := range notes {
 				byID[n.ID] = n
+				titles[n.ID] = n.Title
 			}
 			if byID[focus] == nil {
 				return fmt.Errorf("graph impact: note %q not found", focus)
 			}
 
-			adj := make(map[string][]graphImpactAdjacencyEdge, len(notes))
+			adj := make(map[string][]typedTraversalEdge, len(notes))
 			for _, n := range notes {
 				for _, lnk := range n.Links {
 					if !allowedTypes[lnk.Type] || byID[lnk.TargetID] == nil {
 						continue
 					}
-					witness := pathWitnessEdge{
+					storedEdge := typedWitnessEdge{
 						From: n.ID, To: lnk.TargetID, Type: lnk.Type, Annotation: lnk.Annotation,
 					}
 					if direction == "outgoing" {
-						adj[n.ID] = append(adj[n.ID], graphImpactAdjacencyEdge{next: lnk.TargetID, witness: witness})
+						adj[n.ID] = append(adj[n.ID], typedTraversalEdge{next: lnk.TargetID, edge: storedEdge})
 					} else {
-						adj[lnk.TargetID] = append(adj[lnk.TargetID], graphImpactAdjacencyEdge{next: n.ID, witness: witness})
+						adj[lnk.TargetID] = append(adj[lnk.TargetID], typedTraversalEdge{next: n.ID, edge: storedEdge})
 					}
 				}
 			}
-			for id := range adj {
-				sort.Slice(adj[id], func(i, j int) bool {
-					a, b := adj[id][i], adj[id][j]
-					if a.next != b.next {
-						return a.next < b.next
-					}
-					if a.witness.Type != b.witness.Type {
-						return a.witness.Type < b.witness.Type
-					}
-					return a.witness.Annotation < b.witness.Annotation
-				})
-			}
+			witnessSearch := findShortestTypedWitnesses(focus, titles, adj, depth)
 
-			predecessor := map[string]string{focus: ""}
-			predecessorEdge := make(map[string]pathWitnessEdge)
-			depthByID := map[string]int{focus: 0}
-			queue := []string{focus}
-			for len(queue) > 0 {
-				current := queue[0]
-				queue = queue[1:]
-				if depthByID[current] >= depth {
-					continue
-				}
-				for _, edge := range adj[current] {
-					if _, visited := predecessor[edge.next]; visited {
-						continue
-					}
-					predecessor[edge.next] = current
-					predecessorEdge[edge.next] = edge.witness
-					depthByID[edge.next] = depthByID[current] + 1
-					queue = append(queue, edge.next)
-				}
-			}
-
-			impactIDs := make([]string, 0, len(predecessor)-1)
-			for id := range predecessor {
+			impactIDs := make([]string, 0, len(witnessSearch.depthByID)-1)
+			for id := range witnessSearch.depthByID {
 				if id != focus {
 					impactIDs = append(impactIDs, id)
 				}
 			}
 			sort.Slice(impactIDs, func(i, j int) bool {
-				if depthByID[impactIDs[i]] != depthByID[impactIDs[j]] {
-					return depthByID[impactIDs[i]] < depthByID[impactIDs[j]]
+				if witnessSearch.depthByID[impactIDs[i]] != witnessSearch.depthByID[impactIDs[j]] {
+					return witnessSearch.depthByID[impactIDs[i]] < witnessSearch.depthByID[impactIDs[j]]
 				}
 				return impactIDs[i] < impactIDs[j]
 			})
 
 			out := graphImpactOutput{
-				Focus:     graphImpactNode{ID: focus, Title: byID[focus].Title},
+				Focus:     typedWitnessNode{ID: focus, Title: byID[focus].Title},
 				Direction: direction,
 				Links:     normalizedLinks,
 				Depth:     depth,
 				Impacts:   make([]graphImpactEntry, 0, len(impactIDs)),
 			}
 			for _, impactID := range impactIDs {
-				var reversedIDs []string
-				var reversedEdges []pathWitnessEdge
-				for current := impactID; current != ""; current = predecessor[current] {
-					reversedIDs = append(reversedIDs, current)
-					if edge, ok := predecessorEdge[current]; ok {
-						reversedEdges = append(reversedEdges, edge)
-					}
-				}
-				for left, right := 0, len(reversedIDs)-1; left < right; left, right = left+1, right-1 {
-					reversedIDs[left], reversedIDs[right] = reversedIDs[right], reversedIDs[left]
-				}
-				for left, right := 0, len(reversedEdges)-1; left < right; left, right = left+1, right-1 {
-					reversedEdges[left], reversedEdges[right] = reversedEdges[right], reversedEdges[left]
-				}
-				pathNodes := make([]graphImpactNode, len(reversedIDs))
-				for i, id := range reversedIDs {
-					pathNodes[i] = graphImpactNode{ID: id, Title: byID[id].Title}
-				}
 				out.Impacts = append(out.Impacts, graphImpactEntry{
-					Node:  graphImpactNode{ID: impactID, Title: byID[impactID].Title},
-					Depth: depthByID[impactID],
-					Nodes: pathNodes,
-					Edges: reversedEdges,
+					Node:      typedWitnessNode{ID: impactID, Title: byID[impactID].Title},
+					Depth:     witnessSearch.depthByID[impactID],
+					Witnesses: witnessSearch.witnessesTo(impactID),
 				})
 			}
 

@@ -79,13 +79,16 @@ func newGraphRoutesCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("graph routes: %w", err)
 			}
 			byID := make(map[string]*note.Note, len(notes))
-			adj := make(map[string][]pathAdjacencyEdge, len(notes))
+			titles := make(map[string]string, len(notes))
+			adj := make(map[string][]typedTraversalEdge, len(notes))
 			for _, n := range notes {
 				byID[n.ID] = n
+				titles[n.ID] = n.Title
 				for _, lnk := range n.Links {
 					if allowedTypes[lnk.Type] {
-						adj[n.ID] = append(adj[n.ID], pathAdjacencyEdge{
-							to: lnk.TargetID, linkType: lnk.Type, annotation: lnk.Annotation,
+						adj[n.ID] = append(adj[n.ID], typedTraversalEdge{
+							next: lnk.TargetID,
+							edge: typedWitnessEdge{From: n.ID, To: lnk.TargetID, Type: lnk.Type, Annotation: lnk.Annotation},
 						})
 					}
 				}
@@ -93,38 +96,7 @@ func newGraphRoutesCmd(state *rootState) *cobra.Command {
 			if byID[focus] == nil {
 				return fmt.Errorf("graph routes: note %q not found", focus)
 			}
-			for id := range adj {
-				sort.Slice(adj[id], func(i, j int) bool {
-					a, b := adj[id][i], adj[id][j]
-					if a.to != b.to {
-						return a.to < b.to
-					}
-					if a.linkType != b.linkType {
-						return a.linkType < b.linkType
-					}
-					return a.annotation < b.annotation
-				})
-			}
-
-			prev := map[string]string{focus: ""}
-			prevEdge := make(map[string]pathWitnessEdge)
-			hops := map[string]int{focus: 0}
-			queue := []string{focus}
-			for len(queue) > 0 {
-				current := queue[0]
-				queue = queue[1:]
-				for _, edge := range adj[current] {
-					if _, visited := prev[edge.to]; visited {
-						continue
-					}
-					prev[edge.to] = current
-					prevEdge[edge.to] = pathWitnessEdge{
-						From: current, To: edge.to, Type: edge.linkType, Annotation: edge.annotation,
-					}
-					hops[edge.to] = hops[current] + 1
-					queue = append(queue, edge.to)
-				}
-			}
+			witnessSearch := findShortestTypedWitnesses(focus, titles, adj, 0)
 
 			scoringNotes := append([]*note.Note(nil), notes...)
 			sort.Slice(scoringNotes, func(i, j int) bool { return scoringNotes[i].ID < scoringNotes[j].ID })
@@ -171,7 +143,7 @@ func newGraphRoutesCmd(state *rootState) *cobra.Command {
 				if n.ID == focus {
 					continue
 				}
-				if _, reachable := prev[n.ID]; !reachable {
+				if _, reachable := witnessSearch.depthByID[n.ID]; !reachable {
 					continue
 				}
 				diagnostics.TypedReachable++
@@ -181,7 +153,7 @@ func newGraphRoutesCmd(state *rootState) *cobra.Command {
 				diagnostics.EligibleDestinations++
 				if maxScore > 0 {
 					if score := rawScores[n.ID]; score > 0 {
-						candidates = append(candidates, graphRouteCandidate{id: n.ID, relevance: score / maxScore, hops: hops[n.ID]})
+						candidates = append(candidates, graphRouteCandidate{id: n.ID, relevance: score / maxScore, hops: witnessSearch.depthByID[n.ID]})
 					}
 				}
 			}
@@ -191,44 +163,20 @@ func newGraphRoutesCmd(state *rootState) *cobra.Command {
 				candidates = candidates[:limit]
 			}
 
-			type routeNode struct {
-				ID    string `json:"id"`
-				Title string `json:"title"`
-			}
 			type routeDestination struct {
 				ID             string  `json:"id"`
 				Title          string  `json:"title"`
 				RelevanceScore float64 `json:"relevance_score"`
 			}
 			type routeResult struct {
-				Destination routeDestination  `json:"destination"`
-				Nodes       []routeNode       `json:"nodes"`
-				Edges       []pathWitnessEdge `json:"edges"`
+				Destination routeDestination `json:"destination"`
+				Witnesses   []typedWitness   `json:"witnesses"`
 			}
 			results := make([]routeResult, 0, len(candidates))
 			for _, candidate := range candidates {
-				var path []string
-				var edges []pathWitnessEdge
-				for current := candidate.id; current != ""; current = prev[current] {
-					path = append(path, current)
-					if edge, ok := prevEdge[current]; ok {
-						edges = append(edges, edge)
-					}
-				}
-				for left, right := 0, len(path)-1; left < right; left, right = left+1, right-1 {
-					path[left], path[right] = path[right], path[left]
-				}
-				for left, right := 0, len(edges)-1; left < right; left, right = left+1, right-1 {
-					edges[left], edges[right] = edges[right], edges[left]
-				}
-				nodes := make([]routeNode, len(path))
-				for i, id := range path {
-					nodes[i] = routeNode{ID: id, Title: byID[id].Title}
-				}
 				results = append(results, routeResult{
 					Destination: routeDestination{ID: candidate.id, Title: byID[candidate.id].Title, RelevanceScore: candidate.relevance},
-					Nodes:       nodes,
-					Edges:       edges,
+					Witnesses:   witnessSearch.witnessesTo(candidate.id),
 				})
 			}
 			diagnostics.Returned = len(results)

@@ -19,11 +19,7 @@ type graphRouteTestResult struct {
 		Title          string  `json:"title"`
 		RelevanceScore float64 `json:"relevance_score"`
 	} `json:"destination"`
-	Nodes []struct {
-		ID    string `json:"id"`
-		Title string `json:"title"`
-	} `json:"nodes"`
-	Edges []pathWitnessEdge `json:"edges"`
+	Witnesses []typedWitnessTest `json:"witnesses"`
 }
 
 type graphRoutesExplainTestOutput struct {
@@ -103,11 +99,25 @@ func TestGraphRoutesReturnsRankedDirectedTypedWitnesses(t *testing.T) {
 	if got[0].Destination.RelevanceScore <= 0 || got[0].Destination.RelevanceScore >= 1 {
 		t.Fatalf("reachable relevance = %v, want normalized against stronger unreachable full-corpus hit", got[0].Destination.RelevanceScore)
 	}
-	if len(got[1].Nodes) != 3 || got[1].Nodes[0].ID != focus.ID || got[1].Nodes[1].ID != via.ID || got[1].Nodes[2].ID != twoHop.ID {
-		t.Fatalf("two-hop nodes = %#v", got[1].Nodes)
+	if len(got[1].Witnesses) != 2 {
+		t.Fatalf("two-hop witnesses = %#v, want both equal-shortest type sequences", got[1].Witnesses)
 	}
-	if len(got[1].Edges) != 2 || got[1].Edges[0] != (pathWitnessEdge{From: focus.ID, To: via.ID, Type: "grounded-by", Annotation: "chosen predecessor"}) || got[1].Edges[1].To != twoHop.ID {
-		t.Fatalf("two-hop edges = %#v", got[1].Edges)
+	witness := got[1].Witnesses[0]
+	if len(witness.Nodes) != 3 || witness.Nodes[0].ID != focus.ID || witness.Nodes[1].ID != via.ID || witness.Nodes[2].ID != twoHop.ID {
+		t.Fatalf("two-hop nodes = %#v", witness.Nodes)
+	}
+	if len(witness.Edges) != 2 || witness.Edges[0] != (typedWitnessTestEdge{From: focus.ID, To: via.ID, Type: "grounded-by", Annotation: "chosen predecessor"}) || witness.Edges[1].To != twoHop.ID {
+		t.Fatalf("two-hop edges = %#v", witness.Edges)
+	}
+	if got[1].Witnesses[1].Edges[0].Type != "supports" {
+		t.Fatalf("second equal-shortest type sequence = %#v, want supports first edge", got[1].Witnesses[1])
+	}
+	var rawRoutes []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &rawRoutes); err != nil {
+		t.Fatal(err)
+	}
+	if len(rawRoutes[1]) != 2 || rawRoutes[1]["destination"] == nil || rawRoutes[1]["witnesses"] == nil {
+		t.Fatalf("route entry shape = %v, want destination+witnesses only", rawRoutes[1])
 	}
 }
 
@@ -364,13 +374,15 @@ func executeRoutesWithNotes(t *testing.T, notes []*note.Note) string {
 	return stdout.String()
 }
 
-func TestGraphRoutesScoringAndOutputIgnoreBackendOrder(t *testing.T) {
+func TestGraphRoutesScoringAndOutputIgnoreBackendAndLinkOrder(t *testing.T) {
 	focus := newTestNoteForCLI("20260101000000-0001", "Origin", note.TypeConcept)
 	a := newTestNoteForCLI("20260101000000-0002", "Needle", note.TypeConcept)
 	b := newTestNoteForCLI("20260101000000-0003", "Needle", note.TypeConcept)
 	focus.Links = []note.Link{{TargetID: b.ID, Type: "supports"}, {TargetID: a.ID, Type: "supports"}}
+	reversedFocus := *focus
+	reversedFocus.Links = []note.Link{{TargetID: a.ID, Type: "supports"}, {TargetID: b.ID, Type: "supports"}}
 	forward := []*note.Note{focus, a, b}
-	reverse := []*note.Note{focus, b, a}
+	reverse := []*note.Note{&reversedFocus, b, a}
 	var gotForward, gotReverse []graphRouteTestResult
 	if err := json.Unmarshal([]byte(executeRoutesWithNotes(t, forward)), &gotForward); err != nil {
 		t.Fatal(err)
@@ -380,6 +392,40 @@ func TestGraphRoutesScoringAndOutputIgnoreBackendOrder(t *testing.T) {
 	}
 	if !reflect.DeepEqual(gotForward, gotReverse) {
 		t.Fatalf("routes depend on backend order:\nforward=%#v\nreverse=%#v", gotForward, gotReverse)
+	}
+}
+
+func TestGraphRoutesAndOutgoingImpactShareExactWitnesses(t *testing.T) {
+	execute, fixture := setupDiverseTypedWitnessGraph(t)
+	routesOut, err := execute("graph", "routes", "--focus", fixture.focus.ID, "--links", "extends,requires,supports", "--search", "needle", "--limit", "10", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var routes []graphRouteTestResult
+	if err := json.Unmarshal([]byte(routesOut), &routes); err != nil {
+		t.Fatalf("routes JSON: %v\n%s", err, routesOut)
+	}
+	if len(routes) != 1 || routes[0].Destination.ID != fixture.destination.ID {
+		t.Fatalf("routes = %#v, want diverse fixture destination", routes)
+	}
+
+	impactOut, err := execute("graph", "impact", "--focus", fixture.focus.ID, "--links", "extends,requires,supports", "--direction", "outgoing", "--depth", "2", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var impact graphImpactTestResult
+	if err := json.Unmarshal([]byte(impactOut), &impact); err != nil {
+		t.Fatalf("impact JSON: %v\n%s", err, impactOut)
+	}
+	var impactWitnesses []typedWitnessTest
+	for _, entry := range impact.Impacts {
+		if entry.Node.ID == fixture.destination.ID {
+			impactWitnesses = entry.Witnesses
+			break
+		}
+	}
+	if !reflect.DeepEqual(routes[0].Witnesses, impactWitnesses) {
+		t.Fatalf("shared traversal produced different witnesses:\nroutes=%#v\nimpact=%#v", routes[0].Witnesses, impactWitnesses)
 	}
 }
 
@@ -406,7 +452,7 @@ func TestGraphRoutesIsDocumentedForNavigation(t *testing.T) {
 	for _, required := range []string{
 		"nn graph routes --focus ID --links TYPES --search QUERY --limit N --json",
 		"--explain", "direct_lexical_matches", "graph_scored_matches", "truncated_by_limit",
-		"positive direct lexical BM25 evidence",
+		"positive direct lexical BM25 evidence", "witnesses", "at most 3", "first-hop", "type-sequence",
 		"Orient", "Scan", "Peek", "Recenter", "Arrive", "relevance_score", "nodes[1]",
 	} {
 		if !strings.Contains(string(guide), required) {
@@ -417,8 +463,13 @@ func TestGraphRoutesIsDocumentedForNavigation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(show), "nn graph routes --focus ID --links TYPES --search QUERY --limit N --json [--explain]") || !strings.Contains(string(show), "direct_lexical_matches") {
-		t.Error("embedded CLI reference missing explained graph routes command")
+	for _, required := range []string{
+		"nn graph routes --focus ID --links TYPES --search QUERY --limit N --json [--explain]",
+		"direct_lexical_matches", "destination` plus `witnesses", "at most 3", "first-hop", "type-sequence", "ranking is unchanged",
+	} {
+		if !strings.Contains(string(show), required) {
+			t.Errorf("embedded CLI reference missing graph routes guidance %q", required)
+		}
 	}
 	adr, err := os.ReadFile("../../../docs/adr/0032-typed-destination-discovery.md")
 	if err != nil {
