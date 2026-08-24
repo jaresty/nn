@@ -40,18 +40,7 @@ func newClustersCmd(state *rootState) *cobra.Command {
 				return fmt.Errorf("clusters: %w", err)
 			}
 
-			// Build undirected adjacency list and whole-graph degree counts.
-			adj := make(map[string][]string, len(notes))
-			outDegree := make(map[string]int, len(notes))
-			inDegree := make(map[string]int, len(notes))
-			for _, n := range notes {
-				for _, lnk := range n.Links {
-					adj[n.ID] = append(adj[n.ID], lnk.TargetID)
-					adj[lnk.TargetID] = append(adj[lnk.TargetID], n.ID)
-					outDegree[n.ID]++
-					inDegree[lnk.TargetID]++
-				}
-			}
+			clustering := labelPropagationClusters(notes)
 
 			var normalizedSearchScores map[string]float64
 			if searchMode {
@@ -74,57 +63,7 @@ func newClustersCmd(state *rootState) *cobra.Command {
 				}
 			}
 
-			// Label propagation: each note starts with its own label.
-			labels := make(map[string]string, len(notes))
-			for _, n := range notes {
-				labels[n.ID] = n.ID
-			}
-
-			// Iterate until stable (max 20 iterations).
-			for iter := 0; iter < 20; iter++ {
-				changed := false
-				// Process in deterministic order (sorted IDs).
-				ids := make([]string, 0, len(notes))
-				for _, n := range notes {
-					ids = append(ids, n.ID)
-				}
-				sort.Strings(ids)
-
-				for _, id := range ids {
-					neighbors := adj[id]
-					if len(neighbors) == 0 {
-						continue
-					}
-					// Count neighbor labels.
-					freq := make(map[string]int)
-					for _, nb := range neighbors {
-						freq[labels[nb]]++
-					}
-					// Find most common label (ties: pick lexicographically smallest).
-					bestLabel := labels[id]
-					bestCount := 0
-					for lbl, cnt := range freq {
-						if cnt > bestCount || (cnt == bestCount && lbl < bestLabel) {
-							bestLabel = lbl
-							bestCount = cnt
-						}
-					}
-					if bestLabel != labels[id] {
-						labels[id] = bestLabel
-						changed = true
-					}
-				}
-				if !changed {
-					break
-				}
-			}
-
-			// Group notes by label.
-			groups := make(map[string][]*note.Note)
-			for _, n := range notes {
-				lbl := labels[n.ID]
-				groups[lbl] = append(groups[lbl], n)
-			}
+			groups := clustering.groups
 
 			// Build sorted cluster list. Search evidence projects onto these full-graph groups.
 			type cluster struct {
@@ -159,12 +98,7 @@ func newClustersCmd(state *rootState) *cobra.Command {
 					if len(c.matches) == 0 {
 						continue
 					}
-					for _, n := range members {
-						if c.representative == nil || outDegree[n.ID]+inDegree[n.ID] > outDegree[c.representative.ID]+inDegree[c.representative.ID] ||
-							(outDegree[n.ID]+inDegree[n.ID] == outDegree[c.representative.ID]+inDegree[c.representative.ID] && n.ID < c.representative.ID) {
-							c.representative = n
-						}
-					}
+					c.representative = labelPropagationRepresentative(members, clustering.outDegree, clustering.inDegree)
 					sort.Slice(c.matches, func(i, j int) bool {
 						si, sj := normalizedSearchScores[c.matches[i].ID], normalizedSearchScores[c.matches[j].ID]
 						if si != sj {

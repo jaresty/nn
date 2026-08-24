@@ -253,6 +253,9 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 		Short: "Notes that connect otherwise-disconnected parts of the graph",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			searchMode := cmd.Flags().Changed("search")
+			if format != "text" && format != "json" {
+				return fmt.Errorf("graph bridges: unsupported format %q (want text or json)", format)
+			}
 			if len(exclude) > 0 && !searchMode {
 				return fmt.Errorf("graph bridges: --exclude requires --search")
 			}
@@ -266,9 +269,6 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 			}
 			if searchMode && strings.TrimSpace(search) == "" {
 				return fmt.Errorf("graph bridges: --search requires a non-blank query")
-			}
-			if searchMode && format != "json" {
-				return fmt.Errorf("graph bridges: --search requires --format json")
 			}
 			notes, err := state.backend.List()
 			if err != nil {
@@ -313,128 +313,60 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 				}
 			}
 
-			type entry struct {
-				id, title string
-				score     int
-				relevance float64
-			}
-			var entries []entry
+			var candidates []bridgeCandidate
 			for _, n := range notes {
 				inCount := len(inboundFrom[n.ID])
 				outCount := len(outboundTo[n.ID])
-				if inCount > 0 && outCount > 0 {
+				if inCount == 0 || outCount == 0 {
+					continue
+				}
+				candidate := bridgeCandidate{id: n.ID, title: n.Title, score: inCount * outCount}
+				if searchMode {
 					relevance := normalizedSearchScores[n.ID]
-					if searchMode && relevance <= 0 {
+					if relevance <= 0 {
 						continue
 					}
-					entries = append(entries, entry{id: n.ID, title: n.Title, score: inCount * outCount, relevance: relevance})
+					candidate.relevanceScore = &relevance
 				}
+				candidates = append(candidates, candidate)
 			}
-			sort.Slice(entries, func(i, j int) bool {
-				if searchMode && entries[i].relevance != entries[j].relevance {
-					return entries[i].relevance > entries[j].relevance
+			sort.Slice(candidates, func(i, j int) bool {
+				left, right := candidates[i], candidates[j]
+				if searchMode && *left.relevanceScore != *right.relevanceScore {
+					return *left.relevanceScore > *right.relevanceScore
 				}
-				if entries[i].score != entries[j].score {
-					return entries[i].score > entries[j].score
+				if left.score != right.score {
+					return left.score > right.score
 				}
-				return entries[i].id < entries[j].id
+				return left.id < right.id
 			})
 			if len(excludeSet) > 0 {
-				filtered := entries[:0]
-				for _, e := range entries {
-					if !excludeSet[e.id] {
-						filtered = append(filtered, e)
+				filtered := candidates[:0]
+				for _, candidate := range candidates {
+					if !excludeSet[candidate.id] {
+						filtered = append(filtered, candidate)
 					}
 				}
-				entries = filtered
+				candidates = filtered
 			}
-			if limit > 0 && len(entries) > limit {
-				entries = entries[:limit]
+			if limit > 0 && len(candidates) > limit {
+				candidates = candidates[:limit]
 			}
 
+			records := buildBridgeRecords(candidates, notes)
 			w := outWriter(cmd)
 			if format == "json" {
-				if searchMode {
-					type witnessEdge struct {
-						ID         string `json:"id"`
-						Title      string `json:"title"`
-						Type       string `json:"type"`
-						Annotation string `json:"annotation"`
-					}
-					type witness struct {
-						Incoming witnessEdge `json:"incoming"`
-						Outgoing witnessEdge `json:"outgoing"`
-					}
-					type searchEntry struct {
-						ID             string  `json:"id"`
-						Title          string  `json:"title"`
-						Score          int     `json:"score"`
-						RelevanceScore float64 `json:"relevance_score"`
-						Witness        witness `json:"witness"`
-					}
-
-					titles := make(map[string]string, len(notes))
-					for _, n := range notes {
-						titles[n.ID] = n.Title
-					}
-					less := func(a, b witnessEdge) bool {
-						if a.ID != b.ID {
-							return a.ID < b.ID
-						}
-						if a.Type != b.Type {
-							return a.Type < b.Type
-						}
-						return a.Annotation < b.Annotation
-					}
-					out := make([]searchEntry, len(entries))
-					for i, e := range entries {
-						var crossing witness
-						incomingSet, outgoingSet := false, false
-						for _, n := range notes {
-							for _, lnk := range n.Links {
-								if lnk.TargetID == e.id {
-									candidate := witnessEdge{ID: n.ID, Title: n.Title, Type: lnk.Type, Annotation: lnk.Annotation}
-									if !incomingSet || less(candidate, crossing.Incoming) {
-										crossing.Incoming, incomingSet = candidate, true
-									}
-								}
-								if n.ID == e.id {
-									candidate := witnessEdge{ID: lnk.TargetID, Title: titles[lnk.TargetID], Type: lnk.Type, Annotation: lnk.Annotation}
-									if !outgoingSet || less(candidate, crossing.Outgoing) {
-										crossing.Outgoing, outgoingSet = candidate, true
-									}
-								}
-							}
-						}
-						out[i] = searchEntry{ID: e.id, Title: e.title, Score: e.score, RelevanceScore: e.relevance, Witness: crossing}
-					}
-					enc := json.NewEncoder(w)
-					enc.SetIndent("", "  ")
-					return enc.Encode(out)
-				}
-
-				type legacyEntry struct {
-					ID    string `json:"id"`
-					Title string `json:"title"`
-					Score int    `json:"score"`
-				}
-				out := make([]legacyEntry, len(entries))
-				for i, e := range entries {
-					out[i] = legacyEntry{ID: e.id, Title: e.title, Score: e.score}
-				}
 				enc := json.NewEncoder(w)
 				enc.SetIndent("", "  ")
-				return enc.Encode(out)
+				return enc.Encode(records)
 			}
-			for _, e := range entries {
-				fmt.Fprintf(w, "%s  %s  (score %d)\n", e.id, e.title, e.score)
-			}
+			writeBridgeRecordsText(w, records)
 			return nil
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", 10, "Maximum entries to show")
 	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json")
-	cmd.Flags().StringVar(&search, "search", "", "Return only full-graph bridges matching this query (requires --format json)")
+	cmd.Flags().StringVar(&search, "search", "", "Return only full-graph bridges matching this query")
 	cmd.Flags().StringArrayVar(&exclude, "exclude", nil, "Exclude a bridge note ID from search results (repeatable; requires --search)")
 	return cmd
 }

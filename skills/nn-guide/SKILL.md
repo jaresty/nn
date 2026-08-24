@@ -739,18 +739,17 @@ Legacy `--json` output: `[{"id": "...", "title": "..."}]`. Typed `--json` output
 ## nn graph bridges
 
 ```
-nn graph bridges [--limit N] [--format text|json]
-nn graph bridges --search "<query>" --format json [--limit N]
+nn graph bridges [--search "<query>"] [--limit N] [--format text|json]
 ```
 
-Rank notes that receive at least one incoming link and emit at least one outgoing link by `incoming-neighbor count × outgoing-neighbor count`. This is a load-bearing connector heuristic, not an articulation-point proof.
+Rank notes that receive at least one incoming link and emit at least one outgoing link by `incoming-neighbor count × outgoing-neighbor count`. This is a load-bearing connector heuristic, not an articulation-point proof. `--format text|json` selects only the encoding; both formats carry the same evidence.
 
-- `--search QUERY` computes bridge scores over the complete graph, then keeps only bridge notes with a positive full-corpus search score. It requires `--format json` and a non-blank query.
-- Search results rank by normalized `relevance_score` descending, then structural `score` descending, then note ID ascending.
-- Each search result includes `witness.incoming` (`endpoint → bridge`) and `witness.outgoing` (`bridge → endpoint`) with endpoint ID/title plus edge type/annotation. This is one deterministic crossing example, not proof that the endpoints occupy distinct territories. Use it to explain why a bridge is a plausible Scan move before Peek or Recenter.
+- Every result is one unified bridge record with `id`, `title`, structural `score`, `relevance_score`, and `witness`. Without search, JSON encodes `relevance_score` as `null` and text reports `relevance: n/a`.
+- `--search QUERY` computes bridge scores over the complete graph, then keeps only bridge notes with a positive full-corpus search score. The query must be non-blank. Search results carry a numeric normalized `relevance_score` and rank by relevance descending, then structural `score` descending, then note ID ascending. Without search, results rank by structural score descending, then note ID ascending.
+- Every `witness` includes one deterministic `incoming` edge (`endpoint → bridge`) and `outgoing` edge (`bridge → endpoint`) with endpoint ID/title plus edge type/annotation. It also includes bounded `regions` context by default: `incoming` and `outgoing` each contain the endpoint's ephemeral full-graph label-propagation region summary—`representative` (`id`, `title`) and full region `size`—or `null`/`unclustered` when unavailable. `same_region` reports whether both endpoints received the same label. It can be `true`: a bridge witness explains the connector heuristic, not proof that the endpoints occupy distinct territories. Representatives use the clusters command's deterministic highest-total-degree-then-ID rule; no durable region ID or ordinal is exposed. Text presents the bridge, relevance, both edges, both region summaries, and same-region status. Use this evidence to explain why a bridge is a plausible Scan move before Peek or Recenter.
 - During Scan, pass the retained focus as `--exclude <focus-id>` so the current position is not offered as a movement candidate. `--exclude` is repeatable, removes ranked candidates without changing full-graph bridge computation, and is applied before `--limit` (default: 10), so excluded results are replaced rather than leaving a short list.
 
-Legacy JSON remains `[{"id":"...","title":"...","score":N}]`. Search JSON adds `relevance_score` and the crossing witness. Use the returned `id` as a navigation handle: Peek to inspect the bridge without moving, or Recenter on it and resume Orient.
+Use the returned `id` as a navigation handle: Peek to inspect the bridge without moving, or Recenter on it and resume Orient.
 
 ## nn clusters
 

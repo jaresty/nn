@@ -1,12 +1,16 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
+	"github.com/jaresty/nn/internal/backend"
 	"github.com/jaresty/nn/internal/note"
 )
 
@@ -17,17 +21,50 @@ type bridgeSearchWitnessEdge struct {
 	Annotation string `json:"annotation"`
 }
 
+type bridgeSearchRegionSummary struct {
+	Representative clusterSearchTestNote `json:"representative"`
+	Size           int                   `json:"size"`
+}
+
+type bridgeSearchWitnessRegions struct {
+	Incoming   *bridgeSearchRegionSummary `json:"incoming"`
+	Outgoing   *bridgeSearchRegionSummary `json:"outgoing"`
+	SameRegion bool                       `json:"same_region"`
+}
+
 type bridgeSearchWitness struct {
-	Incoming bridgeSearchWitnessEdge `json:"incoming"`
-	Outgoing bridgeSearchWitnessEdge `json:"outgoing"`
+	Incoming bridgeSearchWitnessEdge     `json:"incoming"`
+	Outgoing bridgeSearchWitnessEdge     `json:"outgoing"`
+	Regions  *bridgeSearchWitnessRegions `json:"regions"`
 }
 
 type bridgeSearchResult struct {
 	ID             string              `json:"id"`
 	Title          string              `json:"title"`
 	Score          int                 `json:"score"`
-	RelevanceScore float64             `json:"relevance_score"`
+	RelevanceScore *float64            `json:"relevance_score"`
 	Witness        bridgeSearchWitness `json:"witness"`
+}
+
+type orderedBridgesBackend struct {
+	backend.Backend
+	notes []*note.Note
+}
+
+func (b *orderedBridgesBackend) List() ([]*note.Note, error) { return b.notes, nil }
+
+func executeBridgesWithNotes(t *testing.T, notes []*note.Note, args ...string) string {
+	t.Helper()
+	state := &rootState{backend: &orderedBridgesBackend{notes: notes}}
+	cmd := newGraphBridgesCmd(state)
+	var stdout bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stdout)
+	cmd.SetArgs(args)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("graph bridges %v: %v", args, err)
+	}
+	return stdout.String()
 }
 
 func TestGraphBridgesSearchProjectsOntoFullGraphBridges(t *testing.T) {
@@ -69,8 +106,11 @@ func TestGraphBridgesSearchProjectsOntoFullGraphBridges(t *testing.T) {
 	if len(got) != 1 || got[0].ID != matchingBridge.ID {
 		t.Fatalf("projected bridges = %#v, want only full-graph bridge %s", got, matchingBridge.ID)
 	}
-	if got[0].Score <= 0 || got[0].RelevanceScore <= 0 {
+	if got[0].Score <= 0 || got[0].RelevanceScore == nil || *got[0].RelevanceScore <= 0 {
 		t.Fatalf("bridge result lacks structural and relevance scores: %#v", got[0])
+	}
+	if got[0].Witness.Regions == nil {
+		t.Fatalf("search bridge result lacks default region context: %#v", got[0])
 	}
 	if want := (bridgeSearchWitnessEdge{ID: left.ID, Title: left.Title, Type: "extends", Annotation: "chosen inbound"}); got[0].Witness.Incoming != want {
 		t.Errorf("incoming witness = %#v, want %#v", got[0].Witness.Incoming, want)
@@ -80,30 +120,296 @@ func TestGraphBridgesSearchProjectsOntoFullGraphBridges(t *testing.T) {
 	}
 }
 
-func TestGraphBridgesLegacyJSONOmitsCrossingWitness(t *testing.T) {
-	left := newTestNoteForCLI("20260101000000-0001", "Left", note.TypeConcept)
-	bridge := newTestNoteForCLI("20260101000000-0002", "Bridge", note.TypeConcept)
-	right := newTestNoteForCLI("20260101000000-0003", "Right", note.TypeConcept)
-	left.Links = []note.Link{{TargetID: bridge.ID, Type: "supports"}}
-	bridge.Links = []note.Link{{TargetID: right.ID, Type: "extends"}}
-
-	nbDir, execute := setupNotebook(t)
-	for _, n := range []*note.Note{left, bridge, right} {
-		writeNoteFile(t, nbDir, n)
+func TestGraphBridgesRegionsUseFullGraphClusters(t *testing.T) {
+	left := []*note.Note{
+		newTestNoteForCLI("20260101000000-0001", "Left one", note.TypeConcept),
+		newTestNoteForCLI("20260101000000-0002", "Left two", note.TypeConcept),
+		newTestNoteForCLI("20260101000000-0003", "Left three", note.TypeConcept),
+		newTestNoteForCLI("20260101000000-0004", "Left gateway", note.TypeConcept),
 	}
-	out, err := execute("graph", "bridges", "--format", "json")
-	if err != nil {
+	bridge := newTestNoteForCLI("20260101000000-0005", "Quasarregion bridge", note.TypeConcept)
+	right := []*note.Note{
+		newTestNoteForCLI("20260101000000-0006", "Right one", note.TypeConcept),
+		newTestNoteForCLI("20260101000000-0007", "Right two", note.TypeConcept),
+		newTestNoteForCLI("20260101000000-0008", "Right three", note.TypeConcept),
+		newTestNoteForCLI("20260101000000-0009", "Right gateway", note.TypeConcept),
+	}
+	addClique := func(nodes []*note.Note) {
+		for i := range nodes {
+			for j := i + 1; j < len(nodes); j++ {
+				nodes[i].Links = append(nodes[i].Links, note.Link{TargetID: nodes[j].ID, Type: "extends"})
+			}
+		}
+	}
+	addClique(left)
+	addClique(right)
+	left[3].Links = append(left[3].Links, note.Link{TargetID: bridge.ID, Type: "supports"})
+	bridge.Links = []note.Link{{TargetID: right[3].ID, Type: "extends"}}
+	notes := append(append(append([]*note.Note{}, left...), bridge), right...)
+
+	out := executeBridgesWithNotes(t, notes, "--search", "quasarregion", "--format", "json")
+	var got []bridgeSearchResult
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("region-aware bridges JSON: %v\n%s", err, out)
+	}
+	if len(got) != 1 || got[0].Witness.Regions == nil {
+		t.Fatalf("region-aware bridge result = %#v", got)
+	}
+	regions := got[0].Witness.Regions
+	if regions.SameRegion {
+		t.Fatalf("different full-graph regions reported as same: %#v", regions)
+	}
+	if regions.Incoming == nil || regions.Incoming.Size != 5 || regions.Incoming.Representative.ID != left[3].ID {
+		t.Errorf("incoming region = %#v, want full size 5 represented by %s", regions.Incoming, left[3].ID)
+	}
+	if regions.Outgoing == nil || regions.Outgoing.Size != 4 || regions.Outgoing.Representative.ID != right[3].ID {
+		t.Errorf("outgoing region = %#v, want full size 4 represented by %s", regions.Outgoing, right[3].ID)
+	}
+	plainOut := executeBridgesWithNotes(t, notes, "--format", "json")
+	var plain []bridgeSearchResult
+	if err := json.Unmarshal([]byte(plainOut), &plain); err != nil {
 		t.Fatal(err)
 	}
-	var got []map[string]json.RawMessage
+	var plainBridge *bridgeSearchResult
+	for i := range plain {
+		if plain[i].ID == bridge.ID {
+			plainBridge = &plain[i]
+			break
+		}
+	}
+	if plainBridge == nil || !reflect.DeepEqual(plainBridge.Witness.Regions, got[0].Witness.Regions) {
+		t.Fatalf("non-search did not use the same full-topology regions: %#v", plainBridge)
+	}
+
+	var raw []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &raw); err != nil {
+		t.Fatal(err)
+	}
+	var rawWitness map[string]json.RawMessage
+	if err := json.Unmarshal(raw[0]["witness"], &rawWitness); err != nil {
+		t.Fatal(err)
+	}
+	var rawRegions map[string]json.RawMessage
+	if err := json.Unmarshal(rawWitness["regions"], &rawRegions); err != nil {
+		t.Fatal(err)
+	}
+	if len(rawRegions) != 3 || rawRegions["incoming"] == nil || rawRegions["outgoing"] == nil || rawRegions["same_region"] == nil {
+		t.Fatalf("regions metadata is not bounded to endpoint summaries and same_region: %s", out)
+	}
+	for _, endpoint := range []string{"incoming", "outgoing"} {
+		var summary map[string]json.RawMessage
+		if err := json.Unmarshal(rawRegions[endpoint], &summary); err != nil {
+			t.Fatal(err)
+		}
+		if len(summary) != 2 || summary["representative"] == nil || summary["size"] == nil {
+			t.Errorf("%s region exposes unexpected fields: %s", endpoint, rawRegions[endpoint])
+		}
+		var representative map[string]json.RawMessage
+		if err := json.Unmarshal(summary["representative"], &representative); err != nil {
+			t.Fatal(err)
+		}
+		if len(representative) != 2 || representative["id"] == nil || representative["title"] == nil {
+			t.Errorf("%s representative exposes unexpected fields: %s", endpoint, summary["representative"])
+		}
+	}
+}
+
+func TestGraphBridgesRegionsCanReportSameRegion(t *testing.T) {
+	incoming := newTestNoteForCLI("20260101000000-0001", "Incoming", note.TypeConcept)
+	bridge := newTestNoteForCLI("20260101000000-0002", "Sameregionneedle bridge", note.TypeConcept)
+	outgoing := newTestNoteForCLI("20260101000000-0003", "Outgoing", note.TypeConcept)
+	incoming.Links = []note.Link{{TargetID: bridge.ID, Type: "supports"}}
+	bridge.Links = []note.Link{{TargetID: outgoing.ID, Type: "extends"}}
+
+	out := executeBridgesWithNotes(t, []*note.Note{incoming, bridge, outgoing}, "--format", "json")
+	var got []bridgeSearchResult
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
-		t.Fatalf("legacy bridges JSON: %v\n%s", err, out)
+		t.Fatal(err)
 	}
-	if len(got) != 1 {
-		t.Fatalf("legacy bridge count = %d, want 1: %s", len(got), out)
+	if len(got) != 1 || got[0].Witness.Regions == nil || !got[0].Witness.Regions.SameRegion {
+		t.Fatalf("same-region witness metadata = %#v, want same_region true", got)
 	}
-	if _, exists := got[0]["witness"]; exists {
-		t.Fatalf("legacy bridge JSON unexpectedly contains witness: %s", out)
+	regions := got[0].Witness.Regions
+	if regions.Incoming == nil || regions.Outgoing == nil || regions.Incoming.Size != 3 || !reflect.DeepEqual(regions.Incoming, regions.Outgoing) {
+		t.Fatalf("same-region summaries = %#v", regions)
+	}
+	if regions.Incoming.Representative.ID != bridge.ID {
+		t.Errorf("representative = %s, want highest-degree bridge %s", regions.Incoming.Representative.ID, bridge.ID)
+	}
+}
+
+func TestGraphBridgesRegionsIgnoreBackendAndLinkOrder(t *testing.T) {
+	incoming := newTestNoteForCLI("20260101000000-0001", "Incoming", note.TypeConcept)
+	bridge := newTestNoteForCLI("20260101000000-0002", "Orderneedle bridge", note.TypeConcept)
+	outgoing := newTestNoteForCLI("20260101000000-0003", "Outgoing", note.TypeConcept)
+	incoming.Links = []note.Link{
+		{TargetID: bridge.ID, Type: "supports", Annotation: "later"},
+		{TargetID: bridge.ID, Type: "extends", Annotation: "chosen"},
+	}
+	bridge.Links = []note.Link{
+		{TargetID: outgoing.ID, Type: "supports", Annotation: "later"},
+		{TargetID: outgoing.ID, Type: "extends", Annotation: "chosen"},
+	}
+	forward := []*note.Note{incoming, bridge, outgoing}
+	for _, args := range [][]string{
+		{"--format", "json"},
+		{"--search", "orderneedle", "--format", "json"},
+	} {
+		want := executeBridgesWithNotes(t, forward, args...)
+		for _, n := range forward {
+			for i, j := 0, len(n.Links)-1; i < j; i, j = i+1, j-1 {
+				n.Links[i], n.Links[j] = n.Links[j], n.Links[i]
+			}
+		}
+		reverse := []*note.Note{outgoing, bridge, incoming}
+		got := executeBridgesWithNotes(t, reverse, args...)
+		if got != want {
+			t.Fatalf("bridge output %v depends on backend/link order:\nforward=%s\nreverse=%s", args, want, got)
+		}
+	}
+}
+
+func TestGraphBridgesUsesUnifiedJSONSchemaWithNullableRelevance(t *testing.T) {
+	left := newTestNoteForCLI("20260101000000-0001", "Left", note.TypeConcept)
+	bridge := newTestNoteForCLI("20260101000000-0002", "Needle bridge", note.TypeConcept)
+	right := newTestNoteForCLI("20260101000000-0003", "Right", note.TypeConcept)
+	left.Links = []note.Link{{TargetID: bridge.ID, Type: "supports", Annotation: "inbound evidence"}}
+	bridge.Links = []note.Link{{TargetID: right.ID, Type: "extends", Annotation: "outgoing evidence"}}
+	notes := []*note.Note{left, bridge, right}
+
+	outputs := []struct {
+		name       string
+		args       []string
+		wantNilRel bool
+	}{
+		{name: "without search", args: []string{"--format", "json"}, wantNilRel: true},
+		{name: "with search", args: []string{"--search", "needle", "--format", "json"}},
+	}
+	var witnesses []bridgeSearchWitness
+	for _, test := range outputs {
+		t.Run(test.name, func(t *testing.T) {
+			out := executeBridgesWithNotes(t, notes, test.args...)
+			var raw []map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(out), &raw); err != nil {
+				t.Fatalf("bridge JSON: %v\n%s", err, out)
+			}
+			if len(raw) != 1 {
+				t.Fatalf("bridge JSON result = %s", out)
+			}
+			wantKeys := []string{"id", "relevance_score", "score", "title", "witness"}
+			gotKeys := make([]string, 0, len(raw[0]))
+			for key := range raw[0] {
+				gotKeys = append(gotKeys, key)
+			}
+			sort.Strings(gotKeys)
+			if !reflect.DeepEqual(gotKeys, wantKeys) {
+				t.Fatalf("top-level JSON keys = %v, want %v: %s", gotKeys, wantKeys, out)
+			}
+			var got []bridgeSearchResult
+			if err := json.Unmarshal([]byte(out), &got); err != nil {
+				t.Fatal(err)
+			}
+			if (got[0].RelevanceScore == nil) != test.wantNilRel {
+				t.Errorf("relevance_score = %#v, want nil=%t", got[0].RelevanceScore, test.wantNilRel)
+			}
+			if !test.wantNilRel && *got[0].RelevanceScore <= 0 {
+				t.Errorf("normalized relevance_score = %v, want positive", *got[0].RelevanceScore)
+			}
+			witnesses = append(witnesses, got[0].Witness)
+		})
+	}
+	if len(witnesses) != 2 || !reflect.DeepEqual(witnesses[0], witnesses[1]) {
+		t.Fatalf("search and non-search witnesses differ: %#v", witnesses)
+	}
+}
+
+func TestGraphBridgesTextCarriesUnifiedEvidence(t *testing.T) {
+	left := newTestNoteForCLI("20260101000000-0001", "Left", note.TypeConcept)
+	bridge := newTestNoteForCLI("20260101000000-0002", "Needle bridge", note.TypeConcept)
+	right := newTestNoteForCLI("20260101000000-0003", "Right", note.TypeConcept)
+	left.Links = []note.Link{{TargetID: bridge.ID, Type: "supports", Annotation: "inbound evidence"}}
+	bridge.Links = []note.Link{{TargetID: right.ID, Type: "extends", Annotation: "outgoing evidence"}}
+	notes := []*note.Note{left, bridge, right}
+
+	plain := executeBridgesWithNotes(t, notes)
+	searched := executeBridgesWithNotes(t, notes, "--search", "needle")
+	common := []string{
+		bridge.ID + "  " + bridge.Title + "  (score 1)",
+		"inbound edge: " + left.ID + "  " + left.Title + " -> " + bridge.ID,
+		"type: \"supports\", annotation: \"inbound evidence\"",
+		"outgoing edge: " + bridge.ID + "  " + bridge.Title + " -> " + right.ID,
+		"type: \"extends\", annotation: \"outgoing evidence\"",
+		"incoming region: representative " + bridge.ID + "  " + bridge.Title + "; size: 3",
+		"outgoing region: representative " + bridge.ID + "  " + bridge.Title + "; size: 3",
+		"same region: true",
+	}
+	for _, output := range []string{plain, searched} {
+		for _, field := range common {
+			if !strings.Contains(output, field) {
+				t.Errorf("bridge text missing %q:\n%s", field, output)
+			}
+		}
+	}
+	if !strings.Contains(plain, "relevance: n/a") {
+		t.Errorf("non-search bridge text lacks unavailable relevance:\n%s", plain)
+	}
+	if !strings.Contains(searched, "relevance: 1.000000") {
+		t.Errorf("search bridge text lacks normalized relevance:\n%s", searched)
+	}
+}
+
+func TestGraphBridgesReportsUnclusteredEndpoint(t *testing.T) {
+	left := newTestNoteForCLI("20260101000000-0001", "Left", note.TypeConcept)
+	bridge := newTestNoteForCLI("20260101000000-0002", "Bridge", note.TypeConcept)
+	left.Links = []note.Link{{TargetID: bridge.ID, Type: "supports"}}
+	bridge.Links = []note.Link{{TargetID: "missing-note", Type: "extends"}}
+	notes := []*note.Note{left, bridge}
+
+	out := executeBridgesWithNotes(t, notes, "--format", "json")
+	var got []bridgeSearchResult
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Witness.Regions == nil || got[0].Witness.Regions.Outgoing != nil || got[0].Witness.Regions.SameRegion {
+		t.Fatalf("unclustered outgoing endpoint context = %#v", got)
+	}
+	text := executeBridgesWithNotes(t, notes)
+	if !strings.Contains(text, "outgoing region: unclustered") || !strings.Contains(text, "same region: false") {
+		t.Fatalf("unclustered endpoint missing from text:\n%s", text)
+	}
+}
+
+func TestGraphBridgesNonSearchOrdersByScoreThenID(t *testing.T) {
+	lowID := newTestNoteForCLI("20260101000000-0010", "Low ID", note.TypeConcept)
+	highID := newTestNoteForCLI("20260101000000-0020", "High ID", note.TypeConcept)
+	highScore := newTestNoteForCLI("20260101000000-0030", "High score", note.TypeConcept)
+	leftLow := newTestNoteForCLI("20260101000000-0101", "Left low", note.TypeConcept)
+	leftHighID := newTestNoteForCLI("20260101000000-0102", "Left high ID", note.TypeConcept)
+	leftHighScoreA := newTestNoteForCLI("20260101000000-0103", "Left high score A", note.TypeConcept)
+	leftHighScoreB := newTestNoteForCLI("20260101000000-0104", "Left high score B", note.TypeConcept)
+	right := newTestNoteForCLI("20260101000000-0200", "Right", note.TypeConcept)
+	leftLow.Links = []note.Link{{TargetID: lowID.ID}}
+	leftHighID.Links = []note.Link{{TargetID: highID.ID}}
+	leftHighScoreA.Links = []note.Link{{TargetID: highScore.ID}}
+	leftHighScoreB.Links = []note.Link{{TargetID: highScore.ID}}
+	lowID.Links = []note.Link{{TargetID: right.ID}}
+	highID.Links = []note.Link{{TargetID: right.ID}}
+	highScore.Links = []note.Link{{TargetID: right.ID}}
+	notes := []*note.Note{highID, leftHighScoreB, lowID, right, highScore, leftLow, leftHighID, leftHighScoreA}
+
+	out := executeBridgesWithNotes(t, notes, "--format", "json")
+	var got []bridgeSearchResult
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{highScore.ID, lowID.ID, highID.ID}
+	if len(got) != len(want) {
+		t.Fatalf("ordered bridges = %#v", got)
+	}
+	for i, id := range want {
+		if got[i].ID != id {
+			t.Fatalf("bridge order = %#v, want %v", got, want)
+		}
 	}
 }
 
@@ -139,7 +445,8 @@ func TestGraphBridgesSearchRanksByRelevanceBeforeBridgeScore(t *testing.T) {
 	if len(got) != 2 {
 		t.Fatalf("bridge count = %d, want 2: %s", len(got), out)
 	}
-	if got[0].ID != highRel.ID || got[0].RelevanceScore <= got[1].RelevanceScore || got[0].Score >= got[1].Score {
+	if got[0].ID != highRel.ID || got[0].RelevanceScore == nil || got[1].RelevanceScore == nil ||
+		*got[0].RelevanceScore <= *got[1].RelevanceScore || got[0].Score >= got[1].Score {
 		t.Fatalf("bridges not relevance-first: %#v", got)
 	}
 }
@@ -184,11 +491,10 @@ func TestGraphBridgesSearchExcludesBeforeLimit(t *testing.T) {
 	}
 }
 
-func TestGraphBridgesSearchRequiresJSONAndNonBlankQuery(t *testing.T) {
+func TestGraphBridgesSearchAcceptsTextAndValidatesArguments(t *testing.T) {
 	_, execute := setupNotebook(t)
-	_, err := execute("graph", "bridges", "--search", "needle")
-	if err == nil || !strings.Contains(err.Error(), "--search requires --format json") {
-		t.Fatalf("text bridge search error = %v", err)
+	if _, err := execute("graph", "bridges", "--search", "needle"); err != nil {
+		t.Fatalf("text bridge search: %v", err)
 	}
 	for _, query := range []string{"", " \t "} {
 		_, err := execute("graph", "bridges", "--search", query, "--format", "json")
@@ -196,7 +502,13 @@ func TestGraphBridgesSearchRequiresJSONAndNonBlankQuery(t *testing.T) {
 			t.Errorf("bridge search %q error = %v", query, err)
 		}
 	}
-	_, err = execute("graph", "bridges", "--search", "needle", "--format", "json", "--exclude", " \t ")
+	for _, format := range []string{"yaml", "", "JSON"} {
+		_, err := execute("graph", "bridges", "--format", format)
+		if err == nil || !strings.Contains(err.Error(), "unsupported format") {
+			t.Errorf("bridge format %q error = %v", format, err)
+		}
+	}
+	_, err := execute("graph", "bridges", "--search", "needle", "--format", "json", "--exclude", " \t ")
 	if err == nil || !strings.Contains(err.Error(), "--exclude requires a non-blank ID") {
 		t.Errorf("blank bridge exclusion error = %v", err)
 	}
@@ -221,9 +533,18 @@ func TestGraphBridgesSearchIsDocumentedForScan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"nn graph bridges --search \"<query>\" --format json", "--exclude <focus-id>", "before `--limit`", "Peek", "Recenter", "witness.incoming", "crossing example, not proof"} {
+	for _, required := range []string{"nn graph bridges --search \"<query>\" --format json", "--format text|json", "only the encoding", "--exclude <focus-id>", "before `--limit`", "Peek", "Recenter", "relevance_score", "JSON encodes `relevance_score` as `null`", "Every `witness`", "full-graph label-propagation", "same_region", "not proof", "no durable region ID"} {
 		if !strings.Contains(string(guide), required) {
 			t.Errorf("nn-guide missing %q", required)
+		}
+	}
+	virtualReference, err := os.ReadFile("show.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"unified rich bridge model", "--format text|json", "relevance_score", "JSON `null` / text `n/a`", "deterministic `witness`", "full-graph label propagation", "same_region", "No durable region IDs"} {
+		if !strings.Contains(string(virtualReference), required) {
+			t.Errorf("virtual CLI reference missing %q", required)
 		}
 	}
 }
