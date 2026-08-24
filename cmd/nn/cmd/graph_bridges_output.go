@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"sort"
 
 	"github.com/jaresty/nn/internal/note"
 )
@@ -43,12 +44,14 @@ type bridgeWitness struct {
 	Regions  bridgeWitnessRegions `json:"regions"`
 }
 
+const defaultBridgeWitnessCap = 3
+
 type bridgeRecord struct {
-	ID             string        `json:"id"`
-	Title          string        `json:"title"`
-	Score          int           `json:"score"`
-	RelevanceScore *float64      `json:"relevance_score"`
-	Witness        bridgeWitness `json:"witness"`
+	ID             string          `json:"id"`
+	Title          string          `json:"title"`
+	Score          int             `json:"score"`
+	RelevanceScore *float64        `json:"relevance_score"`
+	Witnesses      []bridgeWitness `json:"witnesses"`
 }
 
 func bridgeWitnessEdgeLess(left, right bridgeWitnessEdge) bool {
@@ -61,28 +64,56 @@ func bridgeWitnessEdgeLess(left, right bridgeWitnessEdge) bool {
 	return left.Annotation < right.Annotation
 }
 
+type bridgeRegionIdentity struct {
+	region        *fullGraphRegion
+	unclusteredID string
+}
+
+type bridgeRegionPair struct {
+	incoming bridgeRegionIdentity
+	outgoing bridgeRegionIdentity
+}
+
+type bridgeWitnessSelection struct {
+	incomingSortKey string
+	outgoingSortKey string
+	witness         bridgeWitness
+}
+
 func buildBridgeRecords(candidates []bridgeCandidate, notes []*note.Note) []bridgeRecord {
 	titles := make(map[string]string, len(notes))
 	for _, n := range notes {
 		titles[n.ID] = n.Title
 	}
 
-	incoming := make(map[string]bridgeWitnessEdge, len(candidates))
-	outgoing := make(map[string]bridgeWitnessEdge, len(candidates))
+	incoming := make(map[string][]bridgeWitnessEdge, len(candidates))
+	outgoing := make(map[string][]bridgeWitnessEdge, len(candidates))
 	for _, n := range notes {
 		for _, link := range n.Links {
-			incomingEdge := bridgeWitnessEdge{ID: n.ID, Title: n.Title, Type: link.Type, Annotation: link.Annotation}
-			if current, ok := incoming[link.TargetID]; !ok || bridgeWitnessEdgeLess(incomingEdge, current) {
-				incoming[link.TargetID] = incomingEdge
-			}
-			outgoingEdge := bridgeWitnessEdge{ID: link.TargetID, Title: titles[link.TargetID], Type: link.Type, Annotation: link.Annotation}
-			if current, ok := outgoing[n.ID]; !ok || bridgeWitnessEdgeLess(outgoingEdge, current) {
-				outgoing[n.ID] = outgoingEdge
-			}
+			incoming[link.TargetID] = append(incoming[link.TargetID], bridgeWitnessEdge{
+				ID: n.ID, Title: n.Title, Type: link.Type, Annotation: link.Annotation,
+			})
+			outgoing[n.ID] = append(outgoing[n.ID], bridgeWitnessEdge{
+				ID: link.TargetID, Title: titles[link.TargetID], Type: link.Type, Annotation: link.Annotation,
+			})
 		}
+	}
+	for id := range incoming {
+		sort.Slice(incoming[id], func(i, j int) bool { return bridgeWitnessEdgeLess(incoming[id][i], incoming[id][j]) })
+	}
+	for id := range outgoing {
+		sort.Slice(outgoing[id], func(i, j int) bool { return bridgeWitnessEdgeLess(outgoing[id][i], outgoing[id][j]) })
 	}
 
 	regionsByNote := fullGraphRegionIndex(notes)
+	regionIdentity := func(id string) (bridgeRegionIdentity, string) {
+		if region := regionsByNote[id]; region != nil {
+			return bridgeRegionIdentity{region: region}, region.representative.ID
+		}
+		// NUL cannot occur in a note ID, so this sentinel orders all missing
+		// endpoints deterministically without exposing a durable region label.
+		return bridgeRegionIdentity{unclusteredID: id}, "\x00unclustered:" + id
+	}
 	regionSummary := func(id string) *bridgeRegionSummary {
 		region := regionsByNote[id]
 		if region == nil {
@@ -99,27 +130,72 @@ func buildBridgeRecords(candidates []bridgeCandidate, notes []*note.Note) []brid
 
 	records := make([]bridgeRecord, len(candidates))
 	for i, candidate := range candidates {
-		incomingEdge := incoming[candidate.id]
-		outgoingEdge := outgoing[candidate.id]
-		incomingRegion := regionsByNote[incomingEdge.ID]
-		outgoingRegion := regionsByNote[outgoingEdge.ID]
+		byRegionPair := make(map[bridgeRegionPair]bridgeWitnessSelection)
+		for _, incomingEdge := range incoming[candidate.id] {
+			incomingRegion, incomingSortKey := regionIdentity(incomingEdge.ID)
+			for _, outgoingEdge := range outgoing[candidate.id] {
+				outgoingRegion, outgoingSortKey := regionIdentity(outgoingEdge.ID)
+				pair := bridgeRegionPair{incoming: incomingRegion, outgoing: outgoingRegion}
+				selection := bridgeWitnessSelection{
+					incomingSortKey: incomingSortKey,
+					outgoingSortKey: outgoingSortKey,
+					witness: bridgeWitness{
+						Incoming: incomingEdge,
+						Outgoing: outgoingEdge,
+						Regions: bridgeWitnessRegions{
+							Incoming:   regionSummary(incomingEdge.ID),
+							Outgoing:   regionSummary(outgoingEdge.ID),
+							SameRegion: incomingRegion.region != nil && incomingRegion.region == outgoingRegion.region,
+						},
+					},
+				}
+				current, exists := byRegionPair[pair]
+				if !exists || bridgeWitnessPairLess(selection.witness, current.witness) {
+					byRegionPair[pair] = selection
+				}
+			}
+		}
+
+		selections := make([]bridgeWitnessSelection, 0, len(byRegionPair))
+		for _, selection := range byRegionPair {
+			selections = append(selections, selection)
+		}
+		sort.Slice(selections, func(i, j int) bool {
+			left, right := selections[i], selections[j]
+			if left.incomingSortKey != right.incomingSortKey {
+				return left.incomingSortKey < right.incomingSortKey
+			}
+			if left.outgoingSortKey != right.outgoingSortKey {
+				return left.outgoingSortKey < right.outgoingSortKey
+			}
+			return bridgeWitnessPairLess(left.witness, right.witness)
+		})
+		if len(selections) > defaultBridgeWitnessCap {
+			selections = selections[:defaultBridgeWitnessCap]
+		}
+		witnesses := make([]bridgeWitness, len(selections))
+		for j, selection := range selections {
+			witnesses[j] = selection.witness
+		}
 		records[i] = bridgeRecord{
 			ID:             candidate.id,
 			Title:          candidate.title,
 			Score:          candidate.score,
 			RelevanceScore: candidate.relevanceScore,
-			Witness: bridgeWitness{
-				Incoming: incomingEdge,
-				Outgoing: outgoingEdge,
-				Regions: bridgeWitnessRegions{
-					Incoming:   regionSummary(incomingEdge.ID),
-					Outgoing:   regionSummary(outgoingEdge.ID),
-					SameRegion: incomingRegion != nil && incomingRegion == outgoingRegion,
-				},
-			},
+			Witnesses:      witnesses,
 		}
 	}
 	return records
+}
+
+func bridgeWitnessPairLess(left, right bridgeWitness) bool {
+	if bridgeWitnessEdgeLess(left.Incoming, right.Incoming) {
+		return true
+	}
+	if bridgeWitnessEdgeLess(right.Incoming, left.Incoming) {
+		return false
+	}
+	return bridgeWitnessEdgeLess(left.Outgoing, right.Outgoing)
 }
 
 func writeBridgeRecordsText(w io.Writer, records []bridgeRecord) {
@@ -133,23 +209,26 @@ func writeBridgeRecordsText(w io.Writer, records []bridgeRecord) {
 		} else {
 			fmt.Fprintf(w, "  relevance: %.6f\n", *record.RelevanceScore)
 		}
-		fmt.Fprintf(w, "  inbound edge: %s  %s -> %s  %s  (type: %q, annotation: %q)\n",
-			record.Witness.Incoming.ID, record.Witness.Incoming.Title, record.ID, record.Title,
-			record.Witness.Incoming.Type, record.Witness.Incoming.Annotation)
-		fmt.Fprintf(w, "  outgoing edge: %s  %s -> %s  %s  (type: %q, annotation: %q)\n",
-			record.ID, record.Title, record.Witness.Outgoing.ID, record.Witness.Outgoing.Title,
-			record.Witness.Outgoing.Type, record.Witness.Outgoing.Annotation)
-		writeBridgeRegionText(w, "incoming", record.Witness.Regions.Incoming)
-		writeBridgeRegionText(w, "outgoing", record.Witness.Regions.Outgoing)
-		fmt.Fprintf(w, "  same region: %t\n", record.Witness.Regions.SameRegion)
+		for j, witness := range record.Witnesses {
+			fmt.Fprintf(w, "  crossing %d:\n", j+1)
+			fmt.Fprintf(w, "    inbound edge: %s  %s -> %s  %s  (type: %q, annotation: %q)\n",
+				witness.Incoming.ID, witness.Incoming.Title, record.ID, record.Title,
+				witness.Incoming.Type, witness.Incoming.Annotation)
+			fmt.Fprintf(w, "    outgoing edge: %s  %s -> %s  %s  (type: %q, annotation: %q)\n",
+				record.ID, record.Title, witness.Outgoing.ID, witness.Outgoing.Title,
+				witness.Outgoing.Type, witness.Outgoing.Annotation)
+			writeBridgeRegionText(w, "incoming", witness.Regions.Incoming)
+			writeBridgeRegionText(w, "outgoing", witness.Regions.Outgoing)
+			fmt.Fprintf(w, "    same region: %t\n", witness.Regions.SameRegion)
+		}
 	}
 }
 
 func writeBridgeRegionText(w io.Writer, direction string, region *bridgeRegionSummary) {
 	if region == nil {
-		fmt.Fprintf(w, "  %s region: unclustered\n", direction)
+		fmt.Fprintf(w, "    %s region: unclustered\n", direction)
 		return
 	}
-	fmt.Fprintf(w, "  %s region: representative %s  %s; size: %d\n",
+	fmt.Fprintf(w, "    %s region: representative %s  %s; size: %d\n",
 		direction, region.Representative.ID, region.Representative.Title, region.Size)
 }
