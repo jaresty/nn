@@ -489,7 +489,7 @@ Each returned `id` identifies the bridge note described by the record.
 
 ```
 nn clusters [--min N] [--singletons] [--json]
-nn clusters --search "<query>" --json [--summary] [--min N] [--singletons]
+nn clusters --search "<query>" --json [--summary] [--match-limit N] [--min N] [--singletons]
 ```
 
 Detect topological clusters of notes using label propagation. Each note starts with its own label and iteratively adopts the most common label among its linked neighbours.
@@ -497,11 +497,12 @@ Detect topological clusters of notes using label propagation. Each note starts w
 - `--min N` omits clusters smaller than N notes (default: 2). Notes with no links are singletons and omitted by default.
 - `--singletons` includes singleton clusters (notes with no links).
 - `--search QUERY` preserves clustering over the complete graph, then returns only clusters containing positive-scoring search hits. It requires `--json`.
-- `--summary` is search-only and omits full cluster `notes` while retaining `size`, `match_count`, `match_density`, `score`, `representative`, and ranked `matches`. Use `representative.id` as a subsequent `--focus`; rerun without `--summary` only when complete membership is needed.
+- `--summary` is search-only and omits full cluster `notes` while retaining `size`, total `match_count`, `match_density`, `score`, `representative`, bounded ranked `matches`, `matches_returned`, and `matches_truncated`. Use `representative.id` as a subsequent `--focus`; rerun without `--summary` only when complete membership is needed.
+- `--match-limit N` is valid only with `--summary`. It defaults to 3 matches per returned cluster, `0` returns all matches, and negative values fail. The limit never caps the number of clusters.
 
 Text output: one cluster per block — `cluster N (K notes):\n  ID  Title\n  ...`
 
-Legacy `--json` output remains `[{"notes": [{"id": "...", "title": "..."}]}]`. Search-mode JSON ranks regions by the sum of their top three normalized match scores, preventing large regions from winning through an unbounded accumulation of weak matches. It includes `size`, total `match_count`, `match_density`, `score`, all ranked `matches`, `representative`, and—unless `--summary` is set—the full cluster `notes`. `match_density` is `match_count / size`, an explanatory signal, not a ranking input. The representative is the highest-total-degree member, with note ID as the stable tie-breaker.
+Legacy `--json` output remains `[{"notes": [{"id": "...", "title": "..."}]}]`. Search-mode JSON ranks regions by the sum of their top three normalized match scores, preventing large regions from winning through an unbounded accumulation of weak matches. Without `--summary`, its schema remains unchanged and includes `size`, total `match_count`, `match_density`, `score`, all ranked `matches`, `representative`, and full cluster `notes`—no match-limit metadata. Summary truncation is applied only after full `match_count`, `match_density`, score, region ranking, and representative computation; `matches_returned` is the emitted match count and `matches_truncated` is always present, including `false`. `match_density` is `match_count / size`, an explanatory signal, not a ranking input. The representative is the highest-total-degree member, with note ID as the stable tie-breaker.
 
 ## nn ast
 

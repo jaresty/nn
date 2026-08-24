@@ -17,12 +17,19 @@ func newClustersCmd(state *rootState) *cobra.Command {
 	var jsonOut bool
 	var search string
 	var summary bool
+	var matchLimit int
 
 	cmd := &cobra.Command{
 		Use:   "clusters",
 		Short: "Detect topological clusters of notes using label propagation",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			searchMode := cmd.Flags().Changed("search")
+			if cmd.Flags().Changed("match-limit") && !summary {
+				return fmt.Errorf("clusters: --match-limit requires --summary")
+			}
+			if summary && matchLimit < 0 {
+				return fmt.Errorf("clusters: --match-limit must be non-negative")
+			}
 			if summary && !searchMode {
 				return fmt.Errorf("clusters: --summary requires --search")
 			}
@@ -141,6 +148,41 @@ func newClustersCmd(state *rootState) *cobra.Command {
 					Score float64 `json:"score,omitempty"`
 				}
 				if searchMode {
+					if summary {
+						type summaryClusterEntry struct {
+							Size             int         `json:"size"`
+							MatchCount       int         `json:"match_count"`
+							MatchDensity     float64     `json:"match_density"`
+							Score            float64     `json:"score"`
+							Representative   noteEntry   `json:"representative"`
+							Matches          []noteEntry `json:"matches"`
+							MatchesReturned  int         `json:"matches_returned"`
+							MatchesTruncated bool        `json:"matches_truncated"`
+						}
+						out := make([]summaryClusterEntry, len(clusters))
+						for i, c := range clusters {
+							returnedMatches := c.matches
+							if matchLimit > 0 && len(returnedMatches) > matchLimit {
+								returnedMatches = returnedMatches[:matchLimit]
+							}
+							matches := make([]noteEntry, len(returnedMatches))
+							for j, n := range returnedMatches {
+								matches[j] = noteEntry{ID: n.ID, Title: n.Title, Score: normalizedSearchScores[n.ID]}
+							}
+							rep := c.representative
+							out[i] = summaryClusterEntry{
+								Size: len(c.notes), MatchCount: len(c.matches), MatchDensity: float64(len(c.matches)) / float64(len(c.notes)), Score: c.score,
+								Representative:   noteEntry{ID: rep.ID, Title: rep.Title},
+								Matches:          matches,
+								MatchesReturned:  len(matches),
+								MatchesTruncated: len(matches) < len(c.matches),
+							}
+						}
+						enc := json.NewEncoder(w)
+						enc.SetIndent("", "  ")
+						return enc.Encode(out)
+					}
+
 					type searchClusterEntry struct {
 						Size           int         `json:"size"`
 						MatchCount     int         `json:"match_count"`
@@ -152,12 +194,9 @@ func newClustersCmd(state *rootState) *cobra.Command {
 					}
 					out := make([]searchClusterEntry, len(clusters))
 					for i, c := range clusters {
-						var entries []noteEntry
-						if !summary {
-							entries = make([]noteEntry, len(c.notes))
-							for j, n := range c.notes {
-								entries[j] = noteEntry{ID: n.ID, Title: n.Title}
-							}
+						entries := make([]noteEntry, len(c.notes))
+						for j, n := range c.notes {
+							entries[j] = noteEntry{ID: n.ID, Title: n.Title}
 						}
 						matches := make([]noteEntry, len(c.matches))
 						for j, n := range c.matches {
@@ -208,5 +247,6 @@ func newClustersCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON")
 	cmd.Flags().StringVar(&search, "search", "", "Return only full-graph clusters containing notes matching this query (requires --json)")
 	cmd.Flags().BoolVar(&summary, "summary", false, "Omit full cluster membership from search JSON while retaining landing handles")
+	cmd.Flags().IntVar(&matchLimit, "match-limit", 3, "Maximum ranked matches per summary cluster (0 = all; requires --summary)")
 	return cmd
 }

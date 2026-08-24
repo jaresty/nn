@@ -28,7 +28,7 @@ Use `nn-guide` only to look up command syntax or semantics. This skill owns the 
 
 ### Navigation mode: the zoned navigator with contents
 
-`nn graph show --focus <id> --zones --bodies --color always` is a self-contained **navigation view**: it shows a note's neighbors bucketed by directional zone *and* prints each neighbor's tags and body, degree, and zone-colored headers — so you can both see where you can move and read where you'd land — in one call, without a separate `nn show` per node. Use `--color always` when presenting to a human in a color-capable terminal.
+`nn graph show --focus <id> --zones --bodies --color always` is a self-contained **navigation view**: it shows a note's neighbors bucketed by directional zone *and* prints each neighbor's tags and body, degree, and zone-colored headers — so you can both see where you can move and read where you'd land — in one call, without a separate `nn show` per node. Use `--color always` when presenting to a human on a color-capable surface.
 
 Use it to walk the graph as a positioned space rather than dumping the whole structure. Hold a **goal** in mind for the walk ("find what contests this design", "trace where this claim came from", "reach the principle underneath") — every step is judged relative to that goal, not to the whole graph.
 
@@ -149,7 +149,7 @@ A compact virtual protocol should use `applies_when: human-driven nn graph navig
 This seed is the compact enforcement contract for virtual protocols. The detailed contract remains owned by this skill rather than the broad command reference or a virtual protocol.
 
 0. **Enter** — if you have no starting note, find one first: `nn list --search "<topic>" --json --fields id,title,score,link_count` and pick the highest-scoring, best-connected hit as your entry focus. If you already have a note ID (from a prior answer, a link, a backlink), start there.
-1. **Orient** — render the current node's zoned neighborhood with bodies (add `--color always` when presenting in a color terminal):
+1. **Orient** — render the current node's zoned neighborhood with bodies (use `--color always` for every color-capable human relay):
    ```
    nn graph show --focus <id> --depth 1 --direction both --zones --bodies --presentation-hints --color always --format text
    ```
@@ -177,15 +177,15 @@ At any point in the walk (Enter, Orient, Read, Recenter) you can stop stepping s
 **Your territory (ego, depth 2)** — where you stand and how far you can walk:
 - **Degree + reach** — the current node's `↑out ↓in` (hub or leaf?) plus its 2-hop extent, unzoned:
   ```
-  nn graph show --focus <id> --depth 2 --direction both --format text
+  nn graph show --focus <id> --depth 2 --direction both --color always --format text
   ```
 - **Region + load-bearing** — which cluster this node sits in (`nn clusters`) and whether it sits on a bridge between clusters (`nn graph bridges`). A node on a bridge is a crossing point; a node deep in one cluster is interior.
 - **Reachable-but-unlinked** — `nn list --similar <id>`: nearby notes that share vocabulary but have no edge to walk. This is the one signal a step-wise walk can *never* surface — territory the navigation can't reach yet (candidate missing edges).
 
 **The wider landscape (global)** — where your region sits in everything (drops the ego entirely):
-- **The landmass — `nn clusters`** — every topic cluster and its size. When the walk has a goal query, prefer `nn clusters --search "<query>" --json --summary` to project that query onto full-graph regions without loading every unrelated cluster or every member of a matching cluster.
+- **The landmass — `nn clusters`** — every topic cluster and its size. When the walk has a goal query, prefer `nn clusters --search "<query>" --json --summary` to project that query onto full-graph regions without loading every unrelated cluster or every member of a matching cluster. Summary output defaults to the top 3 ranked matches per region while retaining total `match_count`; read `matches_returned` and `matches_truncated`, and use `--match-limit 0` only when Scan genuinely needs every matching note. The match limit is per region and never limits the number of regions.
 - **The highways — `nn graph bridges`** — integration points whose links join otherwise-separate regions, ranked by load-bearing weight. When the walk has a goal query, use `nn graph bridges --search "<query>" --format json --exclude <focus-id>` to project relevance onto bridges computed from the complete graph without offering the retained focus as a movement candidate. `--exclude` is repeatable and is applied before `--limit`, so excluded results are replaced rather than shortening the candidate list. Read each returned record's bounded crossing witnesses and region context to explain why it is a plausible crossing before acting; the connector evidence is not proof of territorial separation. Peek through a returned bridge `id` to inspect where it leads without moving, or Recenter on that `id` to cross into its neighborhood. (Daily/index notes often rank high because they touch many topics — treat those as connectors-by-aggregation, not substantive bridges.)
-- **The whole shape — `nn graph show`** *(no `--focus`)* — the entire graph, a last resort (it's large); usually the two above are enough.
+- **The whole shape — `nn graph show --color always`** *(no `--focus`)* — the entire graph, a last resort (it's large); usually the two above are enough.
 
 **Two presentation modes — you choose at look time:**
 - **Default (labeled sections)** — render the two anchors above as *Your territory (ego)* and *The wider landscape (global)*, kept distinct. This is the default: the labels honor the relationship-vs-territory and ego-vs-global distinctions.
@@ -205,12 +205,12 @@ For the **global** anchor the map is a **different shape** — not a hop-tree fr
         bridge: 5853 "vocab is a composition barrier"
               │
      ┌────────┴─────┐   ┌──────────┐   ┌──────────┐
-     │ c3 (25) ◆YOU │   │ c2 (28)  │   │ c4 (24)  │   … 35 more small regions
+     │ c3 (25) 🟠 YOU │   │ c2 (28)  │   │ c4 (24)  │   … 35 more small regions
      │ graph-tooling│   └──────────┘   └──────────┘
      └──────────────┘
 ```
 
-Pick the rendering by surface capability, exactly as you pick whether to offer the recenter chooser — richer form only when the surface supports it, text otherwise. After scanning, resume the walk: recenter on a neighbor as before, or hop to a similar-but-unlinked note by making it the new `--focus` (and consider linking it, since the absence of an edge is what `scan` just exposed).
+Before relaying either altitude, apply the [Presentation discipline](#presentation-discipline) (P1–P4) to the composed Scan; this is where text-source markers and manually marked JSON region/bridge data become one consistent human-facing view. Pick the rendering by surface capability, exactly as you pick whether to offer the recenter chooser — richer form only when the surface supports it, text otherwise. After scanning, resume the walk: recenter on a neighbor as before, or hop to a similar-but-unlinked note by making it the new `--focus` (and consider linking it, since the absence of an edge is what `scan` just exposed).
 
 #### Typed destination discovery
 
@@ -263,7 +263,7 @@ Integrate the overlay into the navigation actions as follows:
 
 `peek` previews detail **without changing focus** — this is what makes it distinct from a one-step recenter. If it moved focus it would just be a slow walk. Two forms:
 
-- **`peek` on the current node** — expand detail in place: read the current node's full body and its neighbors' bodies without recentering (`nn graph show --focus <id> --depth 1 --direction both --zones --bodies` is already the read-in-place view; peeking just means you consume it without committing to a move).
+- **`peek` on the current node** — expand detail in place: read the current node's full body and its neighbors' bodies without recentering (`nn graph show --focus <id> --depth 1 --direction both --zones --bodies --color always` is already the read-in-place view; peeking just means you consume it without committing to a move).
 - **`peek` in a direction** — preview what is down one zone (TOP / BOTTOM / LEFT / RIGHT) before deciding to go there: `nn show <neighbor-id> --depth 2` reads that neighbor and *its* onward links, so you see where the move leads without taking it. Focus stays on your current node throughout.
 
 Use `peek` when Read-from-here isn't enough to judge a move — you want to see one step past the neighbor before committing.
@@ -274,12 +274,12 @@ Because `peek` does not move, it **returns you to the walk at the same Recenter 
 
 `teleport` is how you *get* a focus when you have none, or jump to a distant region. Unlike `scan`/`peek` (which look), `teleport` **relocates** — it changes where you are. Two modes:
 
-- **`teleport` with a query** — land on **structure, not a ranked hit list**. Use `nn clusters --search "<query>" --json --summary` as the **default landing-zone source**: it clusters the complete graph, returns only regions containing search hits, ranks them by top-three normalized matching evidence, and supplies a representative without dumping full region membership. Recenter on the chosen region's `representative.id`, then re-enter Orient from that note; alternatively recenter on a ranked `matches[].id` to enter through specific evidence. Use `nn list --search "<query>"` separately only when you need note-level evidence beyond the region result, or rerun without `--summary` when complete region membership is explicitly needed.
+- **`teleport` with a query** — land on **structure, not a ranked hit list**. Use `nn clusters --search "<query>" --json --summary` as the **default landing-zone source**: it clusters the complete graph, returns only regions containing search hits, ranks them by top-three normalized matching evidence, supplies a representative without dumping full region membership, and defaults to at most 3 ranked `matches` per region. Total `match_count`, score, ranking, density, and representative remain exhaustive; inspect `matches_returned`/`matches_truncated`, or use `--match-limit 0` when every evidence match is explicitly needed. Recenter on the chosen region's `representative.id`, then re-enter Orient from that note; alternatively recenter on a ranked `matches[].id` to enter through specific evidence. Use `nn list --search "<query>"` separately only when you need note-level evidence beyond the region result, or rerun without `--summary` when complete region membership is explicitly needed.
 - **`teleport` random** — a serendipitous jump: `nn random` (optionally `--tag`/`--type`) or `nn shuf` to land somewhere unplanned, then start a fresh walk from there.
 
 `teleport` only relocates — it does not render deep detail (that is `peek`'s job). After landing, **re-enter the walk at Orient (step 1) from the new focus, carrying the full [Presentation discipline](#presentation-discipline) (P1–P4)** — the landing is not a shortcut past it; landing then narrating in prose without colors, map, or chooser is exactly the seam-drift that discipline exists to prevent. This is the one move worth invoking from cold — it is named in the session-start CLI-reference pointer for that reason.
 
-**The landing itself is a chooser point** — teleport's landing *is* a Recenter decision ("which region/hub do I land on?"), so [Presentation discipline](#presentation-discipline) P3 applies: when a human is driving on a chooser-capable harness, render genuinely ambiguous candidate landings as a chooser. Teleport-specific option set: recommended hub, each cluster/sub-territory, and a `teleport --random` escape as the "somewhere else" option; otherwise follow the standard chooser mechanics below.
+**The landing itself is a chooser point** — teleport's landing *is* a Recenter decision ("which region/hub do I land on?"), so [Presentation discipline](#presentation-discipline) P1–P3 applies: when a human is driving on a chooser-capable harness, render genuinely ambiguous candidate landings as a chooser. The source is JSON, so the pre-landing Teleport chooser must manually mark each candidate landing region with the stable relay palette before any focus exists. Teleport-specific option set: recommended hub, each cluster/sub-territory, and a `teleport --random` escape as the "somewhere else" option; otherwise follow the standard chooser mechanics below.
 
 **Selection completes the landing decision.** Once the human selects a candidate—or the goal makes one candidate unambiguous—the selected landing automatically becomes the retained focus. Immediately run Orient from it and present Focus + Map + Moves. Teleport **MUST NOT ask for a second confirmation** such as "visit this focus?" after selection and **MUST NOT offer a separate `Visit` action**. Ask for human choice only while candidates remain genuinely ambiguous and no landing has yet been selected.
 
@@ -292,10 +292,22 @@ When you do offer a chooser, use the [Canonical navigation chooser](#canonical-n
 
 **This is the single source of truth for how any walk view is presented to a human. Every point that presents a positioned view — Orient, the return after `peek`, the landing after `teleport`, `scan` — cites this block by name rather than restating it. A rule stated only at one step definition does not travel across a seam that re-enters the walk from elsewhere; centralizing it here is what stops per-seam drift.** When presenting to a human on a capable surface, all four apply jointly:
 
-- **P1 — Colors and relay budgets on.** Run the underlying `nn graph show … --zones --bodies --presentation-hints --color always` so zone/type/edge markers and degree-based summary budgets survive relay. Omit `--color always` only when stdout is not a color surface; keep `--presentation-hints` so each complete body travels with an in-context relay budget.
+- **P1 — Colors and relay budgets on.** Every color-capable human-facing navigation view uses the stable markers below—not only post-landing Orient, but also the JSON-backed pre-landing Teleport chooser, the return after Peek, Scan at both altitudes, and Arrive. Run the underlying `nn graph show … --zones --bodies --presentation-hints --color always` so zone/type/edge markers and degree-based summary budgets survive relay. Graph text sources MUST use `--color always` for a color-capable human relay; do not trust `auto`, because tool stdout is commonly non-TTY. JSON sources are marker-free by design: parse them, then manually apply the relay palette to the human-facing chooser, headings, map, focus, and region labels—never mutate or claim markers exist in the JSON. On a surface that cannot display color emoji, omit the markers but preserve all labels and structure; keep `--presentation-hints` so each complete body travels with an in-context relay budget.
 - **P2 — Focus + Map + Moves.** Give the Focus summary (substance), positional/ASCII Map (structure), and degree-scaled Moves (direction) defined above. None is sufficient alone: a map without summaries is a skeleton you can't read; summaries without a map lose the spatial relationships. Never relay raw command output. (Detailed as (a)/(b)/(c) below.)
 - **P3 — Canonical four-action chooser.** When the harness exposes a chooser affordance **and** a human is co-navigating, use the canonical Recenter / Peek / Scan / Arrive contract; otherwise pick the move yourself per the goal while keeping all four actions discoverable in the presentation. This applies wherever the walk presents an onward decision, including after `peek` and `teleport`.
 - **P4 — Degree-scaled summaries.** Scale each summary's length to the node's inbound degree (the tiers in (c)); daily/index hubs are connectors-by-aggregation, not substance.
+
+##### Stable emoji relay palette
+
+Use this exact palette in every color-capable human-facing navigation view. It extends the graph command's actual zone convention and remains stable across source formats:
+
+- `🔵 TOP` — what the focus answers to;
+- `🟢 BOTTOM` — what builds on the focus;
+- `🔴 LEFT` — tension;
+- `🔷 RIGHT` — lateral provenance or task edges;
+- `🟠 FOCUS / REGION` — the retained focus and its current region. Before a Teleport landing exists, use the same orange marker for each candidate landing region and label the recommended candidate explicitly.
+
+Preserve note-type markers and edge-family markers already emitted by graph text instead of remapping them. Agent-drawn positional or region maps must use this palette too. Plain, uncolored Focus + Map + Moves is noncompliant on a color-capable surface even when its prose and geometry are otherwise correct.
 
 The three parts, in detail:
 
@@ -304,13 +316,13 @@ The three parts, in detail:
 **(b) Draw the map.** Lay the zones out by position so the layout itself encodes the relationships:
 
 ```
-              TOP  <what the focus answers to>
+            🔵 TOP  <what the focus answers to>
                      ▲
- LEFT <tension> ◀── ▣ YOU ARE HERE <focus id + title> ──▶ RIGHT <provenance>
+ 🔴 LEFT <tension> ◀── 🟠 YOU ARE HERE <focus id + title> ──▶ 🔷 RIGHT <provenance>
                      ▼
-           BOTTOM <what builds on the focus>
+         🟢 BOTTOM <what builds on the focus>
 
-  ▣ focus   ──▶/◀── edge direction   [empty zone = that relationship is absent]
+  🟠 focus   ──▶/◀── edge direction   [empty zone = that relationship is absent]
 ```
 
 **(c) Summarize each neighbor + name the moves — scale each summary's length to that neighbor's inbound degree (`↓`).** Draw each summary from the body (what it *claims*, not just what it's *called*), then flag the recommended next move relative to the goal. Do not give every neighbor a uniform one-liner — that is the failure this step exists to prevent. Use these tiers:

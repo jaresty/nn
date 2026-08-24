@@ -21,13 +21,15 @@ type clusterSearchTestNote struct {
 }
 
 type clusterSearchTestRegion struct {
-	Size           int                     `json:"size"`
-	MatchCount     int                     `json:"match_count"`
-	MatchDensity   float64                 `json:"match_density"`
-	Score          float64                 `json:"score"`
-	Representative clusterSearchTestNote   `json:"representative"`
-	Matches        []clusterSearchTestNote `json:"matches"`
-	Notes          []clusterSearchTestNote `json:"notes"`
+	Size             int                     `json:"size"`
+	MatchCount       int                     `json:"match_count"`
+	MatchDensity     float64                 `json:"match_density"`
+	Score            float64                 `json:"score"`
+	Representative   clusterSearchTestNote   `json:"representative"`
+	Matches          []clusterSearchTestNote `json:"matches"`
+	MatchesReturned  int                     `json:"matches_returned"`
+	MatchesTruncated bool                    `json:"matches_truncated"`
+	Notes            []clusterSearchTestNote `json:"notes"`
 }
 
 type orderedClusterBackend struct {
@@ -37,18 +39,35 @@ type orderedClusterBackend struct {
 
 func (b *orderedClusterBackend) List() ([]*note.Note, error) { return b.notes, nil }
 
-func executeClustersWithNotes(t *testing.T, notes []*note.Note, args ...string) string {
-	t.Helper()
+func executeClustersWithNotesResult(notes []*note.Note, args ...string) (string, error) {
 	state := &rootState{backend: &orderedClusterBackend{notes: notes}}
 	cmd := newClustersCmd(state)
 	var stdout bytes.Buffer
 	cmd.SetOut(&stdout)
 	cmd.SetErr(&stdout)
 	cmd.SetArgs(args)
-	if err := cmd.Execute(); err != nil {
+	err := cmd.Execute()
+	return stdout.String(), err
+}
+
+func executeClustersWithNotes(t *testing.T, notes []*note.Note, args ...string) string {
+	t.Helper()
+	out, err := executeClustersWithNotesResult(notes, args...)
+	if err != nil {
 		t.Fatalf("clusters %v: %v", args, err)
 	}
-	return stdout.String()
+	return out
+}
+
+func clusterMatchLimitFixture(idPrefix string, matchCount int) []*note.Note {
+	notes := make([]*note.Note, matchCount)
+	for i := range notes {
+		notes[i] = newTestNoteForCLI(fmt.Sprintf("%s-%04d", idPrefix, i), fmt.Sprintf("Needle evidence %02d", i), note.TypeConcept)
+	}
+	for i := 1; i < len(notes); i++ {
+		notes[0].Links = append(notes[0].Links, note.Link{TargetID: notes[i].ID, Type: "extends"})
+	}
+	return notes
 }
 
 func TestClustersSearchProjectsHitsOntoFullGraphClusters(t *testing.T) {
@@ -200,6 +219,156 @@ func TestClustersSearchCapsRankingEvidenceAtTopThreeMatches(t *testing.T) {
 	}
 }
 
+func TestClustersSearchSummaryDefaultsToTopThreeExactRankingEvidence(t *testing.T) {
+	notes := clusterMatchLimitFixture("20260101000001", 5)
+	decode := func(out string) []clusterSearchTestRegion {
+		t.Helper()
+		var regions []clusterSearchTestRegion
+		if err := json.Unmarshal([]byte(out), &regions); err != nil {
+			t.Fatalf("clusters summary JSON: %v\n%s", err, out)
+		}
+		return regions
+	}
+
+	exhaustive := decode(executeClustersWithNotes(t, notes, "--search", "needle", "--json", "--summary", "--match-limit", "0"))
+	got := decode(executeClustersWithNotes(t, notes, "--search", "needle", "--json", "--summary"))
+	if len(got) != 1 || len(exhaustive) != 1 {
+		t.Fatalf("regions = %d/%d, want 1/1", len(got), len(exhaustive))
+	}
+	if exhaustive[0].MatchesReturned != 5 || exhaustive[0].MatchesTruncated || len(exhaustive[0].Matches) != 5 {
+		t.Fatalf("exhaustive metadata/matches = %#v", exhaustive[0])
+	}
+	if got[0].MatchCount != 5 || got[0].MatchesReturned != 3 || !got[0].MatchesTruncated || len(got[0].Matches) != 3 {
+		t.Fatalf("default summary metadata/matches = %#v", got[0])
+	}
+	if !reflect.DeepEqual(got[0].Matches, exhaustive[0].Matches[:3]) {
+		t.Fatalf("default matches are not exact top-three ranking evidence:\ngot=%#v\nwant=%#v", got[0].Matches, exhaustive[0].Matches[:3])
+	}
+	wantScore := 0.0
+	for _, match := range exhaustive[0].Matches[:3] {
+		wantScore += match.Score
+	}
+	if math.Abs(got[0].Score-wantScore) > 1e-12 || math.Abs(got[0].Score-exhaustive[0].Score) > 1e-12 {
+		t.Fatalf("summary score = %v, want exact exhaustive top-three sum %v (exhaustive score %v)", got[0].Score, wantScore, exhaustive[0].Score)
+	}
+}
+
+func TestClustersSearchSummaryMatchLimitOneAndZeroAll(t *testing.T) {
+	notes := clusterMatchLimitFixture("20260101000002", 5)
+	for _, tc := range []struct {
+		name          string
+		limit         string
+		wantReturned  int
+		wantTruncated bool
+	}{
+		{name: "one", limit: "1", wantReturned: 1, wantTruncated: true},
+		{name: "zero means all", limit: "0", wantReturned: 5, wantTruncated: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out := executeClustersWithNotes(t, notes, "--search", "needle", "--json", "--summary", "--match-limit", tc.limit)
+			var regions []clusterSearchTestRegion
+			if err := json.Unmarshal([]byte(out), &regions); err != nil {
+				t.Fatalf("clusters summary JSON: %v\n%s", err, out)
+			}
+			if len(regions) != 1 || len(regions[0].Matches) != tc.wantReturned || regions[0].MatchesReturned != tc.wantReturned || regions[0].MatchesTruncated != tc.wantTruncated {
+				t.Fatalf("limit %s result = %#v", tc.limit, regions)
+			}
+		})
+	}
+}
+
+func TestClustersSearchMatchLimitValidation(t *testing.T) {
+	notes := clusterMatchLimitFixture("20260101000003", 2)
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "negative", args: []string{"--search", "needle", "--json", "--summary", "--match-limit", "-1"}, want: "--match-limit must be non-negative"},
+		{name: "outside summary search", args: []string{"--search", "needle", "--json", "--match-limit", "1"}, want: "--match-limit requires --summary"},
+		{name: "outside summary legacy", args: []string{"--json", "--match-limit", "0"}, want: "--match-limit requires --summary"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := executeClustersWithNotesResult(notes, tc.args...)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("clusters %v error = %v, want %q", tc.args, err, tc.want)
+			}
+		})
+	}
+}
+
+func TestClustersSearchMatchLimitOnlyShapesSummaryEvidence(t *testing.T) {
+	var notes []*note.Note
+	for i := 0; i < 4; i++ {
+		notes = append(notes, clusterMatchLimitFixture(fmt.Sprintf("2026010100001%d", i), 4)...)
+	}
+	decode := func(out string) []clusterSearchTestRegion {
+		t.Helper()
+		var regions []clusterSearchTestRegion
+		if err := json.Unmarshal([]byte(out), &regions); err != nil {
+			t.Fatalf("clusters summary JSON: %v\n%s", err, out)
+		}
+		return regions
+	}
+	exhaustive := decode(executeClustersWithNotes(t, notes, "--search", "needle", "--json", "--summary", "--match-limit", "0"))
+	limited := decode(executeClustersWithNotes(t, notes, "--search", "needle", "--json", "--summary", "--match-limit", "1"))
+	if len(limited) != 4 || len(exhaustive) != 4 {
+		t.Fatalf("match limit changed cluster count: limited=%d exhaustive=%d", len(limited), len(exhaustive))
+	}
+	for i := range exhaustive {
+		got, want := limited[i], exhaustive[i]
+		if got.Size != want.Size || got.MatchCount != want.MatchCount || got.MatchDensity != want.MatchDensity || got.Score != want.Score || got.Representative != want.Representative {
+			t.Errorf("cluster %d computations changed after truncation:\nlimited=%#v\nexhaustive=%#v", i, got, want)
+		}
+		if len(got.Matches) != 1 || got.Matches[0] != want.Matches[0] || got.MatchesReturned != 1 || !got.MatchesTruncated {
+			t.Errorf("cluster %d limited evidence = %#v, exhaustive=%#v", i, got, want)
+		}
+	}
+
+	reversed := append([]*note.Note(nil), notes...)
+	for left, right := 0, len(reversed)-1; left < right; left, right = left+1, right-1 {
+		reversed[left], reversed[right] = reversed[right], reversed[left]
+	}
+	forwardOut := executeClustersWithNotes(t, notes, "--search", "needle", "--json", "--summary", "--match-limit", "1")
+	reverseOut := executeClustersWithNotes(t, reversed, "--search", "needle", "--json", "--summary", "--match-limit", "1")
+	if reverseOut != forwardOut {
+		t.Fatalf("match-limited summary depends on backend order:\nforward=%s\nreverse=%s", forwardOut, reverseOut)
+	}
+}
+
+func TestClustersSearchNonSummaryJSONRemainsExhaustiveWithoutMatchMetadata(t *testing.T) {
+	notes := clusterMatchLimitFixture("20260101000004", 5)
+	out := executeClustersWithNotes(t, notes, "--search", "needle", "--json")
+	var regions []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &regions); err != nil {
+		t.Fatalf("clusters full search JSON: %v\n%s", err, out)
+	}
+	wantKeys := []string{"size", "match_count", "match_density", "score", "representative", "matches", "notes"}
+	if len(regions) != 1 || len(regions[0]) != len(wantKeys) {
+		t.Fatalf("non-summary schema changed: %s", out)
+	}
+	for _, key := range wantKeys {
+		if regions[0][key] == nil {
+			t.Errorf("non-summary JSON missing %q: %s", key, out)
+		}
+	}
+	for _, forbidden := range []string{"matches_returned", "matches_truncated"} {
+		if regions[0][forbidden] != nil {
+			t.Errorf("non-summary JSON gained %q: %s", forbidden, out)
+		}
+	}
+	var matches, members []clusterSearchTestNote
+	if err := json.Unmarshal(regions[0]["matches"], &matches); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(regions[0]["notes"], &members); err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 5 || len(members) != 5 {
+		t.Fatalf("non-summary JSON was truncated: matches=%d notes=%d", len(matches), len(members))
+	}
+}
+
 func TestClustersSearchIncludesMatchingSingletonWhenRequested(t *testing.T) {
 	isolated := newTestNoteForCLI("20260101000000-0001", "Needle singleton", note.TypeConcept)
 	unrelated1 := newTestNoteForCLI("20260101000000-0002", "Other alpha", note.TypeConcept)
@@ -298,7 +467,7 @@ func TestClustersSearchSummaryOmitsNotesAndPreservesLandingHandles(t *testing.T)
 	if len(regions) != 1 {
 		t.Fatalf("summary regions = %d, want 1: %s", len(regions), out)
 	}
-	wantKeys := []string{"size", "match_count", "match_density", "score", "representative", "matches"}
+	wantKeys := []string{"size", "match_count", "match_density", "score", "representative", "matches", "matches_returned", "matches_truncated"}
 	if len(regions[0]) != len(wantKeys) {
 		t.Fatalf("summary keys = %v, want exactly %v", regions[0], wantKeys)
 	}
@@ -342,7 +511,7 @@ func TestClustersSearchIsDocumentedForTeleport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, flag := range []string{"--search", "--summary"} {
+	for _, flag := range []string{"--search", "--summary", "--match-limit"} {
 		if !strings.Contains(help, flag) {
 			t.Fatalf("clusters help missing %s:\n%s", flag, help)
 		}
@@ -352,6 +521,10 @@ func TestClustersSearchIsDocumentedForTeleport(t *testing.T) {
 		t.Fatal(err)
 	}
 	navigate, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	virtual, err := execute("show", "virtual-nn-cli-reference")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -371,7 +544,11 @@ func TestClustersSearchIsDocumentedForTeleport(t *testing.T) {
 			t.Errorf("nn-navigate missing %q", required)
 		}
 	}
-	if !strings.Contains(string(guide), "top three normalized match scores") {
-		t.Error("nn-guide command reference missing cluster ranking semantics")
+	for name, contents := range map[string]string{"nn-guide": string(guide), "virtual CLI reference": virtual} {
+		for _, required := range []string{"top three normalized match scores", "--match-limit N", "matches_returned", "matches_truncated"} {
+			if !strings.Contains(contents, required) {
+				t.Errorf("%s missing cluster summary semantics %q", name, required)
+			}
+		}
 	}
 }

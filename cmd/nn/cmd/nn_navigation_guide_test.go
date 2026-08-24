@@ -275,6 +275,56 @@ func TestNNGuidePreservesGraphCommandReference(t *testing.T) {
 	}
 }
 
+func TestNNNavigateOwnsStableColorRelayDiscipline(t *testing.T) {
+	ownerData, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	guideData, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-guide: %v", err)
+	}
+	owner, guide := string(ownerData), string(guideData)
+	for _, required := range []string{
+		"Stable emoji relay palette",
+		"every color-capable human-facing navigation view",
+		"`🔵 TOP`", "`🟢 BOTTOM`", "`🔴 LEFT`", "`🔷 RIGHT`", "`🟠 FOCUS / REGION`",
+		"pre-landing Teleport chooser",
+		"Scan",
+		"Graph text sources MUST use `--color always`",
+		"JSON sources are marker-free",
+		"manually apply the relay palette",
+		"Plain, uncolored Focus + Map + Moves is noncompliant",
+	} {
+		if !strings.Contains(owner, required) {
+			t.Errorf("nn-navigate color relay discipline missing %q", required)
+		}
+	}
+	for _, ownerOnly := range []string{
+		"Stable emoji relay palette",
+		"`🔵 TOP`", "`🟢 BOTTOM`", "`🔴 LEFT`", "`🔷 RIGHT`", "`🟠 FOCUS / REGION`",
+		"Plain, uncolored Focus + Map + Moves is noncompliant",
+	} {
+		if strings.Contains(guide, ownerOnly) {
+			t.Errorf("nn-guide duplicates nn-navigate color relay detail %q", ownerOnly)
+		}
+	}
+
+	_, execute := setupNotebook(t)
+	virtual, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil {
+		t.Fatalf("show virtual-nn-cli-reference: %v", err)
+	}
+	if !strings.Contains(virtual, "nn-navigate enforces the color relay discipline") {
+		t.Error("virtual CLI reference does not dispatch color relay discipline to nn-navigate")
+	}
+	for _, ownerOnly := range []string{"`🔵 TOP`", "`🟢 BOTTOM`", "`🔴 LEFT`", "`🔷 RIGHT`", "`🟠 FOCUS / REGION`"} {
+		if strings.Contains(virtual, ownerOnly) {
+			t.Errorf("virtual CLI reference duplicates nn-navigate palette %q", ownerOnly)
+		}
+	}
+}
+
 func TestVirtualCLIReferenceDispatchesNavigationWithoutOwningWorkflow(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("show", "virtual-nn-cli-reference")
