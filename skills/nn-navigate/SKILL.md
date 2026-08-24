@@ -77,6 +77,9 @@ During cold teleport, replace Recenter with the recommended landing zone and off
 
 **Navigation presentation check:**
 - [ ] focus type and status shown
+- [ ] zone/type/edge color markers applied (stable relay palette)
+- [ ] zone positions carry their color markers in the map
+- [ ] legend/key for the color markers shown so they are interpretable
 - [ ] focus degree shown
 - [ ] central claim summarized
 - [ ] neighborhood role explained
@@ -307,7 +310,7 @@ Use this exact palette in every color-capable human-facing navigation view. It e
 - `🔷 RIGHT` — lateral provenance or task edges;
 - `🟠 FOCUS / REGION` — the retained focus and its current region. Before a Teleport landing exists, use the same orange marker for each candidate landing region and label the recommended candidate explicitly.
 
-Preserve note-type markers and edge-family markers already emitted by graph text instead of remapping them. Agent-drawn positional or region maps must use this palette too. Plain, uncolored Focus + Map + Moves is noncompliant on a color-capable surface even when its prose and geometry are otherwise correct.
+Preserve note-type markers and edge-family markers already emitted by graph text instead of remapping them. Agent-drawn positional or region maps must use this palette too. You must **reproduce this legend** in the presentation itself — a short key mapping each marker to its meaning (the five zone markers above, plus the note-type and edge-family markers you carried through) — because a colored marker the reader cannot decode carries no information; the markers and their legend travel together. Plain, uncolored Focus + Map + Moves is noncompliant on a color-capable surface even when its prose and geometry are otherwise correct.
 
 The three parts, in detail:
 

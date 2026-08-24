@@ -108,6 +108,9 @@ func TestNNNavigateOwnsCanonicalHumanNavigationContract(t *testing.T) {
 			"Before every chooser, present:",
 			"Navigation presentation check:",
 			"[ ] focus type and status shown",
+			"[ ] zone/type/edge color markers applied (stable relay palette)",
+			"[ ] zone positions carry their color markers in the map",
+			"[ ] legend/key for the color markers shown so they are interpretable",
 			"[ ] Arrive available",
 			"Bad:",
 			"Why bad:",
@@ -294,6 +297,7 @@ func TestNNNavigateOwnsStableColorRelayDiscipline(t *testing.T) {
 		"Graph text sources MUST use `--color always`",
 		"JSON sources are marker-free",
 		"manually apply the relay palette",
+		"reproduce this legend",
 		"Plain, uncolored Focus + Map + Moves is noncompliant",
 	} {
 		if !strings.Contains(owner, required) {
