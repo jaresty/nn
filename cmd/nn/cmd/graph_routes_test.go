@@ -445,19 +445,26 @@ func TestGraphRouteCandidateTieBreaksByHopsThenID(t *testing.T) {
 }
 
 func TestGraphRoutesIsDocumentedForNavigation(t *testing.T) {
-	guide, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
+	navigate, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, required := range []string{
 		"nn graph routes --focus ID --links TYPES --search QUERY --limit N --json",
 		"--explain", "direct_lexical_matches", "graph_scored_matches", "truncated_by_limit",
-		"positive direct lexical BM25 evidence", "witnesses", "at most 3", "first-hop", "type-sequence",
+		"witnesses", "at most 3", "first-hop", "type-sequence",
 		"Orient", "Scan", "Peek", "Recenter", "Arrive", "relevance_score", "nodes[1]",
 	} {
-		if !strings.Contains(string(guide), required) {
-			t.Errorf("nn-guide missing typed destination discovery guidance %q", required)
+		if !strings.Contains(string(navigate), required) {
+			t.Errorf("nn-navigate missing typed destination discovery guidance %q", required)
 		}
+	}
+	guide, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(guide), "positive direct lexical BM25 evidence") {
+		t.Error("nn-guide command reference missing direct lexical route eligibility semantics")
 	}
 	show, err := os.ReadFile("show.go")
 	if err != nil {

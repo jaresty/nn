@@ -129,7 +129,7 @@ nn skills get <name>
 `
 
 var deprecatedSkillDirs = []string{
-	"nn-workflow", "nn-guide", "nn-capture-discipline",
+	"nn-workflow", "nn-guide", "nn-navigate", "nn-capture-discipline",
 	"nn-link-suggester", "nn-refine", "nn-refine-workflow", "nn-session-debrief",
 }
 

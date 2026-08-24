@@ -361,19 +361,28 @@ func TestGraphImpactEmptyResultUsesJSONArray(t *testing.T) {
 }
 
 func TestGraphImpactIsDocumentedForNavigation(t *testing.T) {
+	navigate, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	navigateText := string(navigate)
+	for _, required := range []string{
+		"nn graph impact --focus ID --links TYPES --direction incoming|outgoing --depth N --json",
+		"Scan", "Peek", "Recenter", "Arrive", "summary", "total_impacts", "witnesses_truncated", "witnesses", "at most 3", "first-hop", "type-sequence",
+		"grounded-by", "incoming", "supports", "outgoing",
+		"stored source", "target", "opposite",
+	} {
+		if !strings.Contains(navigateText, required) {
+			t.Errorf("nn-navigate missing impact guidance %q", required)
+		}
+	}
 	guide, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
 	if err != nil {
 		t.Fatal(err)
 	}
-	guideText := string(guide)
-	for _, required := range []string{
-		"nn graph impact --focus ID --links TYPES --direction incoming|outgoing --depth N --json",
-		"Scan", "Peek", "Recenter", "Arrive", "summary", "total_impacts", "counts_by_depth", "counts_by_first_hop", "witnesses_truncated", "witnesses", "at most 3", "first-hop", "type-sequence",
-		"grounded-by", "incoming", "supports", "outgoing",
-		"stored source", "target", "opposite",
-	} {
-		if !strings.Contains(guideText, required) {
-			t.Errorf("nn-guide missing impact guidance %q", required)
+	for _, required := range []string{"counts_by_depth", "counts_by_first_hop"} {
+		if !strings.Contains(string(guide), required) {
+			t.Errorf("nn-guide command reference missing impact summary field %q", required)
 		}
 	}
 	show, err := os.ReadFile("show.go")

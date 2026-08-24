@@ -351,6 +351,10 @@ func TestClustersSearchIsDocumentedForTeleport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	navigate, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
 	adr, err := os.ReadFile("../../../docs/adr/0025-query-conditioned-cluster-projection.md")
 	if err != nil {
 		t.Fatal(err)
@@ -362,9 +366,12 @@ func TestClustersSearchIsDocumentedForTeleport(t *testing.T) {
 			}
 		}
 	}
-	for _, required := range []string{"nn clusters --search \"<query>\" --json --summary", "default landing-zone source", "representative.id", "recenter", "top three normalized match scores"} {
-		if !strings.Contains(string(guide), required) {
-			t.Errorf("nn-guide missing %q", required)
+	for _, required := range []string{"nn clusters --search \"<query>\" --json --summary", "default landing-zone source", "representative.id", "recenter", "top-three normalized matching evidence"} {
+		if !strings.Contains(string(navigate), required) {
+			t.Errorf("nn-navigate missing %q", required)
 		}
+	}
+	if !strings.Contains(string(guide), "top three normalized match scores") {
+		t.Error("nn-guide command reference missing cluster ranking semantics")
 	}
 }

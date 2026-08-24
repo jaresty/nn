@@ -16,7 +16,7 @@ func TestInstallSkillsList(t *testing.T) {
 		t.Fatalf("nn install-skills --list: %v", err)
 	}
 	for _, skill := range []string{
-		"nn-workflow", "nn-guide",
+		"nn-workflow", "nn-guide", "nn-navigate",
 		"nn-capture-discipline", "nn-link-suggester", "nn-refine",
 		"nn-session-debrief", "nn-refine-workflow",
 	} {

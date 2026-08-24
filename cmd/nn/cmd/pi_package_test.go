@@ -37,6 +37,15 @@ func TestPiPackageManifestExposesGlobalContextExtension(t *testing.T) {
 		t.Fatalf("Pi package manifest missing ./skills: %v", manifest.Pi.Skills)
 	}
 
+	navigatePath := filepath.Join(repoRoot, "skills", "nn-navigate", "SKILL.md")
+	navigate, err := os.ReadFile(navigatePath)
+	if err != nil {
+		t.Fatalf("Pi package does not ship nn-navigate at %s: %v", navigatePath, err)
+	}
+	if !strings.Contains(string(navigate), "name: nn-navigate") {
+		t.Fatalf("packaged nn-navigate has invalid frontmatter: %s", navigate)
+	}
+
 	extensionPath := filepath.Join(repoRoot, "pi", "extensions", "nn_global_context.ts")
 	extension, err := os.ReadFile(extensionPath)
 	if err != nil {

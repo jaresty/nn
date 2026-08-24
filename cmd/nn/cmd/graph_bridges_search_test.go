@@ -695,9 +695,18 @@ func TestGraphBridgesSearchIsDocumentedForScan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{"nn graph bridges --search \"<query>\" --format json", "--format text|json", "only the encoding", "--exclude <focus-id>", "before `--limit`", "Peek", "Recenter", "relevance_score", "JSON encodes `relevance_score` as `null`", "`witnesses`", "at most 3", "region pair", "full-graph label-propagation", "same_region", "not proof", "no durable region ID"} {
+	for _, required := range []string{"--format text|json", "only the encoding", "before `--limit`", "relevance_score", "JSON encodes `relevance_score` as `null`", "`witnesses`", "at most 3", "region pair", "full-graph label-propagation", "same_region", "not proof", "no durable region ID"} {
 		if !strings.Contains(string(guide), required) {
-			t.Errorf("nn-guide missing %q", required)
+			t.Errorf("nn-guide command reference missing %q", required)
+		}
+	}
+	navigate, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"nn graph bridges --search \"<query>\" --format json", "--exclude <focus-id>", "Peek", "Recenter"} {
+		if !strings.Contains(string(navigate), required) {
+			t.Errorf("nn-navigate bridge workflow missing %q", required)
 		}
 	}
 	virtualReference, err := os.ReadFile("show.go")

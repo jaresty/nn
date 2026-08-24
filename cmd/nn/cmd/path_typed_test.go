@@ -175,7 +175,7 @@ func TestPathLinksIsIntegratedWithNavigation(t *testing.T) {
 	if !strings.Contains(help, "--links") {
 		t.Fatalf("path help missing --links:\n%s", help)
 	}
-	guide, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
+	navigate, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,8 +184,8 @@ func TestPathLinksIsIntegratedWithNavigation(t *testing.T) {
 		"Orient", "Teleport", "Scan", "Peek", "Recenter", "Arrive",
 		"witnesses", "at most 3", "first-hop", "type-sequence", "nodes[1]", "Datalog closure",
 	} {
-		if !strings.Contains(string(guide), required) {
-			t.Errorf("nn-guide missing typed-path navigation guidance %q", required)
+		if !strings.Contains(string(navigate), required) {
+			t.Errorf("nn-navigate missing typed-path navigation guidance %q", required)
 		}
 	}
 	show, err := os.ReadFile("show.go")

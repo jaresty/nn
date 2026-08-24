@@ -153,7 +153,7 @@ func TestShowVirtualCLIReferenceBody(t *testing.T) {
 	}
 }
 
-// Assertion: virtual-nn-cli-reference body covers graph exploration commands and points to /nn-guide.
+// Assertion: virtual-nn-cli-reference body covers graph exploration commands and points to nn-guide.
 func TestShowVirtualCLIReferenceGraphCommands(t *testing.T) {
 	_, execute := setupNotebook(t)
 
@@ -176,8 +176,8 @@ func TestShowVirtualCLIReferenceGraphCommands(t *testing.T) {
 	if !strings.Contains(out, "--depth") {
 		t.Errorf("expected nn show --depth in body:\n%s", out)
 	}
-	if !strings.Contains(out, "/nn-guide") {
-		t.Errorf("expected /nn-guide pointer in body:\n%s", out)
+	if !strings.Contains(out, "nn skills get nn-guide") {
+		t.Errorf("expected nn-guide skill pointer in body:\n%s", out)
 	}
 	if !strings.Contains(out, "nn graph show") {
 		t.Errorf("expected nn graph show subcommand in body:\n%s", out)
