@@ -35,6 +35,7 @@ func newGraphRoutesCmd(state *rootState) *cobra.Command {
 	var search string
 	var limit int
 	var jsonOut bool
+	var explain bool
 
 	cmd := &cobra.Command{
 		Use:   "routes",
@@ -62,6 +63,9 @@ func newGraphRoutesCmd(state *rootState) *cobra.Command {
 			search = strings.TrimSpace(search)
 			if search == "" {
 				return fmt.Errorf("graph routes: --search requires a non-blank query")
+			}
+			if explain && !jsonOut {
+				return fmt.Errorf("graph routes: --explain requires --json")
 			}
 			if !jsonOut {
 				return fmt.Errorf("graph routes: requires --json")
@@ -133,25 +137,57 @@ func newGraphRoutesCmd(state *rootState) *cobra.Command {
 				}
 			}
 
+			type graphRouteDiagnostics struct {
+				QueryTokens          []string `json:"query_tokens"`
+				TotalNotes           int      `json:"total_notes"`
+				DirectLexicalMatches int      `json:"direct_lexical_matches"`
+				FocusExcluded        int      `json:"focus_excluded"`
+				TypedReachable       int      `json:"typed_reachable"`
+				EligibleDestinations int      `json:"eligible_destinations"`
+				GraphScoredMatches   int      `json:"graph_scored_matches"`
+				Returned             int      `json:"returned"`
+				TruncatedByLimit     bool     `json:"truncated_by_limit"`
+			}
+			diagnostics := graphRouteDiagnostics{
+				QueryTokens: note.Tokenize(search),
+				TotalNotes:  len(scoringNotes),
+			}
+			if diagnostics.QueryTokens == nil {
+				diagnostics.QueryTokens = []string{}
+			}
+
 			var candidates []graphRouteCandidate
-			if maxScore > 0 {
-				for _, n := range scoringNotes {
+			for _, n := range scoringNotes {
+				directMatch := directScores[n.ID] > 0
+				if directMatch {
+					diagnostics.DirectLexicalMatches++
 					if n.ID == focus {
-						continue
+						diagnostics.FocusExcluded = 1
 					}
-					if _, reachable := prev[n.ID]; !reachable {
-						continue
-					}
-					if directScores[n.ID] <= 0 {
-						continue
-					}
+				}
+				if rawScores[n.ID] > 0 {
+					diagnostics.GraphScoredMatches++
+				}
+				if n.ID == focus {
+					continue
+				}
+				if _, reachable := prev[n.ID]; !reachable {
+					continue
+				}
+				diagnostics.TypedReachable++
+				if !directMatch {
+					continue
+				}
+				diagnostics.EligibleDestinations++
+				if maxScore > 0 {
 					if score := rawScores[n.ID]; score > 0 {
 						candidates = append(candidates, graphRouteCandidate{id: n.ID, relevance: score / maxScore, hops: hops[n.ID]})
 					}
 				}
 			}
 			sortGraphRouteCandidates(candidates)
-			if len(candidates) > limit {
+			diagnostics.TruncatedByLimit = len(candidates) > limit
+			if diagnostics.TruncatedByLimit {
 				candidates = candidates[:limit]
 			}
 
@@ -195,8 +231,15 @@ func newGraphRoutesCmd(state *rootState) *cobra.Command {
 					Edges:       edges,
 				})
 			}
+			diagnostics.Returned = len(results)
 			enc := json.NewEncoder(outWriter(cmd))
 			enc.SetIndent("", "  ")
+			if explain {
+				return enc.Encode(struct {
+					Routes      []routeResult         `json:"routes"`
+					Diagnostics graphRouteDiagnostics `json:"diagnostics"`
+				}{Routes: results, Diagnostics: diagnostics})
+			}
 			return enc.Encode(results)
 		},
 	}
@@ -205,5 +248,6 @@ func newGraphRoutesCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&search, "search", "", "Destination relevance query")
 	cmd.Flags().IntVar(&limit, "limit", 10, "Maximum destinations to return")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output typed route witnesses as JSON (required)")
+	cmd.Flags().BoolVar(&explain, "explain", false, "Wrap routes with bounded aggregate diagnostics (requires --json)")
 	return cmd
 }

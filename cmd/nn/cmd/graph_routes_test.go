@@ -26,13 +26,28 @@ type graphRouteTestResult struct {
 	Edges []pathWitnessEdge `json:"edges"`
 }
 
+type graphRoutesExplainTestOutput struct {
+	Routes      []graphRouteTestResult `json:"routes"`
+	Diagnostics struct {
+		QueryTokens          []string `json:"query_tokens"`
+		TotalNotes           int      `json:"total_notes"`
+		DirectLexicalMatches int      `json:"direct_lexical_matches"`
+		FocusExcluded        int      `json:"focus_excluded"`
+		TypedReachable       int      `json:"typed_reachable"`
+		EligibleDestinations int      `json:"eligible_destinations"`
+		GraphScoredMatches   int      `json:"graph_scored_matches"`
+		Returned             int      `json:"returned"`
+		TruncatedByLimit     bool     `json:"truncated_by_limit"`
+	} `json:"diagnostics"`
+}
+
 func TestGraphRoutesCommandIsRegistered(t *testing.T) {
 	_, execute := setupNotebook(t)
 	out, err := execute("graph", "routes", "--help")
 	if err != nil {
 		t.Fatalf("graph routes --help: %v", err)
 	}
-	for _, flag := range []string{"--focus", "--links", "--search", "--limit", "--json"} {
+	for _, flag := range []string{"--focus", "--links", "--search", "--limit", "--json", "--explain"} {
 		if !strings.Contains(out, flag) {
 			t.Errorf("graph routes help missing %s:\n%s", flag, out)
 		}
@@ -122,6 +137,161 @@ func TestGraphRoutesLimitAndEmptyArray(t *testing.T) {
 	}
 }
 
+func TestGraphRoutesLegacyJSONRemainsTopLevelArray(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	focus := newTestNoteForCLI("20260101000000-0001", "Origin", note.TypeConcept)
+	destination := newTestNoteForCLI("20260101000000-0002", "Needle destination", note.TypeConcept)
+	focus.Links = []note.Link{{TargetID: destination.ID, Type: "supports"}}
+	for _, n := range []*note.Note{focus, destination} {
+		writeNoteFile(t, nbDir, n)
+	}
+
+	out, err := execute("graph", "routes", "--focus", focus.ID, "--links", "supports", "--search", "needle", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if trimmed := strings.TrimSpace(out); !strings.HasPrefix(trimmed, "[") || strings.HasPrefix(trimmed, "{") {
+		t.Fatalf("legacy graph routes JSON is not a top-level array: %s", out)
+	}
+	var got []graphRouteTestResult
+	if err := json.Unmarshal([]byte(out), &got); err != nil || len(got) != 1 {
+		t.Fatalf("legacy graph routes JSON = %q, err=%v", out, err)
+	}
+}
+
+func TestGraphRoutesExplainHyphenatedQueryUsesNormalizedTokensAndHonestCounts(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	focus := newTestNoteForCLI("20260101000000-0001", "No origin", note.TypeConcept)
+	reachable := newTestNoteForCLI("20260101000000-0002", "Such destination", note.TypeConcept)
+	unreachable := newTestNoteForCLI("20260101000000-0003", "Destination elsewhere", note.TypeConcept)
+	focus.Links = []note.Link{{TargetID: reachable.ID, Type: "supports"}}
+	for _, n := range []*note.Note{focus, reachable, unreachable} {
+		writeNoteFile(t, nbDir, n)
+	}
+
+	out, err := execute("graph", "routes", "--focus", focus.ID, "--links", "supports", "--search", "zzzz-no-such-destination-zzzz", "--json", "--explain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got graphRoutesExplainTestOutput
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("explained graph routes JSON: %v\n%s", err, out)
+	}
+	wantTokens := []string{"zzzz", "no", "such", "destin", "zzzz"}
+	if !reflect.DeepEqual(got.Diagnostics.QueryTokens, wantTokens) {
+		t.Fatalf("query tokens = %v, want %v", got.Diagnostics.QueryTokens, wantTokens)
+	}
+	if got.Diagnostics.TotalNotes != 3 || got.Diagnostics.DirectLexicalMatches != 3 || got.Diagnostics.FocusExcluded != 1 || got.Diagnostics.TypedReachable != 1 || got.Diagnostics.EligibleDestinations != 1 || got.Diagnostics.GraphScoredMatches != 3 || got.Diagnostics.Returned != 1 || got.Diagnostics.TruncatedByLimit {
+		t.Fatalf("dishonest hyphenated-query diagnostics: %+v", got.Diagnostics)
+	}
+	var shape map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &shape); err != nil || len(shape) != 2 || shape["routes"] == nil || shape["diagnostics"] == nil {
+		t.Fatalf("explained output shape = %v, err=%v", shape, err)
+	}
+	var diagnosticShape map[string]json.RawMessage
+	if err := json.Unmarshal(shape["diagnostics"], &diagnosticShape); err != nil || len(diagnosticShape) != 9 {
+		t.Fatalf("diagnostic shape = %v, err=%v", diagnosticShape, err)
+	}
+	for _, key := range []string{"query_tokens", "total_notes", "direct_lexical_matches", "focus_excluded", "typed_reachable", "eligible_destinations", "graph_scored_matches", "returned", "truncated_by_limit"} {
+		if diagnosticShape[key] == nil {
+			t.Errorf("diagnostics missing %q: %s", key, out)
+		}
+	}
+	if len(got.Routes) != 1 || got.Routes[0].Destination.ID != reachable.ID {
+		t.Fatalf("routes = %+v, want only reachable destination", got.Routes)
+	}
+}
+
+func TestGraphRoutesExplainSingleNonceHasNoMatches(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	focus := newTestNoteForCLI("20260101000000-0001", "Origin", note.TypeConcept)
+	destination := newTestNoteForCLI("20260101000000-0002", "Ordinary destination", note.TypeConcept)
+	focus.Links = []note.Link{{TargetID: destination.ID, Type: "supports"}}
+	for _, n := range []*note.Note{focus, destination} {
+		writeNoteFile(t, nbDir, n)
+	}
+
+	out, err := execute("graph", "routes", "--focus", focus.ID, "--links", "supports", "--search", "singlenoncezzzz", "--json", "--explain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got graphRoutesExplainTestOutput
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Diagnostics.DirectLexicalMatches != 0 || got.Diagnostics.EligibleDestinations != 0 || got.Diagnostics.GraphScoredMatches != 0 || got.Diagnostics.Returned != 0 || len(got.Routes) != 0 {
+		t.Fatalf("nonce diagnostics/routes = %+v / %+v", got.Diagnostics, got.Routes)
+	}
+}
+
+func TestGraphRoutesExplainSeparatesAnnotationScoresFromDirectEligibility(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	focus := newTestNoteForCLI("20260101000000-0001", "Origin", note.TypeConcept)
+	destination := newTestNoteForCLI("20260101000000-0002", "Ordinary destination", note.TypeConcept)
+	focus.Links = []note.Link{{TargetID: destination.ID, Type: "supports", Annotation: "annotationonlynonce"}}
+	for _, n := range []*note.Note{focus, destination} {
+		writeNoteFile(t, nbDir, n)
+	}
+
+	out, err := execute("graph", "routes", "--focus", focus.ID, "--links", "supports", "--search", "annotationonlynonce", "--json", "--explain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got graphRoutesExplainTestOutput
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Diagnostics.GraphScoredMatches == 0 || got.Diagnostics.DirectLexicalMatches != 0 || got.Diagnostics.EligibleDestinations != 0 || got.Diagnostics.Returned != 0 || len(got.Routes) != 0 {
+		t.Fatalf("annotation-only diagnostics/routes = %+v / %+v", got.Diagnostics, got.Routes)
+	}
+}
+
+func TestGraphRoutesExplainReportsReachabilityElimination(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	focus := newTestNoteForCLI("20260101000000-0001", "Origin", note.TypeConcept)
+	reachableNonmatch := newTestNoteForCLI("20260101000000-0002", "Ordinary waypoint", note.TypeConcept)
+	unreachableMatch := newTestNoteForCLI("20260101000000-0003", "Quasarbloom destination", note.TypeConcept)
+	focus.Links = []note.Link{{TargetID: reachableNonmatch.ID, Type: "supports"}}
+	for _, n := range []*note.Note{focus, reachableNonmatch, unreachableMatch} {
+		writeNoteFile(t, nbDir, n)
+	}
+
+	out, err := execute("graph", "routes", "--focus", focus.ID, "--links", "supports", "--search", "quasarbloom", "--json", "--explain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got graphRoutesExplainTestOutput
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Diagnostics.DirectLexicalMatches != 1 || got.Diagnostics.FocusExcluded != 0 || got.Diagnostics.TypedReachable != 1 || got.Diagnostics.EligibleDestinations != 0 || got.Diagnostics.Returned != 0 || len(got.Routes) != 0 {
+		t.Fatalf("reachability diagnostics/routes = %+v / %+v", got.Diagnostics, got.Routes)
+	}
+}
+
+func TestGraphRoutesExplainReportsLimitTruncation(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	focus := newTestNoteForCLI("20260101000000-0001", "Origin", note.TypeConcept)
+	a := newTestNoteForCLI("20260101000000-0002", "Needle alpha", note.TypeConcept)
+	b := newTestNoteForCLI("20260101000000-0003", "Needle beta", note.TypeConcept)
+	focus.Links = []note.Link{{TargetID: a.ID, Type: "supports"}, {TargetID: b.ID, Type: "supports"}}
+	for _, n := range []*note.Note{focus, a, b} {
+		writeNoteFile(t, nbDir, n)
+	}
+
+	out, err := execute("graph", "routes", "--focus", focus.ID, "--links", "supports", "--search", "needle", "--limit", "1", "--json", "--explain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got graphRoutesExplainTestOutput
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Diagnostics.EligibleDestinations != 2 || got.Diagnostics.Returned != 1 || !got.Diagnostics.TruncatedByLimit || len(got.Routes) != 1 {
+		t.Fatalf("limit diagnostics/routes = %+v / %+v", got.Diagnostics, got.Routes)
+	}
+}
+
 func TestGraphRoutesNonsenseQueryAgainstReachableNotesReturnsEmpty(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	focus := newTestNoteForCLI("20260101000000-0001", "Origin", note.TypeConcept)
@@ -161,6 +331,7 @@ func TestGraphRoutesValidatesRequiredInputs(t *testing.T) {
 		{name: "blank search", args: []string{"graph", "routes", "--focus", focus.ID, "--links", "supports", "--search", " \t ", "--json"}, want: "--search requires a non-blank query"},
 		{name: "json absent", args: base[:len(base)-1], want: "requires --json"},
 		{name: "json false", args: append(append([]string{}, base[:len(base)-1]...), "--json=false"), want: "requires --json"},
+		{name: "explain without json", args: []string{"graph", "routes", "--focus", focus.ID, "--links", "supports", "--search", "needle", "--explain"}, want: "--explain requires --json"},
 		{name: "zero limit", args: []string{"graph", "routes", "--focus", focus.ID, "--links", "supports", "--search", "needle", "--limit", "0", "--json"}, want: "--limit must be greater than zero"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -234,6 +405,7 @@ func TestGraphRoutesIsDocumentedForNavigation(t *testing.T) {
 	}
 	for _, required := range []string{
 		"nn graph routes --focus ID --links TYPES --search QUERY --limit N --json",
+		"--explain", "direct_lexical_matches", "graph_scored_matches", "truncated_by_limit",
 		"positive direct lexical BM25 evidence",
 		"Orient", "Scan", "Peek", "Recenter", "Arrive", "relevance_score", "nodes[1]",
 	} {
@@ -245,7 +417,16 @@ func TestGraphRoutesIsDocumentedForNavigation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(show), "nn graph routes --focus ID --links TYPES --search QUERY --limit N --json") {
-		t.Error("embedded CLI reference missing graph routes command")
+	if !strings.Contains(string(show), "nn graph routes --focus ID --links TYPES --search QUERY --limit N --json [--explain]") || !strings.Contains(string(show), "direct_lexical_matches") {
+		t.Error("embedded CLI reference missing explained graph routes command")
+	}
+	adr, err := os.ReadFile("../../../docs/adr/0032-typed-destination-discovery.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"--explain", "{routes:", "query_tokens", "typed_reachable", "eligible_destinations", "graph_scored_matches", "truncated_by_limit"} {
+		if !strings.Contains(string(adr), required) {
+			t.Errorf("ADR 0032 missing explained routes decision %q", required)
+		}
 	}
 }

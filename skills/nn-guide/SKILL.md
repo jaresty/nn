@@ -556,9 +556,12 @@ When the walk has a current focus and a goal query but no destination yet, run:
 
 ```
 nn graph routes --focus ID --links TYPES --search QUERY --limit N --json
+nn graph routes --focus ID --links TYPES --search QUERY --limit N --json --explain
 ```
 
-This intersects semantic relevance with actual directed reachability under the selected relationship types. A result is a candidate landing plus one deterministic shortest witness, not proof that it is the only or best conceptual destination.
+This intersects semantic relevance with actual directed reachability under the selected relationship types. A result is a candidate landing plus one deterministic shortest witness, not proof that it is the only or best conceptual destination. Without `--explain`, the JSON remains the legacy top-level route array exactly. Opt-in `--explain` (which requires `--json`) wraps that array as `{routes:[...], diagnostics:{...}}` with bounded aggregate diagnostics only—never note bodies, titles, or candidate dumps.
+
+Diagnostics report normalized `query_tokens`; `total_notes`; `direct_lexical_matches` over title, body, and tags without annotations; `focus_excluded` (0 or 1); `typed_reachable` excluding focus; `eligible_destinations` (direct lexical matches intersected with typed reachability, excluding focus); `returned`; and boolean `truncated_by_limit`. `graph_scored_matches` is a separate count from the full graph-aware relevance scorer and may exceed direct lexical matches because inbound/outbound annotations can score. Annotation-only scores never make a route eligible. Routes has no depth flag, so the diagnostics do not report or imply a traversal depth.
 
 - **Orient** — run typed destination discovery when the goal implies a relationship family but the destination is unknown; present the highest-ranked reachable destinations beside the local map.
 - **Scan** — use the ranked destination set to see query-relevant territory reachable under `TYPES`; absence means no directed route to a destination with positive direct lexical evidence under that filter, not global disconnection.
