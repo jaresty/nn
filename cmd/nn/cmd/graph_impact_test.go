@@ -21,11 +21,30 @@ type graphImpactTestEntry struct {
 	Witnesses []typedWitnessTest  `json:"witnesses"`
 }
 
+type graphImpactTestDepthCount struct {
+	Depth int `json:"depth"`
+	Count int `json:"count"`
+}
+
+type graphImpactTestFirstHopCount struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Count int    `json:"count"`
+}
+
+type graphImpactTestSummary struct {
+	TotalImpacts       int                            `json:"total_impacts"`
+	CountsByDepth      []graphImpactTestDepthCount    `json:"counts_by_depth"`
+	CountsByFirstHop   []graphImpactTestFirstHopCount `json:"counts_by_first_hop"`
+	WitnessesTruncated bool                           `json:"witnesses_truncated"`
+}
+
 type graphImpactTestResult struct {
 	Focus     graphImpactTestNode    `json:"focus"`
 	Direction string                 `json:"direction"`
 	Links     []string               `json:"links"`
 	Depth     int                    `json:"depth"`
+	Summary   graphImpactTestSummary `json:"summary"`
 	Impacts   []graphImpactTestEntry `json:"impacts"`
 }
 
@@ -96,6 +115,15 @@ func TestGraphImpactOutgoingIsCycleSafeDeterministicAndDepthBounded(t *testing.T
 	if depths := []int{got.Impacts[0].Depth, got.Impacts[1].Depth, got.Impacts[2].Depth}; !reflect.DeepEqual(depths, []int{1, 1, 2}) {
 		t.Fatalf("impact depths = %v", depths)
 	}
+	wantSummary := graphImpactTestSummary{
+		TotalImpacts:       3,
+		CountsByDepth:      []graphImpactTestDepthCount{{Depth: 1, Count: 2}, {Depth: 2, Count: 1}},
+		CountsByFirstHop:   []graphImpactTestFirstHopCount{{ID: viaA.ID, Title: viaA.Title, Count: 2}, {ID: viaB.ID, Title: viaB.Title, Count: 2}},
+		WitnessesTruncated: true,
+	}
+	if !reflect.DeepEqual(got.Summary, wantSummary) {
+		t.Fatalf("summary = %#v, want %#v", got.Summary, wantSummary)
+	}
 	if len(got.Impacts[0].Witnesses) != 3 || got.Impacts[0].Witnesses[0].Edges[0] != (typedWitnessTestEdge{From: focus.ID, To: viaA.ID, Type: "grounded-by", Annotation: "a annotation"}) {
 		t.Fatalf("deterministic direct witnesses = %#v", got.Impacts[0].Witnesses)
 	}
@@ -127,6 +155,61 @@ func TestGraphImpactOutgoingIsCycleSafeDeterministicAndDepthBounded(t *testing.T
 	}
 	if len(raw.Impacts[2]) != 3 || raw.Impacts[2]["node"] == nil || raw.Impacts[2]["depth"] == nil || raw.Impacts[2]["witnesses"] == nil {
 		t.Fatalf("impact entry shape = %v, want node+depth+witnesses only", raw.Impacts[2])
+	}
+}
+
+func TestGraphImpactSummaryCountsOverlappingFirstHopsOncePerImpactAndSorts(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	focus := newTestNoteForCLI("20260101000000-0001", "Focus", note.TypeConcept)
+	a := newTestNoteForCLI("20260101000000-0002", "Branch A", note.TypeConcept)
+	b := newTestNoteForCLI("20260101000000-0003", "Branch B", note.TypeConcept)
+	c := newTestNoteForCLI("20260101000000-0004", "Branch C", note.TypeConcept)
+	x := newTestNoteForCLI("20260101000000-0005", "Only A", note.TypeConcept)
+	y := newTestNoteForCLI("20260101000000-0006", "A and B", note.TypeConcept)
+	z := newTestNoteForCLI("20260101000000-0007", "B and C", note.TypeConcept)
+
+	focus.Links = []note.Link{
+		{TargetID: a.ID, Type: "supports", Annotation: "A duplicate 3"},
+		{TargetID: a.ID, Type: "supports", Annotation: "A duplicate 2"},
+		{TargetID: a.ID, Type: "supports", Annotation: "A duplicate 1"},
+		{TargetID: b.ID, Type: "supports", Annotation: "B"},
+		{TargetID: c.ID, Type: "supports", Annotation: "C"},
+	}
+	a.Links = []note.Link{
+		{TargetID: x.ID, Type: "supports", Annotation: "A to X"},
+		{TargetID: y.ID, Type: "supports", Annotation: "A to Y"},
+	}
+	b.Links = []note.Link{
+		{TargetID: y.ID, Type: "supports", Annotation: "B to Y"},
+		{TargetID: z.ID, Type: "supports", Annotation: "B to Z"},
+	}
+	c.Links = []note.Link{{TargetID: z.ID, Type: "supports", Annotation: "C to Z"}}
+	for _, n := range []*note.Note{focus, a, b, c, x, y, z} {
+		writeNoteFile(t, nbDir, n)
+	}
+
+	out, err := execute("graph", "impact", "--focus", focus.ID, "--links", "supports", "--direction", "outgoing", "--depth", "2", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got graphImpactTestResult
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	wantDepths := []graphImpactTestDepthCount{{Depth: 1, Count: 3}, {Depth: 2, Count: 3}}
+	if !reflect.DeepEqual(got.Summary.CountsByDepth, wantDepths) {
+		t.Fatalf("counts_by_depth = %#v, want %#v", got.Summary.CountsByDepth, wantDepths)
+	}
+	wantBranches := []graphImpactTestFirstHopCount{
+		{ID: a.ID, Title: a.Title, Count: 3},
+		{ID: b.ID, Title: b.Title, Count: 3},
+		{ID: c.ID, Title: c.Title, Count: 2},
+	}
+	if got.Summary.TotalImpacts != 6 || !reflect.DeepEqual(got.Summary.CountsByFirstHop, wantBranches) {
+		t.Fatalf("summary = %#v, want total 6 and branches %#v", got.Summary, wantBranches)
+	}
+	if branchTotal := got.Summary.CountsByFirstHop[0].Count + got.Summary.CountsByFirstHop[1].Count + got.Summary.CountsByFirstHop[2].Count; branchTotal != 8 {
+		t.Fatalf("overlapping branch total = %d, want 8 > total impacts", branchTotal)
 	}
 }
 
@@ -262,6 +345,19 @@ func TestGraphImpactEmptyResultUsesJSONArray(t *testing.T) {
 	if got.Impacts == nil || len(got.Impacts) != 0 {
 		t.Fatalf("impacts = %#v, want non-nil empty array; output=%s", got.Impacts, out)
 	}
+	wantSummary := graphImpactTestSummary{
+		CountsByDepth:    []graphImpactTestDepthCount{},
+		CountsByFirstHop: []graphImpactTestFirstHopCount{},
+	}
+	if !reflect.DeepEqual(got.Summary, wantSummary) {
+		t.Fatalf("empty summary = %#v, want %#v", got.Summary, wantSummary)
+	}
+	depthAt := strings.Index(out, `"depth": 1`)
+	summaryAt := strings.Index(out, `"summary":`)
+	impactsAt := strings.Index(out, `"impacts":`)
+	if depthAt < 0 || summaryAt < depthAt || impactsAt < summaryAt {
+		t.Fatalf("top-level JSON field order must place summary between depth and impacts:\n%s", out)
+	}
 }
 
 func TestGraphImpactIsDocumentedForNavigation(t *testing.T) {
@@ -272,7 +368,7 @@ func TestGraphImpactIsDocumentedForNavigation(t *testing.T) {
 	guideText := string(guide)
 	for _, required := range []string{
 		"nn graph impact --focus ID --links TYPES --direction incoming|outgoing --depth N --json",
-		"Scan", "Peek", "Recenter", "Arrive", "witnesses", "at most 3", "first-hop", "type-sequence",
+		"Scan", "Peek", "Recenter", "Arrive", "summary", "total_impacts", "counts_by_depth", "counts_by_first_hop", "witnesses_truncated", "witnesses", "at most 3", "first-hop", "type-sequence",
 		"grounded-by", "incoming", "supports", "outgoing",
 		"stored source", "target", "opposite",
 	} {
@@ -286,7 +382,7 @@ func TestGraphImpactIsDocumentedForNavigation(t *testing.T) {
 	}
 	for _, required := range []string{
 		"nn graph impact --focus ID --links TYPES --direction incoming|outgoing --depth N --json",
-		"`node`/`depth`", "`witnesses`", "at most 3", "nodes run focus→impact", "stored source→target orientation",
+		"`summary`", "`total_impacts`", "`counts_by_depth`", "`counts_by_first_hop`", "`witnesses_truncated`", "`node`/`depth`", "`witnesses`", "at most 3", "nodes run focus→impact", "stored source→target orientation",
 	} {
 		if !strings.Contains(string(show), required) {
 			t.Errorf("embedded CLI reference missing graph impact guidance %q", required)

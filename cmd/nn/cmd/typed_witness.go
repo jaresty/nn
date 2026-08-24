@@ -49,9 +49,11 @@ type typedPredecessor struct {
 }
 
 type typedWitnessSearch struct {
-	depthByID    map[string]int
-	predecessors map[string][]typedPredecessor
-	portfolios   map[string][]typedWitness
+	depthByID          map[string]int
+	predecessors       map[string][]typedPredecessor
+	portfolios         map[string][]typedWitness
+	candidateCountByID map[string]int
+	portfolioTruncated map[string]bool
 }
 
 // findShortestTypedWitnesses performs two deliberately separate phases:
@@ -82,9 +84,11 @@ func findShortestTypedWitnesses(source string, titles map[string]string, adjacen
 	}
 
 	search := typedWitnessSearch{
-		depthByID:    map[string]int{source: 0},
-		predecessors: make(map[string][]typedPredecessor),
-		portfolios:   make(map[string][]typedWitness),
+		depthByID:          map[string]int{source: 0},
+		predecessors:       make(map[string][]typedPredecessor),
+		portfolios:         make(map[string][]typedWitness),
+		candidateCountByID: map[string]int{source: 1},
+		portfolioTruncated: make(map[string]bool),
 	}
 	queue := []string{source}
 	for head := 0; head < len(queue); head++ {
@@ -144,11 +148,17 @@ func findShortestTypedWitnesses(source string, titles map[string]string, adjacen
 			// of represented shortest paths; avoid multiplication-based capacity
 			// arithmetic so even adversarially large graphs cannot overflow it.
 			var candidates []typedWitness
+			inheritedPortfolioLoss := false
 			for _, predecessor := range predecessors {
+				if search.portfolioTruncated[predecessor.from] {
+					inheritedPortfolioLoss = true
+				}
 				for _, prefix := range search.portfolios[predecessor.from] {
 					candidates = append(candidates, extendTypedWitness(prefix, id, titles[id], predecessor.edge))
 				}
 			}
+			search.candidateCountByID[id] = len(candidates)
+			search.portfolioTruncated[id] = inheritedPortfolioLoss || len(candidates) > typedWitnessPortfolioLimit
 			search.portfolios[id] = selectDiverseTypedWitnesses(candidates, typedWitnessPortfolioLimit)
 		}
 	}
@@ -158,6 +168,16 @@ func findShortestTypedWitnesses(source string, titles map[string]string, adjacen
 
 func (search typedWitnessSearch) witnessesTo(id string) []typedWitness {
 	return selectDiverseTypedWitnesses(search.portfolios[id], typedWitnessOutputLimit)
+}
+
+// witnessesToWithTruncation returns the same public witness selection as
+// witnessesTo plus whether candidates were omitted. Omission can happen at the
+// final three-witness cap or earlier when this route inherited a bounded
+// predecessor portfolio (or bounded its own internal candidate set).
+func (search typedWitnessSearch) witnessesToWithTruncation(id string) ([]typedWitness, bool) {
+	witnesses := search.witnessesTo(id)
+	truncated := search.candidateCountByID[id] > typedWitnessOutputLimit || search.portfolioTruncated[id]
+	return witnesses, truncated
 }
 
 func extendTypedWitness(prefix typedWitness, id, title string, edge typedWitnessEdge) typedWitness {

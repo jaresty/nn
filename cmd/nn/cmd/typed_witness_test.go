@@ -84,6 +84,52 @@ func TestTypedWitnessesRetainEqualShortestPredecessorsAndPreferFirstHopDiversity
 	}
 }
 
+func TestTypedWitnessesReportOutputCapTruncationWithoutChangingWitnesses(t *testing.T) {
+	titles := map[string]string{"s": "Source", "a": "A", "b": "B", "c": "C", "d": "D", "t": "Target"}
+	adj := map[string][]typedTraversalEdge{
+		"s": {
+			testTypedTraversal("s", "a", "supports", "a"),
+			testTypedTraversal("s", "b", "supports", "b"),
+			testTypedTraversal("s", "c", "supports", "c"),
+			testTypedTraversal("s", "d", "supports", "d"),
+		},
+		"a": {testTypedTraversal("a", "t", "supports", "a")},
+		"b": {testTypedTraversal("b", "t", "supports", "b")},
+		"c": {testTypedTraversal("c", "t", "supports", "c")},
+		"d": {testTypedTraversal("d", "t", "supports", "d")},
+	}
+
+	search := findShortestTypedWitnesses("s", titles, adj, 0)
+	before := search.witnessesTo("t")
+	got, truncated := search.witnessesToWithTruncation("t")
+	if !reflect.DeepEqual(got, before) {
+		t.Fatalf("truncation-aware witnesses changed output:\nbefore=%#v\nafter=%#v", before, got)
+	}
+	if !truncated {
+		t.Fatal("four output candidates must report witnesses_truncated")
+	}
+}
+
+func TestTypedWitnessesPropagateInternalPortfolioTruncation(t *testing.T) {
+	titles := map[string]string{"s": "Source", "m": "Middle", "t": "Target"}
+	adj := map[string][]typedTraversalEdge{"m": {testTypedTraversal("m", "t", "supports", "finish")}}
+	for i := 0; i < typedWitnessPortfolioLimit+1; i++ {
+		adj["s"] = append(adj["s"], testTypedTraversal("s", "m", "supports", "route-"+strconv.Itoa(i)))
+	}
+
+	search := findShortestTypedWitnesses("s", titles, adj, 0)
+	if !search.portfolioTruncated["m"] {
+		t.Fatal("middle node must record that its candidate portfolio was trimmed")
+	}
+	if !search.portfolioTruncated["t"] {
+		t.Fatal("descendant must inherit a predecessor's internal portfolio loss")
+	}
+	_, truncated := search.witnessesToWithTruncation("t")
+	if !truncated {
+		t.Fatal("destination inheriting internal portfolio loss must report truncation")
+	}
+}
+
 func TestTypedWitnessesPreferTypeSequenceDiversityAfterFirstHop(t *testing.T) {
 	titles := map[string]string{"s": "Source", "m": "Middle", "t": "Target"}
 	adj := map[string][]typedTraversalEdge{
@@ -125,6 +171,10 @@ func TestTypedWitnessesContainOnlyShortestPathsAndAreCycleSafe(t *testing.T) {
 
 	search := findShortestTypedWitnesses("s", titles, adj, 0)
 	got := search.witnessesTo("t")
+	withTruncation, truncated := search.witnessesToWithTruncation("t")
+	if !reflect.DeepEqual(withTruncation, got) || truncated {
+		t.Fatalf("complete witnesses changed or reported truncation: witnesses=%#v truncated=%v", withTruncation, truncated)
+	}
 	if search.depthByID["t"] != 1 || len(got) != 1 {
 		t.Fatalf("target depth/witnesses = %d/%d, want 1/1", search.depthByID["t"], len(got))
 	}

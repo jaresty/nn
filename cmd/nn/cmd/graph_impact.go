@@ -17,11 +17,30 @@ type graphImpactEntry struct {
 	Witnesses []typedWitness   `json:"witnesses"`
 }
 
+type graphImpactDepthCount struct {
+	Depth int `json:"depth"`
+	Count int `json:"count"`
+}
+
+type graphImpactFirstHopCount struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Count int    `json:"count"`
+}
+
+type graphImpactSummary struct {
+	TotalImpacts       int                        `json:"total_impacts"`
+	CountsByDepth      []graphImpactDepthCount    `json:"counts_by_depth"`
+	CountsByFirstHop   []graphImpactFirstHopCount `json:"counts_by_first_hop"`
+	WitnessesTruncated bool                       `json:"witnesses_truncated"`
+}
+
 type graphImpactOutput struct {
 	Focus     typedWitnessNode   `json:"focus"`
 	Direction string             `json:"direction"`
 	Links     []string           `json:"links"`
 	Depth     int                `json:"depth"`
+	Summary   graphImpactSummary `json:"summary"`
 	Impacts   []graphImpactEntry `json:"impacts"`
 }
 
@@ -133,15 +152,57 @@ func newGraphImpactCmd(state *rootState) *cobra.Command {
 				Direction: direction,
 				Links:     normalizedLinks,
 				Depth:     depth,
-				Impacts:   make([]graphImpactEntry, 0, len(impactIDs)),
+				Summary: graphImpactSummary{
+					TotalImpacts:     len(impactIDs),
+					CountsByDepth:    []graphImpactDepthCount{},
+					CountsByFirstHop: []graphImpactFirstHopCount{},
+				},
+				Impacts: make([]graphImpactEntry, 0, len(impactIDs)),
 			}
+			depthCounts := make(map[int]int)
+			firstHopCounts := make(map[string]int)
 			for _, impactID := range impactIDs {
+				impactDepth := witnessSearch.depthByID[impactID]
+				witnesses, truncated := witnessSearch.witnessesToWithTruncation(impactID)
 				out.Impacts = append(out.Impacts, graphImpactEntry{
 					Node:      typedWitnessNode{ID: impactID, Title: byID[impactID].Title},
-					Depth:     witnessSearch.depthByID[impactID],
-					Witnesses: witnessSearch.witnessesTo(impactID),
+					Depth:     impactDepth,
+					Witnesses: witnesses,
+				})
+				depthCounts[impactDepth]++
+				out.Summary.WitnessesTruncated = out.Summary.WitnessesTruncated || truncated
+
+				impactFirstHops := make(map[string]bool)
+				for _, witness := range witnesses {
+					if len(witness.Nodes) > 1 {
+						impactFirstHops[witness.Nodes[1].ID] = true
+					}
+				}
+				for firstHopID := range impactFirstHops {
+					firstHopCounts[firstHopID]++
+				}
+			}
+			depths := make([]int, 0, len(depthCounts))
+			for impactDepth := range depthCounts {
+				depths = append(depths, impactDepth)
+			}
+			sort.Ints(depths)
+			for _, impactDepth := range depths {
+				out.Summary.CountsByDepth = append(out.Summary.CountsByDepth, graphImpactDepthCount{
+					Depth: impactDepth, Count: depthCounts[impactDepth],
 				})
 			}
+			for firstHopID, count := range firstHopCounts {
+				out.Summary.CountsByFirstHop = append(out.Summary.CountsByFirstHop, graphImpactFirstHopCount{
+					ID: firstHopID, Title: titles[firstHopID], Count: count,
+				})
+			}
+			sort.Slice(out.Summary.CountsByFirstHop, func(i, j int) bool {
+				if out.Summary.CountsByFirstHop[i].Count != out.Summary.CountsByFirstHop[j].Count {
+					return out.Summary.CountsByFirstHop[i].Count > out.Summary.CountsByFirstHop[j].Count
+				}
+				return out.Summary.CountsByFirstHop[i].ID < out.Summary.CountsByFirstHop[j].ID
+			})
 
 			enc := json.NewEncoder(outWriter(cmd))
 			enc.SetIndent("", "  ")
