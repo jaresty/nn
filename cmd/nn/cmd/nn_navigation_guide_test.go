@@ -129,7 +129,7 @@ func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 			"preserve focus for Peek and Scan",
 			"adopt a new destination only after a successful Teleport, Visit, Recenter, or Go to",
 			"relationship family is known but the destination is unknown",
-			"carry the complete navigation state through compaction",
+			"carry the complete navigation and menu UI state through compaction",
 		},
 		"arrival scaling": {
 			"## Arrive report",
@@ -238,7 +238,9 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 		"A specific promoted `Lens` action may occupy a contextual shortcut slot",
 		"the stable `Lenses…` row remains present",
 		"Every picker and submenu has at most four rows.",
-		"`Back` returns to its parent picker without mutating focus, history, notes, links, the goal, filters, or traversal context.",
+		"Esc or a declined chooser returns to the parent menu",
+		"without mutating focus, history, notes, links, the goal, filters, traversal context, or notebook content",
+		"Never render an explicit `Back` row.",
 	} {
 		if !strings.Contains(picker, required) {
 			t.Errorf("adaptive picker contract missing %q", required)
@@ -246,10 +248,10 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 	}
 
 	exactMenus := []string{
-		"1. `Recenter`\n2. `Peek`\n3. `Scan`\n4. `Arrive`",
-		"1. `Show verbatim`\n2. `Explain in depth`\n3. `Back`",
-		"1. `Analogize`\n2. `Visualize`\n3. `Quiz`\n4. `Back`",
-		"1. `Local territory`\n2. `Global landscape`\n3. `Find an analog`\n4. `Back`",
+		"1. `Recenter`\n2. `Peek`\n3. `Scan`\n4. `■ Arrive`",
+		"1. `○ Show verbatim`\n2. `○ Explain in depth`",
+		"1. `○ Analogize`\n2. `↗ Find an analog`\n3. `○ Visualize`\n4. `○ Quiz`",
+		"1. `○ Local territory`\n2. `↗ Global landscape`",
 	}
 	for _, menu := range exactMenus {
 		if !strings.Contains(picker, menu) {
@@ -260,10 +262,15 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 		"`All navigation actions…` opens the action-class submenu exactly one level away",
 		"The `Lenses…` row is always present at the top level and opens this exact submenu one picker level away",
 		"Show verbatim and Explain in depth remain Peek actions",
-		"`Recenter` may open a destination submenu",
+		"Find an analog is a human-intent Lens",
+		"internally uses Scan retrieval",
+		"Scan contains exactly Local territory and Global landscape",
+		"`Recenter` may open `<short-id> · Quick actions › All actions › Recenter destinations`",
 		"Before every picker, present:",
 		"A. **Focus**", "B. **Map**", "C. **Moves**",
 		"This **MUST PRESENT** rule",
+		"→ focus changes; ○ focus retained; ■ stops; ↗ explores beyond local",
+		"Every concrete action row includes exactly one applicable effect marker",
 	} {
 		if !strings.Contains(content, required) {
 			t.Errorf("adaptive positioned-view contract missing %q", required)
@@ -275,9 +282,93 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 		"They are **not chooser entries**",
 		"Neither `Find an analog` nor a lens adds a chooser entry",
 		"`Use a lens`",
+		"3. `Back`",
+		"4. `Back`",
+		"3. `Find an analog`",
+	} {
+		if strings.Contains(picker, contradictory) {
+			t.Errorf("nn-navigate retains contradictory picker rule %q", contradictory)
+		}
+	}
+}
+
+func TestNNNavigateRetainsConversationScopedMenuUIState(t *testing.T) {
+	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	content := string(data)
+	for _, required := range []string{
+		"current menu and menu stack",
+		"Quick actions, All actions, Recenter destinations, Peek, Scan, and Lenses",
+		"conversation-scoped UI state",
+		"not notebook state",
+		"compaction handoff MUST include",
+		"If menu UI state is absent after compaction, it is unknown",
+		"`<short-id> · Quick actions › ...`",
+		"Every submenu shows this breadcrumb",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("menu UI state contract missing %q", required)
+		}
+	}
+}
+
+func TestNNNavigateSupportsDirectConversationalActionsAndDeterministicReturns(t *testing.T) {
+	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	content := string(data)
+	for _, required := range []string{
+		"show, explain, analogize, find an analog, visualize, quiz, scan, and arrive",
+		"direct conversational intents from any menu",
+		"not `nn` subcommands",
+		"A Lens invoked from Lenses returns to Lenses.",
+		"Show verbatim and Explain in depth return to Peek.",
+		"Local territory and Global landscape return to Scan.",
+		"A promoted top-level transient returns to Quick actions.",
+		"Quiz suspends the picker while unanswered",
+		"returns to the Lenses or Quick actions menu that invoked it",
+		"`navigate` aborts Quiz and returns to Quick actions.",
+		"Recenter, Teleport, Back, Forward, and Go to",
+		"rerun Orient and reset the menu to Quick actions",
+		"`navigate` always reruns Orient and resets to Quick actions.",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("direct action/return contract missing %q", required)
+		}
+	}
+}
+
+func TestNNNavigateAvoidsRedundantTransientRenders(t *testing.T) {
+	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	content := string(data)
+	for _, required := range []string{
+		"Do not redundantly rerender Focus + Map + Moves",
+		"complete retained frame and notebook are unchanged",
+		"compact breadcrumb, state that focus is unchanged, and reopen the invoking picker",
+		"focus, filters, traversal context, or notebook changed",
+		"navigation resumes after discussion",
+		"explicit Refresh",
+		"cached frame is stale or unknown",
+		"A full render preserves the readable full map",
+		"IDs, readable titles, and substantive body-derived reasons",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("transient rendering contract missing %q", required)
+		}
+	}
+	for _, contradictory := range []string{
+		"after each result, automatically restore the complete retained navigation frame, re-run Orient, render Focus + Map + Moves",
+		"Automatic returns are full descriptive returns, never skeletal returns.",
+		"After Show verbatim, Explain in depth, Analogize, Visualize, or a completed Quiz, the picker is already reopened.",
 	} {
 		if strings.Contains(content, contradictory) {
-			t.Errorf("nn-navigate retains contradictory strict-flat chooser rule %q", contradictory)
+			t.Errorf("nn-navigate retains contradictory transient rerender rule %q", contradictory)
 		}
 	}
 }
@@ -309,11 +400,10 @@ func TestNNNavigateOwnsTransientActionReturnAndDeepPeekContracts(t *testing.T) {
 	}
 	content := string(data)
 	for _, required := range []string{
-		"Show verbatim, Explain in depth, Analogize, and Visualize are transient actions",
-		"A completed Quiz is transient too",
-		"automatically restore the complete retained navigation frame",
-		"re-run Orient",
-		"reopen the adaptive quick-actions picker",
+		"Show verbatim, Explain in depth, Analogize, Find an analog, and Visualize are transient actions",
+		"A completed Quiz follows the same return",
+		"show the compact breadcrumb, say focus is unchanged",
+		"reopen Peek, Lenses, Scan, or Quick actions as specified",
 		"Show the complete stored body verbatim, without truncation",
 		"separate metadata, stored links, and display-only injected material",
 		"source-bounded full treatment",
@@ -340,7 +430,7 @@ func TestNNNavigateOwnsFindAnAnalogAndLensContracts(t *testing.T) {
 			"Find an analog",
 			"Scan retrieval move across another region",
 			"relational structure, not lexical similarity",
-			"may be reached through the hierarchy or promoted",
+			"may be reached through Lenses or promoted",
 			"never mutate focus or navigation history",
 		},
 		"analog retrieval workflow": {
@@ -413,15 +503,15 @@ func TestNNNavigateOwnsUniversalNavigateEscapeAndResume(t *testing.T) {
 		"Say navigate to reopen Focus + Map + Moves at the retained focus.",
 		"after every Arrive report",
 		"when exiting an extended navigation discussion",
-		"Do not use this footer as a substitute for the automatic transient-action return.",
-		"After Show verbatim, Explain in depth, Analogize, Visualize, or a completed Quiz, the picker is already reopened.",
+		"Do not use this footer as a substitute for the deterministic transient-action return.",
+		"reopen the invoking picker with the compact or full presentation required by the rendering policy",
 		"Answer, pass/skip/I don't know, or say navigate to leave the Quiz lens and return to navigation.",
 		"`navigate` during an unanswered Quiz aborts the current item",
 		"without grading, revealing the answer, or forcing Quiz completion",
 		"does not mutate focus or navigation history",
 		"restore the complete retained navigation frame",
 		"re-run Orient",
-		"invoke the adaptive quick-actions picker when the harness supports it",
+		"reset to Quick actions",
 		"conversational shortcut, not an `nn` subcommand",
 	} {
 		if !strings.Contains(content, required) {
@@ -490,6 +580,49 @@ func TestAdaptivePickerDetailDoesNotLeakIntoDispatchReferences(t *testing.T) {
 		} {
 			if strings.Contains(content, ownerOnly) {
 				t.Errorf("%s duplicates nn-navigate adaptive-picker detail %q", name, ownerOnly)
+			}
+		}
+	}
+}
+
+func TestConsolidatedMenuUXIsSingleSourcedInNNNavigate(t *testing.T) {
+	ownerData, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	owner := string(ownerData)
+	for _, unique := range []string{
+		"### Stable menus, breadcrumbs, and effects",
+		"### Direct intents and menu return transitions",
+		"### Transient rendering policy",
+	} {
+		if got := strings.Count(owner, unique); got != 1 {
+			t.Errorf("nn-navigate contract %q occurs %d times, want exactly once", unique, got)
+		}
+	}
+
+	guideData, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-guide: %v", err)
+	}
+	_, execute := setupNotebook(t)
+	virtual, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil {
+		t.Fatalf("show virtual-nn-cli-reference: %v", err)
+	}
+	for name, content := range map[string]string{
+		"nn-guide":                 string(guideData),
+		"virtual-nn-cli-reference": virtual,
+	} {
+		for _, ownerOnly := range []string{
+			"current menu and menu stack",
+			"<short-id> · Quick actions › ...",
+			"→ focus changes; ○ focus retained; ■ stops; ↗ explores beyond local",
+			"Never render an explicit `Back` row.",
+			"Do not redundantly rerender Focus + Map + Moves",
+		} {
+			if strings.Contains(content, ownerOnly) {
+				t.Errorf("%s duplicates consolidated nn-navigate menu UX %q", name, ownerOnly)
 			}
 		}
 	}
@@ -649,7 +782,7 @@ func TestNNNavigateRequiresCompleteVisibleNodeDescriptionsAtEverySeam(t *testing
 
 	for _, required := range []string{
 		"Every visible non-focus node",
-		"Orient, Peek return, Scan, Teleport landing, transient lens auto-return, Back/Forward restoration, and `navigate` resume",
+		"Orient, a full Peek or Lens return, Scan, Teleport landing, Back/Forward restoration, and a full `navigate` resume",
 		"`<id> — <readable title> — <body-derived central claim>`",
 		"scaled to that node's inbound degree",
 		"IDs supplement identity and substance; they never replace either one.",
@@ -664,7 +797,7 @@ func TestNNNavigateRequiresCompleteVisibleNodeDescriptionsAtEverySeam(t *testing
 		"Every concrete quick-action target MUST include its ID, readable target title",
 		"substantive body- or evidence-derived reason",
 		"`supporting experiment` alone is not a substantive reason",
-		"Automatic returns are full descriptive returns, never skeletal returns.",
+		"A compact unchanged transient return references the complete frame already visible instead of redrawing a skeleton.",
 		"**Compliant descriptive node and compact-map fallback:**",
 		"**Noncompliant skeletal presentation:**",
 		"Replay-safe checkpointing",
@@ -697,7 +830,7 @@ func TestNNNavigateVisibleNodeDetailDoesNotLeakIntoDispatchReferences(t *testing
 			"Width pressure may replace map node text with compact labels only",
 			"Orphan labels and ID-only nodes are prohibited.",
 			"`supporting experiment` alone is not a substantive reason",
-			"Automatic returns are full descriptive returns, never skeletal returns.",
+			"A compact unchanged transient return references the complete frame already visible instead of redrawing a skeleton.",
 			"**Compliant descriptive node and compact-map fallback:**",
 			"**Noncompliant skeletal presentation:**",
 		} {

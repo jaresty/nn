@@ -49,7 +49,7 @@ A. **Focus** — type, status, degree, central claim, neighborhood role
 B. **Map** — positional zones, edge meanings, empty zones
 C. **Moves** — degree-scaled neighbor summaries and recommended direction
 
-This **MUST PRESENT** rule applies before the mode-specific details below; Teleport, Peek, Scan, and Recenter all reference it rather than weakening it.
+This **MUST PRESENT** rule applies before the mode-specific details below; Teleport, Peek, Scan, and Recenter all reference it rather than weakening it. On an unchanged transient compact return, the complete frame already visible in the conversation satisfies this rule; do not duplicate it merely to reopen the invoking picker.
 
 ## Adaptive hierarchical quick-actions picker
 
@@ -74,34 +74,66 @@ Use exactly these promotion criteria:
 - Explain in depth when the focus is connected, contested, complex, or load-bearing.
 - Recenter when a specific destination clearly advances the retained goal.
 
-`All navigation actions…` opens the action-class submenu exactly one level away:
+### Stable menus, breadcrumbs, and effects
+
+The menu model is conversation-scoped UI state: retain the **current menu and menu stack**. Its stable menu names are **Quick actions, All actions, Recenter destinations, Peek, Scan, and Lenses**. This is not notebook state and MUST NOT be written to note files, frontmatter, links, the index, or Git.
+
+The top breadcrumb is `<short-id> · Quick actions`. Every submenu shows this breadcrumb form: **`<short-id> · Quick actions › ...`**, using stable menu names for each level, for example `<short-id> · Quick actions › All actions › Peek` and `<short-id> · Quick actions › Lenses`.
+
+Every picker that contains a concrete action carries this adjacent legend: **→ focus changes; ○ focus retained; ■ stops; ↗ explores beyond local**. Every concrete action row includes exactly one applicable effect marker. Category rows such as `Recenter`, `Peek`, `Scan`, `Lenses…`, and `All navigation actions…` do not execute an action and therefore have no effect marker. Promoted shortcuts and Recenter destinations still include readable titles and substantive body- or evidence-derived reasons; the marker never replaces that content.
+
+`All navigation actions…` opens the action-class submenu exactly one level away, under `<short-id> · Quick actions › All actions`:
 
 1. `Recenter`
 2. `Peek`
 3. `Scan`
-4. `Arrive`
+4. `■ Arrive`
 
-`Recenter` may open a destination submenu, with evidence-backed destinations capped to fit the same row limit and a `Back` row when a return is needed. `Peek` opens exactly:
+`Recenter` may open `<short-id> · Quick actions › All actions › Recenter destinations`. Its evidence-backed destinations are capped at four rows and each begins with `→` because selecting it changes focus.
 
-1. `Show verbatim`
-2. `Explain in depth`
-3. `Back`
+`Peek` opens `<short-id> · Quick actions › All actions › Peek` with exactly:
 
-Show verbatim and Explain in depth remain Peek actions. The `Lenses…` row is always present at the top level and opens this exact submenu one picker level away:
+1. `○ Show verbatim`
+2. `○ Explain in depth`
 
-1. `Analogize`
-2. `Visualize`
-3. `Quiz`
-4. `Back`
+Show verbatim and Explain in depth remain Peek actions. The `Lenses…` row is always present at the top level and opens this exact submenu one picker level away under `<short-id> · Quick actions › Lenses`:
 
-`Scan` opens exactly:
+1. `○ Analogize`
+2. `↗ Find an analog`
+3. `○ Visualize`
+4. `○ Quiz`
 
-1. `Local territory`
-2. `Global landscape`
-3. `Find an analog`
-4. `Back`
+Find an analog is a human-intent Lens and internally uses Scan retrieval across another region. That implementation detail does not place it in the Scan picker.
 
-Every picker and submenu has at most four rows. `Back` returns to its parent picker without mutating focus, history, notes, links, the goal, filters, or traversal context. `Arrive` executes directly. During cold Teleport, before any positioned focus exists, use the bounded landing chooser described below; after landing, Orient and use this adaptive picker.
+`Scan` opens `<short-id> · Quick actions › All actions › Scan` with exactly:
+
+1. `○ Local territory`
+2. `↗ Global landscape`
+
+Scan contains exactly Local territory and Global landscape; it has no Find an analog row.
+
+Every picker and submenu has at most four rows. Esc or a declined chooser returns to the parent menu by popping the UI menu stack, with the same semantics as Back, without mutating focus, history, notes, links, the goal, filters, traversal context, or notebook content. Never render an explicit `Back` row. At Quick actions, Esc or decline simply closes the picker without state mutation. During cold Teleport, before any positioned focus exists, use the bounded landing chooser described below; after landing, Orient and use this adaptive picker.
+
+### Direct intents and menu return transitions
+
+Treat **show, explain, analogize, find an analog, visualize, quiz, scan, and arrive** as direct conversational intents from any menu, not `nn` subcommands. Resolve them without forcing the human to traverse the hierarchy. A bare `scan` opens Scan so the human can choose altitude; an explicit local or global scan executes directly. Direct action vocabulary is presentation-level only and adds no CLI surface.
+
+Returns are deterministic and restore the relevant picker without changing focus or history:
+
+- A Lens invoked from Lenses returns to Lenses.
+- Show verbatim and Explain in depth return to Peek.
+- Local territory and Global landscape return to Scan.
+- A promoted top-level transient returns to Quick actions.
+- Quiz suspends the picker while unanswered; completion, pass, skip, or `I don't know` returns to the Lenses or Quick actions menu that invoked it.
+- `navigate` aborts Quiz and returns to Quick actions.
+
+Focus-changing Recenter, Teleport, Back, Forward, and Go to rerun Orient and reset the menu to Quick actions. `navigate` always reruns Orient and resets to Quick actions. Arrive stops and retains focus.
+
+### Transient rendering policy
+
+Do not redundantly rerender Focus + Map + Moves after a transient action when the complete retained frame and notebook are unchanged. Return with the compact breadcrumb, state that focus is unchanged, and reopen the invoking picker. This compact return is not a degraded full map; it reuses the complete frame already visible in the conversation.
+
+Perform a full render only when the focus, filters, traversal context, or notebook changed; when navigation resumes after discussion; after an explicit Refresh; or when the cached frame is stale or unknown. A full render preserves the readable full map and all presentation discipline: visible nodes keep IDs, readable titles, and substantive body-derived reasons, with immediately adjacent legends for compact labels. `navigate` still reruns Orient and resets Quick actions; after discussion it full-renders, while an unchanged Quiz abort may compactly reopen Quick actions after Orient confirms the cache.
 
 ### Semantic-direction enforcement
 
@@ -122,12 +154,14 @@ Geometry words such as `upward`, `downward`, `left`, `right`, `above`, and `belo
 **Why bad:** generic availability and vague labels are not evidence-backed concrete shortcuts; they omit focus mutation, body/evidence reasons, and semantic triples. A neighbor-only picker that hides Peek, Scan, or Arrive beyond `All navigation actions…` is also noncompliant.
 
 **Compliant top-level picker:**
-- Recenter 🔵 TOP — what this focus answers to: move to <id> — <readable target title> (changes focus) because <substantive body-derived reason tied to the goal>
-- Lens — Visualize <named process> (retains focus) because <evidence-derived structural reason>
+- → Recenter 🔵 TOP — what this focus answers to: move to <id> — <readable target title> (changes focus) because <substantive body-derived reason tied to the goal>
+- ○ Lens — Visualize <named process> (retains focus) because <evidence-derived structural reason>
 - Lenses…
 - All navigation actions…
 
-Relationship templates embedded in a complete promoted label include `Recenter 🔵 TOP — what this focus answers to: move to <id> — <readable target title> because <substantive body-derived reason>` and `Peek 🔴 LEFT — what contests or questions this focus: inspect <id> — <readable target title> because <substantive body-derived reason>`; the complete label must also state the applicable focus mutation.
+Legend: → focus changes; ○ focus retained; ■ stops; ↗ explores beyond local.
+
+Relationship templates embedded in a complete promoted label include `→ Recenter 🔵 TOP — what this focus answers to: move to <id> — <readable target title> because <substantive body-derived reason>` and `○ Peek 🔴 LEFT — what contests or questions this focus: inspect <id> — <readable target title> because <substantive body-derived reason>`; the complete label must also state the applicable focus mutation.
 
 **Navigation presentation check:**
 - [ ] focus type and status shown
@@ -171,9 +205,9 @@ A field-only checklist or one-line summary is not a compliant arrival. The repor
 
 ## Moves versus lenses
 
-Moves operate on the positioned walk; lenses interpret evidence already visited. Focus + Map + Moves remains mandatory whenever the walk presents an onward decision. Find an analog and lenses may be reached through the hierarchy or promoted as concrete top-level shortcuts when they satisfy the evidence criteria. They do not become focus-changing moves: Lens actions never mutate focus or navigation history, and Scan retains focus.
+Moves operate on the positioned walk; lenses interpret evidence already visited. Focus + Map + Moves remains mandatory whenever the walk presents an onward decision. Find an analog and the other lenses may be reached through Lenses or promoted as concrete top-level shortcuts when they satisfy the evidence criteria. They do not become focus-changing moves: Lens actions never mutate focus or navigation history, and Scan retains focus.
 
-**Find an analog** is a **Scan retrieval move across another region**. It seeks the same **relational structure, not lexical similarity**. Candidate generation may use `nn clusters`, `nn list --search`, `nn list --similar`, and graph neighborhoods, but those retrieval signals identify possibilities rather than establish an analogy. For every serious candidate, compare relational shape and present:
+**Find an analog** is human-facing Lens intent implemented internally as a **Scan retrieval move across another region**. It seeks the same **relational structure, not lexical similarity**. Candidate generation may use `nn clusters`, `nn list --search`, `nn list --similar`, and graph neighborhoods, but those retrieval signals identify possibilities rather than establish an analogy. For every serious candidate, compare relational shape and present:
 
 - a correspondence mapping between the focus-side roles, nodes, and edges and their candidate-side counterparts;
 - where the analogy holds and what that correspondence explains;
@@ -208,21 +242,21 @@ Quiz is **source-grounded** and tests a bounded set of **consequential concepts*
 
 After the Predict turn, compare the prediction with the source-grounded answer, cite the relevant note IDs and stored edge evidence, and explain any misconception and why it matters. Do not invent questions beyond what the retained sources can answer, invent facts or relationships, or test derived-framework recall as though an agent-generated analogy or layout were notebook evidence.
 
-Show verbatim, Explain in depth, Analogize, and Visualize are transient actions: after each result, automatically restore the complete retained navigation frame, re-run Orient, render Focus + Map + Moves, and reopen the adaptive quick-actions picker when the harness supports it. A completed Quiz is transient too: after a reveal, pass, skip, or `I don't know`, perform the same automatic return. Automatic returns are full descriptive returns, never skeletal returns. They must reproduce every visible node description and any compact-label legend required by the [Presentation discipline](#presentation-discipline), not merely redraw IDs, arrows, or titles. While its question is unanswered, do not render another picker. `navigate` remains an interruption and early escape: abort the item without grading or revealing, then perform the same return immediately.
+Show verbatim, Explain in depth, Analogize, Find an analog, and Visualize are transient actions. Return according to the invoking menu and the [Transient rendering policy](#transient-rendering-policy): when the complete frame and notebook remain unchanged, show the compact breadcrumb, say focus is unchanged, and reopen Peek, Lenses, Scan, or Quick actions as specified rather than redrawing the frame. A completed Quiz follows the same return after a reveal, pass, skip, or `I don't know`. While its question is unanswered, do not render another picker. `navigate` remains an interruption and early escape: abort the item without grading or revealing, rerun Orient, reset to Quick actions, and use the rendering policy.
 
 Lens findings may inform a later explicit Recenter or link suggestion, but the lens itself does not mutate focus, history, notes, or links. Any later movement or mutation must be separately proposed and executed under its normal contract.
 
 ## `navigate` — resume navigation (universal escape)
 
-`navigate` is a **conversational shortcut, not an `nn` subcommand**. It universally leaves the current lens or navigation discussion and reopens the positioned walk from the retained frame. When the human says `navigate` after Arrive, during or after a lens, or after discussing visited material, resume from the retained final focus: restore the complete retained navigation frame—including its focus, goal, filters, and traversal context—re-run Orient for that focus, render Focus + Map + Moves, and invoke the adaptive quick-actions picker when the harness supports it. Otherwise keep all four action classes discoverable without inventing an interactive picker. Do not search for a new entry point or change focus merely because navigation was reopened.
+`navigate` is a **conversational shortcut, not an `nn` subcommand**. It universally leaves the current lens or navigation discussion and reopens the positioned walk from the retained frame. When the human says `navigate` after Arrive, during or after a lens, or after discussing visited material, resume from the retained final focus: restore the complete retained navigation frame—including its focus, goal, filters, and traversal context—re-run Orient for that focus, reset the menu stack to Quick actions, and invoke the adaptive quick-actions picker when the harness supports it. After discussion, render Focus + Map + Moves in full; otherwise follow the transient rendering policy when Orient confirms the complete cache and notebook are unchanged. Keep all four action classes discoverable without inventing an interactive picker. Do not search for a new entry point or change focus merely because navigation was reopened.
 
-`navigate` during an unanswered Quiz aborts the current item without grading, revealing the answer, or forcing Quiz completion. It does not mutate focus or navigation history. Immediately restore the complete retained navigation frame, re-run Orient, render Focus + Map + Moves, and invoke the adaptive quick-actions picker when the harness supports it. This is the same conversational escape, never an `nn navigate` command.
+`navigate` during an unanswered Quiz aborts the current item without grading, revealing the answer, or forcing Quiz completion. It does not mutate focus or navigation history. Immediately restore the complete retained navigation frame, re-run Orient, reset to Quick actions, and reopen that picker using the rendering policy. This is the same conversational escape, never an `nn navigate` command.
 
 Use a navigation-return footer at a seam where the positioned frame remains available but navigation has not already reopened: after every Arrive report and when exiting an extended navigation discussion. End with this exact footer, or a close equivalent that preserves the `navigate` trigger, all three restored view parts, and the retained focus:
 
 > Say navigate to reopen Focus + Map + Moves at the retained focus.
 
-Do not use this footer as a substitute for the automatic transient-action return. After Show verbatim, Explain in depth, Analogize, Visualize, or a completed Quiz, the picker is already reopened.
+Do not use this footer as a substitute for the deterministic transient-action return. After Show verbatim, Explain in depth, Analogize, Find an analog, Visualize, or a completed Quiz, reopen the invoking picker with the compact or full presentation required by the rendering policy.
 
 If no focus is retained, say that resume is structurally unavailable and treat `navigate <query>` as a cold Teleport request. A bare `navigate` with no retained focus should ask for a query or offer Scan and Arrive rather than inventing a destination.
 
@@ -240,7 +274,7 @@ Maintain a current frame, a Back stack, a Forward stack, and bookmarks:
 
 Failed or no-op operations never mutate history or bookmarks. If the Back or Forward stack is empty, say, for example, “Back stack is empty” or “Forward stack is empty,” retain the current frame, and do not rerun a fictitious landing. For an unknown bookmark, say the name was not found, list the available case-sensitive bookmark names, and retain all state. A move that resolves to the complete current frame is a no-op.
 
-This state lasts only for the conversation. Any compaction handoff MUST include the full current frame, Back and Forward stacks, and every bookmark, preserving stack order and each bookmark's case-sensitive name and complete saved frame. If that handoff is missing or incomplete after compaction, state is unknown: never invent history, filters, destinations, or bookmarks; report that navigation state cannot be recovered and ask the human to establish a new landing or restate it.
+This state lasts only for the conversation. Any compaction handoff MUST include the full current frame, Back and Forward stacks, and every bookmark, preserving stack order and each bookmark's case-sensitive name and complete saved frame. The compaction handoff MUST include a separate menu UI state containing the current menu and ordered menu stack. Menu UI state is conversation-scoped UI state, not notebook state, and must never be reconstructed from or persisted into notes. If menu UI state is absent after compaction, it is unknown: reset it only through an explicit Orient, focus-changing move, or `navigate`, rather than inventing a prior submenu. If navigation state is missing or incomplete after compaction, state is unknown: never invent history, filters, destinations, or bookmarks; report that navigation state cannot be recovered and ask the human to establish a new landing or restate it.
 
 ## Virtual navigation protocol seed
 
@@ -253,8 +287,9 @@ A compact virtual protocol should use `applies_when: human-driven nn graph navig
 5. preserve focus for Peek and Scan;
 6. adopt a new destination only after a successful Teleport, Visit, Recenter, or Go to; Back and Forward may change focus only by restoring a retained frame;
 7. when the relationship family is known but the destination is unknown, run `nn graph routes --focus ID --links TYPES --search QUERY --limit N --json` and treat its bounded witnesses as route candidates, not relationship proof;
-8. preserve complete-frame Back/Forward and case-sensitive bookmark semantics exactly as specified above, mutating them only after successful focus-changing moves; and
-9. carry the complete navigation state through compaction, or report it unknown rather than reconstructing it.
+8. preserve complete-frame Back/Forward and case-sensitive bookmark semantics exactly as specified above, mutating them only after successful focus-changing moves;
+9. preserve the conversation-scoped current menu and ordered menu stack as separate compaction UI state, never notebook state; and
+10. carry the complete navigation and menu UI state through compaction, or report it unknown rather than reconstructing it.
 
 This seed is the compact enforcement contract for virtual protocols. The detailed contract remains owned by this skill rather than the broad command reference or a virtual protocol.
 
@@ -282,7 +317,7 @@ These three verbs are **not** `nn` subcommands or flags — they are named moves
 
 At any point in the walk (Enter, Orient, Read, Recenter) you can stop stepping sideways and *zoom out* to see the landscape around the current node, then return to the walk where you left it. `scan` is deliberately **not zoned**: zones are defined only relative to one ego (design note 20260821155048-7280), so they answer "how do my neighbors relate to me" (relationship) — `scan` answers "what territory am I standing in" (structure at altitude), which zones cannot express. Use it when you feel lost, when Orient shows an unexpectedly dense or sparse neighborhood, or before committing to a direction.
 
-`scan` spans **both altitudes in one look** — your ego territory *and* the global landscape. Do not raise `--depth` to "look farther out": past depth 2 more hops give an exponential tangle, not a broader view — the real broadening is the **ego→global shift**, not more depth. Render both anchors (never start at an intermediate level), combining these existing primitives:
+`scan` offers exactly two actions: **Local territory** for the ego at depth 2 and **Global landscape** for the wider graph. Both retain focus; Global landscape receives `↗` because it explores beyond local. Do not raise `--depth` to "look farther out": past depth 2 more hops give an exponential tangle, not a broader view — the real broadening is the **ego→global shift**, not more depth. Render the selected anchor with these existing primitives:
 
 **Your territory (ego, depth 2)** — where you stand and how far you can walk:
 - **Degree + reach** — the current node's `↑out ↓in` (hub or leaf?) plus its 2-hop extent, unzoned:
@@ -297,9 +332,7 @@ At any point in the walk (Enter, Orient, Read, Recenter) you can stop stepping s
 - **The highways — `nn graph bridges`** — integration points whose links join otherwise-separate regions, ranked by load-bearing weight. When the walk has a goal query, use `nn graph bridges --search "<query>" --format json --exclude <focus-id>` to project relevance onto bridges computed from the complete graph without offering the retained focus as a movement candidate. `--exclude` is repeatable and is applied before `--limit`, so excluded results are replaced rather than shortening the candidate list. Read each returned record's bounded crossing witnesses and region context to explain why it is a plausible crossing before acting; the connector evidence is not proof of territorial separation. Peek through a returned bridge `id` to inspect where it leads without moving, or Recenter on that `id` to cross into its neighborhood. (Daily/index notes often rank high because they touch many topics — treat those as connectors-by-aggregation, not substantive bridges.)
 - **The whole shape — `nn graph show --color always`** *(no `--focus`)* — the entire graph, a last resort (it's large); usually the two above are enough.
 
-**Two presentation modes — you choose at look time:**
-- **Default (labeled sections)** — render the two anchors above as *Your territory (ego)* and *The wider landscape (global)*, kept distinct. This is the default: the labels honor the relationship-vs-territory and ego-vs-global distinctions.
-- **Flat mode (blended)** — merge both anchors into one landscape with no tier labels, when the user asks for the merged view. Same lookups, different rendering.
+Keep the selected action labeled as either *Local territory (ego)* or *Global landscape*. If the human explicitly asks to compare both, render two labeled sections rather than inventing a third Scan action or blending away the ego/global distinction.
 
 **Make it spatial — you draw the map, the command is just the data.** The `--format text` trees are the *data source*, not the thing you relay. Don't paste raw output. Read it — indentation is reach (hops out), `↑out ↓in` markers are terrain (hubs vs. leaves) — then *draw* a map in whatever form fits the surface (the same "CLI is a faithful data source, the agent is the presenter" split the zoned step uses). Cheapest first:
 
@@ -381,7 +414,7 @@ Integrate the overlay into the navigation actions as follows:
 
 Use `peek` when Read-from-here isn't enough to judge a move — you want to see one step past the neighbor before committing.
 
-Because `peek` does not move, it returns to the retained positioned frame rather than creating a new one. After a transient Peek result, apply the full [Presentation discipline](#presentation-discipline) (P1–P4): re-run Orient, render Focus + Map + Moves, and reopen the adaptive picker rather than dropping into prose. The finding may update or justify a promoted shortcut (for example, `Recenter 🔷 RIGHT — lateral provenance or task relationships: move to 4302 — Provenance gaps in generated maps (changes focus) because the peek confirms its body identifies the missing source boundary that the retained goal asks us to resolve`); it does not exempt the return from evidence criteria or semantic-direction enforcement.
+Because `peek` does not move, it returns to the retained positioned frame rather than creating a new one. After a transient Peek result, follow the [Transient rendering policy](#transient-rendering-policy): normally show the compact Peek breadcrumb, say focus is unchanged, and reopen Peek; full-render only for one of the named invalidation conditions. The finding may update or justify a promoted shortcut (for example, `→ Recenter 🔷 RIGHT — lateral provenance or task relationships: move to 4302 — Provenance gaps in generated maps (changes focus) because the peek confirms its body identifies the missing source boundary that the retained goal asks us to resolve`); it does not exempt the return from evidence criteria, effect markers, or semantic-direction enforcement.
 
 #### `teleport` — move far (relocate focus)
 
@@ -392,7 +425,7 @@ Because `peek` does not move, it returns to the retained positioned frame rather
 
 `teleport` only relocates — it does not render deep detail (that is `peek`'s job). After landing, **re-enter the walk at Orient (step 1) from the new focus, carrying the full [Presentation discipline](#presentation-discipline) (P1–P4)** — the landing is not a shortcut past it; landing then narrating in prose without colors, map, or chooser is exactly the seam-drift that discipline exists to prevent. This is the one move worth invoking from cold — it is named in the session-start CLI-reference pointer for that reason.
 
-**The landing itself is a chooser point** — teleport's landing *is* a Recenter decision ("which region/hub do I land on?"). When a human is driving on a chooser-capable harness, render genuinely ambiguous candidate landings in a chooser of at most four rows. The source is JSON, so the pre-landing Teleport chooser must manually mark each candidate landing region with the stable relay palette before any focus exists. Its bounded option set is the recommended hub, additional cluster/sub-territory candidates as capacity permits, and a `teleport --random` escape as the "somewhere else" option. Because no positioned frame exists yet, Focus + Map + Moves and the adaptive picker begin immediately after the landing, not before it.
+**The landing itself is a chooser point** — teleport's landing *is* a Recenter decision ("which region/hub do I land on?"). When a human is driving on a chooser-capable harness, render genuinely ambiguous candidate landings in a chooser of at most four rows. The source is JSON, so the pre-landing Teleport chooser must manually mark each candidate landing region with the stable relay palette before any focus exists. Each candidate is a concrete focus-changing action, so prefix it with `→` and include the adjacent effect legend. Its bounded option set is the recommended hub, additional cluster/sub-territory candidates as capacity permits, and a conversational `Teleport random` escape as the "somewhere else" option. Because no positioned frame exists yet, Focus + Map + Moves and the adaptive picker begin immediately after the landing, not before it.
 
 **Selection completes the landing decision.** Once the human selects a candidate—or the goal makes one candidate unambiguous—the selected landing automatically becomes the retained focus. Immediately run Orient from it and present Focus + Map + Moves. Teleport **MUST NOT ask for a second confirmation** such as "visit this focus?" after selection and **MUST NOT offer a separate `Visit` action**. Ask for human choice only while candidates remain genuinely ambiguous and no landing has yet been selected.
 
@@ -407,7 +440,7 @@ When you offer it, use the [Adaptive hierarchical quick-actions picker](#adaptiv
 
 - **P1 — Colors and relay budgets on.** Every color-capable human-facing navigation view uses the stable markers below—not only post-landing Orient, but also the JSON-backed pre-landing Teleport chooser, the return after Peek, Scan at both altitudes, and Arrive. Run the underlying `nn graph show … --zones --bodies --presentation-hints --color always` so zone/type/edge markers and degree-based summary budgets survive relay. Graph text sources MUST use `--color always` for a color-capable human relay; do not trust `auto`, because tool stdout is commonly non-TTY. JSON sources are marker-free by design: parse them, then manually apply the relay palette to the human-facing chooser, headings, map, focus, and region labels—never mutate or claim markers exist in the JSON. The stable emoji marker and textual zone/meaning triple remains mandatory even when the surrounding surface cannot render terminal color; keep `--presentation-hints` so each complete body travels with an in-context relay budget.
 - **P2 — Focus + Map + Moves.** Give the Focus summary (substance), positional/ASCII Map (structure), and degree-scaled Moves (direction) defined above. Every directional use in all three parts follows [Semantic-direction enforcement](#semantic-direction-enforcement). None is sufficient alone: a map without summaries is a skeleton you can't read; summaries without a map lose the spatial relationships. Never relay raw command output. (Detailed as (a)/(b)/(c) below.)
-- **P3 — Adaptive hierarchical quick-actions picker.** When the harness exposes a chooser affordance **and** a human is co-navigating, show up to two justified concrete shortcuts, stable `Lenses…`, and final `All navigation actions…`; keep the Lens submenu and Recenter / Peek / Scan / Arrive exactly one level away through those stable rows. Otherwise pick the move yourself per the goal while keeping all four action classes discoverable in the presentation. This applies wherever a positioned walk presents an onward decision, including after `peek` and a completed `teleport` landing.
+- **P3 — Adaptive hierarchical quick-actions picker.** When the harness exposes a chooser affordance **and** a human is co-navigating, show up to two justified concrete shortcuts, stable `Lenses…`, and final `All navigation actions…`; keep Lenses and Recenter / Peek / Scan / Arrive exactly one level away through those stable rows. Apply breadcrumbs, effect markers, menu-stack transitions, and compact-return rules from the picker contract. Otherwise pick the move yourself per the goal while keeping all four action classes discoverable in the presentation. This applies wherever a positioned walk presents an onward decision, including after `peek` and a completed `teleport` landing.
 - **P4 — Degree-scaled summaries.** Scale each summary's length to the node's inbound degree (the tiers in (c)); daily/index hubs are connectors-by-aggregation, not substance.
 
 ##### Stable emoji relay palette
@@ -426,7 +459,7 @@ The three parts, in detail:
 
 ##### Complete visible-node description
 
-Every visible non-focus node in Focus, Map, or Moves MUST carry the complete identity-and-substance form `<id> — <readable title> — <body-derived central claim>`, with the claim scaled to that node's inbound degree under P4. This is one cross-seam rule for Orient, Peek return, Scan, Teleport landing, transient lens auto-return, Back/Forward restoration, and `navigate` resume; no re-entry path may degrade a previously descriptive view into a skeletal one. It also applies to candidate notes in a pre-landing Teleport chooser and to note nodes composed from JSON sources. IDs supplement identity and substance; they never replace either one.
+Every visible non-focus node in Focus, Map, or Moves MUST carry the complete identity-and-substance form `<id> — <readable title> — <body-derived central claim>`, with the claim scaled to that node's inbound degree under P4. This is one cross-seam rule for Orient, a full Peek or Lens return, Scan, Teleport landing, Back/Forward restoration, and a full `navigate` resume; no full re-entry path may degrade a previously descriptive view into a skeletal one. A compact unchanged transient return references the complete frame already visible instead of redrawing a skeleton. The rule also applies to candidate notes in a pre-landing Teleport chooser and to note nodes composed from JSON sources. IDs supplement identity and substance; they never replace either one.
 
 Width pressure may replace map node text with compact labels only when the map has an immediately adjacent complete legend mapping every compact label to that node's ID, readable title, and body-derived central claim, still scaled to that node's inbound degree. The legend must be in the same view and beside the compact map—not deferred to another section, picker, turn, or command. Orphan labels and ID-only nodes are prohibited. A title without a claim is also skeletal. A compact reference in Focus or Moves is allowed only when that same complete legend is immediately adjacent; otherwise each occurrence uses the complete form.
 
@@ -450,9 +483,10 @@ Legend (immediately adjacent)
        inbound dependents.
 
 Quick action
-Recenter 🟢 BOTTOM — what builds on the focus: move to 20250101120000-a1b2 —
+→ Recenter 🟢 BOTTOM — what builds on the focus: move to 20250101120000-a1b2 —
 Replay-safe checkpointing (changes focus) because the body says failed replays restore the last durable boundary
 before retry, directly advancing the safe-recovery goal.
+Legend: → focus changes; ○ focus retained; ■ stops; ↗ explores beyond local.
 ```
 
 **Noncompliant skeletal presentation:**
