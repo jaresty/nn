@@ -112,7 +112,7 @@ Find an analog is a human-intent Lens and internally uses Scan retrieval across 
 
 Scan contains exactly Local territory and Global landscape; it has no Find an analog row.
 
-Every picker and submenu has at most four rows. Esc or a declined chooser returns to the parent menu by popping the UI menu stack, with the same semantics as Back, without mutating focus, history, notes, links, the goal, filters, traversal context, or notebook content. Never render an explicit `Back` row. At Quick actions, Esc or decline simply closes the picker without state mutation. During cold Teleport, before any positioned focus exists, use the bounded landing chooser described below; after landing, Orient and use this adaptive picker.
+Every picker and submenu has at most four rows. Esc or a declined chooser in a submenu returns to the parent menu by popping only the UI menu stack, without mutating focus, graph history, notes, links, the goal, filters, traversal context, or notebook content. **Esc means parent menu; conversational `Back` means previous graph frame.** Never render an explicit `Back` row. **Esc at Quick actions closes only the picker; focus and graph history remain retained.** When relaying that dismissal, say the picker closed and name the retained focus plus the `navigate` resume affordance; do not imply Arrive or navigation-state loss. During cold Teleport, before any positioned focus exists, use the bounded landing chooser described below; after landing, Orient and use this adaptive picker.
 
 ### Direct intents and menu return transitions
 
@@ -134,6 +134,16 @@ Focus-changing Recenter, Teleport, Back, Forward, and Go to rerun Orient and res
 Do not redundantly rerender Focus + Map + Moves after a transient action when the complete retained frame and notebook are unchanged. Return with the compact breadcrumb, state that focus is unchanged, and reopen the invoking picker. This compact return is not a degraded full map; it reuses the complete frame already visible in the conversation.
 
 Perform a full render only when the focus, filters, traversal context, or notebook changed; when navigation resumes after discussion; after an explicit Refresh; or when the cached frame is stale or unknown. A full render preserves the readable full map and all presentation discipline: visible nodes keep IDs, readable titles, and substantive body-derived reasons, with immediately adjacent legends for compact labels. `navigate` still reruns Orient and resets Quick actions; after discussion it full-renders, while an unchanged Quiz abort may compactly reopen Quick actions after Orient confirms the cache.
+
+### Full-frame visual hierarchy
+
+Keep the stable section order **Focus → Map → Moves**. Within each section and concrete action, layer information for scanning in this order:
+
+1. **Identity and action** — what or where this is, and what selecting it does;
+2. **Relationship meaning** — the complete marker, zone, and local semantic meaning;
+3. **Evidence and state effect** — the body-derived reason, degree-scaled detail, and whether focus/history changes.
+
+Use headings, line breaks, and typographic emphasis to expose those layers instead of flattening every field into one dense sentence. **This hierarchy changes emphasis, not content**: it never removes required IDs, readable titles, body-derived claims, semantic triples, marker legends, degrees, evidence reasons, or one-level access to Recenter, Peek, Scan, and Arrive.
 
 ### Semantic-direction enforcement
 

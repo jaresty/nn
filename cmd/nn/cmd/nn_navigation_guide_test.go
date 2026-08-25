@@ -238,8 +238,8 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 		"A specific promoted `Lens` action may occupy a contextual shortcut slot",
 		"the stable `Lenses…` row remains present",
 		"Every picker and submenu has at most four rows.",
-		"Esc or a declined chooser returns to the parent menu",
-		"without mutating focus, history, notes, links, the goal, filters, traversal context, or notebook content",
+		"Esc or a declined chooser in a submenu returns to the parent menu",
+		"without mutating focus, graph history, notes, links, the goal, filters, traversal context, or notebook content",
 		"Never render an explicit `Back` row.",
 	} {
 		if !strings.Contains(picker, required) {
@@ -288,6 +288,27 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 	} {
 		if strings.Contains(picker, contradictory) {
 			t.Errorf("nn-navigate retains contradictory picker rule %q", contradictory)
+		}
+	}
+}
+
+func TestNNNavigateClarifiesDismissalBackAndFullFrameHierarchy(t *testing.T) {
+	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	content := string(data)
+	for _, required := range []string{
+		"Esc at Quick actions closes only the picker; focus and graph history remain retained.",
+		"Esc means parent menu; conversational `Back` means previous graph frame.",
+		"### Full-frame visual hierarchy",
+		"1. **Identity and action**",
+		"2. **Relationship meaning**",
+		"3. **Evidence and state effect**",
+		"This hierarchy changes emphasis, not content",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("dismissal/back/hierarchy contract missing %q", required)
 		}
 	}
 }
