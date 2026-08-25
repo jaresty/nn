@@ -103,9 +103,10 @@ func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 		"adaptive picker and presentation": {
 			"## Adaptive hierarchical quick-actions picker",
 			"top-level picker has at most four rows",
-			"up to two evidence-backed contextual concrete shortcuts",
+			"up to one evidence-backed contextual concrete shortcut",
 			"stable **`Lenses…`** row",
-			"final row is always `All navigation actions…`",
+			"stable `All navigation actions…` row",
+			"final row is always `■ Arrive`",
 			"Peek and Scan MUST be discoverable",
 			"Before every picker, present:",
 			"Navigation presentation check:",
@@ -113,7 +114,7 @@ func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 			"[ ] zone/type/edge color markers applied (stable relay palette)",
 			"[ ] zone positions carry their color markers in the map",
 			"[ ] legend/key for the color markers shown so they are interpretable",
-			"[ ] Arrive available one level away",
+			"[ ] Arrive always visible as final top-level action",
 			"Bad:",
 			"Why bad:",
 			"Recenter 🔵 TOP — what this focus answers to: move to <id> — <readable target title> because <substantive body-derived reason>",
@@ -129,6 +130,7 @@ func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 			"preserve focus for Peek and Scan",
 			"adopt a new destination only after a successful Teleport, Visit, Recenter, or Go to",
 			"relationship family is known but the destination is unknown",
+			"keeping Recenter, Peek, and Scan exactly one level away and Arrive at top level",
 			"carry the complete navigation and menu UI state through compaction",
 		},
 		"arrival scaling": {
@@ -227,9 +229,10 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 	picker := content[pickerStart:pickerEnd]
 	for _, required := range []string{
 		"top-level picker has at most four rows",
-		"up to two evidence-backed contextual concrete shortcuts",
+		"up to one evidence-backed contextual concrete shortcut",
 		"stable **`Lenses…`** row",
-		"final row is always `All navigation actions…`",
+		"stable `All navigation actions…` row",
+		"final row is always `■ Arrive`",
 		"names its action class (`Recenter`, `Peek`, `Scan`, or `Lens`)",
 		"states whether selecting it changes or retains focus",
 		"body- or evidence-derived reason",
@@ -248,7 +251,7 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 	}
 
 	exactMenus := []string{
-		"1. `Recenter`\n2. `Peek`\n3. `Scan`\n4. `■ Arrive`",
+		"1. `Recenter`\n2. `Peek`\n3. `Scan`",
 		"1. `○ Show verbatim`\n2. `○ Explain in depth`",
 		"1. `○ Analogize`\n2. `↗ Find an analog`\n3. `○ Visualize`\n4. `○ Quiz`",
 		"1. `○ Local territory`\n2. `↗ Global landscape`",
@@ -285,6 +288,7 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 		"3. `Back`",
 		"4. `Back`",
 		"3. `Find an analog`",
+		"1. `Recenter`\n2. `Peek`\n3. `Scan`\n4. `■ Arrive`",
 	} {
 		if strings.Contains(picker, contradictory) {
 			t.Errorf("nn-navigate retains contradictory picker rule %q", contradictory)

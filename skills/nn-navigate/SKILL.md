@@ -41,7 +41,7 @@ Every presented navigation step **MUST KEEP DISCOVERABLE** four action classes:
 3. **Scan — zoom out without moving**
 4. **Arrive — stop**
 
-An action may be unavailable only when structurally impossible, and the response **MUST** state why. **Peek and Scan MUST be discoverable** in a human-driven walk. In a chooser-capable harness, all four classes are available through `All navigation actions…` exactly one level below the top picker; contextual shortcuts may also promote concrete actions to the top.
+An action may be unavailable only when structurally impossible, and the response **MUST** state why. **Peek and Scan MUST be discoverable** in a human-driven walk. In a chooser-capable harness, Recenter, Peek, and Scan are available through `All navigation actions…` exactly one level below the top picker; Arrive is always the final top-level action. A contextual shortcut may also promote one concrete action to the top.
 
 Before every picker, present:
 
@@ -53,7 +53,7 @@ This **MUST PRESENT** rule applies before the mode-specific details below; Telep
 
 ## Adaptive hierarchical quick-actions picker
 
-When a human is driving a positioned walk and a chooser is available, the **top-level picker has at most four rows**: **up to two evidence-backed contextual concrete shortcuts**; a stable **`Lenses…`** row; and the **final row is always `All navigation actions…`**. Fewer than two shortcuts is correct when the retained evidence does not justify more. Generic availability is not evidence, and action classes must not be promoted merely to fill rows.
+When a human is driving a positioned walk and a chooser is available, the **top-level picker has at most four rows**: **up to one evidence-backed contextual concrete shortcut**; a stable **`Lenses…`** row; a stable `All navigation actions…` row; and the **final row is always `■ Arrive`**. No shortcut is correct when the retained evidence does not justify one. Generic availability is not evidence, and action classes must not be promoted merely to fill rows.
 
 Every promoted shortcut:
 
@@ -82,12 +82,11 @@ The top breadcrumb is `<short-id> · Quick actions`. Every submenu shows this br
 
 Every picker that contains a concrete action carries this adjacent legend: **→ focus changes; ○ focus retained; ■ stops; ↗ explores beyond local**. Every concrete action row includes exactly one applicable effect marker. Category rows such as `Recenter`, `Peek`, `Scan`, `Lenses…`, and `All navigation actions…` do not execute an action and therefore have no effect marker. Promoted shortcuts and Recenter destinations still include readable titles and substantive body- or evidence-derived reasons; the marker never replaces that content.
 
-`All navigation actions…` opens the action-class submenu exactly one level away, under `<short-id> · Quick actions › All actions`:
+`All navigation actions…` opens the action-class submenu exactly one level away, under `<short-id> · Quick actions › All actions`, with exactly these rows and no duplicate Arrive:
 
 1. `Recenter`
 2. `Peek`
 3. `Scan`
-4. `■ Arrive`
 
 `Recenter` may open `<short-id> · Quick actions › All actions › Recenter destinations`. Its evidence-backed destinations are capped at four rows and each begins with `→` because selecting it changes focus.
 
@@ -189,7 +188,7 @@ Relationship templates embedded in a complete promoted label include `→ Recent
 - [ ] Recenter available one level away
 - [ ] Peek available one level away
 - [ ] Scan available one level away
-- [ ] Arrive available one level away
+- [ ] Arrive always visible as final top-level action
 
 Run this check internally before invoking a picker. A missing item blocks presentation unless it is structurally unavailable and the response explains why.
 
@@ -293,7 +292,7 @@ A compact virtual protocol should use `applies_when: human-driven nn graph navig
 1. if `nn skills list` has not yet run this session, run it, then load `nn-navigate` with `nn skills get nn-navigate`;
 2. run the required graph command;
 3. render Focus + Map + Moves;
-4. open the adaptive quick-actions picker on capable human-driven surfaces, keeping Recenter, Peek, Scan, and Arrive exactly one level away;
+4. open the adaptive quick-actions picker on capable human-driven surfaces, keeping Recenter, Peek, and Scan exactly one level away and Arrive at top level;
 5. preserve focus for Peek and Scan;
 6. adopt a new destination only after a successful Teleport, Visit, Recenter, or Go to; Back and Forward may change focus only by restoring a retained frame;
 7. when the relationship family is known but the destination is unknown, run `nn graph routes --focus ID --links TYPES --search QUERY --limit N --json` and treat its bounded witnesses as route candidates, not relationship proof;
