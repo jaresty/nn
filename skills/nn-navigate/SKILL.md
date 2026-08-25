@@ -61,6 +61,8 @@ Every promoted shortcut:
 2. states whether selecting it changes or retains focus; and
 3. gives a body- or evidence-derived reason why this concrete action matters now.
 
+Every concrete quick-action target MUST include its ID, readable target title, and a substantive body- or evidence-derived reason that explains why the target matters now. A category phrase or relationship label is not evidence: `supporting experiment` alone is not a substantive reason, because it neither states what the experiment found nor how that finding advances the retained goal.
+
 A promoted shortcut is concrete, such as a named destination, exact note body, specific explanation, particular lens, or bounded scan. Selecting it executes directly rather than opening its category submenu. A specific promoted `Lens` action may occupy a contextual shortcut slot when its evidence criterion is met, and the stable `Lenses…` row remains present. Any directional shortcut or reason still includes the complete semantic triple required below.
 
 Use exactly these promotion criteria:
@@ -120,12 +122,12 @@ Geometry words such as `upward`, `downward`, `left`, `right`, `above`, and `belo
 **Why bad:** generic availability and vague labels are not evidence-backed concrete shortcuts; they omit focus mutation, body/evidence reasons, and semantic triples. A neighbor-only picker that hides Peek, Scan, or Arrive beyond `All navigation actions…` is also noncompliant.
 
 **Compliant top-level picker:**
-- Recenter 🔵 TOP — what this focus answers to: move to <id> (changes focus) because <body-derived reason tied to the goal>
+- Recenter 🔵 TOP — what this focus answers to: move to <id> — <readable target title> (changes focus) because <substantive body-derived reason tied to the goal>
 - Lens — Visualize <named process> (retains focus) because <evidence-derived structural reason>
 - Lenses…
 - All navigation actions…
 
-Relationship templates embedded in a complete promoted label include `Recenter 🔵 TOP — what this focus answers to: move to <id> because <body-derived reason>` and `Peek 🔴 LEFT — what contests or questions this focus: inspect <id> because <body-derived reason>`; the complete label must also state the applicable focus mutation.
+Relationship templates embedded in a complete promoted label include `Recenter 🔵 TOP — what this focus answers to: move to <id> — <readable target title> because <substantive body-derived reason>` and `Peek 🔴 LEFT — what contests or questions this focus: inspect <id> — <readable target title> because <substantive body-derived reason>`; the complete label must also state the applicable focus mutation.
 
 **Navigation presentation check:**
 - [ ] focus type and status shown
@@ -137,6 +139,8 @@ Relationship templates embedded in a complete promoted label include `Recenter �
 - [ ] neighborhood role explained
 - [ ] positional map rendered
 - [ ] edge meanings visible
+- [ ] every visible non-focus node has ID, readable title, and body-derived claim
+- [ ] compact labels have an immediately adjacent complete legend; no orphan or ID-only nodes
 - [ ] high-degree neighbors receive expanded summaries
 - [ ] Recenter available one level away
 - [ ] Peek available one level away
@@ -204,7 +208,7 @@ Quiz is **source-grounded** and tests a bounded set of **consequential concepts*
 
 After the Predict turn, compare the prediction with the source-grounded answer, cite the relevant note IDs and stored edge evidence, and explain any misconception and why it matters. Do not invent questions beyond what the retained sources can answer, invent facts or relationships, or test derived-framework recall as though an agent-generated analogy or layout were notebook evidence.
 
-Show verbatim, Explain in depth, Analogize, and Visualize are transient actions: after each result, automatically restore the complete retained navigation frame, re-run Orient, render Focus + Map + Moves, and reopen the adaptive quick-actions picker when the harness supports it. A completed Quiz is transient too: after a reveal, pass, skip, or `I don't know`, perform the same automatic return. While its question is unanswered, do not render another picker. `navigate` remains an interruption and early escape: abort the item without grading or revealing, then perform the same return immediately.
+Show verbatim, Explain in depth, Analogize, and Visualize are transient actions: after each result, automatically restore the complete retained navigation frame, re-run Orient, render Focus + Map + Moves, and reopen the adaptive quick-actions picker when the harness supports it. A completed Quiz is transient too: after a reveal, pass, skip, or `I don't know`, perform the same automatic return. Automatic returns are full descriptive returns, never skeletal returns. They must reproduce every visible node description and any compact-label legend required by the [Presentation discipline](#presentation-discipline), not merely redraw IDs, arrows, or titles. While its question is unanswered, do not render another picker. `navigate` remains an interruption and early escape: abort the item without grading or revealing, then perform the same return immediately.
 
 Lens findings may inform a later explicit Recenter or link suggestion, but the lens itself does not mutate focus, history, notes, or links. Any later movement or mutation must be separately proposed and executed under its normal contract.
 
@@ -308,12 +312,15 @@ For the **global** anchor the map is a **different shape** — not a hop-tree fr
   ┌──────────────────────────┐
   │  cluster 1  (259) ●●●●●●  │  central continent (prompting/token core)
   └───────────┬──────────────┘
-        bridge: 5853 "vocab is a composition barrier"
+        bridge: [B1]
               │
      ┌────────┴─────┐   ┌──────────┐   ┌──────────┐
      │ c3 (25) 🟠 YOU │   │ c2 (28)  │   │ c4 (24)  │   … 35 more small regions
      │ graph-tooling│   └──────────┘   └──────────┘
      └──────────────┘
+
+  Legend: [B1] = 5853 — Vocab is a composition barrier — Shared vocabulary can
+          prevent otherwise compatible regions from composing cleanly.
 ```
 
 Before relaying either altitude, apply the [Presentation discipline](#presentation-discipline) (P1–P4) to the composed Scan; this is where text-source markers and manually marked JSON region/bridge data become one consistent human-facing view. Pick the rendering by surface capability, exactly as you pick whether to offer the recenter chooser — richer form only when the surface supports it, text otherwise. After scanning, resume the walk: recenter on a neighbor as before, or hop to a similar-but-unlinked note by making it the new `--focus` (and consider linking it, since the absence of an edge is what `scan` just exposed).
@@ -374,7 +381,7 @@ Integrate the overlay into the navigation actions as follows:
 
 Use `peek` when Read-from-here isn't enough to judge a move — you want to see one step past the neighbor before committing.
 
-Because `peek` does not move, it returns to the retained positioned frame rather than creating a new one. After a transient Peek result, apply the full [Presentation discipline](#presentation-discipline) (P1–P4): re-run Orient, render Focus + Map + Moves, and reopen the adaptive picker rather than dropping into prose. The finding may update or justify a promoted shortcut (for example, `Recenter 🔷 RIGHT — lateral provenance or task relationships: move to 4302 (changes focus) because the peek confirms its body resolves the open provenance question`); it does not exempt the return from evidence criteria or semantic-direction enforcement.
+Because `peek` does not move, it returns to the retained positioned frame rather than creating a new one. After a transient Peek result, apply the full [Presentation discipline](#presentation-discipline) (P1–P4): re-run Orient, render Focus + Map + Moves, and reopen the adaptive picker rather than dropping into prose. The finding may update or justify a promoted shortcut (for example, `Recenter 🔷 RIGHT — lateral provenance or task relationships: move to 4302 — Provenance gaps in generated maps (changes focus) because the peek confirms its body identifies the missing source boundary that the retained goal asks us to resolve`); it does not exempt the return from evidence criteria or semantic-direction enforcement.
 
 #### `teleport` — move far (relocate focus)
 
@@ -391,7 +398,7 @@ Because `peek` does not move, it returns to the retained positioned frame rather
 
 **Offer the adaptive picker when the harness supports one and a human is driving the walk.** A harness picker renders contextual decisions as clickable actions rather than a wall of prose. Use it *only* when both hold: the harness exposes a chooser affordance, **and** a human is co-navigating this walk. When either is false — you are navigating autonomously toward a goal, or stdout is not a TTY — do **not** invoke a picker: pick the move yourself per the goal and continue (nn is non-interactive by default when stdout is not a TTY).
 
-When you offer it, use the [Adaptive hierarchical quick-actions picker](#adaptive-hierarchical-quick-actions-picker), not a neighbor-only or strict-flat chooser. A promoted Recenter targets the goal-relevant semantic triple—`🔴 LEFT — what contests or questions the focus`, `🔵 TOP — what the focus answers to`, `🔷 RIGHT — lateral provenance or task relationships`, or `🟢 BOTTOM — what builds on the focus`—and its description includes that complete triple, `↑out ↓in` degree, focus mutation, and a one-line body-derived reason. Other promoted actions likewise name their class, focus behavior, and evidence reason. Then execute the selected concrete action directly. Teleport, Visit, Recenter, and Go to may adopt a new destination; Back and Forward may only restore retained frames. No other action changes focus.
+When you offer it, use the [Adaptive hierarchical quick-actions picker](#adaptive-hierarchical-quick-actions-picker), not a neighbor-only or strict-flat chooser. A promoted Recenter targets the goal-relevant semantic triple—`🔴 LEFT — what contests or questions the focus`, `🔵 TOP — what the focus answers to`, `🔷 RIGHT — lateral provenance or task relationships`, or `🟢 BOTTOM — what builds on the focus`—and its description includes that complete triple, target ID and readable title, `↑out ↓in` degree, focus mutation, and a one-line substantive body-derived reason. Other promoted actions likewise name their class, focus behavior, and evidence reason. Then execute the selected concrete action directly. Teleport, Visit, Recenter, and Go to may adopt a new destination; Back and Forward may only restore retained frames. No other action changes focus.
 
 <a id="presentation-discipline"></a>
 #### Presentation discipline (the named block every seam cites)
@@ -417,6 +424,47 @@ Preserve note-type markers and edge-family markers already emitted by graph text
 
 The three parts, in detail:
 
+##### Complete visible-node description
+
+Every visible non-focus node in Focus, Map, or Moves MUST carry the complete identity-and-substance form `<id> — <readable title> — <body-derived central claim>`, with the claim scaled to that node's inbound degree under P4. This is one cross-seam rule for Orient, Peek return, Scan, Teleport landing, transient lens auto-return, Back/Forward restoration, and `navigate` resume; no re-entry path may degrade a previously descriptive view into a skeletal one. It also applies to candidate notes in a pre-landing Teleport chooser and to note nodes composed from JSON sources. IDs supplement identity and substance; they never replace either one.
+
+Width pressure may replace map node text with compact labels only when the map has an immediately adjacent complete legend mapping every compact label to that node's ID, readable title, and body-derived central claim, still scaled to that node's inbound degree. The legend must be in the same view and beside the compact map—not deferred to another section, picker, turn, or command. Orphan labels and ID-only nodes are prohibited. A title without a claim is also skeletal. A compact reference in Focus or Moves is allowed only when that same complete legend is immediately adjacent; otherwise each occurrence uses the complete form.
+
+Empty zones are exempt from node description because they contain no node, but they retain the complete semantic gloss: marker, zone name, local relationship meaning, and what the emptiness means for this focus. Region blobs that do not represent individual notes likewise need a semantic region gloss; any individual representative, bridge, match, or candidate note shown inside them remains subject to the complete node form.
+
+Concrete quick actions obey the same rule: a note target needs its ID and readable target title plus the substantive body- or evidence-derived reason required by the picker contract. A generic role such as `supporting experiment` cannot stand in for the target's claim or result.
+
+**Compliant descriptive node and compact-map fallback:**
+
+```text
+Moves
+- 20250101120000-a1b2 — Replay-safe checkpointing — Failed replays restore the
+  last durable boundary before retry, preventing partial state from becoming the
+  new baseline. (↓6; hub summary continues with why this is load-bearing.)
+
+Map
+🟠 FOCUS ──▶ [N1]
+Legend (immediately adjacent)
+[N1] = 20250101120000-a1b2 — Replay-safe checkpointing — Failed replays restore
+       the last durable boundary before retry; this recovery rule supports six
+       inbound dependents.
+
+Quick action
+Recenter 🟢 BOTTOM — what builds on the focus: move to 20250101120000-a1b2 —
+Replay-safe checkpointing (changes focus) because the body says failed replays restore the last durable boundary
+before retry, directly advancing the safe-recovery goal.
+```
+
+**Noncompliant skeletal presentation:**
+
+```text
+Map: FOCUS -> [N1] -> 4302
+Moves: 4302; supporting experiment
+Quick action: Recenter BOTTOM to 4302 because supporting experiment
+```
+
+This is bad because `[N1]` is orphaned, `4302` is ID-only, neither node has a readable title and body-derived central claim, the direction omits its semantic triple, and `supporting experiment` names only a vague role rather than substantive evidence.
+
 **(a) Summarize the current note — length scaled to its degree (see the tiers in (c)).** Before the map, characterize where the reader is standing: what this note *is* (its type/status and its central claim, drawn from its body — what it argues, not just its title), and how it sits in `🔵 TOP — what the focus answers to`, `🟢 BOTTOM — what builds on the focus`, `🔴 LEFT — what contests or questions the focus`, and `🔷 RIGHT — lateral provenance or task relationships`. Apply the same degree tiers as the neighbors: a high-degree focus (a hub you've landed on) earns the fuller 2–3 sentence treatment; a low-degree focus (a leaf you're passing through) gets a brief one. This is the anchor the rest of the view hangs off.
 
 **(b) Draw the map.** Lay the zones out by position so the layout itself encodes the relationships:
@@ -436,9 +484,9 @@ The three parts, in detail:
 
 | Inbound degree | Length |
 |----------------|--------|
-| leaf (↓0–1) | title + type + one clause |
-| connected (↓2–4) | one full sentence on its claim |
-| hub (↓5+, or the highest-degree node in view) | 2–3 sentences: its claim *and* why it's load-bearing |
+| leaf (↓0–1) | ID + readable title + type + one body-derived claim clause |
+| connected (↓2–4) | ID + readable title + one full sentence on its body-derived claim |
+| hub (↓5+, or the highest-degree node in view) | ID + readable title + 2–3 sentences: its body-derived claim *and* why it's load-bearing |
 
 The CLI never truncates — it always gives the full body; degree only tells *you* how much to relay. With `--presentation-hints`, each text node carries a `relay budget:` line and each JSON node carries structured `summary_budget` metadata mirroring these tiers, so this policy remains visible without looking back at the guide. Two overrides: a high-degree *daily* or index note is a hub by connectivity, not substance — treat it as connected (one sentence) and say so; and a low-degree axiom whose body is clearly central gets promoted a tier — let the body's actual claim override the degree. Empty zones carry meaning and the full semantic triple: say, for example, `🔴 LEFT — what contests or questions the focus: empty; nothing contests or questions this focus.`
 

@@ -116,7 +116,7 @@ func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 			"[ ] Arrive available one level away",
 			"Bad:",
 			"Why bad:",
-			"Recenter 🔵 TOP — what this focus answers to: move to <id> because <body-derived reason>",
+			"Recenter 🔵 TOP — what this focus answers to: move to <id> — <readable target title> because <substantive body-derived reason>",
 			"#### Presentation discipline (the named block every seam cites)",
 			"P1 — Colors and relay budgets on",
 			"P2 — Focus + Map + Moves",
@@ -588,8 +588,8 @@ func TestNNNavigateEnforcesSemanticDirectionInEveryHumanFacingUse(t *testing.T) 
 		"Geometry words such as `upward`, `downward`, `left`, `right`, `above`, and `below` may supplement this semantic triple but never suffice alone.",
 		"A note title or ID cannot replace the local relationship meaning.",
 		"Empty zones still require the marker, zone name, and meaning",
-		"Recenter 🔵 TOP — what this focus answers to: move to <id> because <body-derived reason>",
-		"Peek 🔴 LEFT — what contests or questions this focus: inspect <id> because <body-derived reason>",
+		"Recenter 🔵 TOP — what this focus answers to: move to <id> — <readable target title> because <substantive body-derived reason>",
+		"Peek 🔴 LEFT — what contests or questions this focus: inspect <id> — <readable target title> because <substantive body-derived reason>",
 		"Peek returns and Recenter returns MUST restate the semantic triple",
 	} {
 		if !strings.Contains(content, required) {
@@ -630,11 +630,79 @@ func TestNNNavigateSemanticDirectionDetailDoesNotLeakIntoDispatchReferences(t *t
 			"every human-facing directional map label, move, chooser label and description, recommendation, Peek return, and Recenter return",
 			"Geometry words such as `upward`, `downward`, `left`, `right`, `above`, and `below`",
 			"A note title or ID cannot replace the local relationship meaning.",
-			"Recenter 🔵 TOP — what this focus answers to: move to <id> because <body-derived reason>",
+			"Recenter 🔵 TOP — what this focus answers to: move to <id> — <readable target title> because <substantive body-derived reason>",
 			"Peek returns and Recenter returns MUST restate the semantic triple",
 		} {
 			if strings.Contains(content, ownerOnly) {
 				t.Errorf("%s duplicates nn-navigate semantic-direction detail %q", name, ownerOnly)
+			}
+		}
+	}
+}
+
+func TestNNNavigateRequiresCompleteVisibleNodeDescriptionsAtEverySeam(t *testing.T) {
+	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	content := string(data)
+
+	for _, required := range []string{
+		"Every visible non-focus node",
+		"Orient, Peek return, Scan, Teleport landing, transient lens auto-return, Back/Forward restoration, and `navigate` resume",
+		"`<id> — <readable title> — <body-derived central claim>`",
+		"scaled to that node's inbound degree",
+		"IDs supplement identity and substance; they never replace either one.",
+		"[ ] every visible non-focus node has ID, readable title, and body-derived claim",
+		"[ ] compact labels have an immediately adjacent complete legend; no orphan or ID-only nodes",
+		"Width pressure may replace map node text with compact labels only",
+		"immediately adjacent complete legend",
+		"every compact label to that node's ID, readable title, and body-derived central claim",
+		"Orphan labels and ID-only nodes are prohibited.",
+		"Empty zones are exempt from node description",
+		"retain the complete semantic gloss",
+		"Every concrete quick-action target MUST include its ID, readable target title",
+		"substantive body- or evidence-derived reason",
+		"`supporting experiment` alone is not a substantive reason",
+		"Automatic returns are full descriptive returns, never skeletal returns.",
+		"**Compliant descriptive node and compact-map fallback:**",
+		"**Noncompliant skeletal presentation:**",
+		"Replay-safe checkpointing",
+		"the body says failed replays restore the last durable boundary",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("nn-navigate complete visible-node presentation contract missing %q", required)
+		}
+	}
+}
+
+func TestNNNavigateVisibleNodeDetailDoesNotLeakIntoDispatchReferences(t *testing.T) {
+	guideData, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-guide: %v", err)
+	}
+	_, execute := setupNotebook(t)
+	virtual, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil {
+		t.Fatalf("show virtual-nn-cli-reference: %v", err)
+	}
+
+	for name, content := range map[string]string{
+		"nn-guide":                 string(guideData),
+		"virtual-nn-cli-reference": virtual,
+	} {
+		for _, ownerOnly := range []string{
+			"Every visible non-focus node",
+			"`<id> — <readable title> — <body-derived central claim>`",
+			"Width pressure may replace map node text with compact labels only",
+			"Orphan labels and ID-only nodes are prohibited.",
+			"`supporting experiment` alone is not a substantive reason",
+			"Automatic returns are full descriptive returns, never skeletal returns.",
+			"**Compliant descriptive node and compact-map fallback:**",
+			"**Noncompliant skeletal presentation:**",
+		} {
+			if strings.Contains(content, ownerOnly) {
+				t.Errorf("%s duplicates nn-navigate visible-node presentation detail %q", name, ownerOnly)
 			}
 		}
 	}
