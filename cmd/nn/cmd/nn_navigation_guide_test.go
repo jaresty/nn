@@ -87,10 +87,10 @@ func TestNNNavigateOwnsCanonicalHumanNavigationContract(t *testing.T) {
 			"Enter", "Orient", "Read from here", "Recenter", "Arrive",
 		},
 		"zones as navigation model": {
-			"TOP (what it answers to)",
-			"BOTTOM (what builds on it)",
-			"LEFT (tension)",
-			"RIGHT (provenance)",
+			"🔵 TOP — what the focus answers to",
+			"🟢 BOTTOM — what builds on the focus",
+			"🔴 LEFT — what contests or questions the focus",
+			"🔷 RIGHT — lateral provenance or task relationships",
 			"Empty zones are information too",
 		},
 		"four action invariant": {
@@ -114,7 +114,7 @@ func TestNNNavigateOwnsCanonicalHumanNavigationContract(t *testing.T) {
 			"[ ] Arrive available",
 			"Bad:",
 			"Why bad:",
-			"Recenter ↓ checkpoint principle",
+			"Recenter 🔵 TOP — what this focus answers to: move to <id> because <body-derived reason>",
 			"#### Presentation discipline (the named block every seam cites)",
 			"P1 — Colors and relay budgets on",
 			"P2 — Focus + Map + Moves",
@@ -318,6 +318,64 @@ func TestNNNavigateOwnsFindAnAnalogAndOptionalLensContracts(t *testing.T) {
 	}
 }
 
+func TestNNNavigateOwnsUniversalNavigateEscapeAndResume(t *testing.T) {
+	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	content := string(data)
+
+	for _, required := range []string{
+		"Say navigate to reopen Focus + Map + Moves at the retained focus.",
+		"after every Arrive report",
+		"after every completed Analogize or Visualize",
+		"after every completed Quiz reveal, pass, skip, or `I don't know`",
+		"when exiting an extended navigation discussion",
+		"Answer, pass/skip/I don't know, or say navigate to leave the Quiz lens and return to navigation.",
+		"`navigate` during an unanswered Quiz aborts the current item",
+		"without grading, revealing the answer, or forcing Quiz completion",
+		"does not mutate focus or navigation history",
+		"restore the complete retained navigation frame",
+		"re-run Orient",
+		"invoke the canonical picker when the harness supports it",
+		"conversational shortcut, not an `nn` subcommand",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("nn-navigate universal navigate escape/resume contract missing %q", required)
+		}
+	}
+}
+
+func TestNNNavigateEscapeResumeDetailDoesNotLeakIntoDispatchReferences(t *testing.T) {
+	guideData, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-guide: %v", err)
+	}
+	_, execute := setupNotebook(t)
+	virtual, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil {
+		t.Fatalf("show virtual-nn-cli-reference: %v", err)
+	}
+
+	for name, content := range map[string]string{
+		"nn-guide":                 string(guideData),
+		"virtual-nn-cli-reference": virtual,
+	} {
+		for _, ownerOnly := range []string{
+			"Say navigate to reopen Focus + Map + Moves at the retained focus.",
+			"Answer, pass/skip/I don't know, or say navigate to leave the Quiz lens and return to navigation.",
+			"`navigate` during an unanswered Quiz aborts the current item",
+			"without grading, revealing the answer, or forcing Quiz completion",
+			"restore the complete retained navigation frame",
+			"invoke the canonical picker when the harness supports it",
+		} {
+			if strings.Contains(content, ownerOnly) {
+				t.Errorf("%s duplicates nn-navigate navigate escape/resume detail %q", name, ownerOnly)
+			}
+		}
+	}
+}
+
 func TestNNGuideDispatchesHumanNavigationWithoutDuplicatingOwner(t *testing.T) {
 	data, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
 	if err != nil {
@@ -390,6 +448,75 @@ func TestNNGuidePreservesGraphCommandReference(t *testing.T) {
 	} {
 		if !strings.Contains(content, required) {
 			t.Errorf("nn-guide command reference missing %q", required)
+		}
+	}
+}
+
+func TestNNNavigateEnforcesSemanticDirectionInEveryHumanFacingUse(t *testing.T) {
+	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	content := string(data)
+
+	for _, required := range []string{
+		"every human-facing directional map label, move, chooser label and description, recommendation, Peek return, and Recenter return",
+		"stable emoji marker, zone name, and local relationship meaning",
+		"`🔵 TOP — what the focus answers to`",
+		"`🟢 BOTTOM — what builds on the focus`",
+		"`🔴 LEFT — what contests or questions the focus`",
+		"`🔷 RIGHT — lateral provenance or task relationships`",
+		"Geometry words such as `upward`, `downward`, `left`, `right`, `above`, and `below` may supplement this semantic triple but never suffice alone.",
+		"A note title or ID cannot replace the local relationship meaning.",
+		"Empty zones still require the marker, zone name, and meaning",
+		"Recenter 🔵 TOP — what this focus answers to: move to <id> because <body-derived reason>",
+		"Peek 🔴 LEFT — what contests or questions this focus: inspect <id> because <body-derived reason>",
+		"Peek returns and Recenter returns MUST restate the semantic triple",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("nn-navigate semantic-direction enforcement missing %q", required)
+		}
+	}
+
+	for _, obsolete := range []string{
+		"Recenter ↓ checkpoint principle",
+		"Peek ↑ Bar fragility",
+		"→ 4302 — peek confirms it resolves the open question",
+		"🔴 LEFT <tension>",
+		"🔷 RIGHT <provenance>",
+		`("no LEFT: nothing contests this")`,
+	} {
+		if strings.Contains(content, obsolete) {
+			t.Errorf("nn-navigate retains direction shorthand without the required semantic triple %q", obsolete)
+		}
+	}
+}
+
+func TestNNNavigateSemanticDirectionDetailDoesNotLeakIntoDispatchReferences(t *testing.T) {
+	guideData, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-guide: %v", err)
+	}
+	_, execute := setupNotebook(t)
+	virtual, err := execute("show", "virtual-nn-cli-reference")
+	if err != nil {
+		t.Fatalf("show virtual-nn-cli-reference: %v", err)
+	}
+
+	for name, content := range map[string]string{
+		"nn-guide":                 string(guideData),
+		"virtual-nn-cli-reference": virtual,
+	} {
+		for _, ownerOnly := range []string{
+			"every human-facing directional map label, move, chooser label and description, recommendation, Peek return, and Recenter return",
+			"Geometry words such as `upward`, `downward`, `left`, `right`, `above`, and `below`",
+			"A note title or ID cannot replace the local relationship meaning.",
+			"Recenter 🔵 TOP — what this focus answers to: move to <id> because <body-derived reason>",
+			"Peek returns and Recenter returns MUST restate the semantic triple",
+		} {
+			if strings.Contains(content, ownerOnly) {
+				t.Errorf("%s duplicates nn-navigate semantic-direction detail %q", name, ownerOnly)
+			}
 		}
 	}
 }

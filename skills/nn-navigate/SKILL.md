@@ -62,16 +62,27 @@ When a human is driving and a chooser is available, **offer at most four options
 
 During cold teleport, replace Recenter with the recommended landing zone and offer additional landing regions only as capacity permits; Peek, Scan, and Arrive remain discoverable. If persistent controls expose an action outside the chooser, say so. Do not replace this contract with a neighbor-only list.
 
+### Semantic-direction enforcement
+
+The policy applies to every human-facing directional map label, move, chooser label and description, recommendation, Peek return, and Recenter return: each **MUST** name the stable emoji marker, zone name, and local relationship meaning together. The required semantic triples are exactly:
+
+- `🔵 TOP — what the focus answers to`;
+- `🟢 BOTTOM — what builds on the focus`;
+- `🔴 LEFT — what contests or questions the focus`;
+- `🔷 RIGHT — lateral provenance or task relationships`.
+
+Geometry words such as `upward`, `downward`, `left`, `right`, `above`, and `below` may supplement this semantic triple but never suffice alone. A note title or ID cannot replace the local relationship meaning. Empty zones still require the marker, zone name, and meaning, for example: `🔴 LEFT — what contests or questions the focus: empty; nothing contests or questions this focus.` This is a guide-only presentation policy; it adds no CLI surface.
+
 **Bad:**
 - Move to A
 - Move to B
 - Arrive
 
-**Why bad:** it hides Peek and Scan and treats navigation as neighbor traversal only.
+**Why bad:** it hides Peek and Scan and treats navigation as neighbor traversal only. Directional glyphs, geometry, titles, or IDs without the semantic triple are also noncompliant.
 
 **Compliant:**
-- Recenter ↓ checkpoint principle
-- Peek ↑ Bar fragility
+- Recenter 🔵 TOP — what this focus answers to: move to <id> because <body-derived reason>
+- Peek 🔴 LEFT — what contests or questions this focus: inspect <id> because <body-derived reason>
 - Scan friction landscape
 - Arrive — stop
 
@@ -140,15 +151,21 @@ Use ASCII on any surface, or **Pi-supported Mermaid** when it will render. Allow
 
 ### Quiz
 
-Quiz is **source-grounded** and tests a bounded set of **consequential concepts**, not trivia. State an **explicit purpose and stopping condition**, normally bounded to 1–3 concepts. Ask **one question, then wait for a human Predict turn before the reveal**; accept safe `pass`, `skip`, or `I don't know` responses without penalty or pressure.
+Quiz is **source-grounded** and tests a bounded set of **consequential concepts**, not trivia. State an **explicit purpose and stopping condition**, normally bounded to 1–3 concepts. Ask **one question, then wait for a human Predict turn before the reveal**; accept safe `pass`, `skip`, or `I don't know` responses without penalty or pressure. Every active Quiz prompt with an unanswered question MUST offer the escape in this wording: `Answer, pass/skip/I don't know, or say navigate to leave the Quiz lens and return to navigation.`
 
 After the Predict turn, compare the prediction with the source-grounded answer, cite the relevant note IDs and stored edge evidence, and explain any misconception and why it matters. Do not invent questions beyond what the retained sources can answer, invent facts or relationships, or test derived-framework recall as though an agent-generated analogy or layout were notebook evidence.
 
 Lens findings may inform a later explicit Recenter or link suggestion, but the lens itself does not mutate focus, history, notes, or links. Any later movement or mutation must be separately proposed and executed under its normal contract.
 
-## `navigate` — resume navigation
+## `navigate` — resume navigation (universal escape)
 
-`navigate` is a **conversational shortcut, not an `nn` subcommand**. When the human says `navigate` after Arrive or after discussing the landed note, resume from the retained final focus: re-run Orient for that note, render Focus + Map + Moves, and offer the canonical Recenter / Peek / Scan / Arrive chooser. Do not search for a new entry point or change focus merely because navigation was reopened.
+`navigate` is a **conversational shortcut, not an `nn` subcommand**. It universally leaves the current lens or navigation discussion and reopens the positioned walk from the retained frame. When the human says `navigate` after Arrive, after a completed lens, or after discussing visited material, resume from the retained final focus: restore the complete retained navigation frame—including its focus, goal, filters, and traversal context—re-run Orient for that focus, render Focus + Map + Moves, and invoke the canonical picker when the harness supports it, populated with the canonical navigation chooser. Otherwise keep all four actions discoverable without inventing an interactive picker. Do not search for a new entry point or change focus merely because navigation was reopened.
+
+`navigate` during an unanswered Quiz aborts the current item without grading, revealing the answer, or forcing Quiz completion. It does not mutate focus or navigation history. Immediately restore the complete retained navigation frame, re-run Orient, render Focus + Map + Moves, and invoke the canonical picker when the harness supports it, populated with the canonical navigation chooser. This is the same conversational escape, never an `nn navigate` command.
+
+Use a navigation-return footer after every lens or discussion seam where the positioned frame remains available: after every Arrive report, after every completed Analogize or Visualize, after every completed Quiz reveal, pass, skip, or `I don't know`, and when exiting an extended navigation discussion. End with this exact footer, or a close equivalent that preserves the `navigate` trigger, all three restored view parts, and the retained focus:
+
+> Say navigate to reopen Focus + Map + Moves at the retained focus.
 
 If no focus is retained, say that resume is structurally unavailable and treat `navigate <query>` as a cold Teleport request. A bare `navigate` with no retained focus should ask for a query or offer Scan and Arrive rather than inventing a destination.
 
@@ -189,18 +206,18 @@ This seed is the compact enforcement contract for virtual protocols. The detaile
    ```
    nn graph show --focus <id> --depth 1 --direction both --zones --bodies --presentation-hints --color always --format text
    ```
-   You now see, for the current node: TOP (what it answers to), BOTTOM (what builds on it), LEFT (tension), RIGHT (provenance) — each neighbor with its body inline, its `↑out ↓in` degree, and a zone key. Empty zones are information too: no LEFT means nothing contests this node; no TOP means it's a root. A neighbor with high inbound degree is a hub worth weighting even if it's off your direct path.
+   You now see, for the current node: 🔵 TOP — what the focus answers to; 🟢 BOTTOM — what builds on the focus; 🔴 LEFT — what contests or questions the focus; and 🔷 RIGHT — lateral provenance or task relationships. Each neighbor includes its body, its `↑out ↓in` degree, and a zone key. Empty zones are information too: `🔴 LEFT — what contests or questions the focus: empty` means nothing contests or questions this focus; `🔵 TOP — what the focus answers to: empty` means the focus is a root. A neighbor with high inbound degree is a hub worth weighting even if it is off your direct path.
 2. **Read from here** — the bodies let you evaluate a move without leaving the view. Zones tell you *what kind* of move each neighbor is; bodies tell you *whether it's the one you want*. Choose the move that closes distance to your goal:
 
    | Your goal | Zone to step into |
    |-----------|-------------------|
-   | What challenges / questions this? | **LEFT** (tension) |
-   | What is this built on / where did it come from? | **TOP** (answers-to) or **RIGHT** (provenance) |
-   | What builds on / operationalizes this? | **BOTTOM** |
-   | Read the principle underneath a concrete note | **BOTTOM** toward `concept`/`model` types |
+   | What challenges or questions this? | **🔴 LEFT — what contests or questions the focus** |
+   | What does this answer to, or where did it come from? | **🔵 TOP — what the focus answers to** or **🔷 RIGHT — lateral provenance or task relationships** |
+   | What builds on or operationalizes this? | **🟢 BOTTOM — what builds on the focus** |
+   | What is laterally related by provenance or task context? | **🔷 RIGHT — lateral provenance or task relationships** |
 
-3. **Recenter** — pick a neighbor's ID and re-run step 1 with that as `--focus`. Navigation is a chain of ego-hops (the ExcaliBrain model in design note 20260820154156-6576), not a pan over a hairball. Whenever a step (this one, or a return from `peek`/`teleport`) presents the view to a human, apply the [Presentation discipline](#presentation-discipline) (P1–P4).
-4. **Arrive** — stop when the current node answers your goal, or when the zone you were following is empty (e.g. you were chasing tension and this node has no LEFT — the thread ends here). Emit the complete [Arrive report](#arrive-report), including the region reached and what changed relative to the starting goal.
+3. **Recenter** — pick a neighbor's ID and re-run step 1 with that as `--focus`. Navigation is a chain of ego-hops (the ExcaliBrain model in design note 20260820154156-6576), not a pan over a hairball. Whenever a step (this one, or a return from `peek`/`teleport`) presents the view to a human, apply the [Presentation discipline](#presentation-discipline) (P1–P4). Peek returns and Recenter returns MUST restate the semantic triple for every directional option; returning to a title, ID, arrow, or geometry word alone is noncompliant.
+4. **Arrive** — stop when the current node answers your goal, or when the zone you were following is empty (for example, `🔴 LEFT — what contests or questions the focus: empty` ends a walk seeking contesting material). Emit the complete [Arrive report](#arrive-report), including the region reached and what changed relative to the starting goal.
 
 These three verbs are **not** `nn` subcommands or flags — they are named moves *you* (the agent) perform by composing existing primitives, exactly like the walk steps above. There is **no new CLI surface**. Modes and options named below (e.g. "flat mode") are presentation choices you make, not shell flags.
 
@@ -229,7 +246,7 @@ At any point in the walk (Enter, Orient, Read, Recenter) you can stop stepping s
 
 **Make it spatial — you draw the map, the command is just the data.** The `--format text` trees are the *data source*, not the thing you relay. Don't paste raw output. Read it — indentation is reach (hops out), `↑out ↓in` markers are terrain (hubs vs. leaves) — then *draw* a map in whatever form fits the surface (the same "CLI is a faithful data source, the agent is the presenter" split the zoned step uses). Cheapest first:
 
-- **Indented / positional text** — an annotated tree, or a rough sketch placing the hub at the center with ancestry above and descendants fanning below. Works on any surface, including plain terminals and agent relay. This is the default.
+- **Indented / positional text** — an annotated tree, or a rough sketch placing the hub at the center, with `🔵 TOP — what the focus answers to` geometrically above and `🟢 BOTTOM — what builds on the focus` fanning below. Geometry supplements rather than replaces those semantic labels. Works on any surface, including plain terminals and agent relay. This is the default.
 - **A Mermaid diagram** — only when relaying to a human on a surface that *renders* Mermaid. Build it yourself; keep it compact (drop edge annotations, abbreviate titles). An unrendered Mermaid block is just a wall of source.
 
 For the **global** anchor the map is a **different shape** — not a hop-tree from one ego, but **regions as blobs sized by note-count, with bridges as the lines joining them** (a continent map, not a family tree). Mark where you are. On a plain surface, an ASCII sketch:
@@ -304,7 +321,7 @@ Integrate the overlay into the navigation actions as follows:
 
 Use `peek` when Read-from-here isn't enough to judge a move — you want to see one step past the neighbor before committing.
 
-Because `peek` does not move, it **returns you to the walk at the same Recenter decision** you left, so the return carries the full [Presentation discipline](#presentation-discipline) (P1–P4) — in particular P3: re-offer that decision as a Recenter chooser rather than dropping into prose. The peek's finding updates the option descriptions (e.g. "→ 4302 — peek confirms it resolves the open question"); it does not exempt the return from the chooser discipline.
+Because `peek` does not move, it **returns you to the walk at the same Recenter decision** you left, so the return carries the full [Presentation discipline](#presentation-discipline) (P1–P4) — in particular P3: re-offer that decision as a Recenter chooser rather than dropping into prose. The peek's finding updates the option descriptions (for example, `Recenter 🔷 RIGHT — lateral provenance or task relationships: move to 4302 because the peek confirms its body resolves the open provenance question`); it does not exempt the return from the chooser discipline or the semantic-direction enforcement.
 
 #### `teleport` — move far (relocate focus)
 
@@ -321,15 +338,15 @@ Because `peek` does not move, it **returns you to the walk at the same Recenter 
 
 **Offer the recenter as a chooser when the harness supports one and a human is driving the walk.** The Recenter step is a decision — "which neighbor next?" — and a harness chooser (a selectable-option prompt) renders it as clickable moves rather than a wall of prose. Use it *only* when both hold: the harness exposes a chooser affordance, **and** a human is co-navigating this walk. When either is false — you are navigating autonomously toward a goal, or stdout is not a TTY — do **not** invoke a chooser: pick the move yourself per the goal and continue (nn is non-interactive by default when stdout is not a TTY).
 
-When you do offer a chooser, use the [Canonical navigation chooser](#canonical-navigation-chooser), not a neighbor-only chooser. The recommended Recenter targets the goal-relevant zone (LEFT for tension, TOP/RIGHT for provenance, BOTTOM for what-builds-on) and its description includes the zone, `↑out ↓in` degree, and a one-line body-derived claim. Peek targets the most useful direction, Scan names the landscape view, and Arrive remains the stop action. Then execute the selected action. Teleport, Visit, Recenter, and Go to may adopt a new destination; Back and Forward may only restore retained frames. No other action changes focus.
+When you do offer a chooser, use the [Canonical navigation chooser](#canonical-navigation-chooser), not a neighbor-only chooser. The recommended Recenter targets the goal-relevant semantic triple—`🔴 LEFT — what contests or questions the focus`, `🔵 TOP — what the focus answers to`, `🔷 RIGHT — lateral provenance or task relationships`, or `🟢 BOTTOM — what builds on the focus`—and its description includes that complete triple, `↑out ↓in` degree, and a one-line body-derived claim. Peek names the complete semantic triple for its most useful direction, Scan names the landscape view, and Arrive remains the stop action. Then execute the selected action. Teleport, Visit, Recenter, and Go to may adopt a new destination; Back and Forward may only restore retained frames. No other action changes focus.
 
 <a id="presentation-discipline"></a>
 #### Presentation discipline (the named block every seam cites)
 
 **This is the single source of truth for how any walk view is presented to a human. Every point that presents a positioned view — Orient, the return after `peek`, the landing after `teleport`, `scan` — cites this block by name rather than restating it. A rule stated only at one step definition does not travel across a seam that re-enters the walk from elsewhere; centralizing it here is what stops per-seam drift.** When presenting to a human on a capable surface, all four apply jointly:
 
-- **P1 — Colors and relay budgets on.** Every color-capable human-facing navigation view uses the stable markers below—not only post-landing Orient, but also the JSON-backed pre-landing Teleport chooser, the return after Peek, Scan at both altitudes, and Arrive. Run the underlying `nn graph show … --zones --bodies --presentation-hints --color always` so zone/type/edge markers and degree-based summary budgets survive relay. Graph text sources MUST use `--color always` for a color-capable human relay; do not trust `auto`, because tool stdout is commonly non-TTY. JSON sources are marker-free by design: parse them, then manually apply the relay palette to the human-facing chooser, headings, map, focus, and region labels—never mutate or claim markers exist in the JSON. On a surface that cannot display color emoji, omit the markers but preserve all labels and structure; keep `--presentation-hints` so each complete body travels with an in-context relay budget.
-- **P2 — Focus + Map + Moves.** Give the Focus summary (substance), positional/ASCII Map (structure), and degree-scaled Moves (direction) defined above. None is sufficient alone: a map without summaries is a skeleton you can't read; summaries without a map lose the spatial relationships. Never relay raw command output. (Detailed as (a)/(b)/(c) below.)
+- **P1 — Colors and relay budgets on.** Every color-capable human-facing navigation view uses the stable markers below—not only post-landing Orient, but also the JSON-backed pre-landing Teleport chooser, the return after Peek, Scan at both altitudes, and Arrive. Run the underlying `nn graph show … --zones --bodies --presentation-hints --color always` so zone/type/edge markers and degree-based summary budgets survive relay. Graph text sources MUST use `--color always` for a color-capable human relay; do not trust `auto`, because tool stdout is commonly non-TTY. JSON sources are marker-free by design: parse them, then manually apply the relay palette to the human-facing chooser, headings, map, focus, and region labels—never mutate or claim markers exist in the JSON. The stable emoji marker and textual zone/meaning triple remains mandatory even when the surrounding surface cannot render terminal color; keep `--presentation-hints` so each complete body travels with an in-context relay budget.
+- **P2 — Focus + Map + Moves.** Give the Focus summary (substance), positional/ASCII Map (structure), and degree-scaled Moves (direction) defined above. Every directional use in all three parts follows [Semantic-direction enforcement](#semantic-direction-enforcement). None is sufficient alone: a map without summaries is a skeleton you can't read; summaries without a map lose the spatial relationships. Never relay raw command output. (Detailed as (a)/(b)/(c) below.)
 - **P3 — Canonical four-action chooser.** When the harness exposes a chooser affordance **and** a human is co-navigating, use the canonical Recenter / Peek / Scan / Arrive contract; otherwise pick the move yourself per the goal while keeping all four actions discoverable in the presentation. This applies wherever the walk presents an onward decision, including after `peek` and `teleport`.
 - **P4 — Degree-scaled summaries.** Scale each summary's length to the node's inbound degree (the tiers in (c)); daily/index hubs are connectors-by-aggregation, not substance.
 
@@ -339,26 +356,27 @@ Use this exact palette in every color-capable human-facing navigation view. It e
 
 - `🔵 TOP` — what the focus answers to;
 - `🟢 BOTTOM` — what builds on the focus;
-- `🔴 LEFT` — tension;
-- `🔷 RIGHT` — lateral provenance or task edges;
+- `🔴 LEFT` — what contests or questions the focus;
+- `🔷 RIGHT` — lateral provenance or task relationships;
 - `🟠 FOCUS / REGION` — the retained focus and its current region. Before a Teleport landing exists, use the same orange marker for each candidate landing region and label the recommended candidate explicitly.
 
 Preserve note-type markers and edge-family markers already emitted by graph text instead of remapping them. Agent-drawn positional or region maps must use this palette too. You must **reproduce this legend** in the presentation itself — a short key mapping each marker to its meaning (the five zone markers above, plus the note-type and edge-family markers you carried through) — because a colored marker the reader cannot decode carries no information; the markers and their legend travel together. Plain, uncolored Focus + Map + Moves is noncompliant on a color-capable surface even when its prose and geometry are otherwise correct.
 
 The three parts, in detail:
 
-**(a) Summarize the current note — length scaled to its degree (see the tiers in (c)).** Before the map, characterize where the reader is standing: what this note *is* (its type/status and its central claim, drawn from its body — what it argues, not just its title), and how it sits in its neighborhood (what it refines above, what challenges it, what builds on it). Apply the same degree tiers as the neighbors: a high-degree focus (a hub you've landed on) earns the fuller 2–3 sentence treatment; a low-degree focus (a leaf you're passing through) gets a brief one. This is the anchor the rest of the view hangs off.
+**(a) Summarize the current note — length scaled to its degree (see the tiers in (c)).** Before the map, characterize where the reader is standing: what this note *is* (its type/status and its central claim, drawn from its body — what it argues, not just its title), and how it sits in `🔵 TOP — what the focus answers to`, `🟢 BOTTOM — what builds on the focus`, `🔴 LEFT — what contests or questions the focus`, and `🔷 RIGHT — lateral provenance or task relationships`. Apply the same degree tiers as the neighbors: a high-degree focus (a hub you've landed on) earns the fuller 2–3 sentence treatment; a low-degree focus (a leaf you're passing through) gets a brief one. This is the anchor the rest of the view hangs off.
 
 **(b) Draw the map.** Lay the zones out by position so the layout itself encodes the relationships:
 
 ```
-            🔵 TOP  <what the focus answers to>
-                     ▲
- 🔴 LEFT <tension> ◀── 🟠 YOU ARE HERE <focus id + title> ──▶ 🔷 RIGHT <provenance>
-                     ▼
-         🟢 BOTTOM <what builds on the focus>
+            🔵 TOP — what the focus answers to
+                         ▲
+ 🔴 LEFT — what contests or questions the focus ◀── 🟠 YOU ARE HERE <focus id + title> ──▶ 🔷 RIGHT — lateral provenance or task relationships
+                         ▼
+            🟢 BOTTOM — what builds on the focus
 
-  🟠 focus   ──▶/◀── edge direction   [empty zone = that relationship is absent]
+  🟠 focus   ──▶/◀── edge direction
+  🔴 LEFT — what contests or questions the focus: empty
 ```
 
 **(c) Summarize each neighbor + name the moves — scale each summary's length to that neighbor's inbound degree (`↓`).** Draw each summary from the body (what it *claims*, not just what it's *called*), then flag the recommended next move relative to the goal. Do not give every neighbor a uniform one-liner — that is the failure this step exists to prevent. Use these tiers:
@@ -369,7 +387,7 @@ The three parts, in detail:
 | connected (↓2–4) | one full sentence on its claim |
 | hub (↓5+, or the highest-degree node in view) | 2–3 sentences: its claim *and* why it's load-bearing |
 
-The CLI never truncates — it always gives the full body; degree only tells *you* how much to relay. With `--presentation-hints`, each text node carries a `relay budget:` line and each JSON node carries structured `summary_budget` metadata mirroring these tiers, so this policy remains visible without looking back at the guide. Two overrides: a high-degree *daily* or index note is a hub by connectivity, not substance — treat it as connected (one sentence) and say so; and a low-degree axiom whose body is clearly central gets promoted a tier — let the body's actual claim override the degree. Empty zones carry meaning — call them out ("no LEFT: nothing contests this").
+The CLI never truncates — it always gives the full body; degree only tells *you* how much to relay. With `--presentation-hints`, each text node carries a `relay budget:` line and each JSON node carries structured `summary_budget` metadata mirroring these tiers, so this policy remains visible without looking back at the guide. Two overrides: a high-degree *daily* or index note is a hub by connectivity, not substance — treat it as connected (one sentence) and say so; and a low-degree axiom whose body is clearly central gets promoted a tier — let the body's actual claim override the degree. Empty zones carry meaning and the full semantic triple: say, for example, `🔴 LEFT — what contests or questions the focus: empty; nothing contests or questions this focus.`
 
 Without `--bodies` this is the older search→zone→per-node-`nn show` loop; `--bodies` collapses that into a single call. Keep `--depth 1` when zoning — only direct neighbors carry a zone, and the zoned text view omits unzoned nodes. Bodies can be long; drop `--bodies` (titles only) when you just need the shape, add it back when you need to read.
 
