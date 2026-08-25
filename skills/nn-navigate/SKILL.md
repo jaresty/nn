@@ -53,7 +53,7 @@ This **MUST PRESENT** rule applies before the mode-specific details below; Telep
 
 ## Adaptive hierarchical quick-actions picker
 
-When a human is driving a positioned walk and a chooser is available, the **top-level picker has at most four rows**: **up to three evidence-backed contextual concrete shortcuts**; the **final row is always `All navigation actions…`**. Fewer than three shortcuts is correct when the retained evidence does not justify more. Generic availability is not evidence, and action classes must not be promoted merely to fill rows.
+When a human is driving a positioned walk and a chooser is available, the **top-level picker has at most four rows**: **up to two evidence-backed contextual concrete shortcuts**; a stable **`Lenses…`** row; and the **final row is always `All navigation actions…`**. Fewer than two shortcuts is correct when the retained evidence does not justify more. Generic availability is not evidence, and action classes must not be promoted merely to fill rows.
 
 Every promoted shortcut:
 
@@ -61,7 +61,7 @@ Every promoted shortcut:
 2. states whether selecting it changes or retains focus; and
 3. gives a body- or evidence-derived reason why this concrete action matters now.
 
-A promoted shortcut is concrete, such as a named destination, exact note body, specific explanation, particular lens, or bounded scan. Selecting it executes directly rather than opening its category submenu. Any directional shortcut or reason still includes the complete semantic triple required below.
+A promoted shortcut is concrete, such as a named destination, exact note body, specific explanation, particular lens, or bounded scan. Selecting it executes directly rather than opening its category submenu. A specific promoted `Lens` action may occupy a contextual shortcut slot when its evidence criterion is met, and the stable `Lenses…` row remains present. Any directional shortcut or reason still includes the complete semantic triple required below.
 
 Use exactly these promotion criteria:
 
@@ -83,10 +83,9 @@ Use exactly these promotion criteria:
 
 1. `Show verbatim`
 2. `Explain in depth`
-3. `Use a lens`
-4. `Back`
+3. `Back`
 
-`Use a lens` opens exactly:
+Show verbatim and Explain in depth remain Peek actions. The `Lenses…` row is always present at the top level and opens this exact submenu one picker level away:
 
 1. `Analogize`
 2. `Visualize`
@@ -122,8 +121,8 @@ Geometry words such as `upward`, `downward`, `left`, `right`, `above`, and `belo
 
 **Compliant top-level picker:**
 - Recenter 🔵 TOP — what this focus answers to: move to <id> (changes focus) because <body-derived reason tied to the goal>
-- Peek — Show verbatim <focus-id> (retains focus) because <body-derived reason exact wording matters>
 - Lens — Visualize <named process> (retains focus) because <evidence-derived structural reason>
+- Lenses…
 - All navigation actions…
 
 Relationship templates embedded in a complete promoted label include `Recenter 🔵 TOP — what this focus answers to: move to <id> because <body-derived reason>` and `Peek 🔴 LEFT — what contests or questions this focus: inspect <id> because <body-derived reason>`; the complete label must also state the applicable focus mutation.
@@ -401,7 +400,7 @@ When you offer it, use the [Adaptive hierarchical quick-actions picker](#adaptiv
 
 - **P1 — Colors and relay budgets on.** Every color-capable human-facing navigation view uses the stable markers below—not only post-landing Orient, but also the JSON-backed pre-landing Teleport chooser, the return after Peek, Scan at both altitudes, and Arrive. Run the underlying `nn graph show … --zones --bodies --presentation-hints --color always` so zone/type/edge markers and degree-based summary budgets survive relay. Graph text sources MUST use `--color always` for a color-capable human relay; do not trust `auto`, because tool stdout is commonly non-TTY. JSON sources are marker-free by design: parse them, then manually apply the relay palette to the human-facing chooser, headings, map, focus, and region labels—never mutate or claim markers exist in the JSON. The stable emoji marker and textual zone/meaning triple remains mandatory even when the surrounding surface cannot render terminal color; keep `--presentation-hints` so each complete body travels with an in-context relay budget.
 - **P2 — Focus + Map + Moves.** Give the Focus summary (substance), positional/ASCII Map (structure), and degree-scaled Moves (direction) defined above. Every directional use in all three parts follows [Semantic-direction enforcement](#semantic-direction-enforcement). None is sufficient alone: a map without summaries is a skeleton you can't read; summaries without a map lose the spatial relationships. Never relay raw command output. (Detailed as (a)/(b)/(c) below.)
-- **P3 — Adaptive hierarchical quick-actions picker.** When the harness exposes a chooser affordance **and** a human is co-navigating, show up to three justified concrete shortcuts plus final `All navigation actions…`; keep Recenter / Peek / Scan / Arrive exactly one level away through that row. Otherwise pick the move yourself per the goal while keeping all four action classes discoverable in the presentation. This applies wherever a positioned walk presents an onward decision, including after `peek` and a completed `teleport` landing.
+- **P3 — Adaptive hierarchical quick-actions picker.** When the harness exposes a chooser affordance **and** a human is co-navigating, show up to two justified concrete shortcuts, stable `Lenses…`, and final `All navigation actions…`; keep the Lens submenu and Recenter / Peek / Scan / Arrive exactly one level away through those stable rows. Otherwise pick the move yourself per the goal while keeping all four action classes discoverable in the presentation. This applies wherever a positioned walk presents an onward decision, including after `peek` and a completed `teleport` landing.
 - **P4 — Degree-scaled summaries.** Scale each summary's length to the node's inbound degree (the tiers in (c)); daily/index hubs are connectors-by-aggregation, not substance.
 
 ##### Stable emoji relay palette

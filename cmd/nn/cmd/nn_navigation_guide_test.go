@@ -103,7 +103,8 @@ func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 		"adaptive picker and presentation": {
 			"## Adaptive hierarchical quick-actions picker",
 			"top-level picker has at most four rows",
-			"up to three evidence-backed contextual concrete shortcuts",
+			"up to two evidence-backed contextual concrete shortcuts",
+			"stable **`Lenses…`** row",
 			"final row is always `All navigation actions…`",
 			"Peek and Scan MUST be discoverable",
 			"Before every picker, present:",
@@ -226,13 +227,16 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 	picker := content[pickerStart:pickerEnd]
 	for _, required := range []string{
 		"top-level picker has at most four rows",
-		"up to three evidence-backed contextual concrete shortcuts",
+		"up to two evidence-backed contextual concrete shortcuts",
+		"stable **`Lenses…`** row",
 		"final row is always `All navigation actions…`",
 		"names its action class (`Recenter`, `Peek`, `Scan`, or `Lens`)",
 		"states whether selecting it changes or retains focus",
 		"body- or evidence-derived reason",
 		"Generic availability is not evidence",
 		"executes directly rather than opening its category submenu",
+		"A specific promoted `Lens` action may occupy a contextual shortcut slot",
+		"the stable `Lenses…` row remains present",
 		"Every picker and submenu has at most four rows.",
 		"`Back` returns to its parent picker without mutating focus, history, notes, links, the goal, filters, or traversal context.",
 	} {
@@ -243,7 +247,7 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 
 	exactMenus := []string{
 		"1. `Recenter`\n2. `Peek`\n3. `Scan`\n4. `Arrive`",
-		"1. `Show verbatim`\n2. `Explain in depth`\n3. `Use a lens`\n4. `Back`",
+		"1. `Show verbatim`\n2. `Explain in depth`\n3. `Back`",
 		"1. `Analogize`\n2. `Visualize`\n3. `Quiz`\n4. `Back`",
 		"1. `Local territory`\n2. `Global landscape`\n3. `Find an analog`\n4. `Back`",
 	}
@@ -254,6 +258,8 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 	}
 	for _, required := range []string{
 		"`All navigation actions…` opens the action-class submenu exactly one level away",
+		"The `Lenses…` row is always present at the top level and opens this exact submenu one picker level away",
+		"Show verbatim and Explain in depth remain Peek actions",
 		"`Recenter` may open a destination submenu",
 		"Before every picker, present:",
 		"A. **Focus**", "B. **Map**", "C. **Moves**",
@@ -268,6 +274,7 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 		"canonical chooser remains exactly Recenter / Peek / Scan / Arrive",
 		"They are **not chooser entries**",
 		"Neither `Find an analog` nor a lens adds a chooser entry",
+		"`Use a lens`",
 	} {
 		if strings.Contains(content, contradictory) {
 			t.Errorf("nn-navigate retains contradictory strict-flat chooser rule %q", contradictory)
@@ -470,10 +477,12 @@ func TestAdaptivePickerDetailDoesNotLeakIntoDispatchReferences(t *testing.T) {
 	} {
 		for _, ownerOnly := range []string{
 			"## Adaptive hierarchical quick-actions picker",
+			"up to two evidence-backed contextual concrete shortcuts",
 			"All navigation actions…",
+			"Lenses…",
+			"A specific promoted `Lens` action may occupy a contextual shortcut slot",
 			"Show verbatim",
 			"Explain in depth",
-			"Use a lens",
 			"Local territory",
 			"Global landscape",
 			"source-bounded full treatment",
