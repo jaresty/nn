@@ -394,7 +394,7 @@ Before navigating, run `nn skills list` if it has not yet run this session, then
 nn skills get nn-navigate
 ```
 
-`nn-navigate` owns the detailed zoned navigation model, arrival scaling, route/impact/path overlays, teleport/scan/peek behavior, chooser and presentation discipline, and conversation-scoped history, bookmarks, and compaction. Do not conduct the iterative workflow from this command reference alone.
+`nn-navigate` owns the detailed zoned navigation model, arrival scaling, route/impact/path overlays, teleport/scan/peek behavior, chooser and presentation discipline, and conversation-scoped history, bookmarks, and compaction. nn-navigate owns Find an analog and the optional Analogize, Visualize, and Quiz lenses. Do not conduct the iterative workflow from this command reference alone.
 
 ### nn graph apply (YAML changeset manifest)
 

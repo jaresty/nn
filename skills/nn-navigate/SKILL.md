@@ -113,6 +113,39 @@ An Arrive report **MUST** explain the landing note, not merely identify it. Prov
 
 A field-only checklist or one-line summary is not a compliant arrival. The report should optimize for understanding rather than sentence count, while avoiding a raw dump of the note body or graph output.
 
+## Moves versus lenses
+
+Moves operate on the positioned walk; lenses interpret evidence already visited. Focus + Map + Moves remains mandatory whenever the walk presents an onward decision, and the canonical chooser remains exactly Recenter / Peek / Scan / Arrive. Neither `Find an analog` nor a lens adds a chooser entry.
+
+**Find an analog** is a **Scan retrieval move across another region**. It seeks the same **relational structure, not lexical similarity**. Candidate generation may use `nn clusters`, `nn list --search`, `nn list --similar`, and graph neighborhoods, but those retrieval signals identify possibilities rather than establish an analogy. For every serious candidate, compare relational shape and present:
+
+- a correspondence mapping between the focus-side roles, nodes, and edges and their candidate-side counterparts;
+- where the analogy holds and what that correspondence explains;
+- where it breaks, including unmatched roles or differently typed/directed edges; and
+- a classification of any proposed connection as a **missing-edge suggestion** when visited evidence supports a plausible absent stored relationship, or **comparison-only** when the resemblance is explanatory but does not justify a link.
+
+Preserve the retained focus until an explicit Recenter. Finding or comparing an analog does not move focus, push Back, clear Forward, or create the suggested edge.
+
+Lenses are **optional after Peek or Arrive**. They are **not chooser entries** and **never mutate focus or navigation history**. After a lens, retain the same frame and, if navigation continues, return to Focus + Map + Moves and the canonical chooser.
+
+### Analogize
+
+Generate a **familiar analogy** that helps interpret the visited material. Give an explicit correspondence, state what it clarifies, and state where it breaks. Label the analogy **generated, non-evidence**: it is an explanatory aid, not a notebook fact, stored edge, or substitute for cited evidence.
+
+### Visualize
+
+Visualize **spatializes meaning** in the **retained visited evidence**. Distinguish the **stored Map/graph**—visited notes and stored edges—from any **derived layout** used to explain them. Label derived arrows and groupings as **non-stored**; never imply that proximity, containment, or an explanatory arrow is a notebook edge.
+
+Use ASCII on any surface, or **Pi-supported Mermaid** when it will render. Allowed Mermaid families are `graph`, `flowchart`, `stateDiagram`, `stateDiagram-v2`, `classDiagram`, `erDiagram`, and `sequenceDiagram`; exclude `pie`, `quadrantChart`, and `mindmap`.
+
+### Quiz
+
+Quiz is **source-grounded** and tests a bounded set of **consequential concepts**, not trivia. State an **explicit purpose and stopping condition**, normally bounded to 1–3 concepts. Ask **one question, then wait for a human Predict turn before the reveal**; accept safe `pass`, `skip`, or `I don't know` responses without penalty or pressure.
+
+After the Predict turn, compare the prediction with the source-grounded answer, cite the relevant note IDs and stored edge evidence, and explain any misconception and why it matters. Do not invent questions beyond what the retained sources can answer, invent facts or relationships, or test derived-framework recall as though an agent-generated analogy or layout were notebook evidence.
+
+Lens findings may inform a later explicit Recenter or link suggestion, but the lens itself does not mutate focus, history, notes, or links. Any later movement or mutation must be separately proposed and executed under its normal contract.
+
 ## `navigate` — resume navigation
 
 `navigate` is a **conversational shortcut, not an `nn` subcommand**. When the human says `navigate` after Arrive or after discussing the landed note, resume from the retained final focus: re-run Orient for that note, render Focus + Map + Moves, and offer the canonical Recenter / Peek / Scan / Arrive chooser. Do not search for a new entry point or change focus merely because navigation was reopened.

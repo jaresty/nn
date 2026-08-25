@@ -210,6 +210,114 @@ func TestNNNavigateOwnsCanonicalHumanNavigationContract(t *testing.T) {
 	}
 }
 
+func TestNNNavigatePreservesChooserAndSeparatesMovesFromLenses(t *testing.T) {
+	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	content := string(data)
+
+	chooserStart := strings.Index(content, "## Canonical navigation chooser")
+	chooserEnd := strings.Index(content, "## Arrive report")
+	if chooserStart < 0 || chooserEnd <= chooserStart {
+		t.Fatal("nn-navigate canonical chooser section is missing or malformed")
+	}
+	chooser := content[chooserStart:chooserEnd]
+	canonical := "1. Recommended **Recenter**\n2. **Peek** into the most relevant direction\n3. **Scan** the current landscape\n4. **Arrive — stop**"
+	if !strings.Contains(chooser, canonical) {
+		t.Errorf("canonical chooser changed; want exact ordered choices:\n%s", canonical)
+	}
+	for _, lens := range []string{"Analogize", "Visualize", "Quiz"} {
+		if strings.Contains(chooser, lens) {
+			t.Errorf("canonical chooser contains lens %q", lens)
+		}
+	}
+	for _, required := range []string{
+		"Before every chooser, present:",
+		"A. **Focus**", "B. **Map**", "C. **Moves**",
+		"This **MUST PRESENT** rule",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("mandatory Focus + Map + Moves contract missing %q", required)
+		}
+	}
+}
+
+func TestNNNavigateOwnsFindAnAnalogAndOptionalLensContracts(t *testing.T) {
+	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	content := string(data)
+	assertions := map[string][]string{
+		"moves versus lenses": {
+			"## Moves versus lenses",
+			"Find an analog",
+			"Scan retrieval move across another region",
+			"relational structure, not lexical similarity",
+			"optional after Peek or Arrive",
+			"not chooser entries",
+			"never mutate focus or navigation history",
+		},
+		"analog retrieval workflow": {
+			"`nn clusters`", "`nn list --search`", "`nn list --similar`", "graph neighborhoods",
+			"compare relational shape",
+			"correspondence mapping",
+			"where the analogy holds",
+			"where it breaks",
+			"missing-edge suggestion",
+			"comparison-only",
+			"Preserve the retained focus until an explicit Recenter",
+		},
+		"analogize lens": {
+			"### Analogize",
+			"familiar analogy",
+			"correspondence",
+			"what it clarifies",
+			"where it breaks",
+			"generated, non-evidence",
+		},
+		"visualize lens": {
+			"### Visualize",
+			"spatializes meaning",
+			"retained visited evidence",
+			"stored Map/graph",
+			"derived layout",
+			"derived arrows",
+			"non-stored",
+			"ASCII",
+			"Pi-supported Mermaid",
+			"`graph`", "`flowchart`", "`stateDiagram`", "`stateDiagram-v2`", "`classDiagram`", "`erDiagram`", "`sequenceDiagram`",
+			"exclude `pie`, `quadrantChart`, and `mindmap`",
+		},
+		"quiz lens": {
+			"### Quiz",
+			"source-grounded",
+			"consequential concepts",
+			"explicit purpose and stopping condition",
+			"one question, then wait for a human Predict turn before the reveal",
+			"compare the prediction",
+			"note IDs and stored edge evidence",
+			"misconception and why",
+			"pass", "skip", "I don't know",
+			"bounded to 1–3 concepts",
+			"Do not invent questions",
+			"derived-framework recall",
+		},
+		"later mutation boundary": {
+			"Lens findings may inform a later explicit Recenter or link suggestion",
+			"the lens itself does not mutate focus, history, notes, or links",
+		},
+	}
+	for assertion, required := range assertions {
+		for _, snippet := range required {
+			if !strings.Contains(content, snippet) {
+				t.Errorf("assertion %q failed: nn-navigate missing %q", assertion, snippet)
+			}
+		}
+	}
+}
+
 func TestNNGuideDispatchesHumanNavigationWithoutDuplicatingOwner(t *testing.T) {
 	data, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
 	if err != nil {
@@ -228,6 +336,7 @@ func TestNNGuideDispatchesHumanNavigationWithoutDuplicatingOwner(t *testing.T) {
 		"nn skills list", "nn skills get nn-navigate",
 		"teleport", "orient", "recenter", "peek", "scan", "arrive",
 		"history", "bookmarks", "compaction",
+		"nn-navigate owns Find an analog and the optional Analogize, Visualize, and Quiz lenses",
 	} {
 		if !strings.Contains(strings.ToLower(content), strings.ToLower(required)) {
 			t.Errorf("nn-guide navigation dispatch missing %q", required)
@@ -249,6 +358,13 @@ func TestNNGuideDispatchesHumanNavigationWithoutDuplicatingOwner(t *testing.T) {
 		"selected landing automatically becomes the retained focus",
 		"2–3 sentences is a minimum for simple notes, not a cap",
 		"push the prior frame onto Back and clear Forward",
+		"Scan retrieval move across another region",
+		"correspondence mapping",
+		"generated, non-evidence",
+		"Pi-supported Mermaid",
+		"one question, then wait for a human Predict turn before the reveal",
+		"missing-edge suggestion",
+		"derived-framework recall",
 	} {
 		if strings.Contains(content, ownerOnly) {
 			t.Errorf("nn-guide duplicates nn-navigate owner contract %q", ownerOnly)
@@ -340,6 +456,7 @@ func TestVirtualCLIReferenceDispatchesNavigationWithoutOwningWorkflow(t *testing
 		"if you have not yet done so this session, run `nn skills list`",
 		"run `nn skills get nn-navigate`",
 		"binding skill dispatch",
+		"nn-navigate owns Find an analog and the optional Analogize, Visualize, and Quiz lenses",
 		"nn graph show",
 		"nn graph routes",
 		"nn graph impact",
@@ -354,6 +471,13 @@ func TestVirtualCLIReferenceDispatchesNavigationWithoutOwningWorkflow(t *testing
 		"Bookmark names are case-sensitive",
 		"2–3 sentences is a minimum for simple notes, not a cap",
 		"Presentation discipline (the named block every seam cites)",
+		"Scan retrieval move across another region",
+		"correspondence mapping",
+		"generated, non-evidence",
+		"Pi-supported Mermaid",
+		"one question, then wait for a human Predict turn before the reveal",
+		"missing-edge suggestion",
+		"derived-framework recall",
 	} {
 		if strings.Contains(out, ownerOnly) {
 			t.Errorf("virtual CLI reference duplicates nn-navigate contract %q", ownerOnly)
