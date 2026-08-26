@@ -483,7 +483,7 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
   <div id="mlegend-top"    class="mlegend"><b>▲ answers to</b> governed by, refines, extends, grounded-by</div>
   <div id="mlegend-bottom" class="mlegend"><b>▼ builds on</b> governs, refines, supports</div>
   <div id="mlegend-left"   class="mlegend mlegend-warn"><b>◀ tension</b> contradicts, questions</div>
-  <div id="mlegend-right"  class="mlegend"><b>▶ lateral</b> source-of, requires, related</div>
+  <div id="mlegend-right"  class="mlegend"><b>▶ lateral</b> source-of, requires, follows, related</div>
   <!-- Armed hint: shown when Zoned is on but no node is focused yet. Zones need
        a focus, so this tells the user to pick one. -->
   <div id="zoned-hint">Zoned view — click a node to focus and see its zones.</div>
@@ -677,13 +677,13 @@ function nodeColor(d) { return TYPE_COLOR[d.type] || DEFAULT_COLOR; }
 
 // Edge color by relationship family (the same families that drive zones):
 //   tension (contradicts/questions) = red, matching the left-zone/halo;
-//   provenance & tasks (source-of/requires) = amber; structural (governs/
+//   lateral history/provenance/tasks (follows/source-of/requires) = amber; structural (governs/
 //   refines/extends/grounded-by/supports) = blue. Unknown/untyped = gray.
 const LINK_IDLE = "#3a4a6a";
 function linkColor(type) {
   switch (type) {
     case "contradicts": case "questions": return "#f77e7e"; // tension
-    case "source-of": case "requires":    return "#f7c66b"; // provenance / task
+    case "source-of": case "requires": case "follows": return "#f7c66b"; // lateral
     case "governs": case "refines": case "extends":
     case "grounded-by": case "supports":  return "#7eb8f7"; // structural
     default: return LINK_IDLE;

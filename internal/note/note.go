@@ -43,6 +43,7 @@ var KnownLinkTypes = map[string]bool{
 	"governs":     true,
 	"requires":    true,
 	"grounded-by": true,
+	"follows":     true,
 }
 
 // LinkTypeDescriptions gives a one-line semantic definition for each known link type.
@@ -55,13 +56,14 @@ var LinkTypeDescriptions = map[string]string{
 	"supports":    "The source corroborates the target's claim — use for independent evidence that strengthens but is not constitutive of the target.",
 	"questions":   "The source raises an unresolved challenge to the target — use when the target's claim is uncertain or contested.",
 	"governs":     "The source is an operating protocol that constrains how the target (or its domain) is acted on — use only for protocol notes.",
-	"requires":     "The source cannot be acted on until the target is complete — use for task dependency, not conceptual dependency.",
+	"requires":    "The source cannot be acted on until the target is complete — use for task dependency, not conceptual dependency.",
 	"grounded-by": "The source claim depends on the target observation as its evidential basis — use when removing the target would make the source claim ungrounded (stronger than supports, which is corroborative only).",
+	"follows":     "The source is a later workflow or inquiry step that proceeds after the target without implying derivation, evidential dependence, conceptual extension, governance, contradiction, or task dependency.",
 }
 
 // LinkTypeOrder is the canonical display order for link types.
 var LinkTypeOrder = []string{
-	"refines", "contradicts", "source-of", "extends", "supports", "grounded-by", "questions", "governs", "requires",
+	"refines", "contradicts", "source-of", "extends", "supports", "grounded-by", "questions", "governs", "requires", "follows",
 }
 
 // LinkTypeWarnings gives a confirmation requirement for link types with semantic hazards.
@@ -119,17 +121,17 @@ type Link struct {
 // Note is the in-memory representation of a single Zettelkasten note.
 type Note struct {
 	// Frontmatter fields
-	ID       string
-	Title    string
-	Type     Type
-	Status   Status
-	Tags        []string
+	ID             string
+	Title          string
+	Type           Type
+	Status         Status
+	Tags           []string
 	AppliesWhen    string
 	Representation string
-	ExpiresWhen string
-	Expires     *time.Time
-	Created     time.Time
-	Modified    time.Time
+	ExpiresWhen    string
+	Expires        *time.Time
+	Created        time.Time
+	Modified       time.Time
 
 	// Body is the Markdown content between the frontmatter and the ## Links section.
 	Body string
@@ -192,17 +194,17 @@ func slugify(s string) string {
 
 // frontmatterYAML mirrors the YAML structure used in note files.
 type frontmatterYAML struct {
-	ID       string    `yaml:"id"`
-	Title    string    `yaml:"title"`
-	Type     string    `yaml:"type"`
-	Status   string    `yaml:"status"`
-	Tags        []string  `yaml:"tags"`
+	ID             string     `yaml:"id"`
+	Title          string     `yaml:"title"`
+	Type           string     `yaml:"type"`
+	Status         string     `yaml:"status"`
+	Tags           []string   `yaml:"tags"`
 	AppliesWhen    string     `yaml:"applies_when,omitempty"`
 	Representation string     `yaml:"representation,omitempty"`
-	ExpiresWhen string     `yaml:"expires_when,omitempty"`
-	Expires     *time.Time `yaml:"expires,omitempty"`
-	Created     time.Time  `yaml:"created"`
-	Modified    time.Time  `yaml:"modified"`
+	ExpiresWhen    string     `yaml:"expires_when,omitempty"`
+	Expires        *time.Time `yaml:"expires,omitempty"`
+	Created        time.Time  `yaml:"created"`
+	Modified       time.Time  `yaml:"modified"`
 }
 
 var (
@@ -247,19 +249,19 @@ func Parse(data []byte) (*Note, error) {
 	}
 
 	return &Note{
-		ID:       raw.ID,
-		Title:    raw.Title,
-		Type:     noteType,
-		Status:   noteStatus,
-		Tags:        raw.Tags,
+		ID:             raw.ID,
+		Title:          raw.Title,
+		Type:           noteType,
+		Status:         noteStatus,
+		Tags:           raw.Tags,
 		AppliesWhen:    raw.AppliesWhen,
 		Representation: raw.Representation,
-		ExpiresWhen: raw.ExpiresWhen,
-		Expires:     raw.Expires,
-		Created:     raw.Created,
-		Modified:    raw.Modified,
-		Body:     noteBody,
-		Links:    links,
+		ExpiresWhen:    raw.ExpiresWhen,
+		Expires:        raw.Expires,
+		Created:        raw.Created,
+		Modified:       raw.Modified,
+		Body:           noteBody,
+		Links:          links,
 	}, nil
 }
 
@@ -323,17 +325,17 @@ func parseBody(data []byte) (body string, links []Link, err error) {
 // Marshal serialises the note back to Markdown with YAML frontmatter.
 func (n *Note) Marshal() ([]byte, error) {
 	raw := frontmatterYAML{
-		ID:          n.ID,
-		Title:       n.Title,
-		Type:        string(n.Type),
-		Status:      string(n.Status),
-		Tags:        n.Tags,
+		ID:             n.ID,
+		Title:          n.Title,
+		Type:           string(n.Type),
+		Status:         string(n.Status),
+		Tags:           n.Tags,
 		AppliesWhen:    n.AppliesWhen,
 		Representation: n.Representation,
-		ExpiresWhen: n.ExpiresWhen,
-		Expires:     n.Expires,
-		Created:     n.Created,
-		Modified:    n.Modified,
+		ExpiresWhen:    n.ExpiresWhen,
+		Expires:        n.Expires,
+		Created:        n.Created,
+		Modified:       n.Modified,
 	}
 
 	fmBytes, err := yaml.Marshal(raw)

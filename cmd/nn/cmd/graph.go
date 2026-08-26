@@ -777,7 +777,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				switch linkType {
 				case "contradicts", "questions":
 					return "🔴" // tension
-				case "source-of", "requires", "related":
+				case "source-of", "requires", "follows", "related":
 					return "🔵" // lateral
 				case "refines", "extends", "grounded-by", "governs", "supports":
 					return "🟦" // structural
@@ -837,7 +837,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				fmt.Fprintln(w, "Key (zone = link types):")
 				fmt.Fprintf(w, "  %s — answers-to: governs/supports (in), refines/extends/grounded-by (out)\n", paint("top", "TOP"))
 				fmt.Fprintf(w, "  %s — tension: contradicts, questions\n", paint("left", "LEFT"))
-				fmt.Fprintf(w, "  %s — lateral: source-of, requires\n", paint("right", "RIGHT"))
+				fmt.Fprintf(w, "  %s — lateral: source-of, requires, follows\n", paint("right", "RIGHT"))
 				fmt.Fprintf(w, "  %s — builds-on: governs/supports (out), refines/extends/grounded-by (in)\n", paint("bottom", "BOTTOM"))
 				hasUnclassified := false
 				for _, n := range resultNodes {

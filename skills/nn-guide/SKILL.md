@@ -43,7 +43,7 @@ nn new --quick --title TEXT [--no-edit]
 - `--from-file PATH` scaffolds the note body from `nn ast` output for a source file (sets title to filename if not given)
 - `--quick` — shorthand capture: sets type=observation, status=draft, content empty; skips type requirement. Use for fast capture when the note will be refined later.
 - `--no-suggest` — skips the link/tag suggestion prompt after creation. Use in non-interactive or batch contexts.
-- `--link-to ID --link-type TYPE --annotation TEXT` — repeatable; add multiple links at creation time. All three flags are paired by position, and every type must be canonical and non-empty.
+- `--link-to ID --link-type TYPE --annotation TEXT` — repeatable positional triples for adding links at creation time. If any one is supplied, all three are required and their counts must match. Every type must be canonical and non-empty.
 - `--check` — opt-in; runs representation graph validation after creation. No-op if the note has no `representation` field.
 
 ### Choosing a type
@@ -314,7 +314,7 @@ nn bulk-unlink <from-id> --to <id> [--to <id> ...] [--type TYPE ...]
 
 Both `--annotation` and a canonical, non-empty `--type` are required for new links. Legacy untyped links remain readable. Use `nn link set-type` to type exactly one legacy relationship atomically; it preserves endpoints and annotation, rejects already-typed or ambiguous matches, and `--annotation-matches` disambiguates by annotation substring.
 
-Canonical types: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `grounded-by`, `questions`, `governs`, `requires`.
+Canonical types: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `grounded-by`, `questions`, `governs`, `requires`, `follows`.
 
 Type definitions — choose the type whose definition matches the relationship you intend:
 
@@ -327,6 +327,7 @@ Type definitions — choose the type whose definition matches the relationship y
 - `questions` — The source raises an unresolved challenge to the target. Use when the target's claim is uncertain or contested.
 - `governs` ⚠ — The source is an operating protocol that constrains how the target domain is acted on. Only use when you intend the source note to act as an active protocol that governs LLM behavior.
 - `requires` ⚠ — Note A requires note B means A cannot be acted on until B is complete. Use for task dependency only, not conceptual dependency. Completion is derived from B's checkbox state: done when all `- [x]` (or no checkboxes, vacuously). Used with `nn list --unblocked` to surface actionable notes.
+- `follows` — The source is a later workflow or inquiry step that proceeds after the target. It does not imply derivation, evidential dependence, conceptual extension, governance, contradiction, or task dependency. Stored direction is `later step → earlier context`.
 
 `--status` defaults to `draft`. Pass `--status reviewed` when a human is explicitly creating and endorsing the link at creation time.
 
@@ -391,13 +392,13 @@ The `summary` contains `total_impacts`; `counts_by_depth` as a depth-ascending a
 - **TOP** — what the focus answers to / depends on: `governs`/`supports` incoming, or `refines`/`extends`/`grounded-by` outgoing from the focus. Evidence rule: `grounded-by OUT → TOP`; `supports IN → TOP`.
 - **BOTTOM** — what builds on the focus: `governs`/`supports` outgoing, or `refines`/`extends`/`grounded-by` incoming to the focus. Evidence rule: `grounded-by IN → BOTTOM`; `supports OUT → BOTTOM`.
 - **LEFT** — tension: `contradicts`, `questions` (either direction).
-- **RIGHT** — lateral provenance / task edges: `source-of`, `requires` (either direction).
+- **RIGHT** — lateral provenance / task / process-history edges: `source-of`, `requires`, `follows` (either direction).
 
 In `--format json` each node gains a `zone` field (omitted when empty — the focus itself and nodes with no direct/unmapped link to the focus have no zone). In `--format text` nodes are grouped under `TOP`/`LEFT`/`RIGHT`/`BOTTOM` headers. This is the same zone mapping the interactive HTML graph viewer uses, so the CLI and the viewer stay in agreement.
 
 The deprecated `--bodies` compatibility flag includes each node's full body inline beneath its title (and, in `--format text`, its tags on a `tags:` line). In `--format json` each node gains a `body` field (omitted when empty). It applies to every text sub-view—zoned, focused-tree, and flat—and does not change which nodes are traversed. This exact legacy full output remains available during migration, but it is unbounded; use `nn graph bodies` for all new body transport.
 
-Every node also carries a **degree marker**: `--format text` appends `↑<out> ↓<in>` (outgoing/incoming link counts over the whole notebook) to each node line; `--format json` adds `out_degree`/`in_degree`. High inbound degree marks a **hub** (a load-bearing note many others depend on); near-zero marks a **leaf**. The zoned text view is preceded by a **key** mapping each zone to its link types. `--color auto|always|never` (default auto) prefixes each element with a **colored-circle emoji marker** — chosen over ANSI because emoji survive markdown and agent relay (an agent can retype 🟣 in prose; ANSI color dies there): **zone headers** by zone, **node titles** by note type (🟢 concept · 🟣 model · ⚪ observation · 🟡 hypothesis · 🔵 question · 🔴 argument · 🟦 protocol), and **edge labels** by link family (🔴 tension = contradicts/questions · 🔵 lateral = source-of/requires · 🟦 structural = refines/extends/grounded-by/governs/supports). With markers on, the zoned key also prints the type and link-family emoji legends. `auto` emits markers only to a TTY (so piped output and json stay clean and parseable); `always` forces them — **use `--color always` when relaying output to a human, since the emoji carry the type/family coloring through to chat where ANSI cannot**; `never` suppresses them.
+Every node also carries a **degree marker**: `--format text` appends `↑<out> ↓<in>` (outgoing/incoming link counts over the whole notebook) to each node line; `--format json` adds `out_degree`/`in_degree`. High inbound degree marks a **hub** (a load-bearing note many others depend on); near-zero marks a **leaf**. The zoned text view is preceded by a **key** mapping each zone to its link types. `--color auto|always|never` (default auto) prefixes each element with a **colored-circle emoji marker** — chosen over ANSI because emoji survive markdown and agent relay (an agent can retype 🟣 in prose; ANSI color dies there): **zone headers** by zone, **node titles** by note type (🟢 concept · 🟣 model · ⚪ observation · 🟡 hypothesis · 🔵 question · 🔴 argument · 🟦 protocol), and **edge labels** by link family (🔴 tension = contradicts/questions · 🔵 lateral = source-of/requires/follows · 🟦 structural = refines/extends/grounded-by/governs/supports). With markers on, the zoned key also prints the type and link-family emoji legends. `auto` emits markers only to a TTY (so piped output and json stay clean and parseable); `always` forces them — **use `--color always` when relaying output to a human, since the emoji carry the type/family coloring through to chat where ANSI cannot**; `never` suppresses them.
 
 ### Human-driven iterative navigation: dispatch to `nn-navigate`
 
@@ -1103,7 +1104,7 @@ Body text.
 ```
 
 Link format in plain-text `show` output: `- [[target-id|Target Title]] [type] {status} — annotation` (titles resolved at render time). In the raw file on disk, the format remains `- [[target-id]] [type] {status} — annotation`.
-- `[type]` optional: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `questions`, `governs`, `requires`
+- `[type]` optional: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `grounded-by`, `questions`, `governs`, `requires`, `follows`
 - `{status}` optional: `draft` (default for new links), `reviewed` (human-endorsed). Absent = `reviewed` (legacy compat).
 
 ## LLM usage patterns

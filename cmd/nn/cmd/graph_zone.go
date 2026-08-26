@@ -30,13 +30,13 @@ const (
 //   - TOP    (what ego answers to): governs/supports IN, refines/extends/grounded-by OUT
 //   - BOTTOM (what builds on ego):  governs/supports OUT, refines/extends/grounded-by IN
 //   - LEFT   (tension):             contradicts, questions (either dir)
-//   - RIGHT  (lateral):             source-of, requires (either dir)
+//   - RIGHT  (lateral):             source-of, requires, follows (either dir)
 func zoneOf(linkType string, dir linkDir) zone {
 	switch linkType {
 	case "contradicts", "questions":
 		return zoneLeft
-	case "source-of", "requires", "related":
-		// source-of/requires are lateral; "related" is a legacy/generic
+	case "source-of", "requires", "follows", "related":
+		// source-of/requires/follows are lateral; "related" is a legacy/generic
 		// association with no clear direction, so treat it as lateral too.
 		return zoneRight
 	case "governs":

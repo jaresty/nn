@@ -39,6 +39,8 @@ func TestZoneOf(t *testing.T) {
 		{"source-of in", "source-of", dirIn, zoneRight},
 		{"requires out", "requires", dirOut, zoneRight},
 		{"requires in", "requires", dirIn, zoneRight},
+		{"follows out", "follows", dirOut, zoneRight},
+		{"follows in", "follows", dirIn, zoneRight},
 		// 'related' is a legacy/generic association (not a core nn type) -> lateral.
 		{"related out", "related", dirOut, zoneRight},
 		{"related in", "related", dirIn, zoneRight},
@@ -54,6 +56,19 @@ func TestZoneOf(t *testing.T) {
 				t.Errorf("zoneOf(%q, %q) = %q, want %q", tc.linkType, tc.dir, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestGraphTemplateDocumentsFollowsAsLateral(t *testing.T) {
+	template, err := os.ReadFile("templates/graph.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(template)
+	for _, required := range []string{"source-of, requires, follows", `case "follows": return "#f7c66b"`} {
+		if !strings.Contains(text, required) {
+			t.Errorf("graph template missing follows lateral presentation %q", required)
+		}
 	}
 }
 
