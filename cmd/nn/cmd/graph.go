@@ -34,6 +34,20 @@ type graphOutput struct {
 	Edges []graphEdge `json:"edges"`
 }
 
+type graphShowOutputRouter struct {
+	cmd *cobra.Command
+}
+
+func (r graphShowOutputRouter) Write(p []byte) (int, error) {
+	if bytes.HasPrefix(p, []byte("Flag --bodies has been deprecated")) {
+		return r.cmd.ErrOrStderr().Write(p)
+	}
+	if parent := r.cmd.Parent(); parent != nil {
+		return parent.OutOrStdout().Write(p)
+	}
+	return os.Stdout.Write(p)
+}
+
 func newGraphCmd(state *rootState) *cobra.Command {
 	var jsonOut bool
 
@@ -89,6 +103,7 @@ func newGraphCmd(state *rootState) *cobra.Command {
 		newGraphRoutesCmd(state),
 		newGraphImpactCmd(state),
 		newGraphShowCmd(state),
+		newGraphBodiesCmd(state),
 		newGraphExportCmd(state),
 		newGraphApplyCmd(state),
 	)
@@ -389,6 +404,9 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show",
 		Short: "Subgraph as structured data (LLM-facing)",
+		Long: "Render traversal-filtered graph topology and presentation metadata.\n\n" +
+			"Deprecated: --bodies remains available for compatibility but is unbounded; " +
+			"use `nn graph bodies` for lossless snapshot-bound paginated JSON bodies.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switch format {
 			case "text", "json", "mermaid":
@@ -883,6 +901,10 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&representation, "representation", "", "Representation required for traversed notes")
 	cmd.Flags().BoolVar(&zones, "zones", false, "Annotate each node with its directional zone (top/bottom/left/right) relative to the focus")
 	cmd.Flags().BoolVar(&bodies, "bodies", false, "Include each node's body (and tags in text output) so the graph can be read as well as navigated")
+	_ = cmd.Flags().MarkDeprecated("bodies", "use `nn graph bodies` for lossless paginated body transport")
+	// Cobra forwards pflag deprecation warnings through the command's stdout.
+	// Route only that warning to stderr so legacy JSON/text stdout remains exact.
+	cmd.SetOut(graphShowOutputRouter{cmd: cmd})
 	cmd.Flags().BoolVar(&presentationHints, "presentation-hints", false, "Annotate nodes with degree-based LLM relay budgets without truncating bodies")
 	cmd.Flags().StringVar(&colorMode, "color", "auto", "Colorize zoned text output by zone: auto (color only to a TTY), always, or never")
 	return cmd

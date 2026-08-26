@@ -175,7 +175,7 @@ func TestPathLinksIsIntegratedWithNavigation(t *testing.T) {
 	if !strings.Contains(help, "--links") {
 		t.Fatalf("path help missing --links:\n%s", help)
 	}
-	navigate, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	navigate, err := os.ReadFile("../../../skills/nn-navigate/references/scan-and-routes.md")
 	if err != nil {
 		t.Fatal(err)
 	}

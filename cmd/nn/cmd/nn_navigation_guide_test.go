@@ -32,6 +32,27 @@ func parseSkillFrontmatter(t *testing.T, content string) skillFrontmatter {
 	return frontmatter
 }
 
+func readNNNavigateBundle() ([]byte, error) {
+	var bundle []byte
+	for _, path := range []string{
+		"../../../skills/nn-navigate/SKILL.md",
+		"../../../skills/nn-navigate/references/presentation.md",
+		"../../../skills/nn-navigate/references/ask.md",
+		"../../../skills/nn-navigate/references/movement.md",
+		"../../../skills/nn-navigate/references/scan-and-routes.md",
+		"../../../skills/nn-navigate/references/lenses.md",
+		"../../../skills/nn-navigate/references/state.md",
+	} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		bundle = append(bundle, data...)
+		bundle = append(bundle, '\n')
+	}
+	return bundle, nil
+}
+
 func TestNNNavigateSkillIsValidAndDiscoverable(t *testing.T) {
 	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
 	if err != nil {
@@ -94,7 +115,7 @@ func TestADR0024RecordsJobsAndAffordanceDrivenIA(t *testing.T) {
 }
 
 func TestNNNavigateOwnsAskConsultationContract(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -132,7 +153,7 @@ func TestNNNavigateOwnsAskConsultationContract(t *testing.T) {
 func TestNNNavigateGraphAskUsesSingularTerminalHandoff(t *testing.T) {
 	paths := []string{
 		"../../../docs/adr/0024-ask-as-navigate-human-consultation.md",
-		"../../../skills/nn-navigate/SKILL.md",
+		"../../../skills/nn-navigate/references/ask.md",
 	}
 	for _, path := range paths {
 		data, err := os.ReadFile(path)
@@ -195,7 +216,7 @@ func TestGraphAskGuideAndReadmeUseSingularTerminalHandoff(t *testing.T) {
 func TestNNNavigateOwnsGraphSelectionToDocumentHandoff(t *testing.T) {
 	paths := []string{
 		"../../../docs/adr/0024-ask-as-navigate-human-consultation.md",
-		"../../../skills/nn-navigate/SKILL.md",
+		"../../../skills/nn-navigate/references/ask.md",
 	}
 	for _, path := range paths {
 		data, err := os.ReadFile(path)
@@ -244,7 +265,7 @@ func TestNNNavigateOwnsGraphSelectionToDocumentHandoff(t *testing.T) {
 func TestNNNavigateReopensRetainedGraphAskWithoutDraftResumption(t *testing.T) {
 	paths := []string{
 		"../../../docs/adr/0024-ask-as-navigate-human-consultation.md",
-		"../../../skills/nn-navigate/SKILL.md",
+		"../../../skills/nn-navigate/references/ask.md",
 	}
 	for _, path := range paths {
 		data, err := os.ReadFile(path)
@@ -305,7 +326,7 @@ func TestNNNavigateReopensRetainedGraphAskWithoutDraftResumption(t *testing.T) {
 func TestGraphAskLassoContractIsEdgeAware(t *testing.T) {
 	paths := []string{
 		"../../../docs/adr/0024-ask-as-navigate-human-consultation.md",
-		"../../../skills/nn-navigate/SKILL.md",
+		"../../../skills/nn-navigate/references/ask.md",
 	}
 	for _, path := range paths {
 		data, err := os.ReadFile(path)
@@ -334,7 +355,7 @@ func TestGraphAskLassoContractIsEdgeAware(t *testing.T) {
 // diagram-level epistemic note instead of noisy per-element labels, emits real
 // multiline Mermaid labels, reads native Canvas output, and restores the frame.
 func TestNNNavigateOwnsGraphSelectionToCanvasHandoff(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -400,7 +421,7 @@ func TestADR0024PinsCanvasDiagramDisclosureAndMultilineLabels(t *testing.T) {
 }
 
 func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -450,7 +471,9 @@ func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 			"P2 — Focus + Map + Moves",
 			"P3 — Adaptive hierarchical quick-actions picker",
 			"P4 — Degree-scaled summaries",
-			"--zones --bodies --presentation-hints --color always",
+			"--zones --presentation-hints --color always",
+			"nn graph bodies",
+			"retrieve every page",
 		},
 		"compact enforcement seed": {
 			"applies_when: human-driven nn graph navigation",
@@ -542,7 +565,7 @@ func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 }
 
 func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -624,7 +647,7 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 }
 
 func TestNNNavigateClarifiesDismissalBackAndFullFrameHierarchy(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -645,7 +668,7 @@ func TestNNNavigateClarifiesDismissalBackAndFullFrameHierarchy(t *testing.T) {
 }
 
 func TestNNNavigateRetainsConversationScopedMenuUIState(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -667,7 +690,7 @@ func TestNNNavigateRetainsConversationScopedMenuUIState(t *testing.T) {
 }
 
 func TestNNNavigateSupportsDirectConversationalActionsAndDeterministicReturns(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -694,7 +717,7 @@ func TestNNNavigateSupportsDirectConversationalActionsAndDeterministicReturns(t 
 }
 
 func TestNNNavigateAvoidsRedundantTransientRenders(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -726,7 +749,7 @@ func TestNNNavigateAvoidsRedundantTransientRenders(t *testing.T) {
 }
 
 func TestNNNavigatePromotesOnlyEvidenceBackedContextualShortcuts(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -746,7 +769,7 @@ func TestNNNavigatePromotesOnlyEvidenceBackedContextualShortcuts(t *testing.T) {
 }
 
 func TestNNNavigateOwnsTransientActionReturnAndDeepPeekContracts(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -771,7 +794,7 @@ func TestNNNavigateOwnsTransientActionReturnAndDeepPeekContracts(t *testing.T) {
 }
 
 func TestNNNavigateOwnsFindAnAnalogAndLensContracts(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -845,7 +868,7 @@ func TestNNNavigateOwnsFindAnAnalogAndLensContracts(t *testing.T) {
 }
 
 func TestNNNavigateOwnsUniversalNavigateEscapeAndResume(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -938,7 +961,7 @@ func TestAdaptivePickerDetailDoesNotLeakIntoDispatchReferences(t *testing.T) {
 }
 
 func TestConsolidatedMenuUXIsSingleSourcedInNNNavigate(t *testing.T) {
-	ownerData, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	ownerData, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -1057,7 +1080,7 @@ func TestNNGuidePreservesGraphCommandReference(t *testing.T) {
 }
 
 func TestNNNavigateEnforcesSemanticDirectionInEveryHumanFacingUse(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -1126,7 +1149,7 @@ func TestNNNavigateSemanticDirectionDetailDoesNotLeakIntoDispatchReferences(t *t
 }
 
 func TestNNNavigateRequiresCompleteVisibleNodeDescriptionsAtEverySeam(t *testing.T) {
-	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	data, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}
@@ -1194,7 +1217,7 @@ func TestNNNavigateVisibleNodeDetailDoesNotLeakIntoDispatchReferences(t *testing
 }
 
 func TestNNNavigateOwnsStableColorRelayDiscipline(t *testing.T) {
-	ownerData, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	ownerData, err := readNNNavigateBundle()
 	if err != nil {
 		t.Fatalf("read nn-navigate: %v", err)
 	}

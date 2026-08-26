@@ -95,6 +95,12 @@ Use --dest to specify a custom destination directory.`,
 				return err
 			}
 			fmt.Fprintf(outWriter(cmd), "Installed nn stub: %s\n", filepath.Join(dest, "nn", "SKILL.md"))
+			if forLLM == "pi" {
+				if err := installPiSkillSourcesToDest(dest); err != nil {
+					return err
+				}
+				fmt.Fprintf(outWriter(cmd), "Installed recursive nn Pi skill sources: %s\n", dest)
+			}
 			return nil
 		},
 	}
@@ -126,6 +132,13 @@ Then load the matching skill before responding:
 ` + "```bash" + `
 nn skills get <name>
 ` + "```" + `
+
+When a compact skill core dispatches an action to a lazy reference, fetch that owner before acting:
+
+` + "```bash" + `
+nn skills get <name> --list-references
+nn skills get <name> --reference <reference-name>
+` + "```" + `
 `
 
 var deprecatedSkillDirs = []string{
@@ -145,4 +158,28 @@ func installSkillsToDest(dest string) error {
 		return fmt.Errorf("create stub dir: %w", err)
 	}
 	return os.WriteFile(filepath.Join(stubDir, "SKILL.md"), []byte(nnSkillStub), 0o644)
+}
+
+// installPiSkillSourcesToDest materializes the standard Pi package skill trees.
+// Pi can discover these directly, while the nn dispatch stub remains available
+// for the version-matched `nn skills get` workflow used by global context.
+func installPiSkillSourcesToDest(dest string) error {
+	entries, err := nnSkills.FS.ReadDir(".")
+	if err != nil {
+		return fmt.Errorf("install-skills: read embedded skills: %w", err)
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		destDir := filepath.Join(dest, name)
+		if err := os.RemoveAll(destDir); err != nil {
+			return fmt.Errorf("install-skills: replace Pi skill %s: %w", name, err)
+		}
+		if err := nnSkills.CopySkillTree(nnSkills.FS, name, destDir); err != nil {
+			return fmt.Errorf("install-skills: copy Pi skill %s: %w", name, err)
+		}
+	}
+	return nil
 }

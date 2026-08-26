@@ -347,10 +347,24 @@ JSON output: `{ "nodes": [...], "edges": [...] }`
 ### nn graph show (LLM-facing subgraph)
 
 ```
-nn graph show [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--zones] [--bodies] [--presentation-hints] [--format text|json|mermaid]
+nn graph show [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--zones] [--presentation-hints] [--format text|json|mermaid]
 ```
 
 With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 and direction defaults to `outgoing`. `--links` accepts canonical link types, `--status` accepts `draft`, `reviewed`, or `permanent`, and `--representation` accepts one representation value. Filters constrain BFS expansion, so traversal does not pass through an ineligible intermediate note. Without --focus, graph show renders the full graph; explicitly supplied traversal flags, including `--depth`, require `--focus`. In zoned views, directly connected legacy untyped links appear under `UNCLASSIFIED`; they remain structurally visible but receive no inferred TOP/BOTTOM/LEFT/RIGHT semantics. Mermaid output preserves stored edge orientation, includes link type and annotation labels, represents missing edge endpoints as deterministic placeholder nodes, and emits deterministic provenance comments for the normalized traversal options. Use `--format json` for structured output or `--format mermaid` for Markdown-compatible diagrams. Prefer focused output when exploring a note's neighborhood.
+
+`nn graph show --bodies` is deprecated. Cobra keeps it accepted for compatibility, emits a warning on stderr, and preserves its existing complete unpaginated text/JSON stdout exactly. Do not use it for new agent workflows; an inline result can exceed the transport boundary.
+
+### nn graph bodies (lossless paginated body transport)
+
+```
+nn graph bodies [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--page N] [--snapshot SHA256]
+```
+
+Returns JSON body segments for exactly the same filtered traversal set as `nn graph show`. Selection has identical focus/depth/direction/link/status/representation semantics; without `--focus` it selects the full graph, while explicitly supplied traversal flags require `--focus`. Notes are ordered by ID. Fetch page 1 first. Its compact envelope is `{"snapshot":"…","page":1,"pages":N,"next_page":2,"segments":[…]}`; page and segment ordinals are one-based, and `next_page` is `0` on the final page. Every later page requires `--snapshot <value-from-page-1>`, and every response repeats the same snapshot and page count. A stale or mismatched snapshot is rejected after any notebook or normalized traversal change.
+
+Every encoded page, including JSON overhead and its final newline, is at most 48,000 bytes. A record is `{"id":"…","segment":1,"segments":K,"body":"…"}`. Large bodies span ordered UTF-8-safe segments; concatenate each note's decoded `body` values in segment order for byte-for-byte reconstruction. An empty body is explicit as one segment whose `body` is `""`. Retrieve every page and verify the repeated snapshot, page count, and complete segment ordinals before making body-derived claims.
+
+This is a strict metadata boundary: records contain only the note ID, segment ordinals, and stored Markdown body fragment. Frontmatter, title, tags, note type/status/representation, stored links, zones, degree, relay hints, and commentary remain in their owning topology or metadata surfaces. Join bodies to prior `graph show` topology by ID; never present transport metadata as stored prose.
 
 ### nn graph routes (typed destination discovery)
 
@@ -381,7 +395,7 @@ The `summary` contains `total_impacts`; `counts_by_depth` as a depth-ascending a
 
 In `--format json` each node gains a `zone` field (omitted when empty — the focus itself and nodes with no direct/unmapped link to the focus have no zone). In `--format text` nodes are grouped under `TOP`/`LEFT`/`RIGHT`/`BOTTOM` headers. This is the same zone mapping the interactive HTML graph viewer uses, so the CLI and the viewer stay in agreement.
 
-`--bodies` includes each node's full body inline beneath its title (and, in `--format text`, its tags on a `tags:` line). In `--format json` each node gains a `body` field (omitted when empty). It applies to every text sub-view — zoned, focused-tree, and flat — and does not change which nodes are traversed; it only adds contents to nodes already in the result.
+The deprecated `--bodies` compatibility flag includes each node's full body inline beneath its title (and, in `--format text`, its tags on a `tags:` line). In `--format json` each node gains a `body` field (omitted when empty). It applies to every text sub-view—zoned, focused-tree, and flat—and does not change which nodes are traversed. This exact legacy full output remains available during migration, but it is unbounded; use `nn graph bodies` for all new body transport.
 
 Every node also carries a **degree marker**: `--format text` appends `↑<out> ↓<in>` (outgoing/incoming link counts over the whole notebook) to each node line; `--format json` adds `out_degree`/`in_degree`. High inbound degree marks a **hub** (a load-bearing note many others depend on); near-zero marks a **leaf**. The zoned text view is preceded by a **key** mapping each zone to its link types. `--color auto|always|never` (default auto) prefixes each element with a **colored-circle emoji marker** — chosen over ANSI because emoji survive markdown and agent relay (an agent can retype 🟣 in prose; ANSI color dies there): **zone headers** by zone, **node titles** by note type (🟢 concept · 🟣 model · ⚪ observation · 🟡 hypothesis · 🔵 question · 🔴 argument · 🟦 protocol), and **edge labels** by link family (🔴 tension = contradicts/questions · 🔵 lateral = source-of/requires · 🟦 structural = refines/extends/grounded-by/governs/supports). With markers on, the zoned key also prints the type and link-family emoji legends. `auto` emits markers only to a TTY (so piped output and json stay clean and parseable); `always` forces them — **use `--color always` when relaying output to a human, since the emoji carry the type/family coloring through to chat where ANSI cannot**; `never` suppresses them.
 
@@ -395,7 +409,7 @@ Before navigating, run `nn skills list` if it has not yet run this session, then
 nn skills get nn-navigate
 ```
 
-`nn-navigate` owns the detailed zoned navigation model, arrival scaling, route/impact/path overlays, teleport/scan/peek behavior, chooser and presentation discipline, and conversation-scoped history, bookmarks, and compaction. nn-navigate owns Find an analog and the optional Analogize, Visualize, and Quiz lenses. Do not conduct the iterative workflow from this command reference alone.
+`nn-navigate` owns the detailed zoned navigation model, arrival scaling, route/impact/path overlays, teleport/scan/peek behavior, chooser and presentation discipline, and conversation-scoped history, bookmarks, and compaction. Its compact core dispatches those actions to lazy references. Before an applicable action, follow the core's ownership table and fetch each owner with `nn skills get nn-navigate --reference <name>`; use `--list-references` to inspect the stable names and applicability. nn-navigate owns Find an analog and the optional Analogize, Visualize, and Quiz lenses. Do not conduct the iterative workflow from this command reference alone or treat the compact core as inlined action detail.
 
 ### nn graph apply (YAML changeset manifest)
 

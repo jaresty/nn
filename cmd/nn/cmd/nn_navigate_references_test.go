@@ -1,0 +1,191 @@
+package cmd
+
+import (
+	"os"
+	"path/filepath"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+func TestNNNavigateHasCompactCoreAndExactlySixReferences(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "skills", "nn-navigate")
+	core, err := os.ReadFile(filepath.Join(root, "SKILL.md"))
+	if err != nil {
+		t.Fatalf("read core: %v", err)
+	}
+	if len(core) < 15*1024 || len(core) > 25*1024 {
+		t.Fatalf("nn-navigate core is %d bytes, want preferred compact range 15-25 KiB (and always under 50 KiB)", len(core))
+	}
+	if len(core) >= 50*1024 {
+		t.Fatalf("nn-navigate core is %d bytes, must be under 50 KiB", len(core))
+	}
+
+	entries, err := os.ReadDir(filepath.Join(root, "references"))
+	if err != nil {
+		t.Fatalf("read references: %v", err)
+	}
+	var names []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			names = append(names, entry.Name())
+		}
+	}
+	want := []string{"ask.md", "lenses.md", "movement.md", "presentation.md", "scan-and-routes.md", "state.md"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("nn-navigate references = %v, want exactly %v", names, want)
+	}
+}
+
+// retained properties [22]-[27]: the compact core remains a binding dispatcher;
+// splitting detail must not split away state, movement, presentation, or recovery invariants.
+func TestNNNavigateCompactCoreRetainsBindingDispatchContracts(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "skills", "nn-navigate", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("read core: %v", err)
+	}
+	core := string(data)
+
+	properties := map[string][]string{
+		"[22] owning-reference fetch and action dispatch": {
+			"Before executing any applicable action, MUST fetch every owning reference",
+			"nn skills get nn-navigate --reference <name>",
+			"presentation", "ask", "movement", "scan-and-routes", "lenses", "state",
+		},
+		"[23] complete conversation-scoped state model": {
+			"focus: note-id", "goal: string", "filters: {}", "back: []", "forward: []",
+			"bookmarks: {}", "visited_evidence: []", "current_menu:", "menu_stack: []",
+		},
+		"[24] focus mutation invariants": {
+			"Teleport, Visit, Recenter, and Go to may adopt a new destination",
+			"Back and Forward may change focus only by restoring a retained frame",
+			"No other action changes focus",
+		},
+		"[25] canonical Orient commands": {
+			"nn graph show --focus <id> --depth 1 --direction both --zones --presentation-hints --color always --format text",
+			"nn graph bodies --focus <id> --depth 1 --direction both --page 1",
+			"MUST NOT make body-derived claims",
+		},
+		"[26] blocking presentation checklist": {
+			"Navigation presentation blocker checklist",
+			"every visible non-focus node has ID, readable title, and body-derived claim",
+			"Arrive always visible as final top-level action",
+			"A missing item blocks presentation",
+		},
+		"[27] compaction dispatch": {
+			"Before compaction", "--reference state", "full current frame", "Back and Forward stacks",
+			"every bookmark", "current menu and ordered menu stack", "never invent",
+		},
+	}
+	for property, snippets := range properties {
+		for _, snippet := range snippets {
+			if !strings.Contains(core, snippet) {
+				t.Errorf("retained property %s missing %q", property, snippet)
+			}
+		}
+	}
+}
+
+func TestNNNavigatePresentationReferencePreservesFourRowPickerSemantics(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "presentation.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read presentation reference: %v", err)
+	}
+	presentation := string(data)
+	for _, required := range []string{
+		"up to one evidence-backed contextual concrete shortcut",
+		"stable `Lenses…` row",
+		"stable `All navigation actions…` row",
+		"final row is always `■ Arrive`",
+	} {
+		if !strings.Contains(presentation, required) {
+			t.Errorf("presentation reference missing four-row picker rule %q", required)
+		}
+	}
+	if strings.Contains(presentation, "up to two justified concrete shortcuts") {
+		t.Fatal("presentation reference contradicts the one-shortcut/final-Arrive picker contract")
+	}
+
+	start := strings.Index(presentation, "**Compliant top-level picker:**")
+	end := strings.Index(presentation, "Relationship templates embedded")
+	if start < 0 || end <= start {
+		t.Fatal("compliant top-level picker example is missing")
+	}
+	example := presentation[start:end]
+	if !strings.Contains(example, "- ■ Arrive") {
+		t.Fatal("compliant top-level picker example omits the mandatory final Arrive row")
+	}
+}
+
+func TestNNNavigateReferenceActionOwnership(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "skills", "nn-navigate")
+	files := map[string]string{}
+	core, err := os.ReadFile(filepath.Join(root, "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	files["core"] = string(core)
+	for _, name := range []string{"ask", "lenses", "movement", "presentation", "scan-and-routes", "state"} {
+		data, err := os.ReadFile(filepath.Join(root, "references", name+".md"))
+		if err != nil {
+			t.Fatalf("read %s reference: %v", name, err)
+		}
+		files[name] = string(data)
+	}
+
+	owners := map[string]string{
+		"Positioned → AskPrepared → AwaitingHuman → ResultAvailable → Positioned": "ask",
+		"Generate a **familiar analogy**":                                         "lenses",
+		"**Selection completes the landing decision.**":                           "movement",
+		"##### Stable emoji relay palette":                                        "presentation",
+		"nn graph routes --focus ID --links TYPES --search QUERY":                 "scan-and-routes",
+		"an existing exact-case name requires explicit confirmation":              "state",
+	}
+	for marker, owner := range owners {
+		for file, content := range files {
+			got := strings.Contains(content, marker)
+			if file == owner && !got {
+				t.Errorf("owner %s missing action contract %q", owner, marker)
+			}
+			if file != owner && got {
+				t.Errorf("action contract %q duplicated in %s; owner is %s", marker, file, owner)
+			}
+		}
+	}
+}
+
+func TestNNNavigateBundlePreservesKeyContracts(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "skills", "nn-navigate")
+	var bundle strings.Builder
+	for _, path := range []string{
+		"SKILL.md", "references/presentation.md", "references/ask.md", "references/movement.md",
+		"references/scan-and-routes.md", "references/lenses.md", "references/state.md",
+	} {
+		data, err := os.ReadFile(filepath.Join(root, path))
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		bundle.Write(data)
+		bundle.WriteByte('\n')
+	}
+	all := bundle.String()
+	for _, required := range []string{
+		"Focus → Map → Moves",
+		"Recenter — move focus",
+		"Peek — inspect without moving",
+		"Scan — zoom out without moving",
+		"◇ Ask…",
+		"■ Arrive",
+		"🔵 TOP — what the focus answers to",
+		"Illustrative layout and inferred relationships — not literal notebook structure.",
+		"reopen graph ask",
+		"Find an analog",
+		"Say navigate to reopen Focus + Map + Moves at the retained focus.",
+		"This state lasts only for the conversation.",
+	} {
+		if !strings.Contains(all, required) {
+			t.Errorf("split bundle lost key contract %q", required)
+		}
+	}
+}

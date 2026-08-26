@@ -361,7 +361,7 @@ func TestGraphImpactEmptyResultUsesJSONArray(t *testing.T) {
 }
 
 func TestGraphImpactIsDocumentedForNavigation(t *testing.T) {
-	navigate, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	navigate, err := os.ReadFile("../../../skills/nn-navigate/references/scan-and-routes.md")
 	if err != nil {
 		t.Fatal(err)
 	}

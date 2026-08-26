@@ -700,7 +700,7 @@ func TestGraphBridgesSearchIsDocumentedForScan(t *testing.T) {
 			t.Errorf("nn-guide command reference missing %q", required)
 		}
 	}
-	navigate, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	navigate, err := os.ReadFile("../../../skills/nn-navigate/references/scan-and-routes.md")
 	if err != nil {
 		t.Fatal(err)
 	}

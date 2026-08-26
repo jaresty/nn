@@ -41,20 +41,47 @@ func newSkillsListCmd() *cobra.Command {
 }
 
 func newSkillsGetCmd() *cobra.Command {
-	return &cobra.Command{
+	var (
+		listReferences bool
+		reference      string
+	)
+	cmd := &cobra.Command{
 		Use:   "get <name>",
-		Short: "Print full content of a named skill",
+		Short: "Print a named skill core or one of its references",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := args[0]
-			data, err := nnSkills.FS.ReadFile(name + "/SKILL.md")
+			if listReferences {
+				refs, err := nnSkills.ListReferences(nnSkills.FS, name)
+				if err != nil {
+					return err
+				}
+				for _, ref := range refs {
+					fmt.Fprintf(outWriter(cmd), "%s\t%s\n", ref.Name, ref.AppliesWhen)
+				}
+				return nil
+			}
+
+			var (
+				data []byte
+				err  error
+			)
+			if cmd.Flags().Changed("reference") {
+				data, err = nnSkills.ReadReference(nnSkills.FS, name, reference)
+			} else {
+				data, err = nnSkills.ReadSkill(nnSkills.FS, name)
+			}
 			if err != nil {
-				return fmt.Errorf("skill %q not found", name)
+				return err
 			}
 			_, err = fmt.Fprint(outWriter(cmd), string(data))
 			return err
 		},
 	}
+	cmd.Flags().BoolVar(&listReferences, "list-references", false, "List available reference names and applicability")
+	cmd.Flags().StringVar(&reference, "reference", "", "Print one reference by logical name")
+	cmd.MarkFlagsMutuallyExclusive("list-references", "reference")
+	return cmd
 }
 
 // skillDescription extracts the description field from a skill's SKILL.md frontmatter.

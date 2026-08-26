@@ -90,12 +90,32 @@ nn list --json
 Install guided LLM workflows:
 
 ```sh
-nn install-skills              # Claude Code skills in ~/.claude/skills/
-nn install-skills --for pi     # Pi skills in ~/.pi/agent/skills/
-nn install-pi                  # Pi skills plus the nn global-context extension
+nn install-skills              # Claude Code dispatch skill in ~/.claude/skills/
+nn install-skills --for pi     # Pi dispatch skill + recursive skill sources
+nn install --for pi            # Pi skills plus the nn global-context extension
 ```
 
-`nn install-pi` installs a Pi extension that loads `nn show --global` at session start and injects the global protocol context before each agent turn. Restart Pi or run `/reload` after installing.
+`nn install --for pi` installs the Pi extension that loads `nn show --global` at session start and injects the global protocol context before each agent turn. Restart Pi or run `/reload` after installing.
+
+Skills are served version-matched from the binary. Large skills expose lazy references without changing default output:
+
+```sh
+nn skills get nn-navigate                     # compact core only
+nn skills get nn-navigate --list-references   # sorted names + applicability
+nn skills get nn-navigate --reference movement
+```
+
+### Lossless graph body transport
+
+Read topology first, then retrieve the same traversal set's bodies as bounded JSON pages:
+
+```sh
+nn graph show --focus <id> --depth 1 --direction both --zones --format json
+nn graph bodies --focus <id> --depth 1 --direction both --page 1
+nn graph bodies --focus <id> --depth 1 --direction both --page 2 --snapshot <sha256-from-page-1>
+```
+
+Each compact page is at most 48,000 bytes including JSON overhead. Page 1 returns `snapshot`, `pages`, `next_page`, and ordered body `segments`; pass that snapshot to every later page. Retrieve every page before reconstructing bodies or making body-derived claims. Concatenate a note's UTF-8 segments by their one-based `segment` ordinal for exact bytes; huge bodies span segments and empty bodies have one explicit empty segment. A notebook or traversal change rejects the old snapshot. Body records contain no frontmatter, links, or presentation metadata. `nn graph show --bodies` remains accepted for exact legacy output but is deprecated and unbounded.
 
 ### Graph Ask
 

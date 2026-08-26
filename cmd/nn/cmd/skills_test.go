@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"os"
+	"reflect"
 	"strings"
 	"testing"
+
+	nnSkills "github.com/jaresty/nn/skills"
 )
 
 func TestSkillsList(t *testing.T) {
@@ -43,6 +46,102 @@ func TestSkillsGetNoNameErrors(t *testing.T) {
 	_, err := execute("skills", "get")
 	if err == nil {
 		t.Fatal("skills get (no name): want error, got nil")
+	}
+}
+
+func TestSkillsGetDefaultOutputRemainsExactCore(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("skills", "get", "nn-navigate")
+	if err != nil {
+		t.Fatalf("nn skills get nn-navigate: %v", err)
+	}
+	core, err := nnSkills.FS.ReadFile("nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read embedded core: %v", err)
+	}
+	if out != string(core) {
+		t.Fatal("default skills get output must be the byte-exact core without inlined references")
+	}
+	if strings.Contains(out, "# Reference: Ask") {
+		t.Fatal("default skills get unexpectedly inlined references")
+	}
+}
+
+func TestSkillsGetListsReferencesWithStableSortedApplicability(t *testing.T) {
+	_, execute := setupNotebook(t)
+	first, err := execute("skills", "get", "nn-navigate", "--list-references")
+	if err != nil {
+		t.Fatalf("list references: %v", err)
+	}
+	second, err := execute("skills", "get", "nn-navigate", "--list-references")
+	if err != nil {
+		t.Fatalf("list references second run: %v", err)
+	}
+	if first != second {
+		t.Fatalf("reference listing is unstable:\nfirst=%q\nsecond=%q", first, second)
+	}
+
+	var names []string
+	for _, line := range strings.Split(strings.TrimSpace(first), "\n") {
+		fields := strings.SplitN(line, "\t", 2)
+		if len(fields) != 2 || strings.TrimSpace(fields[1]) == "" {
+			t.Fatalf("reference line must contain name and applicability separated by a tab: %q", line)
+		}
+		names = append(names, fields[0])
+	}
+	want := []string{"ask", "lenses", "movement", "presentation", "scan-and-routes", "state"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("reference names = %v, want stable sorted %v", names, want)
+	}
+}
+
+func TestSkillsGetReferenceReturnsOnlyRequestedMarkdown(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("skills", "get", "nn-navigate", "--reference", "movement")
+	if err != nil {
+		t.Fatalf("get movement reference: %v", err)
+	}
+	want, err := nnSkills.FS.ReadFile("nn-navigate/references/movement.md")
+	if err != nil {
+		t.Fatalf("read embedded movement reference: %v", err)
+	}
+	if out != string(want) {
+		t.Fatal("reference output must be the byte-exact requested Markdown file")
+	}
+	if strings.Contains(out, "# Reference: Ask") {
+		t.Fatal("reference retrieval inlined an unrequested reference")
+	}
+}
+
+func TestSkillsGetReferenceRejectsUnsafeUnknownAndNonMarkdownNames(t *testing.T) {
+	_, execute := setupNotebook(t)
+	for _, name := range []string{
+		"", "..", "../presentation", "references/presentation", `references\presentation`,
+		"presentation.md", "unknown", "notes.txt",
+	} {
+		t.Run(strings.NewReplacer("/", "_", `\`, "_").Replace(name), func(t *testing.T) {
+			if _, err := execute("skills", "get", "nn-navigate", "--reference", name); err == nil {
+				t.Fatalf("--reference %q: want rejection", name)
+			}
+		})
+	}
+}
+
+func TestSkillsGetReferenceFlagsAreMutuallyExclusive(t *testing.T) {
+	_, execute := setupNotebook(t)
+	if _, err := execute("skills", "get", "nn-navigate", "--list-references", "--reference", "movement"); err == nil {
+		t.Fatal("--list-references and --reference must be mutually exclusive")
+	}
+}
+
+func TestSkillsGetListReferencesCompatibilityForSkillWithoutReferences(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("skills", "get", "nn-workflow", "--list-references")
+	if err != nil {
+		t.Fatalf("list references for legacy single-file skill: %v", err)
+	}
+	if out != "" {
+		t.Fatalf("single-file skill reference listing = %q, want empty", out)
 	}
 }
 

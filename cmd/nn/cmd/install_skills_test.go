@@ -80,6 +80,29 @@ func TestInstallSkillsForPi(t *testing.T) {
 	}
 }
 
+func TestInstallSkillsForPiRecursivelyCopiesReferences(t *testing.T) {
+	_, execute := setupNotebook(t)
+	dest := t.TempDir()
+
+	if _, err := execute("install-skills", "--for", "pi", "--dest", dest); err != nil {
+		t.Fatalf("nn install-skills --for pi: %v", err)
+	}
+	for _, name := range []string{"ask", "lenses", "movement", "presentation", "scan-and-routes", "state"} {
+		installedPath := filepath.Join(dest, "nn-navigate", "references", name+".md")
+		installed, err := os.ReadFile(installedPath)
+		if err != nil {
+			t.Fatalf("Pi install missing recursive reference %s: %v", installedPath, err)
+		}
+		embedded, err := nnSkills.FS.ReadFile(filepath.ToSlash(filepath.Join("nn-navigate", "references", name+".md")))
+		if err != nil {
+			t.Fatalf("read embedded reference %s: %v", name, err)
+		}
+		if string(installed) != string(embedded) {
+			t.Fatalf("installed Pi reference %s differs from embedded source", name)
+		}
+	}
+}
+
 // TestInstallSkillsMatchInstalled asserts that the installed nn stub at
 // ~/.claude/skills/nn/SKILL.md instructs Claude to call 'nn skills get'.
 // Skips if the stub is not installed.

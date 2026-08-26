@@ -3,5 +3,7 @@ package skills
 
 import "embed"
 
-//go:embed nn-workflow nn-guide nn-navigate nn-capture-discipline nn-link-suggester nn-refine nn-session-debrief nn-refine-workflow
+// Embedding each skill directory recursively includes SKILL.md and references/.
+//
+//go:embed nn-*
 var FS embed.FS

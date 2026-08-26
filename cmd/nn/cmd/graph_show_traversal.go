@@ -15,7 +15,7 @@ type graphShowTraversalOptions struct {
 	representation string
 }
 
-func parseGraphShowCSV(value, flag string) ([]string, error) {
+func parseGraphTraversalCSV(command, value, flag string) ([]string, error) {
 	if value == "" {
 		return nil, nil
 	}
@@ -24,7 +24,7 @@ func parseGraphShowCSV(value, flag string) ([]string, error) {
 	for _, raw := range strings.Split(value, ",") {
 		item := strings.TrimSpace(raw)
 		if item == "" {
-			return nil, fmt.Errorf("graph show: --%s contains an empty value", flag)
+			return nil, fmt.Errorf("%s: --%s contains an empty value", command, flag)
 		}
 		if !seen[item] {
 			seen[item] = true
@@ -34,12 +34,12 @@ func parseGraphShowCSV(value, flag string) ([]string, error) {
 	return values, nil
 }
 
-func newGraphShowTraversalOptions(direction, links, statuses, representation string) (graphShowTraversalOptions, error) {
+func newGraphTraversalOptions(command, direction, links, statuses, representation string) (graphShowTraversalOptions, error) {
 	opts := graphShowTraversalOptions{direction: direction, representation: representation}
 	if direction != "outgoing" && direction != "incoming" && direction != "both" {
-		return opts, fmt.Errorf("graph show: invalid --direction %q (want outgoing, incoming, or both)", direction)
+		return opts, fmt.Errorf("%s: invalid --direction %q (want outgoing, incoming, or both)", command, direction)
 	}
-	linkValues, err := parseGraphShowCSV(links, "links")
+	linkValues, err := parseGraphTraversalCSV(command, links, "links")
 	if err != nil {
 		return opts, err
 	}
@@ -47,12 +47,12 @@ func newGraphShowTraversalOptions(direction, links, statuses, representation str
 		opts.linkTypes = make(map[string]bool, len(linkValues))
 		for _, linkType := range linkValues {
 			if !note.IsKnownLinkType(linkType) || linkType == "" {
-				return opts, fmt.Errorf("graph show: invalid --links value %q", linkType)
+				return opts, fmt.Errorf("%s: invalid --links value %q", command, linkType)
 			}
 			opts.linkTypes[linkType] = true
 		}
 	}
-	statusValues, err := parseGraphShowCSV(statuses, "status")
+	statusValues, err := parseGraphTraversalCSV(command, statuses, "status")
 	if err != nil {
 		return opts, err
 	}
@@ -61,12 +61,16 @@ func newGraphShowTraversalOptions(direction, links, statuses, representation str
 		for _, value := range statusValues {
 			status := note.Status(value)
 			if !status.IsValid() {
-				return opts, fmt.Errorf("graph show: invalid --status value %q (want draft, reviewed, or permanent)", value)
+				return opts, fmt.Errorf("%s: invalid --status value %q (want draft, reviewed, or permanent)", command, value)
 			}
 			opts.statuses[status] = true
 		}
 	}
 	return opts, nil
+}
+
+func newGraphShowTraversalOptions(direction, links, statuses, representation string) (graphShowTraversalOptions, error) {
+	return newGraphTraversalOptions("graph show", direction, links, statuses, representation)
 }
 
 func (opts graphShowTraversalOptions) allowsLink(linkType string) bool {

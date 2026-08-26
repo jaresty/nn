@@ -520,7 +520,7 @@ func TestClustersSearchIsDocumentedForTeleport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	navigate, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	navigate, err := os.ReadFile("../../../skills/nn-navigate/references/movement.md")
 	if err != nil {
 		t.Fatal(err)
 	}

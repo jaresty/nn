@@ -4,6 +4,7 @@
   "private": true,
   "description": "Pi package for nn global protocol context and skills.",
   "keywords": ["pi-package", "nn", "zettelkasten"],
+  "files": ["pi/extensions", "skills"],
   "pi": {
     "extensions": ["./pi/extensions"],
     "skills": ["./skills"]
