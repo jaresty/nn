@@ -15,7 +15,7 @@ Every presented navigation step **MUST KEEP DISCOVERABLE** the four positioned n
 4. **◇ Ask… — suspend for one bounded human decision while retaining the complete frame**
 5. **Arrive — stop**
 
-Ask is neither a look nor a move. An action may be unavailable only when structurally impossible, and the response **MUST** state why. **Peek and Scan MUST be discoverable** in a human-driven walk. In a chooser-capable harness, Recenter, Peek, Scan, and Ask are available through `All navigation actions…` exactly one level below the top picker; Arrive is always the final top-level action. A contextual shortcut may also promote one concrete action to the top.
+Ask is neither a look nor a move. An action may be unavailable only when structurally impossible, and the response **MUST** state why. **Peek and Scan MUST be discoverable** in a human-driven walk. When Navigation help is open in a chooser-capable harness, Recenter, Peek, Scan, and Ask are available through `All navigation actions…` exactly one level below the top picker; Arrive is always the final top-level action. A contextual shortcut may also promote one concrete action to the top. Guided keeps that help open; Advanced does not render it unless `:help`, ambiguity, or an unavailable target temporarily requires contextual help.
 
 Before every picker, present:
 
@@ -31,9 +31,17 @@ For every full positioned presentation, retrieve topology first with `nn graph s
 
 Topology may establish IDs, zones, stored edges, degrees, and relay budgets while paging. It cannot establish a body-derived central claim, body-based recommendation, summary, or substantive concrete-action reason. Do not draft such claims speculatively and then “verify” them later. Body-derived presentation begins only after all pages and all selected bodies reconstruct exactly. Keep the metadata boundary visible: topology, frontmatter, links, transport envelope/ordinals, relay hints, and agent commentary are not stored body prose.
 
+## Navigation help by interaction mode
+
+Navigation help is the contextual adaptive menu on chooser-capable surfaces and an equivalent compact labeled action list on other human conversational surfaces. It is presentation, not a CLI shell. Guided mode is the default and keeps Navigation help persistent: render it after every completed action, even when the positioned frame can use a compact unchanged return. Advanced mode keeps the help closed. `:help` opens the current contextual help temporarily without changing Advanced mode; dismissal or one completed action closes it again. `:guided` makes help persistent, while `:advanced` closes it immediately. An unanswered Quiz and an awaiting Ask retain their waiting UI rather than claiming the action completed.
+
+Every rendered help action shows its human label beside the canonical shorthand from the core. Examples are `Where am I? — :where`, `Orient — :orient`, `Show verbatim — :show`, `Explain in depth — :explain`, `Find gaps — :gaps`, `Local territory — :scan local`, `Global landscape — :scan global`, `Analogize — :analogize`, `Find an analog — :find-analog`, `Visualize — :visualize`, `Quiz — :quiz`, `Ask… — :ask`, and `Arrive — :arrive`. Target rows use their actual grounded labels, for example `Recenter on Replay-safe checkpointing — :recenter "Replay-safe checkpointing"` and `Peek at Replay-safe checkpointing — :peek "Replay-safe checkpointing"`. A compact control key may teach `:back`, `:forward`, `:bookmark "<name>"`, `:goto "<bookmark>"`, `:guided`, `:advanced`, and `:help` without turning Back into a picker row or exceeding picker row limits.
+
+For `:recenter "<label>"` and `:peek "<label>"`, resolve only labels in the current complete-frame help/menu context. A full current-context menu label wins; otherwise require one unique case-insensitive fragment among those labels. Never mint aliases from titles, summaries, likely intent, prior hidden menus, or search results. On multiple matches, make no move and temporarily render narrowed help containing only those matches. On no available match, do not guess or search for a substitute: retain state, explain unavailability, and show only applicable contextual help. Bookmark names are excluded from fragment matching and remain exact-case state keys.
+
 ## Adaptive hierarchical quick-actions picker
 
-When a human is driving a positioned walk and a chooser is available, the **top-level picker has at most four rows**: **up to one evidence-backed contextual concrete shortcut**; a stable **`Lenses…`** row; a stable `All navigation actions…` row; and the **final row is always `■ Arrive`**. No shortcut is correct when the retained evidence does not justify one. Generic availability is not evidence, and action classes must not be promoted merely to fill rows.
+When a human is driving a positioned walk, a chooser is available, and Navigation help is open because mode is Guided or help is temporary, the **top-level picker has at most four rows**: **up to one evidence-backed contextual concrete shortcut**; a stable **`Lenses…`** row; a stable `All navigation actions…` row; and the **final row is always `■ Arrive`**. No shortcut is correct when the retained evidence does not justify one. Generic availability is not evidence, and action classes must not be promoted merely to fill rows.
 
 Every promoted shortcut:
 
@@ -58,7 +66,7 @@ Use exactly these promotion criteria:
 
 ### Stable menus, breadcrumbs, and effects
 
-The menu model is conversation-scoped UI state: retain the **current menu and menu stack**. Its stable menu names are **Quick actions, All actions, Recenter destinations, Peek, Scan, and Lenses**; **Ask** is the stable decision-oriented consultation submenu. This is not notebook state and MUST NOT be written to note files, frontmatter, links, the index, or Git.
+The menu model is conversation-scoped UI state: retain the interaction mode plus the **current menu and menu stack**. Its stable menu names are **Quick actions, All actions, Recenter destinations, Peek, Scan, and Lenses**; **Ask** is the stable decision-oriented consultation submenu. The numbered menus below define stable semantic rows; when rendered as Navigation help, actionable labels are decorated beside their canonical shorthand without changing the semantic row or effect marker. This is not notebook state and MUST NOT be written to note files, frontmatter, links, the index, Git, configuration, or environment.
 
 The top breadcrumb is `<short-id> · Quick actions`. Every submenu shows this breadcrumb form: **`<short-id> · Quick actions › ...`**, using stable menu names for each level, for example `<short-id> · Quick actions › All actions › Peek` and `<short-id> · Quick actions › Lenses`.
 
@@ -99,23 +107,25 @@ Scan contains exactly Local territory and Global landscape; it has no Find an an
 
 Treat **show, explain, analogize, find an analog, find gaps, visualize, quiz, scan, and arrive** as direct conversational intents from any menu, not `nn` subcommands. Treat **ask** the same way when a positioned frame exists. Resolve them without forcing the human to traverse the hierarchy. A bare `scan` opens Scan so the human can choose altitude; an explicit local or global scan executes directly. Direct action vocabulary is presentation-level only and adds no CLI surface.
 
-Returns are deterministic and restore the relevant picker without changing focus or history:
+Returns are deterministic and restore the relevant semantic menu position without changing focus, history, or interaction mode:
 
 - A Lens invoked from Lenses returns to Lenses.
 - Show verbatim and Explain in depth return to Peek.
 - Local territory and Global landscape return to Scan.
-- Ask completion or Cancellation reopens the invoking Ask submenu; a promoted Ask returns to Quick actions, always with the complete prior frame unchanged.
+- Ask completion or Cancellation reopens the invoking Ask submenu in Guided mode; a promoted Ask returns to Quick actions, always with the complete prior frame unchanged.
 - A promoted top-level transient returns to Quick actions.
 - Quiz suspends the picker while unanswered; completion, pass, skip, or `I don't know` returns to the Lenses or Quick actions menu that invoked it.
 - `navigate` aborts Quiz and returns to Quick actions.
 
-Focus-changing Recenter, Teleport, Back, Forward, and Go to rerun Orient and reset the menu to Quick actions. `navigate` always reruns Orient and resets to Quick actions. Arrive stops and retains focus.
+In Guided mode, each completed return renders Navigation help at that menu, so the help/menu remains persistent and continues teaching shorthand. In Advanced mode, the same return position is retained but the help stays closed; if the action was selected from temporary `:help`, completion closes that help. Ambiguity and unavailability may open narrowed temporary help but never switch mode.
+
+Focus-changing Recenter, Teleport, Back, Forward, and Go to rerun Orient and reset the menu to Quick actions. `navigate` always reruns Orient and resets to Quick actions. Both preserve interaction mode: Guided renders Quick actions help and Advanced leaves it closed. Arrive stops and retains focus; Guided still presents contextual Navigation help after the completed Arrive report, while Advanced uses only the navigation-return affordance.
 
 ### Transient rendering policy
 
-Do not redundantly rerender Focus + Map + Moves after a transient action when the complete retained frame and notebook are unchanged. Return with the compact breadcrumb, state that focus is unchanged, and reopen the invoking picker. This compact return is not a degraded full map; it reuses the complete frame already visible in the conversation.
+Do not redundantly rerender Focus + Map + Moves after a transient action when the complete retained frame and notebook are unchanged. In Guided mode, return with the compact breadcrumb, state that focus is unchanged, and reopen the invoking picker. This compact return is not a degraded full map; it reuses the complete frame already visible in the conversation. In Advanced mode, report the transient result and unchanged focus without reopening a picker; temporary help closes on completion. Thus deterministic return selects a semantic menu position, while interaction mode controls whether that menu is rendered.
 
-Perform a full render only when the focus, filters, traversal context, or notebook changed; when navigation resumes after discussion; after an explicit Refresh; or when the cached frame is stale or unknown. A full render preserves the readable full map and all presentation discipline: visible nodes keep IDs, readable titles, and substantive body-derived reasons, with immediately adjacent legends for compact labels. `navigate` still reruns Orient and resets Quick actions; after discussion it full-renders, while an unchanged Quiz abort may compactly reopen Quick actions after Orient confirms the cache.
+Perform a full render only when the focus, filters, traversal context, or notebook changed; when navigation resumes after discussion; after an explicit Refresh; or when the cached frame is stale or unknown. A full render preserves the readable full map and all presentation discipline: visible nodes keep IDs, readable titles, and substantive body-derived reasons, with immediately adjacent legends for compact labels. Full frame rendering does not force Advanced Navigation help open. `navigate` still reruns Orient and resets Quick actions; after discussion it full-renders, while an unchanged Quiz abort may compactly reopen Quick actions in Guided mode after Orient confirms the cache.
 
 ### Full-frame visual hierarchy
 
@@ -183,7 +193,7 @@ Run this check internally before invoking a picker. A missing item blocks presen
 
 - **P1 — Colors and relay budgets on.** Every color-capable human-facing navigation view uses the stable markers below—not only post-landing Orient, but also the JSON-backed pre-landing Teleport chooser, the return after Peek, Scan at both altitudes, and Arrive. Run topology first with the underlying `nn graph show … --zones --presentation-hints --color always`, then complete the identically filtered `nn graph bodies` page loop before deriving body claims. Graph text sources MUST use `--color always` for a color-capable human relay; do not trust `auto`, because tool stdout is commonly non-TTY. JSON sources are marker-free by design: parse them, then manually apply the relay palette to the human-facing chooser, headings, map, focus, and region labels—never mutate or claim markers exist in the JSON. The stable emoji marker and textual zone/meaning triple remains mandatory even when the surrounding surface cannot render terminal color; `--presentation-hints` keeps each topology node's relay budget in context while its body arrives losslessly through the separate transport.
 - **P2 — Focus + Map + Moves.** Give the Focus summary (substance), positional/ASCII Map (structure), and degree-scaled Moves (direction) defined above. Every directional use in all three parts follows [Semantic-direction enforcement](#semantic-direction-enforcement). None is sufficient alone: a map without summaries is a skeleton you can't read; summaries without a map lose the spatial relationships. Never relay raw command output. (Detailed as (a)/(b)/(c) below.)
-- **P3 — Adaptive hierarchical quick-actions picker.** When the harness exposes a chooser affordance **and** a human is co-navigating, show up to one evidence-backed contextual concrete shortcut, a stable `Lenses…` row, a stable `All navigation actions…` row, and the final row is always `■ Arrive`; keep Lenses and Recenter / Peek / Scan / Arrive exactly one level away through those stable rows. Apply breadcrumbs, effect markers, menu-stack transitions, and compact-return rules from the picker contract. Otherwise pick the move yourself per the goal while keeping all four action classes discoverable in the presentation. This applies wherever a positioned walk presents an onward decision, including after `peek` and a completed `teleport` landing.
+- **P3 — Adaptive hierarchical quick-actions picker.** When the harness exposes a chooser affordance, a human is co-navigating, and Navigation help is open under Guided mode or temporary help, show up to one evidence-backed contextual concrete shortcut, a stable `Lenses…` row, a stable `All navigation actions…` row, and the final row is always `■ Arrive`; keep Lenses and Recenter / Peek / Scan / Arrive exactly one level away through those stable rows. Apply breadcrumbs, shorthand labels, effect markers, menu-stack transitions, and mode-aware compact-return rules from the picker contract. In Advanced mode do not open the picker automatically. On a surface without a chooser, use the equivalent labeled help only when mode requires it; an autonomous run picks the move per the goal while keeping all four action classes discoverable in prose. This applies wherever a positioned walk presents an onward decision, including after `peek` and a completed `teleport` landing.
 - **P4 — Degree-scaled summaries.** Scale each summary's length to the node's inbound degree (the tiers in (c)); daily/index hubs are connectors-by-aggregation, not substance.
 
 ##### Stable emoji relay palette

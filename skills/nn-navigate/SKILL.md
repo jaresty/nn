@@ -26,6 +26,47 @@ nn skills get nn-navigate
 
 Use `nn-guide` only for command syntax and command semantics. `nn-navigate` is the sole owner of the human navigation workflow, presentation contract, and conversation-scoped navigation state. None of the named navigation verbs creates a new `nn navigate`, `nn teleport`, `nn orient`, `nn recenter`, `nn peek`, `nn scan`, or `nn arrive` CLI surface; the agent composes existing commands.
 
+## Conversational Navigation DSL
+
+The navigation DSL is a static skill contract of **colon-prefixed skill-level intents**, not `nn` subcommands, Cobra commands, shell syntax, configuration, or a runtime parser. Natural conversational intents remain accepted: `show this note`, `go back`, `scan globally`, `recenter on the checkpoint`, and `navigate` retain their ordinary meanings. The colon forms are canonical shorthand for the same actions:
+
+```text
+:help
+:guided
+:advanced
+:where
+:orient
+:recenter "<label>"
+:peek "<label>"
+:show
+:explain
+:gaps
+:scan local
+:scan global
+:analogize
+:find-analog
+:visualize
+:quiz
+:ask
+:back
+:forward
+:bookmark "<name>"
+:goto "<bookmark>"
+:arrive
+```
+
+The canonical grammar is exactly **`:help`, `:guided`, `:advanced`, `:where`, `:orient`**; **`:recenter "<label>"`, `:peek "<label>"`, `:show`, `:explain`, `:gaps`**; **`:scan local`, `:scan global`, `:analogize`, `:find-analog`, `:visualize`**; and **`:quiz`, `:ask`, `:back`, `:forward`, `:bookmark "<name>"`, `:goto "<bookmark>"`, `:arrive`**. Quoted placeholders are arguments, not literal quote requirements when an unquoted remainder is unambiguous. Bookmark names retain the case-sensitive rules in `state`; label targets use the contextual resolution rule below.
+
+### Guided and Advanced interaction
+
+The conversation-scoped field is `interaction mode: guided | advanced`. **Guided mode is the default.** Navigation help remains visible after every completed action, including a completed transient, move, Ask, cancellation, and Arrive, and shows each action beside its canonical shorthand. A pending Ask or unanswered Quiz is not completed and keeps its owned waiting presentation.
+
+**Advanced mode keeps Navigation help closed.** `:help` opens it temporarily without changing mode; the temporary help closes after one completed action or explicit dismissal. `:guided` switches to Guided mode and opens persistent Navigation help. `:advanced` switches to Advanced mode and closes it. A direct launch beginning **`navigate advanced`** starts or resumes the walk in Advanced mode and treats any remaining words as the ordinary navigation query or intent. Mode switching never changes focus, graph history, the goal, filters, bookmarks, or notebook content.
+
+A target-taking command such as `:recenter` or `:peek` resolves only against **current-context menu labels** already grounded in the current complete frame. Accept a complete displayed label or a **unique case-insensitive label fragment**. The skill **must not create generated note aliases**, silently broaden the candidate set, or resolve against a stale/hidden context. **Ambiguity opens narrowed help** containing only the matching grounded labels, even in Advanced mode, without changing mode or navigation state. **An unavailable target never guesses**: state why it is unavailable and show only applicable contextual help. This label rule does not weaken exact, case-sensitive bookmark lookup for `:goto`.
+
+Treat mode as conversation state and preserve it through moves, lenses, Ask, and compaction independently of graph frames and menu position. Missing interaction mode defaults to Guided, even when missing graph or history state must remain unknown. Conversation handoffs may carry it, but never persist interaction mode to notes, frontmatter, links, SQLite, protocol notes, Git, configuration, or environment. Skill retrieval remains deterministic and untemplated: DSL text and mode are never interpolated into `nn skills get nn-navigate` or reference retrieval.
+
 ## Binding lazy-reference rule
 
 Before executing any applicable action, MUST fetch every owning reference, unless that exact reference from this exact skill version has already been fetched in the current uncompacted context:
@@ -44,6 +85,7 @@ Do not guess a reference path, read a packaged path directly, or assume the comp
 
 | Action or seam | Owning reference(s) that MUST be fetched before acting |
 |---|---|
+| Conversational DSL help, Guided/Advanced presentation, or contextual target-label resolution | `presentation`; also `state` when interaction mode changes or is recovered |
 | Any human-facing Focus + Map + Moves view, chooser, return, relay color/legend, semantic direction label, or presentation validation | `presentation` |
 | Ask preparation, launch, cancellation, retained Graph Ask reopening, Graph result interpretation, or Graph→Canvas/Document handoff | `ask`; also `state`; fetch `presentation` before reopening a picker |
 | Enter, Orient, Recenter, Peek, Teleport, Arrive, or conversational `navigate` resume | `movement`; also `presentation`; fetch `state` when a retained frame/history is read or changed |
@@ -67,15 +109,16 @@ back: []
 forward: []
 bookmarks: {}
 menu_ui:
+  interaction_mode: guided
   current_menu: Quick actions
   menu_stack: []
 ```
 
 Every frame carries enough active traversal context to reproduce the positioned view. Preserve direction, link types, status, representation, depth, route witness, impact types/direction/depth, destination query, and any other active graph constraint in `filters` or an explicitly typed equivalent. `visited_evidence` is bounded source evidence retained for interpretation; it is not permission to turn generated content into notebook fact.
 
-Back and Forward contain complete frames in stack order. Every bookmark maps its case-sensitive name to a complete saved frame. Menu UI is a separate ordered stack: changing or dismissing a menu does not change graph history, and graph movement does not masquerade as a menu pop. None of this state may be written to note bodies, frontmatter, links, SQLite, protocol notes, or Git.
+Back and Forward contain complete frames in stack order. Every bookmark maps its case-sensitive name to a complete saved frame. Menu UI is a separate ordered stack: changing or dismissing a menu does not change graph history, and graph movement does not masquerade as a menu pop. Interaction mode is conversation-scoped UI state independent of every frame: Back, Forward, Recenter, and Go to do not restore or replace it. None of this state may be written to note bodies, frontmatter, links, SQLite, protocol notes, Git, configuration, or environment.
 
-Ask snapshots and restores the same complete frame plus the invoking menu and ordered menu stack. Lenses, Peek, and Scan read or interpret retained evidence without changing focus or graph history. Failed, cancelled, unavailable, and complete-frame no-op actions retain all state unless an owning reference explicitly defines a non-state side effect.
+Ask snapshots and restores the same complete frame plus the interaction mode, invoking menu, and ordered menu stack. Lenses, Peek, and Scan read or interpret retained evidence without changing focus, graph history, or interaction mode. Failed, cancelled, unavailable, and complete-frame no-op actions retain all state unless an owning reference explicitly defines a non-state side effect.
 
 If state is missing or incomplete, say it is unknown. Never reconstruct history, filters, traversal witnesses, bookmarks, visited evidence, the current menu, or a menu stack from notebook content or plausible conversation clues. Establish a new landing or ask the human to restate recoverable state.
 
@@ -87,7 +130,7 @@ A successful destination-adopting move pushes the prior complete current frame o
 
 Recenter walks one explicit next hop. A typed witness does not permit jumping to the final destination while claiming to walk the path: select a witness, move to its next node, and Orient again. Teleport is the explicit far relocation. Ask never turns a selected note or human artifact into an implicit Recenter. Generated analogies, layouts, groups, classifications, arrows, and human comments never create notes or links automatically.
 
-After every successful focus-changing move, rerun Orient, reset menu UI to Quick actions, and apply the full presentation gate. Arrive stops but retains the final focus and frame. Conversational `navigate` resumes from the retained focus; it does not search for a different entry point merely because the picker had closed or discussion intervened.
+After every successful focus-changing move, rerun Orient, reset menu UI to Quick actions, and apply the full presentation gate. Preserve interaction mode: Guided renders persistent Navigation help at Quick actions, while Advanced keeps it closed. Arrive stops but retains the final focus, frame, and interaction mode. Conversational `navigate` resumes from the retained focus; it does not search for a different entry point merely because the picker had closed or discussion intervened.
 
 ## Orient is the canonical positioned read
 
@@ -129,7 +172,7 @@ Every human-driven positioned step keeps discoverable these classes:
 4. **◇ Ask… — suspend for one bounded human decision while retaining the complete frame**
 5. **■ Arrive — stop and retain focus**
 
-Peek and Scan are always discoverable unless structurally impossible with the reason stated. Ask is neither look nor move. Arrive remains the final top-level action. A chooser-capable human surface uses the adaptive hierarchy owned by `presentation`; an autonomous or non-interactive run chooses actions from the retained goal without invoking a picker, while still making the action classes discoverable in prose.
+Peek and Scan are always discoverable unless structurally impossible with the reason stated. Ask is neither look nor move. Arrive remains the final top-level action. A chooser-capable human surface uses the adaptive hierarchy owned by `presentation` only when Guided or temporary help is open; Advanced otherwise keeps it closed. An autonomous or non-interactive run chooses actions from the retained goal without invoking a picker, while still making the action classes discoverable in prose.
 
 Treat `show`, `explain`, `analogize`, `find an analog`, `visualize`, `quiz`, `scan`, `ask`, `arrive`, and `navigate` as direct conversational intents when their preconditions hold. Do not force a human to traverse picker categories before honoring a direct intent. A bare Scan asks for its owned altitude choice; an explicit Local territory or Global landscape request executes that choice. `navigate` is the universal conversational resume/escape and never an `nn` subcommand.
 
@@ -183,17 +226,17 @@ The complete semantic triples, stable palette, effect markers, menu rows, summar
 
 Graph focus/history and menu UI are orthogonal. Esc or a declined submenu chooser pops only menu UI. Esc at Quick actions closes only the picker and retains focus/history; report the retained focus and the `navigate` resume affordance rather than implying Arrive. Conversational Back restores graph history and is never an explicit picker row.
 
-Transient actions return to their invoking menu under `presentation`: Peek details return to Peek, lenses to Lenses, scans to Scan, promoted transients to Quick actions, and Ask to its invoking Ask submenu unless promoted. Focus-changing actions, Back/Forward, Go to, Teleport, and `navigate` rerun Orient and reset Quick actions. Arrive stops with focus retained. Quiz may suspend the picker while unanswered; its `navigate` escape resumes through Orient without grading or revealing.
+Transient actions return semantically to their invoking menu under `presentation`: Peek details return to Peek, lenses to Lenses, scans to Scan, promoted transients to Quick actions, and Ask to its invoking Ask submenu unless promoted. In Guided mode, use the compact breadcrumb, state that focus is unchanged, and reopen the invoking picker so Navigation help remains visible. In Advanced mode, preserve the same deterministic menu position but keep Navigation help closed; a temporary `:help` also closes after the completed action. Focus-changing actions, Back/Forward, Go to, Teleport, and `navigate` rerun Orient and reset Quick actions without changing interaction mode. Arrive stops with focus retained. Quiz may suspend the picker while unanswered; its `navigate` escape resumes through Orient without grading or revealing.
 
-Do not redundantly full-render an unchanged complete frame when the owner permits compact return. Do full-render after focus/filter/traversal/notebook changes, stale or unknown cache, explicit Refresh, or resumption after discussion. Compact return references the complete frame still visible; it cannot redraw a reduced skeleton or omit the navigation affordance.
+Do not redundantly full-render an unchanged complete frame when the owner permits compact return. Do full-render after focus/filter/traversal/notebook changes, stale or unknown cache, explicit Refresh, or resumption after discussion. Compact return references the complete frame still visible; it cannot redraw a reduced skeleton or omit Navigation help when Guided requires it. Advanced compact returns do not fabricate a picker merely to satisfy an obsolete unconditional-return rule.
 
 ## Compaction dispatch and recovery
 
-Before compaction, fetch `nn skills get nn-navigate --reference state` and follow it. The handoff MUST serialize the full current frame, Back and Forward stacks in order, every bookmark with its case-sensitive name and complete saved frame, bounded visited evidence, and a separate menu UI state containing the current menu and ordered menu stack. Preserve active direction, link types, status, representation, depth, route, impact, destination-query, and other traversal context—not only the focus ID.
+Before compaction, fetch `nn skills get nn-navigate --reference state` and follow it. The handoff MUST serialize the full current frame, Back and Forward stacks in order, every bookmark with its case-sensitive name and complete saved frame, bounded visited evidence, and a separate menu UI state containing interaction mode plus the current menu and ordered menu stack. Preserve active direction, link types, status, representation, depth, route, impact, destination-query, and other traversal context—not only the focus ID.
 
 Also record which reference contracts remain actively needed after compaction, but never claim their full text survives: after compaction, rerun this core and refetch every applicable owner before acting. A handoff summary is dispatch evidence, not a replacement for a reference.
 
-If navigation state is absent or incomplete after compaction, report it unknown and never invent it. If only menu UI is absent, retain known graph state but reset menu state only through explicit Orient, a focus-changing move, or conversational `navigate`; do not reconstruct a prior submenu. If all state is absent, ask for a query/new landing or a human restatement. Notebook notes, protocol content, and Git history are never recovery stores for conversational navigation state.
+If navigation state is absent or incomplete after compaction, report it unknown and never invent it. If menu position is absent, retain known graph state but reset menu state only through explicit Orient, a focus-changing move, or conversational `navigate`; do not reconstruct a prior submenu. If interaction mode alone is absent, default it to Guided rather than declaring graph state unknown. If all state is absent, ask for a query/new landing or a human restatement while using Guided presentation. Notebook notes, protocol content, and Git history are never recovery stores for conversational navigation state.
 
 ## Epistemic and mutation boundary
 

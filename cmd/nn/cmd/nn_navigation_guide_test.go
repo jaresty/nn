@@ -880,6 +880,60 @@ func TestNNNavigateOwnsFindAnAnalogAndLensContracts(t *testing.T) {
 	}
 }
 
+func TestNNNavigateDefinesGuidedAndAdvancedConversationalDSL(t *testing.T) {
+	data, err := readNNNavigateBundle()
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	content := string(data)
+	assertions := map[string][]string{
+		"skill-level shorthand grammar": {
+			"## Conversational Navigation DSL",
+			"colon-prefixed skill-level intents",
+			"not `nn` subcommands",
+			"Natural conversational intents remain accepted",
+			"`:help`", "`:guided`", "`:advanced`", "`:where`", "`:orient`",
+			"`:recenter \"<label>\"`", "`:peek \"<label>\"`", "`:show`", "`:explain`", "`:gaps`",
+			"`:scan local`", "`:scan global`", "`:analogize`", "`:find-analog`", "`:visualize`",
+			"`:quiz`", "`:ask`", "`:back`", "`:forward`", "`:bookmark \"<name>\"`",
+			"`:goto \"<bookmark>\"`", "`:arrive`",
+		},
+		"guided mode": {
+			"Guided mode is the default",
+			"Navigation help remains visible after every completed action",
+			"shows each action beside its canonical shorthand",
+		},
+		"advanced mode": {
+			"Advanced mode keeps Navigation help closed",
+			"`:help` opens it temporarily without changing mode",
+			"`:guided` switches to Guided mode",
+			"`:advanced` switches to Advanced mode",
+			"navigate advanced",
+		},
+		"context label resolution": {
+			"current-context menu labels",
+			"unique case-insensitive label fragment",
+			"must not create generated note aliases",
+			"Ambiguity opens narrowed help",
+			"An unavailable target never guesses",
+		},
+		"conversation-only mode state": {
+			"interaction mode: guided | advanced",
+			"preserve it through moves, lenses, Ask, and compaction",
+			"Missing interaction mode defaults to Guided",
+			"never persist interaction mode",
+			"Skill retrieval remains deterministic and untemplated",
+		},
+	}
+	for assertion, required := range assertions {
+		for _, snippet := range required {
+			if !strings.Contains(content, snippet) {
+				t.Errorf("assertion %q failed: nn-navigate missing %q", assertion, snippet)
+			}
+		}
+	}
+}
+
 func TestNNNavigateOwnsUniversalNavigateEscapeAndResume(t *testing.T) {
 	data, err := readNNNavigateBundle()
 	if err != nil {
