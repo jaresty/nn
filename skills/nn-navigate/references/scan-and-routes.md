@@ -16,10 +16,15 @@ At any point in the walk (Enter, Orient, Read, Recenter) you can stop stepping s
   ```
   nn graph show --focus <id> --depth 2 --direction both --color always --format text
   ```
-- **Region + load-bearing** — which cluster this node sits in (`nn clusters`) and whether it sits on a bridge between clusters (`nn graph bridges`). A node on a bridge is a crossing point; a node deep in one cluster is interior.
+- **Region + load-bearing** — acquire exact local structural context for the retained ID rather than projecting a goal query onto it:
+  ```
+  nn clusters --focus <id> --json
+  nn graph bridges --focus <id> --format json
+  ```
+  The cluster envelope reports exact full-graph membership under the active singleton/minimum policy; `cluster: null` means the known focus was omitted by that policy. The bridge envelope reuses the rich full-graph bridge record and witnesses; `bridge: null` means the known focus is not a bridge. Unknown IDs fail. These known negative results are local facts, not failed searches. A focus on a bridge is a crossing point; a focus deep in one cluster is interior.
 - **Reachable-but-unlinked** — `nn list --similar <id>`: nearby notes that share vocabulary but have no edge to walk. This is the one signal a step-wise walk can *never* surface — territory the navigation can't reach yet (candidate missing edges).
 
-**The wider landscape (global)** — where your region sits in everything (drops the ego entirely):
+**The wider landscape (global)** — where your region sits in everything (drops the ego entirely). Freeform `--search` belongs at this Global landscape altitude; do not substitute a query-conditioned projection for the exact local `--focus` lookups above:
 - **The landmass — `nn clusters`** — every topic cluster and its size. When the walk has a goal query, prefer `nn clusters --search "<query>" --json --summary` to project that query onto full-graph regions without loading every unrelated cluster or every member of a matching cluster. Summary output defaults to the top 3 ranked matches per region while retaining total `match_count`; read `matches_returned` and `matches_truncated`, and use `--match-limit 0` only when Scan genuinely needs every matching note. The match limit is per region and never limits the number of regions.
 - **The highways — `nn graph bridges`** — integration points whose links join otherwise-separate regions, ranked by load-bearing weight. When the walk has a goal query, use `nn graph bridges --search "<query>" --format json --exclude <focus-id>` to project relevance onto bridges computed from the complete graph without offering the retained focus as a movement candidate. `--exclude` is repeatable and is applied before `--limit`, so excluded results are replaced rather than shortening the candidate list. Read each returned record's bounded crossing witnesses and region context to explain why it is a plausible crossing before acting; the connector evidence is not proof of territorial separation. Peek through a returned bridge `id` to inspect where it leads without moving, or Recenter on that `id` to cross into its neighborhood. (Daily/index notes often rank high because they touch many topics — treat those as connectors-by-aggregation, not substantive bridges.)
 - **The whole shape — `nn graph show --color always`** *(no `--focus`)* — the entire graph, a last resort (it's large); usually the two above are enough.

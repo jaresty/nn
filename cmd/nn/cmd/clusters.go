@@ -18,12 +18,27 @@ func newClustersCmd(state *rootState) *cobra.Command {
 	var search string
 	var summary bool
 	var matchLimit int
+	var focus string
 
 	cmd := &cobra.Command{
 		Use:   "clusters",
 		Short: "Detect topological clusters of notes using label propagation",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			searchMode := cmd.Flags().Changed("search")
+			focusMode := cmd.Flags().Changed("focus")
+			if focusMode {
+				if strings.TrimSpace(focus) == "" {
+					return fmt.Errorf("clusters: --focus requires a non-blank ID")
+				}
+				for _, flag := range []string{"search", "summary", "match-limit"} {
+					if cmd.Flags().Changed(flag) {
+						return fmt.Errorf("clusters: --focus cannot be combined with --%s", flag)
+					}
+				}
+				if !jsonOut {
+					return fmt.Errorf("clusters: --focus requires --json")
+				}
+			}
 			if cmd.Flags().Changed("match-limit") && !summary {
 				return fmt.Errorf("clusters: --match-limit requires --summary")
 			}
@@ -45,6 +60,18 @@ func newClustersCmd(state *rootState) *cobra.Command {
 			notes, err := state.backend.List()
 			if err != nil {
 				return fmt.Errorf("clusters: %w", err)
+			}
+			var focusNote *note.Note
+			if focusMode {
+				for _, n := range notes {
+					if n.ID == focus {
+						focusNote = n
+						break
+					}
+				}
+				if focusNote == nil {
+					return fmt.Errorf("clusters: note %q not found", focus)
+				}
 			}
 
 			clustering := labelPropagationClusters(notes)
@@ -147,6 +174,47 @@ func newClustersCmd(state *rootState) *cobra.Command {
 					Title string  `json:"title"`
 					Score float64 `json:"score,omitempty"`
 				}
+				if focusMode {
+					type focusClusterEntry struct {
+						Size           int         `json:"size"`
+						Representative noteEntry   `json:"representative"`
+						Notes          []noteEntry `json:"notes"`
+					}
+					var focusedCluster *focusClusterEntry
+					for _, c := range clusters {
+						containsFocus := false
+						for _, n := range c.notes {
+							if n.ID == focus {
+								containsFocus = true
+								break
+							}
+						}
+						if !containsFocus {
+							continue
+						}
+						entries := make([]noteEntry, len(c.notes))
+						for i, n := range c.notes {
+							entries[i] = noteEntry{ID: n.ID, Title: n.Title}
+						}
+						representative := labelPropagationRepresentative(c.notes, clustering.outDegree, clustering.inDegree)
+						focusedCluster = &focusClusterEntry{
+							Size:           len(c.notes),
+							Representative: noteEntry{ID: representative.ID, Title: representative.Title},
+							Notes:          entries,
+						}
+						break
+					}
+					out := struct {
+						Focus   noteEntry          `json:"focus"`
+						Cluster *focusClusterEntry `json:"cluster"`
+					}{
+						Focus:   noteEntry{ID: focusNote.ID, Title: focusNote.Title},
+						Cluster: focusedCluster,
+					}
+					enc := json.NewEncoder(w)
+					enc.SetIndent("", "  ")
+					return enc.Encode(out)
+				}
 				if searchMode {
 					if summary {
 						type summaryClusterEntry struct {
@@ -248,5 +316,6 @@ func newClustersCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&search, "search", "", "Return only full-graph clusters containing notes matching this query (requires --json)")
 	cmd.Flags().BoolVar(&summary, "summary", false, "Omit full cluster membership from search JSON while retaining landing handles")
 	cmd.Flags().IntVar(&matchLimit, "match-limit", 3, "Maximum ranked matches per summary cluster (0 = all; requires --summary)")
+	cmd.Flags().StringVar(&focus, "focus", "", "Return the exact note's full-graph cluster JSON envelope (null when filtered; incompatible with search flags)")
 	return cmd
 }

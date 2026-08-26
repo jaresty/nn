@@ -262,14 +262,29 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 	var format string
 	var search string
 	var exclude []string
+	var focus string
 
 	cmd := &cobra.Command{
 		Use:   "bridges",
 		Short: "Notes that connect otherwise-disconnected parts of the graph",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			searchMode := cmd.Flags().Changed("search")
+			focusMode := cmd.Flags().Changed("focus")
 			if format != "text" && format != "json" {
 				return fmt.Errorf("graph bridges: unsupported format %q (want text or json)", format)
+			}
+			if focusMode {
+				if strings.TrimSpace(focus) == "" {
+					return fmt.Errorf("graph bridges: --focus requires a non-blank ID")
+				}
+				for _, flag := range []string{"search", "exclude", "limit"} {
+					if cmd.Flags().Changed(flag) {
+						return fmt.Errorf("graph bridges: --focus cannot be combined with --%s", flag)
+					}
+				}
+				if format != "json" {
+					return fmt.Errorf("graph bridges: --focus requires --format json")
+				}
 			}
 			if len(exclude) > 0 && !searchMode {
 				return fmt.Errorf("graph bridges: --exclude requires --search")
@@ -288,6 +303,18 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 			notes, err := state.backend.List()
 			if err != nil {
 				return fmt.Errorf("graph bridges: %w", err)
+			}
+			var focusNote *note.Note
+			if focusMode {
+				for _, n := range notes {
+					if n.ID == focus {
+						focusNote = n
+						break
+					}
+				}
+				if focusNote == nil {
+					return fmt.Errorf("graph bridges: note %q not found", focus)
+				}
 			}
 
 			// inboundFrom[N] = set of notes that link TO N
@@ -330,6 +357,9 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 
 			var candidates []bridgeCandidate
 			for _, n := range notes {
+				if focusMode && n.ID != focus {
+					continue
+				}
 				inCount := len(inboundFrom[n.ID])
 				outCount := len(outboundTo[n.ID])
 				if inCount == 0 || outCount == 0 {
@@ -345,27 +375,29 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 				}
 				candidates = append(candidates, candidate)
 			}
-			sort.Slice(candidates, func(i, j int) bool {
-				left, right := candidates[i], candidates[j]
-				if searchMode && *left.relevanceScore != *right.relevanceScore {
-					return *left.relevanceScore > *right.relevanceScore
-				}
-				if left.score != right.score {
-					return left.score > right.score
-				}
-				return left.id < right.id
-			})
-			if len(excludeSet) > 0 {
-				filtered := candidates[:0]
-				for _, candidate := range candidates {
-					if !excludeSet[candidate.id] {
-						filtered = append(filtered, candidate)
+			if !focusMode {
+				sort.Slice(candidates, func(i, j int) bool {
+					left, right := candidates[i], candidates[j]
+					if searchMode && *left.relevanceScore != *right.relevanceScore {
+						return *left.relevanceScore > *right.relevanceScore
 					}
+					if left.score != right.score {
+						return left.score > right.score
+					}
+					return left.id < right.id
+				})
+				if len(excludeSet) > 0 {
+					filtered := candidates[:0]
+					for _, candidate := range candidates {
+						if !excludeSet[candidate.id] {
+							filtered = append(filtered, candidate)
+						}
+					}
+					candidates = filtered
 				}
-				candidates = filtered
-			}
-			if limit > 0 && len(candidates) > limit {
-				candidates = candidates[:limit]
+				if limit > 0 && len(candidates) > limit {
+					candidates = candidates[:limit]
+				}
 			}
 
 			records := buildBridgeRecords(candidates, notes)
@@ -373,6 +405,24 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 			if format == "json" {
 				enc := json.NewEncoder(w)
 				enc.SetIndent("", "  ")
+				if focusMode {
+					type focusEntry struct {
+						ID    string `json:"id"`
+						Title string `json:"title"`
+					}
+					var focusedBridge *bridgeRecord
+					if len(records) == 1 {
+						focusedBridge = &records[0]
+					}
+					out := struct {
+						Focus  focusEntry    `json:"focus"`
+						Bridge *bridgeRecord `json:"bridge"`
+					}{
+						Focus:  focusEntry{ID: focusNote.ID, Title: focusNote.Title},
+						Bridge: focusedBridge,
+					}
+					return enc.Encode(out)
+				}
 				return enc.Encode(records)
 			}
 			writeBridgeRecordsText(w, records)
@@ -383,6 +433,7 @@ func newGraphBridgesCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json")
 	cmd.Flags().StringVar(&search, "search", "", "Return only full-graph bridges matching this query")
 	cmd.Flags().StringArrayVar(&exclude, "exclude", nil, "Exclude a bridge note ID from search results (repeatable; requires --search)")
+	cmd.Flags().StringVar(&focus, "focus", "", "Return the exact note's full-graph bridge JSON envelope (null for non-bridge; incompatible with ranking flags)")
 	return cmd
 }
 

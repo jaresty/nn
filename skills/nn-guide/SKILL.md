@@ -488,6 +488,7 @@ Legacy untyped `--json` output remains exactly `[{"id": "...", "title": "..."}]`
 
 ```
 nn graph bridges [--search "<query>"] [--limit N] [--format text|json]
+nn graph bridges --focus ID --format json
 ```
 
 Rank notes that receive at least one incoming link and emit at least one outgoing link by `incoming-neighbor count × outgoing-neighbor count`. This is a load-bearing connector heuristic, not an articulation-point proof. `--format text|json` selects only the encoding; both formats carry the same evidence.
@@ -497,14 +498,16 @@ Rank notes that receive at least one incoming link and emit at least one outgoin
 - `witnesses` contains at most 3 deterministic crossing examples. Construction gathers all incoming and outgoing edges, preserving endpoint ID/title, edge type, and annotation, and sorts each side by endpoint ID, type, then annotation before forming their Cartesian product. It keeps only the lexicographically earliest edge pair for each ephemeral full-graph region pair, so repeated edges within one pair cannot crowd out distinct region-pair examples; the cap is applied only after this deduplication. Selected pairs are ordered by incoming then outgoing region key: a clustered key is its representative ID, while an internal stable unclustered sentinel plus endpoint ID handles missing endpoints; edge-pair order is the final tie-breaker. These keys are ephemeral and are never emitted.
 - Every crossing includes one `incoming` edge (`endpoint → bridge`), one `outgoing` edge (`bridge → endpoint`), and bounded `regions` context: `incoming` and `outgoing` each contain the endpoint's full-graph label-propagation region summary—`representative` (`id`, `title`) and full region `size`—or `null`/`unclustered` when unavailable. `same_region` reports whether both clustered endpoints received the same label. It can be `true`, and same-region pairs remain eligible: a crossing explains the connector heuristic, not proof that its endpoints occupy distinct territories. Representatives use the clusters command's deterministic highest-total-degree-then-ID rule; no durable region ID or ordinal is exposed. Text labels examples `crossing 1` through `crossing N` and presents both edges, both region summaries, and same-region status under each. Use this evidence to assess why the note is a plausible connector before acting on its returned ID.
 - `--exclude ID` is repeatable, removes ranked candidates without changing full-graph bridge computation, and is applied before `--limit` (default: 10), so excluded results are replaced rather than leaving a short list.
+- `--focus ID --format json` looks up an exact retained note against the same complete-graph bridge computation and returns `{ "focus": {"id","title"}, "bridge": <rich-record-or-null> }`. The nested value is the existing rich bridge record with structural score, `relevance_score: null`, and deterministic witnesses. A known non-bridge returns `"bridge": null`; an unknown ID fails. Focus bypasses ranking and the default limit, and rejects `--search`, `--exclude`, or an explicitly supplied `--limit`.
 
-Each returned `id` identifies the bridge note described by the record.
+Each returned `id` identifies the bridge note described by the record. Without `--focus`, existing text/JSON schemas, ranking, filtering, and limits remain unchanged.
 
 ## nn clusters
 
 ```
 nn clusters [--min N] [--singletons] [--json]
 nn clusters --search "<query>" --json [--summary] [--match-limit N] [--min N] [--singletons]
+nn clusters --focus ID --json [--min N] [--singletons]
 ```
 
 Detect topological clusters of notes using label propagation. Each note starts with its own label and iteratively adopts the most common label among its linked neighbours.
@@ -514,10 +517,11 @@ Detect topological clusters of notes using label propagation. Each note starts w
 - `--search QUERY` preserves clustering over the complete graph, then returns only clusters containing positive-scoring search hits. It requires `--json`.
 - `--summary` is search-only and omits full cluster `notes` while retaining `size`, total `match_count`, `match_density`, `score`, `representative`, bounded ranked `matches`, `matches_returned`, and `matches_truncated`. Use `representative.id` as a subsequent `--focus`; rerun without `--summary` only when complete membership is needed.
 - `--match-limit N` is valid only with `--summary`. It defaults to 3 matches per returned cluster, `0` returns all matches, and negative values fail. The limit never caps the number of clusters.
+- `--focus ID --json` returns `{ "focus": {"id","title"}, "cluster": <cluster-or-null> }` for the exact retained note, using the same complete-graph label propagation, full membership, and highest-total-degree-then-ID representative. A known note omitted by the active `--min`/`--singletons` policy returns `"cluster": null`; an unknown ID fails. Focus rejects `--search`, `--summary`, and `--match-limit`; `--min` and `--singletons` keep their meanings.
 
 Text output: one cluster per block — `cluster N (K notes):\n  ID  Title\n  ...`
 
-Legacy `--json` output remains `[{"notes": [{"id": "...", "title": "..."}]}]`. Search-mode JSON ranks regions by the sum of their top three normalized match scores, preventing large regions from winning through an unbounded accumulation of weak matches. Without `--summary`, its schema remains unchanged and includes `size`, total `match_count`, `match_density`, `score`, all ranked `matches`, `representative`, and full cluster `notes`—no match-limit metadata. Summary truncation is applied only after full `match_count`, `match_density`, score, region ranking, and representative computation; `matches_returned` is the emitted match count and `matches_truncated` is always present, including `false`. `match_density` is `match_count / size`, an explanatory signal, not a ranking input. The representative is the highest-total-degree member, with note ID as the stable tie-breaker.
+Without `--focus`, existing text, JSON, search ranking, filtering, and schemas remain unchanged. Legacy `--json` output remains `[{"notes": [{"id": "...", "title": "..."}]}]`. Search-mode JSON ranks regions by the sum of their top three normalized match scores, preventing large regions from winning through an unbounded accumulation of weak matches. Without `--summary`, its schema remains unchanged and includes `size`, total `match_count`, `match_density`, `score`, all ranked `matches`, `representative`, and full cluster `notes`—no match-limit metadata. Summary truncation is applied only after full `match_count`, `match_density`, score, region ranking, and representative computation; `matches_returned` is the emitted match count and `matches_truncated` is always present, including `false`. `match_density` is `match_count / size`, an explanatory signal, not a ranking input. The representative is the highest-total-degree member, with note ID as the stable tie-breaker.
 
 ## nn ast
 

@@ -61,6 +61,8 @@ nn graph --json
 nn status
 nn path <id-a> <id-b>           # shortest link path between two notes
 nn clusters                     # topological clusters via label propagation
+nn clusters --focus <id> --json # exact note's full-graph cluster (or null)
+nn graph bridges --focus <id> --format json # exact note's bridge record (or null)
 nn promote <id> --to reviewed
 nn delete <id> --confirm
 nn install-skills
