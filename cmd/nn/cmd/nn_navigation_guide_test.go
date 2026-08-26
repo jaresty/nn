@@ -696,7 +696,7 @@ func TestNNNavigateSupportsDirectConversationalActionsAndDeterministicReturns(t 
 	}
 	content := string(data)
 	for _, required := range []string{
-		"show, explain, analogize, find an analog, visualize, quiz, scan, and arrive",
+		"show, explain, analogize, find an analog, find gaps, visualize, quiz, scan, and arrive",
 		"direct conversational intents from any menu",
 		"not `nn` subcommands",
 		"A Lens invoked from Lenses returns to Lenses.",

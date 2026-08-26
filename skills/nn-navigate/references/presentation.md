@@ -97,7 +97,7 @@ Scan contains exactly Local territory and Global landscape; it has no Find an an
 
 ### Direct intents and menu return transitions
 
-Treat **show, explain, analogize, find an analog, visualize, quiz, scan, and arrive** as direct conversational intents from any menu, not `nn` subcommands. Treat **ask** the same way when a positioned frame exists. Resolve them without forcing the human to traverse the hierarchy. A bare `scan` opens Scan so the human can choose altitude; an explicit local or global scan executes directly. Direct action vocabulary is presentation-level only and adds no CLI surface.
+Treat **show, explain, analogize, find an analog, find gaps, visualize, quiz, scan, and arrive** as direct conversational intents from any menu, not `nn` subcommands. Treat **ask** the same way when a positioned frame exists. Resolve them without forcing the human to traverse the hierarchy. A bare `scan` opens Scan so the human can choose altitude; an explicit local or global scan executes directly. Direct action vocabulary is presentation-level only and adds no CLI surface.
 
 Returns are deterministic and restore the relevant picker without changing focus or history:
 
