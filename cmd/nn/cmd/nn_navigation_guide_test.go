@@ -564,6 +564,26 @@ func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 	}
 }
 
+func TestNNNavigateGlobalScanAnchorsFocusBeforeQueryProjection(t *testing.T) {
+	data, err := readNNNavigateBundle()
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	content := string(data)
+	for _, required := range []string{
+		"Before a Global landscape marks the retained focus as `YOU`",
+		"nn clusters --focus <id> --json",
+		"nn graph bridges --focus <id> --format json",
+		"exact focus-ID anchor must complete before any freeform `--search` projection",
+		"Freeform search ranks global relevance; it never establishes the focus's cluster membership or bridge status",
+		"`same_region: true` is not evidence of a cross-region crossing",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("global scan focus-anchor contract missing %q", required)
+		}
+	}
+}
+
 func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 	data, err := readNNNavigateBundle()
 	if err != nil {
