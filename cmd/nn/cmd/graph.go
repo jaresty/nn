@@ -839,7 +839,16 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				fmt.Fprintf(w, "  %s — tension: contradicts, questions\n", paint("left", "LEFT"))
 				fmt.Fprintf(w, "  %s — lateral: source-of, requires\n", paint("right", "RIGHT"))
 				fmt.Fprintf(w, "  %s — builds-on: governs/supports (out), refines/extends/grounded-by (in)\n", paint("bottom", "BOTTOM"))
-				fmt.Fprintf(w, "  %s — stored relationships without navigation semantics\n", paint("unclassified", "UNCLASSIFIED"))
+				hasUnclassified := false
+				for _, n := range resultNodes {
+					if n.ID != focus && n.Zone == "unclassified" {
+						hasUnclassified = true
+						break
+					}
+				}
+				if hasUnclassified {
+					fmt.Fprintf(w, "  %s — stored relationships without navigation semantics\n", paint("unclassified", "UNCLASSIFIED"))
+				}
 				if useMarkers {
 					// Marker scheme: node titles carry a note-type circle, edge
 					// labels a link-family circle (same families as the zones).

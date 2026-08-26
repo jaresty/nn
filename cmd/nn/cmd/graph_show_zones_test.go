@@ -145,6 +145,9 @@ func TestGraphShowZonesExposesDirectUntypedLinksAsUnclassified(t *testing.T) {
 	if !strings.Contains(text, "UNCLASSIFIED") || !strings.Contains(text, legacy.ID) {
 		t.Errorf("untyped direct neighbor omitted from UNCLASSIFIED category:\n%s", text)
 	}
+	if !strings.Contains(text, "stored relationships without navigation semantics") {
+		t.Errorf("untyped neighborhood omitted UNCLASSIFIED legend row:\n%s", text)
+	}
 	for _, semantic := range []string{"TOP\n  " + legacy.ID, "BOTTOM\n  " + legacy.ID, "LEFT\n  " + legacy.ID, "RIGHT\n  " + legacy.ID} {
 		if strings.Contains(text, semantic) {
 			t.Errorf("untyped neighbor assigned semantic zone %q:\n%s", semantic, text)
@@ -156,6 +159,23 @@ func TestGraphShowZonesExposesDirectUntypedLinksAsUnclassified(t *testing.T) {
 // under directional zone headers.
 //
 // property T1: a zoned node's line appears under its zone's header (TOP/BOTTOM/LEFT/RIGHT).
+func TestGraphShowZonesTextOmitsUnclassifiedLegendWithoutVisibleUntypedEdge(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	ego := newTestNoteForCLI(note.GenerateID(), "Ego", note.TypeModel)
+	typed := newTestNoteForCLI(note.GenerateID(), "Typed Neighbor", note.TypeConcept)
+	ego.Links = []note.Link{{TargetID: typed.ID, Type: "extends", Annotation: "typed context"}}
+	writeNoteFile(t, nbDir, ego)
+	writeNoteFile(t, nbDir, typed)
+
+	text, err := execute("graph", "show", "--focus", ego.ID, "--depth", "1", "--direction", "both", "--zones", "--format", "text")
+	if err != nil {
+		t.Fatalf("graph show typed-only text: %v", err)
+	}
+	if strings.Contains(text, "stored relationships without navigation semantics") {
+		t.Errorf("typed-only neighborhood included misleading UNCLASSIFIED legend row:\n%s", text)
+	}
+}
+
 func TestGraphShowZonesText(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	now := time.Now().UTC().Truncate(time.Second)
