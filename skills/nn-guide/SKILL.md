@@ -1023,6 +1023,8 @@ Best-effort web search via DuckDuckGo. Fetches the top N result pages, strips HT
 nn ask [--surface canvas|document|graph|web] [--instructions "..."] [--mermaid "<diagram>"] [--document <file|folder>] [--focus <note-id>] [--nodes <id,...>]
 ```
 
+Standalone `nn ask` is an independent CLI workflow documented by `nn-guide`; it does not activate `nn-navigate`. This remains true when a retained Navigation frame happens to exist elsewhere in the conversation. Only positioned Navigation Ask—invoked as an action within a positioned walk and required to suspend and restore that frame—is owned by `nn-navigate`.
+
 Ask a human for feedback via a chosen **surface**, block until they submit, then print the path to a thin result envelope. The primitive is the job — *"get a human to close a knowledge gap"* — and the surface is a routing decision keyed on the shape of the answer (ADR-0020). Canvas and Document are note-agnostic at the boundary; Graph reads the configured notebook within its explicit bound.
 
 **Result contract.** Every surface writes to a session directory (`~/.config/nn/feedback/<id>/`) and produces `result.json` — a thin envelope naming native artifacts by path:

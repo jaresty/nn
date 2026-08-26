@@ -564,6 +564,38 @@ func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 	}
 }
 
+func TestStandaloneAskAndPositionedNavigationAskHaveDistinctOwners(t *testing.T) {
+	navigateData, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	navigate := string(navigateData)
+	for _, required := range []string{
+		"positioned Navigation Ask",
+		"must suspend and restore a retained navigation frame",
+		"Standalone `nn ask --surface ...` does not activate `nn-navigate`",
+	} {
+		if !strings.Contains(navigate, required) {
+			t.Errorf("nn-navigate standalone Ask exclusion missing %q", required)
+		}
+	}
+
+	guideData, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-guide: %v", err)
+	}
+	guide := string(guideData)
+	for _, required := range []string{
+		"Standalone `nn ask` is an independent CLI workflow documented by `nn-guide`",
+		"does not activate `nn-navigate`",
+		"positioned Navigation Ask",
+	} {
+		if !strings.Contains(guide, required) {
+			t.Errorf("nn-guide standalone Ask ownership missing %q", required)
+		}
+	}
+}
+
 func TestNNNavigateGlobalScanAnchorsFocusBeforeQueryProjection(t *testing.T) {
 	data, err := readNNNavigateBundle()
 	if err != nil {

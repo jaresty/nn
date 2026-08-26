@@ -1,7 +1,7 @@
 ---
 name: nn-navigate
-description: "Use when a human is iteratively navigating the nn graph or asks to teleport, orient, recenter, peek, scan, ask for human consultation, arrive, use Back/Forward history, or manage navigation bookmarks. Load the compact core with `nn skills get nn-navigate`, then fetch each applicable owning reference."
-when_to_use: "When graph exploration is human-driven or iterative and must retain a positioned focus, including teleport, orient, recenter, peek, scan, Ask consultation, arrive, history, bookmarks, and navigation resumption."
+description: "Use when a human is iteratively navigating the nn graph or asks to teleport, orient, recenter, peek, scan, invoke positioned Navigation Ask, arrive, use Back/Forward history, or manage navigation bookmarks. Standalone `nn ask` is owned by `nn-guide`. Load the compact core with `nn skills get nn-navigate`, then fetch each applicable owning reference."
+when_to_use: "When graph exploration is human-driven or iterative and must retain a positioned focus, including teleport, orient, recenter, peek, scan, positioned Navigation Ask, arrive, history, bookmarks, and navigation resumption."
 ---
 
 # nn-navigate
@@ -10,7 +10,9 @@ Binding dispatcher for iterative, human-driven navigation of the nn note graph. 
 
 ## Preflight and activation
 
-Activate this skill when a human is co-navigating a positioned graph walk, exploration proceeds iteratively across turns, or the request uses `teleport`, `orient`, `recenter`, `peek`, `scan`, `arrive`, `navigate`, Ask, Back/Forward, history, or bookmarks as navigation actions.
+Activate this skill when a human is co-navigating a positioned graph walk, exploration proceeds iteratively across turns, or the request uses `teleport`, `orient`, `recenter`, `peek`, `scan`, `arrive`, `navigate`, positioned Navigation Ask, Back/Forward, history, or bookmarks as navigation actions. A positioned Navigation Ask is the Navigation action that must suspend and restore a retained navigation frame.
+
+Standalone `nn ask --surface ...` does not activate `nn-navigate`; it is an independent CLI workflow documented by `nn-guide`. The presence of a retained Navigation frame elsewhere in the conversation does not change a standalone Ask into positioned Navigation Ask unless the request uses Ask as an action within that walk.
 
 Before human-driven iterative navigation, if the session inventory has not run, run:
 
