@@ -7,70 +7,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"sort"
 
 	"github.com/jaresty/nn/internal/note"
 )
 
-const fieldIDFCacheVersion = "field-idf-v3"
+const fieldIDFCacheVersion = "field-idf-v4"
 const fieldIDFCacheEntriesPerRepo = 8
 
-// GetOrComputeFieldIDF returns the per-field BM25 IDF struct for the given notes corpus.
-// It caches the result in SQLite using a versioned HEAD and corpus fingerprint.
-// If git rev-parse HEAD fails (fresh repo or non-git dir), the IDF is computed and
-// returned without caching.
+// GetOrComputeFieldIDF preserves the flat inbound API as an adapter to the
+// typed UNCLASSIFIED channel cache.
 func (idx *Index) GetOrComputeFieldIDF(repoDir string, notes []*note.Note, inbound map[string][]string) (note.FieldIDF, error) {
-	if repoDir == "" {
-		return note.BM25FieldIDF(notes, inbound), nil
-	}
-	head, err := headCommitHash(repoDir)
-	if err != nil {
-		return note.BM25FieldIDF(notes, inbound), nil
-	}
-	repoPrefix := fieldIDFRepoPrefix(repoDir)
-	cacheKey := fieldIDFCacheKey(repoDir, head, notes, inbound)
-
-	// Fast path: try cache without a lock.
-	if fidf, err := idx.getFieldIDFFromCache(cacheKey); err == nil {
-		return fidf, nil
-	}
-
-	// Cache miss — acquire exclusive lock, double-check, compute and store.
-	tx, txErr := idx.db.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelSerializable})
-	if txErr != nil {
-		return note.BM25FieldIDF(notes, inbound), nil
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	// Double-check under lock.
-	var raw string
-	if scanErr := tx.QueryRow(`SELECT field_idf_json FROM bm25_field_cache WHERE commit_hash = ?`, cacheKey).Scan(&raw); scanErr == nil {
-		var fidf note.FieldIDF
-		if jsonErr := json.Unmarshal([]byte(raw), &fidf); jsonErr == nil {
-			tx.Rollback() //nolint:errcheck
-			return fidf, nil
-		}
-	}
-
-	// Compute and store under lock.
-	fidf := note.BM25FieldIDF(notes, inbound)
-	b, jsonErr := json.Marshal(fidf)
-	if jsonErr != nil {
-		return fidf, fmt.Errorf("index.GetOrComputeFieldIDF: marshal: %w", jsonErr)
-	}
-	if _, storeErr := tx.Exec(
-		`INSERT OR REPLACE INTO bm25_field_cache (commit_hash, field_idf_json) VALUES (?, ?)`,
-		cacheKey, string(b),
-	); storeErr != nil {
-		return fidf, nil
-	}
-	if pruneErr := pruneFieldIDFCacheTx(tx, repoPrefix); pruneErr != nil {
-		return fidf, nil
-	}
-	if commitErr := tx.Commit(); commitErr != nil {
-		return fidf, nil
-	}
-	return fidf, nil
+	fidf, err := idx.GetOrComputeTypedFieldIDF(repoDir, notes, note.FlatAnnotationChannels(inbound, nil))
+	return fidf.FlatFieldIDF(note.AnnotationInbound), err
 }
 
 func fieldIDFRepoPrefix(repoDir string) string {
@@ -83,28 +31,7 @@ func fieldIDFRepoPrefix(repoDir string) string {
 }
 
 func fieldIDFCacheKey(repoDir, head string, notes []*note.Note, inbound map[string][]string) string {
-	type cacheDocument struct {
-		ID      string   `json:"id"`
-		Title   string   `json:"title"`
-		Body    string   `json:"body"`
-		Tags    []string `json:"tags"`
-		Inbound []string `json:"inbound"`
-	}
-	ordered := append([]*note.Note(nil), notes...)
-	sort.Slice(ordered, func(i, j int) bool { return ordered[i].ID < ordered[j].ID })
-	documents := make([]cacheDocument, 0, len(ordered))
-	for _, n := range ordered {
-		tags := append([]string(nil), n.Tags...)
-		annotations := append([]string(nil), inbound[n.ID]...)
-		sort.Strings(tags)
-		sort.Strings(annotations)
-		documents = append(documents, cacheDocument{
-			ID: n.ID, Title: n.Title, Body: n.Body, Tags: tags, Inbound: annotations,
-		})
-	}
-	encoded, _ := json.Marshal(documents)
-	fingerprint := sha256.Sum256(encoded)
-	return fmt.Sprintf("%s%s:%x", fieldIDFRepoPrefix(repoDir), head, fingerprint)
+	return typedFieldIDFCacheKey(repoDir, head, notes, note.FlatAnnotationChannels(inbound, nil))
 }
 
 // pruneFieldIDFCacheTx retains the newest bounded set for one repository

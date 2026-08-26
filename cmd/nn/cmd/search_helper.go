@@ -46,16 +46,15 @@ func traceAnnotator(prepared preparedCorpus, k int) trace.Annotator {
 }
 
 // preparedCorpus holds the query-invariant BM25 inputs derived from a corpus:
-// the inbound/outbound link-annotation projections and the per-field IDF. These
+// typed direction/edge annotation channels and their per-field IDF. These
 // depend only on the corpus, not on the query, so callers that rank many queries
 // against the same corpus (nn grep per match, nn ast per reference, nn shuf per
 // sample) should build this once and reuse it across queries.
 type preparedCorpus struct {
 	corpus   []*note.Note
-	inbound  map[string][]string
-	outbound map[string][]string
-	fieldIDF note.FieldIDF
-	scorer   *note.CorpusScorer
+	channels note.AnnotationChannels
+	fieldIDF note.TypedFieldIDF
+	scorer   *note.TypedCorpusScorer
 }
 
 // prepareCorpus computes the query-invariant BM25 inputs for a corpus once. It
@@ -64,17 +63,16 @@ type preparedCorpus struct {
 // for the cache key. Pass an empty repoDir to skip caching (for example, in
 // tests without a git repository).
 func prepareCorpus(corpus []*note.Note, repoDir string) preparedCorpus {
-	inbound := make(map[string][]string)
-	outbound := make(map[string][]string)
+	channels := make(note.AnnotationChannels)
 	for _, n := range corpus {
 		for _, lnk := range n.Links {
-			inbound[lnk.TargetID] = append(inbound[lnk.TargetID], lnk.Annotation)
-			outbound[n.ID] = append(outbound[n.ID], lnk.Annotation)
+			channels.Add(note.AnnotationInbound, lnk.Type, lnk.TargetID, lnk.Annotation)
+			channels.Add(note.AnnotationOutbound, lnk.Type, n.ID, lnk.Annotation)
 		}
 	}
-	fieldIDF, _ := index.GetOrComputeFieldIDFPath(config.DefaultIndexDBPath(), repoDir, corpus, inbound)
-	scorer := note.NewCorpusScorer(corpus, fieldIDF, inbound, outbound)
-	return preparedCorpus{corpus: corpus, inbound: inbound, outbound: outbound, fieldIDF: fieldIDF, scorer: scorer}
+	fieldIDF, _ := index.GetOrComputeTypedFieldIDFPath(config.DefaultIndexDBPath(), repoDir, corpus, channels)
+	scorer := note.NewTypedCorpusScorer(corpus, fieldIDF, channels)
+	return preparedCorpus{corpus: corpus, channels: channels, fieldIDF: fieldIDF, scorer: scorer}
 }
 
 // rankedByQuery scores candidates for query using pre-computed corpus inputs.

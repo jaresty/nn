@@ -308,40 +308,41 @@ func BM25FieldIDF(notes []*Note, inbound map[string][]string) FieldIDF {
 	}
 }
 
-// BM25RRFPerField preserves the original four-field scorer for callers that
-// intentionally use one slice as both the statistics corpus and candidate set.
+// BM25RRFPerField preserves the original flat-map API by adapting inbound
+// evidence to the UNCLASSIFIED typed channel. It intentionally uses the legacy
+// tag and inbound direction weights.
 func BM25RRFPerField(candidates []*Note, fidf FieldIDF, query string, inbound map[string][]string) map[string]float64 {
-	return bm25RRFPerField(candidates, candidates, fidf, query, inbound, nil, float64(tagWeight), 1, 0)
+	channels := FlatAnnotationChannels(inbound, nil)
+	typedIDF := typedFieldIDFFromLegacy(candidates, fidf, channels)
+	return bm25RRFPerFieldTypedCached(candidates, candidates, typedIDF, query, channels, float64(tagWeight), 1, 0, nil, nil)
 }
 
-// BM25RRFPerFieldForCorpus scores candidates while deriving document-length
-// statistics and outbound query-term IDF from the full corpus.
+// BM25RRFPerFieldForCorpus preserves the established flat-map API by adapting
+// both directions to independent UNCLASSIFIED typed channels. Production's
+// outbound-only policy remains unchanged.
 func BM25RRFPerFieldForCorpus(corpus, candidates []*Note, fidf FieldIDF, query string, inbound, outbound map[string][]string) map[string]float64 {
-	return bm25RRFPerField(corpus, candidates, fidf, query, inbound, outbound, 1, 0, 1)
+	channels := FlatAnnotationChannels(inbound, outbound)
+	typedIDF := typedFieldIDFFromLegacy(corpus, fidf, channels)
+	return bm25RRFPerFieldTypedCached(corpus, candidates, typedIDF, query, channels, 1, 0, 1, nil, nil)
 }
 
-// CorpusScorer scores many queries against a fixed corpus while reusing
-// tokenization across queries. Tokenization of a note's fields is a pure
-// function of the note content, so it is memoized once per corpus and shared by
-// every Score call.
+// CorpusScorer is the flat-map compatibility adapter around TypedCorpusScorer.
 type CorpusScorer struct {
-	corpus   []*Note
-	fidf     FieldIDF
-	inbound  map[string][]string
-	outbound map[string][]string
-	cache    *tokenCache
+	typed *TypedCorpusScorer
 }
 
-// NewCorpusScorer builds a scorer over the given corpus and BM25 inputs.
+// NewCorpusScorer maps flat evidence to UNCLASSIFIED channels and builds the
+// memoizing typed scorer.
 func NewCorpusScorer(corpus []*Note, fidf FieldIDF, inbound, outbound map[string][]string) *CorpusScorer {
-	return &CorpusScorer{corpus: corpus, fidf: fidf, inbound: inbound, outbound: outbound, cache: newTokenCache()}
+	channels := FlatAnnotationChannels(inbound, outbound)
+	typedIDF := typedFieldIDFFromLegacy(corpus, fidf, channels)
+	return &CorpusScorer{typed: NewTypedCorpusScorer(corpus, typedIDF, channels)}
 }
 
-// Score ranks candidates for query. Results are identical to
-// BM25RRFPerFieldForCorpus over the same inputs; only the redundant
-// per-query tokenization of the corpus is avoided.
+// Score ranks candidates using the flat compatibility inputs supplied at
+// construction.
 func (s *CorpusScorer) Score(candidates []*Note, query string) map[string]float64 {
-	return bm25RRFPerFieldCached(s.corpus, candidates, s.fidf, query, s.inbound, s.outbound, 1, 0, 1, s.cache)
+	return s.typed.Score(candidates, query)
 }
 
 // tokenCache memoizes per-note, per-field tokenizations. Fields are identified
@@ -519,7 +520,6 @@ func bm25RRFPerFieldCached(corpus, candidates []*Note, fidf FieldIDF, query stri
 	}
 	return rrf
 }
-
 
 // statusMultiplier returns a score multiplier based on note status.
 // Settled notes (permanent, reviewed) rank above drafts for the same BM25 content score.
