@@ -45,6 +45,21 @@ func TestBulkNewCreatesNotes(t *testing.T) {
 }
 
 // Assertion: inline links between batch notes are created.
+func TestBulkNewRejectsMissingAndUnknownLinkTypes(t *testing.T) {
+	for _, linkType := range []string{"", "invented"} {
+		t.Run(linkType, func(t *testing.T) {
+			_, execute := setupNotebook(t)
+			input := `[
+				{"title":"Source","type":"concept"},
+				{"title":"Target","type":"concept","links":[{"ref":0,"annotation":"context","type":"` + linkType + `"}]}
+			]`
+			if _, err := execute("bulk-new", "--json", input); err == nil {
+				t.Fatalf("bulk-new link type %q: want error, got nil", linkType)
+			}
+		})
+	}
+}
+
 func TestBulkNewCreatesInlineLinks(t *testing.T) {
 	_, execute := setupNotebook(t)
 

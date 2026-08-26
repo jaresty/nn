@@ -218,7 +218,7 @@ func TestListSearch_NoCentralityBias(t *testing.T) {
 	scoreBefore, _ := r1[0]["score"].(float64)
 
 	// Add a linker that gives hub one backlink.
-	_, err = execute("new", "--title", "linker note", "--type", "concept", "--content", "unrelated content", "--no-edit", "--no-suggest", "--link-to", hubID, "--annotation", "refines hub")
+	_, err = execute("new", "--title", "linker note", "--type", "concept", "--content", "unrelated content", "--no-edit", "--no-suggest", "--link-to", hubID, "--link-type", "refines", "--annotation", "refines hub")
 	if err != nil {
 		t.Fatalf("new linker: %v", err)
 	}

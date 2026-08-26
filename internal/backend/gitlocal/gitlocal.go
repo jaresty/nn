@@ -132,8 +132,25 @@ func defaultNNConfigDir() string {
 	return filepath.Join(cfgDir, "nn")
 }
 
-// Write serialises n to a Markdown file and commits it to Git.
+func validateNewNoteLinkTypes(operation string, notes ...*note.Note) error {
+	for _, n := range notes {
+		if n == nil {
+			continue
+		}
+		for _, lnk := range n.Links {
+			if !note.IsKnownLinkType(lnk.Type) {
+				return fmt.Errorf("%s: note %s has invalid link type %q for target %s", operation, n.ID, lnk.Type, lnk.TargetID)
+			}
+		}
+	}
+	return nil
+}
+
+// Write serialises a newly created note to Markdown and commits it to Git.
 func (b *Backend) Write(n *note.Note) error {
+	if err := validateNewNoteLinkTypes("gitlocal.Write", n); err != nil {
+		return err
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for {
@@ -372,6 +389,9 @@ func (b *Backend) commitBulkWithLockHeld(paths []string, msg string) error {
 
 // AddLink adds an annotated link from fromID to toID and commits.
 func (b *Backend) AddLink(fromID, toID, annotation, linkType, linkStatus string) error {
+	if !note.IsKnownLinkType(linkType) {
+		return fmt.Errorf("gitlocal.AddLink: invalid link type %q", linkType)
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if err := acquireGitLock(b.configDir); err != nil {
@@ -402,6 +422,11 @@ func (b *Backend) AddLink(fromID, toID, annotation, linkType, linkStatus string)
 
 // AddLinks adds multiple annotated links from fromID in a single git commit.
 func (b *Backend) AddLinks(fromID string, targets []backend.LinkTarget) error {
+	for _, target := range targets {
+		if !note.IsKnownLinkType(target.Type) {
+			return fmt.Errorf("gitlocal.AddLinks: invalid link type %q for target %s", target.Type, target.ToID)
+		}
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if err := acquireGitLock(b.configDir); err != nil {
@@ -434,6 +459,66 @@ func (b *Backend) AddLinks(fromID string, targets []backend.LinkTarget) error {
 		return fmt.Errorf("gitlocal.AddLinks: write: %w", err)
 	}
 	msg := fmt.Sprintf("note: bulk-link %s → %d notes", fromID, len(targets))
+	return b.commitWithLockHeld(path, msg)
+}
+
+// SetLinkType atomically assigns a known type to one legacy untyped link.
+// annotationMatches is an optional substring discriminator when multiple
+// untyped links share the same endpoints.
+func (b *Backend) SetLinkType(fromID, toID, annotationMatches, linkType string) error {
+	if !note.IsKnownLinkType(linkType) {
+		return fmt.Errorf("gitlocal.SetLinkType: invalid link type %q", linkType)
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if err := acquireGitLock(b.configDir); err != nil {
+		return fmt.Errorf("gitlocal.SetLinkType: %w", err)
+	}
+	defer releaseGitLock(b.configDir)
+
+	n, err := b.Read(fromID)
+	if err != nil {
+		return fmt.Errorf("gitlocal.SetLinkType: %w", err)
+	}
+	var matches []int
+	hasEndpointLink := false
+	hasTypedEndpointLink := false
+	for i, lnk := range n.Links {
+		if lnk.TargetID != toID {
+			continue
+		}
+		hasEndpointLink = true
+		if lnk.Type != "" {
+			hasTypedEndpointLink = true
+			continue
+		}
+		if annotationMatches == "" || strings.Contains(lnk.Annotation, annotationMatches) {
+			matches = append(matches, i)
+		}
+	}
+	if len(matches) == 0 {
+		switch {
+		case hasEndpointLink && annotationMatches != "" && !hasTypedEndpointLink:
+			return fmt.Errorf("gitlocal.SetLinkType: no untyped relationship %s→%s has annotation containing %q", fromID, toID, annotationMatches)
+		case hasEndpointLink && hasTypedEndpointLink:
+			return fmt.Errorf("gitlocal.SetLinkType: relationship %s→%s is already typed or no untyped link matches", fromID, toID)
+		default:
+			return fmt.Errorf("gitlocal.SetLinkType: untyped relationship %s→%s not found", fromID, toID)
+		}
+	}
+	if len(matches) > 1 {
+		return fmt.Errorf("gitlocal.SetLinkType: ambiguous relationship %s→%s: %d untyped links match; use --annotation-matches", fromID, toID, len(matches))
+	}
+	n.Links[matches[0]].Type = linkType
+	data, err := n.Marshal()
+	if err != nil {
+		return fmt.Errorf("gitlocal.SetLinkType: marshal: %w", err)
+	}
+	path := filepath.Join(b.dir, n.Filename())
+	if err := atomicWriteFile(path, data); err != nil {
+		return fmt.Errorf("gitlocal.SetLinkType: write: %w", err)
+	}
+	msg := fmt.Sprintf("note: type link %s → %s as %s", fromID, toID, linkType)
 	return b.commitWithLockHeld(path, msg)
 }
 
@@ -582,6 +667,11 @@ func (b *Backend) RemoveLinks(fromID string, removals []backend.LinkRemoval) err
 
 // BulkUpdateLinks applies multiple link updates to fromID in a single git commit.
 func (b *Backend) BulkUpdateLinks(fromID string, updates []backend.LinkUpdate) error {
+	for _, update := range updates {
+		if update.Type != nil && !note.IsKnownLinkType(*update.Type) {
+			return fmt.Errorf("gitlocal.BulkUpdateLinks: invalid link type %q for target %s", *update.Type, update.ToID)
+		}
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if err := acquireGitLock(b.configDir); err != nil {
@@ -629,6 +719,9 @@ func (b *Backend) BulkUpdateLinks(fromID string, updates []backend.LinkUpdate) e
 // UpdateLink modifies the annotation, type, and/or status of an existing link without removing it.
 // nil pointer arguments mean "leave unchanged".
 func (b *Backend) UpdateLink(fromID, toID string, annotation, linkType, linkStatus *string) error {
+	if linkType != nil && !note.IsKnownLinkType(*linkType) {
+		return fmt.Errorf("gitlocal.UpdateLink: invalid link type %q", *linkType)
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if err := acquireGitLock(b.configDir); err != nil {
@@ -754,6 +847,9 @@ func (b *Backend) Promote(id string, from time.Time, to note.Status) error {
 func (b *Backend) BulkWrite(notes []*note.Note) error {
 	if len(notes) == 0 {
 		return nil
+	}
+	if err := validateNewNoteLinkTypes("gitlocal.BulkWrite", notes...); err != nil {
+		return err
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -897,6 +993,9 @@ func validBulkApplyID(id string) bool {
 func (b *Backend) BulkApply(newNotes []*note.Note, updateNotes []*note.Note) error {
 	if len(newNotes) == 0 && len(updateNotes) == 0 {
 		return nil
+	}
+	if err := validateNewNoteLinkTypes("gitlocal.BulkApply", newNotes...); err != nil {
+		return err
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()

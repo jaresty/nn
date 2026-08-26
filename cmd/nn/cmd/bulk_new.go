@@ -23,7 +23,7 @@ type bulkNewSpec struct {
 
 // bulkNewLink declares a link from this note to another note in the batch by index.
 type bulkNewLink struct {
-	Ref        int    `json:"ref"`        // index into the batch array
+	Ref        int    `json:"ref"` // index into the batch array
 	Annotation string `json:"annotation"`
 	Type       string `json:"type"`
 }
@@ -86,7 +86,7 @@ func newBulkNewCmd(state *rootState) *cobra.Command {
 						return fmt.Errorf("bulk-new: spec[%d] link to ref %d missing annotation", i, lnk.Ref)
 					}
 					if !note.IsKnownLinkType(lnk.Type) {
-						fmt.Fprintf(cmd.ErrOrStderr(), "warning: unknown link type %q in spec[%d]\n", lnk.Type, i)
+						return fmt.Errorf("bulk-new: spec[%d] link to ref %d has invalid type %q", i, lnk.Ref, lnk.Type)
 					}
 					notes[i].Links = append(notes[i].Links, note.Link{
 						TargetID:   notes[lnk.Ref].ID,

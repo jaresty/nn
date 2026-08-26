@@ -28,6 +28,23 @@ func TestUpdateLinkType(t *testing.T) {
 	}
 }
 
+func TestUpdateLinkRejectsMissingAndUnknownNewType(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	src := newTestNoteForCLI(note.GenerateID(), "Source", note.TypeConcept)
+	dst := newTestNoteForCLI(note.GenerateID(), "Target", note.TypeConcept)
+	src.Links = []note.Link{{TargetID: dst.ID, Type: "supports", Annotation: "original"}}
+	writeNoteFile(t, nbDir, src)
+	writeNoteFile(t, nbDir, dst)
+
+	for _, linkType := range []string{"", "invented"} {
+		t.Run(linkType, func(t *testing.T) {
+			if _, err := execute("update-link", src.ID, dst.ID, "--type", linkType); err == nil {
+				t.Fatalf("update-link type %q: want error, got nil", linkType)
+			}
+		})
+	}
+}
+
 func TestUpdateLinkAnnotation(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	src := newTestNoteForCLI(note.GenerateID(), "Source", note.TypeConcept)

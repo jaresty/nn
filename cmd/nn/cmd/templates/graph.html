@@ -114,6 +114,15 @@ text.hidden-badge { fill: #7eb8f7; font-size: 11px; font-weight: 700; paint-orde
 /* The thin visible line ignores the pointer so the wide transparent .link-hit
    line beneath it receives hover (otherwise the 1px line would sit on top). */
 .link { stroke-opacity: .5; fill: none; pointer-events: none; }
+.link-hit { cursor: pointer; }
+/* Relationship types are visible lasso targets on Graph Ask. Labels ignore
+   pointer events so edge hover/click continues to use the wide hit path. */
+.link-label {
+  display: none; pointer-events: none; fill: #aebbd0; font-size: 10px;
+  text-anchor: middle; paint-order: stroke; stroke: #1a1a2e; stroke-width: 3px;
+  stroke-linejoin: round;
+}
+body.feedback .link-label { display: block; }
 /* Hovered edge: thickened and full-opacity so it's clear which edge the tooltip
    is describing. */
 /* Hover: prominent highlight matching the @-candidate affordance so it's obvious
@@ -219,6 +228,17 @@ path.link.mention-candidate { stroke: #f0c040 !important; stroke-opacity: 1 !imp
    "you commented here" without being confused for graph coloring. */
 .node.has-comment circle { stroke: #c17ef7; stroke-width: 3.5px; stroke-dasharray: 2 3; }
 path.link.has-comment { stroke: #c17ef7 !important; stroke-opacity: 1 !important; stroke-width: 3px; stroke-dasharray: 2 4; }
+/* Active multi-selection is independent of inspection and comments. Modifier
+   click toggles membership; saving snapshots it into an annotated group. */
+.node.selection-member circle { stroke: #f7e07e; stroke-width: 5px; stroke-dasharray: 6 2; }
+path.link.selection-member { stroke: #f7e07e !important; stroke-opacity: 1 !important; stroke-width: 4px; stroke-dasharray: 6 3; }
+/* Shift-dragging clear canvas in feedback mode draws this screen-space lasso.
+   It lives outside the zoomed graph group so its border remains crisp. */
+#selection-lasso {
+  display: none; pointer-events: none; fill: rgba(247,224,126,.13);
+  stroke: #f7e07e; stroke-width: 2px; stroke-dasharray: 7 4;
+}
+svg.lasso-active { cursor: crosshair; }
 
 /* ── graph-feedback surface (nn ask --surface graph) ── */
 /* Instruction banner. Docked at top-left (not centered) so it never overlaps
@@ -237,7 +257,7 @@ body.feedback #feedback-banner { display: block; }
    the right to collide with as the window narrows (the note card + feedback panel
    already claim the right side). Row 1: nav + search side by side. Below it a
    left stack: breadcrumb → banner → type legend. Width-independent, no overlaps. */
-body.feedback #search-bar { top: 14px; left: 270px; right: auto; }
+body.feedback #search-bar { top: 14px; left: 414px; right: auto; }
 body.feedback #focus-crumb {
   top: 52px; left: 14px; right: auto; transform: none;
   max-width: min(80vw, 600px); margin: 0;
@@ -261,9 +281,11 @@ body.feedback #tray-bar { display: none; }
    near-full opacity rather than the exploratory .5 idle fade. */
 body.feedback .link { stroke-opacity: .9; }
 
-/* Front-and-center navigation controls (restore + back). */
-#feedback-nav { display: none; position: absolute; top: 14px; left: 14px; z-index: 16; gap: 6px; }
-body.feedback #feedback-nav { display: flex; }
+/* Front-and-center navigation and explicit interaction-mode controls. */
+#feedback-nav, #feedback-modes { display: none; position: absolute; top: 14px; z-index: 16; gap: 6px; }
+#feedback-nav { left: 14px; }
+#feedback-modes { left: 190px; }
+body.feedback #feedback-nav, body.feedback #feedback-modes { display: flex; }
 /* Collapse the four directional zone legends into one compact key stacked in
    the bottom-left, out of the node field, so they never occlude zone nodes.
    Each ID override resets top/left/transform (ID specificity) and stacks them. */
@@ -278,12 +300,13 @@ body.feedback #mlegend-top    { bottom: 92px; }
 body.feedback #mlegend-left   { bottom: 70px; }
 body.feedback #mlegend-right  { bottom: 48px; }
 body.feedback #mlegend-bottom { bottom: 26px; }
-#feedback-nav button {
+#feedback-nav button, #feedback-modes button {
   background: #16213e; border: 1px solid #3a4a6a; color: #cfe2ff;
   border-radius: 5px; padding: 4px 12px; font-size: 12px; cursor: pointer; font-weight: 600;
 }
-#feedback-nav button:hover { background: #26365a; color: #fff; }
+#feedback-nav button:hover, #feedback-modes button:hover { background: #26365a; color: #fff; }
 #feedback-nav button:disabled { opacity: .4; cursor: default; }
+#feedback-modes button[aria-pressed="true"] { background: #f7e07e; border-color: #f7e07e; color: #111827; }
 
 /* Inline per-node comment box in the note card. Typing here adds the note to
    the feedback panel (membership follows a non-empty comment). */
@@ -325,13 +348,39 @@ body.feedback #fbpanel { display: flex; }
 body.feedback #right-col.open { margin-right: 300px; }
 #fbpanel-header { padding: 12px 14px; font-size: 14px; font-weight: 600; color: #cfe2ff; border-bottom: 1px solid #2a3a5e; }
 #fbpanel-empty { padding: 14px; font-size: 12px; color: #7a90b0; line-height: 1.5; }
-#fbpanel-list { flex: 1; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; }
+#fbpanel-list { flex: 1; min-height: 60px; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; }
 .fbitem { border: 1px solid #2a3a5e; border-radius: 6px; background: #0e1228; padding: 8px 10px; }
 .fbitem-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
 .fbitem-title { font-size: 12px; font-weight: 600; color: #cfe2ff; }
 .fbitem-remove { background: none; border: none; color: #8899bb; cursor: pointer; font-size: 13px; padding: 0 2px; }
 .fbitem-remove:hover { color: #f0a0a0; }
 .fbitem-comment { font-size: 12px; color: #bcd; margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
+#group-composer { padding: 10px 14px; border-top: 1px solid #2a3a5e; max-height: 45vh; overflow-y: auto; }
+#group-composer-head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 600; color: #cfe2ff; }
+#active-selection-count { color: #f7e07e; font-weight: 500; }
+#group-selection-hint { color: #7a90b0; font-size: 10px; line-height: 1.4; margin: 4px 0 7px; }
+#group-name, #group-classification, #group-comment {
+  width: 100%; background: #1a1a2e; border: 1px solid #3a6aaa; color: #ddd;
+  border-radius: 4px; padding: 5px 7px; font-size: 11px; font-family: inherit; margin-top: 5px;
+}
+#group-comment { min-height: 44px; resize: vertical; }
+#save-group {
+  width: 100%; margin-top: 6px; background: #1e3a5e; border: 1px solid #3a6aaa; color: #9fc4ff;
+  border-radius: 5px; padding: 6px 8px; font-size: 11px; cursor: pointer; font-weight: 600;
+}
+#save-group:disabled { opacity: .4; cursor: default; }
+#saved-groups { display: flex; flex-direction: column; gap: 5px; margin-top: 7px; }
+.saved-group { background: #0e1228; border: 1px solid #3a4a6a; border-radius: 5px; padding: 6px 7px; }
+.saved-group-name { color: #cfe2ff; font-size: 11px; font-weight: 600; }
+.saved-group-meta { color: #7a90b0; font-size: 10px; margin-top: 2px; }
+.saved-group-comment { color: #bcd; font-size: 11px; margin-top: 3px; white-space: pre-wrap; }
+.saved-group-actions { display: flex; gap: 4px; margin-top: 6px; }
+.saved-group-actions button {
+  flex: 1; background: #16213e; border: 1px solid #3a4a6a; color: #9fc4ff;
+  border-radius: 4px; padding: 3px 4px; font-size: 10px; cursor: pointer;
+}
+.saved-group-actions button:hover { background: #26365a; color: #fff; }
+.saved-group-actions .saved-group-delete { color: #f0a0a0; }
 #fbpanel-answer-wrap { padding: 10px 14px; border-top: 1px solid #2a3a5e; }
 #fbpanel-answer-label { font-size: 11px; color: #9fc4ff; margin-bottom: 4px; font-weight: 600; }
 #fbpanel-answer {
@@ -339,11 +388,19 @@ body.feedback #right-col.open { margin-right: 300px; }
   border-radius: 4px; padding: 5px 8px; font-size: 12px; resize: vertical;
   min-height: 60px; font-family: inherit; box-sizing: border-box;
 }
-#fbpanel-send {
-  margin: 0 14px 14px; background: #1e5e3a; border: 1px solid #3aaa6a; color: #a8f7c8;
-  border-radius: 5px; padding: 8px 14px; font-size: 13px; cursor: pointer; font-weight: 600;
+#fbpanel-actions { margin: 0 14px 14px; }
+#terminal-actions { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.terminal-action {
+  margin: 0; border-radius: 5px; padding: 8px 10px; font-size: 12px;
+  cursor: pointer; font-weight: 600;
 }
-#fbpanel-send:hover { background: #2a7e4a; color: #fff; }
+.terminal-action:disabled { opacity: .55; cursor: default; }
+#fbpanel-send { background: #1e5e3a; border: 1px solid #3aaa6a; color: #a8f7c8; }
+#fbpanel-send:hover:not(:disabled) { background: #2a7e4a; color: #fff; }
+#send-to-canvas { background: #3a2e5e; border: 1px solid #9b7bd8; color: #e0d6ff; }
+#send-to-canvas:hover:not(:disabled) { background: #4b3b78; color: #fff; }
+#send-to-document { background: #183b50; border: 1px solid #5ba7c9; color: #c7efff; }
+#send-to-document:hover:not(:disabled) { background: #20516d; color: #fff; }
 
 /* @-mention dropdown for comment boxes. */
 #mention-menu {
@@ -441,14 +498,19 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
        a reversible view toggle, so it gets its own affordance. -->
   <button id="focus-crumb" title="Click to return to the full graph"><span id="focus-crumb-title"></span><span id="focus-crumb-hint"> — click a neighbor to recenter</span><span id="focus-crumb-x"> ✕</span></button>
   <div id="feedback-banner">
-    <span id="feedback-instructions"><b>Click a note</b> to view it, then <b>type a comment</b> to add it to your feedback.
-    Click a node again to recenter. Review everything in the panel on the right, then <b>Send feedback</b>.</span>
+    <span id="feedback-instructions">Choose <b>Inspect</b>, <b>Select</b>, or <b>Lasso</b>. <b>Shift/Ctrl/⌘-click</b> always toggles group membership, and <b>Shift-drag</b> always lassos.
+    Drag the background in Inspect or Select mode to pan. Name and comment on selections in the right panel.</span>
   </div>
   <!-- Feedback-mode navigation controls: restore the original ego view and step
        back through focus history. Front-and-center (top-left of the canvas). -->
   <div id="feedback-nav">
     <button id="btn-back" title="Go back to the previous view">← Back</button>
     <button id="btn-restore" title="Return to the neighborhood you were asked to react to">⌂ Question</button>
+  </div>
+  <div id="feedback-modes" role="group" aria-label="Canvas interaction mode">
+    <button id="btn-mode-inspect" type="button" aria-pressed="true" title="Plain clicks inspect notes and relationships">Inspect</button>
+    <button id="btn-mode-select" type="button" aria-pressed="false" title="Plain clicks toggle selection membership">Select</button>
+    <button id="btn-lasso" type="button" aria-pressed="false" title="Drag a rectangle on the background to select notes and relationships">Lasso</button>
   </div>
   <div id="tray-bar">
     <span id="tray-count">0 selected</span>
@@ -519,11 +581,34 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
   <div id="fbpanel-header">Your feedback</div>
   <div id="fbpanel-empty">Click a note and comment on it to start. Commented notes collect here.</div>
   <div id="fbpanel-list"></div>
+  <div id="group-composer">
+    <div id="group-composer-head"><span>Active selection</span><span id="active-selection-count">0 notes · 0 relationships</span></div>
+    <div id="group-selection-hint">Shift/Ctrl/⌘-click items or Shift-drag the background to lasso notes and relationships. Relationships between selected notes are included implicitly.</div>
+    <input id="group-name" type="text" placeholder="Group name (optional)">
+    <select id="group-classification" aria-label="Group classification">
+      <option value="">No classification</option>
+      <option value="relevant">relevant</option>
+      <option value="evidence">evidence</option>
+      <option value="tension">tension</option>
+      <option value="belong-together">belong-together</option>
+      <option value="needs-attention">needs-attention</option>
+      <option value="unclear">unclear</option>
+    </select>
+    <textarea id="group-comment" placeholder="Comment on this selection…"></textarea>
+    <button id="save-group" disabled>Save selection as group</button>
+    <div id="saved-groups"></div>
+  </div>
   <div id="fbpanel-answer-wrap">
     <div id="fbpanel-answer-label">Overall comment / answer</div>
     <textarea id="fbpanel-answer" placeholder="Your overall response… (type @ to reference a note)"></textarea>
   </div>
-  <button id="fbpanel-send">Send feedback</button>
+  <div id="fbpanel-actions">
+    <div id="terminal-actions" aria-label="Submit feedback">
+      <button id="fbpanel-send" class="terminal-action" type="button">Send</button>
+      <button id="send-to-canvas" class="terminal-action" type="button">Send to Canvas</button>
+      <button id="send-to-document" class="terminal-action" type="button">Send to Document</button>
+    </div>
+  </div>
 </div>
 <div id="mention-menu"></div>
 <script>
@@ -611,7 +696,34 @@ const width  = () => svgEl.clientWidth;
 const height = () => svgEl.clientHeight;
 
 const LABEL_ZOOM_THRESHOLD = 0.4;
-const zoom = d3.zoom().scaleExtent([.05, 12]).on("zoom", e => {
+// Inspect, Select, and Lasso are persistent, mutually-exclusive modes. Shift
+// remains a temporary lasso shortcut from either non-lasso mode; every other
+// background gesture keeps D3's ordinary zoom/pan behavior.
+let interactionMode = "inspect";
+const interactionModeButtons = {
+  inspect: document.getElementById("btn-mode-inspect"),
+  select: document.getElementById("btn-mode-select"),
+  lasso: document.getElementById("btn-lasso"),
+};
+function setInteractionMode(mode) {
+  if (!interactionModeButtons[mode]) return;
+  interactionMode = mode;
+  Object.entries(interactionModeButtons).forEach(([name, button]) =>
+    button.setAttribute("aria-pressed", String(name === mode)));
+  svgEl.classList.toggle("lasso-active", mode === "lasso");
+}
+Object.entries(interactionModeButtons).forEach(([mode, button]) =>
+  button.addEventListener("click", () => setInteractionMode(mode)));
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && interactionMode === "lasso") setInteractionMode("inspect");
+});
+function isFeedbackLassoStart(e) {
+  return document.body.classList.contains("feedback") && (e.shiftKey || interactionMode === "lasso") && e.button === 0 && e.target === svgEl;
+}
+const zoom = d3.zoom().scaleExtent([.05, 12]).filter(e => {
+  if (e.type === "mousedown" && isFeedbackLassoStart(e)) return false;
+  return (!e.ctrlKey || e.type === "wheel") && !e.button;
+}).on("zoom", e => {
   g.attr("transform", e.transform);
   const k = e.transform.k;
   // In a focused zoned view the layout is meaningless without labels, so keep
@@ -637,6 +749,8 @@ svg.append("defs").append("marker")
 const g    = svg.append("g");
 const gLinks = g.append("g");
 const gNodes = g.append("g");
+// Top-level (unzoomed) overlay: coordinates are CSS/SVG viewport pixels.
+const lassoRect = svg.append("rect").attr("id", "selection-lasso");
 
 function zoomBy(k) { svg.transition().duration(200).call(zoom.scaleBy, k); }
 function zoomFit() {
@@ -711,6 +825,14 @@ const feedbackData = new Map(); // id → node datum (for panel rendering)
 // Edge feedback: keyed "source->target"; value {source,target,type,comment}.
 const edgeComments = new Map();
 const edgeKey = d => `${typeof d.source==="object"?d.source.id:d.source}->${typeof d.target==="object"?d.target.id:d.target}`;
+const selectionEdgeKey = d => `${edgeKey(d)}::${d.type || ""}`;
+// Group selection is separate from inspection and item comments. Saving
+// snapshots the active explicit members and derives implicit relationships.
+const activeSelectionNodes = new Set();
+const activeSelectionEdges = new Map();
+const selectionGroups = [];
+let nextSelectionGroupNumber = 1;
+let editingSelectionGroupID = null;
 
 // Minimal, safe markdown → HTML for the note body panel. Escapes HTML first,
 // then renders headings, lists, inline code, links, bold/italic, paragraphs.
@@ -859,6 +981,306 @@ function renderFeedbackPanel() {
     });
   });
 }
+
+function normalizedSelectionEdge(d, selection) {
+  return {
+    source: typeof d.source === "object" ? d.source.id : d.source,
+    target: typeof d.target === "object" ? d.target.id : d.target,
+    type: d.type || "",
+    selection,
+  };
+}
+
+function syncSelectionUI() {
+  if (typeof gNodes !== "undefined")
+    gNodes.selectAll("g.node").classed("selection-member", d => activeSelectionNodes.has(d.id));
+  if (typeof gLinks !== "undefined") {
+    const selectedEdge = d => activeSelectionEdges.has(selectionEdgeKey(d));
+    gLinks.selectAll("path.link").classed("selection-member", selectedEdge);
+    gLinks.selectAll("path.link-hit").classed("selection-member", selectedEdge);
+  }
+  const count = document.getElementById("active-selection-count");
+  if (count) count.textContent = `${activeSelectionNodes.size} notes · ${activeSelectionEdges.size} relationships`;
+  const hasActive = activeSelectionNodes.size > 0 || activeSelectionEdges.size > 0;
+  const save = document.getElementById("save-group");
+  if (save) save.disabled = !(hasActive || editingSelectionGroupID);
+}
+
+function toggleNodeSelection(d) {
+  if (activeSelectionNodes.has(d.id)) activeSelectionNodes.delete(d.id);
+  else activeSelectionNodes.add(d.id);
+  syncSelectionUI();
+}
+
+function toggleEdgeSelection(d) {
+  const key = selectionEdgeKey(d);
+  if (activeSelectionEdges.has(key)) activeSelectionEdges.delete(key);
+  else activeSelectionEdges.set(key, normalizedSelectionEdge(d, "explicit"));
+  syncSelectionUI();
+}
+
+// ── Feedback background lasso ─────────────────────────────────────────────
+// Shift-drag on clear SVG background is additive. Intersected node circles are
+// direct hits. An edge is a direct hit only when the rectangle contains its
+// rendered path midpoint or intersects its visible relationship label; crossing
+// some other part of the segment alone is intentionally insufficient.
+// Starting anywhere else (or dragging without Shift) remains ordinary D3 pan.
+let lassoGesture = null;
+function lassoPoint(e) {
+  const r = svgEl.getBoundingClientRect();
+  return {
+    x: Math.max(0, Math.min(r.width, e.clientX - r.left)),
+    y: Math.max(0, Math.min(r.height, e.clientY - r.top)),
+  };
+}
+function showLasso(start, end) {
+  const x = Math.min(start.x, end.x), y = Math.min(start.y, end.y);
+  lassoRect.attr("x", x).attr("y", y)
+    .attr("width", Math.abs(end.x - start.x)).attr("height", Math.abs(end.y - start.y))
+    .style("display", "block");
+}
+function finishLasso(end, selectNodes) {
+  if (!lassoGesture) return;
+  const start = lassoGesture.start;
+  const svgBounds = svgEl.getBoundingClientRect();
+  const left = svgBounds.left + Math.min(start.x, end.x);
+  const right = svgBounds.left + Math.max(start.x, end.x);
+  const top = svgBounds.top + Math.min(start.y, end.y);
+  const bottom = svgBounds.top + Math.max(start.y, end.y);
+  const dragged = Math.hypot(end.x - start.x, end.y - start.y) >= 4;
+  if (selectNodes && dragged) {
+    gNodes.selectAll("g.node").each(function(d) {
+      const circle = this.querySelector("circle");
+      if (!circle) return;
+      const r = circle.getBoundingClientRect();
+      const cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2;
+      const radius = Math.min(r.width, r.height) / 2;
+      const closestX = Math.max(left, Math.min(cx, right));
+      const closestY = Math.max(top, Math.min(cy, bottom));
+      const dx = cx - closestX, dy = cy - closestY;
+      if (dx * dx + dy * dy <= radius * radius) activeSelectionNodes.add(d.id);
+    });
+    const labelsByEdge = new Map();
+    gLinks.selectAll("text.link-label").each(function(d) {
+      if (getComputedStyle(this).display !== "none" && getComputedStyle(this).visibility !== "hidden")
+        labelsByEdge.set(selectionEdgeKey(d), this);
+    });
+    gLinks.selectAll("path.link").each(function(d) {
+      const length = this.getTotalLength();
+      const localMidpoint = this.getPointAtLength(length / 2);
+      const midpoint = new DOMPoint(localMidpoint.x, localMidpoint.y).matrixTransform(this.getScreenCTM());
+      const midpointContained = midpoint.x >= left && midpoint.x <= right && midpoint.y >= top && midpoint.y <= bottom;
+      const label = labelsByEdge.get(selectionEdgeKey(d));
+      const labelRect = label ? label.getBoundingClientRect() : null;
+      const labelIntersects = !!labelRect && labelRect.width > 0 && labelRect.height > 0 &&
+        !(labelRect.right < left || labelRect.left > right || labelRect.bottom < top || labelRect.top > bottom);
+      if (midpointContained || labelIntersects)
+        activeSelectionEdges.set(selectionEdgeKey(d), normalizedSelectionEdge(d, "explicit"));
+    });
+    syncSelectionUI();
+  }
+  lassoRect.style("display", "none").attr("width", 0).attr("height", 0);
+  lassoGesture = null;
+  // Shift-lasso is temporary; explicit Lasso mode remains armed for the next drag.
+  svgEl.classList.toggle("lasso-active", interactionMode === "lasso");
+}
+svgEl.addEventListener("pointerdown", e => {
+  if (!isFeedbackLassoStart(e)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const start = lassoPoint(e);
+  lassoGesture = { pointerId: e.pointerId, start };
+  svgEl.setPointerCapture(e.pointerId);
+  svgEl.classList.add("lasso-active");
+  showLasso(start, start);
+});
+svgEl.addEventListener("pointermove", e => {
+  if (!lassoGesture || e.pointerId !== lassoGesture.pointerId) return;
+  e.preventDefault();
+  showLasso(lassoGesture.start, lassoPoint(e));
+});
+svgEl.addEventListener("pointerup", e => {
+  if (!lassoGesture || e.pointerId !== lassoGesture.pointerId) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const end = lassoPoint(e);
+  if (svgEl.hasPointerCapture(e.pointerId)) svgEl.releasePointerCapture(e.pointerId);
+  finishLasso(end, true);
+});
+svgEl.addEventListener("pointercancel", e => {
+  if (!lassoGesture || e.pointerId !== lassoGesture.pointerId) return;
+  finishLasso(lassoPoint(e), false);
+});
+
+function clearActiveSelection() {
+  activeSelectionNodes.clear();
+  activeSelectionEdges.clear();
+}
+
+function resetGroupComposer() {
+  editingSelectionGroupID = null;
+  document.getElementById("group-name").value = "";
+  document.getElementById("group-classification").value = "";
+  document.getElementById("group-comment").value = "";
+  document.getElementById("save-group").textContent = "Save selection as group";
+}
+
+function editSelectionGroup(group) {
+  clearActiveSelection();
+  editingSelectionGroupID = group.id;
+  document.getElementById("group-name").value = group.name || "";
+  document.getElementById("group-classification").value = group.classification || "";
+  document.getElementById("group-comment").value = group.comment || "";
+  document.getElementById("save-group").textContent = "Update group";
+  syncSelectionUI();
+}
+
+function reselectSelectionGroup(group) {
+  clearActiveSelection();
+  group.nodes.filter(node => node.selection !== "implicit").forEach(node => activeSelectionNodes.add(node.id));
+  group.edges.filter(edge => edge.selection === "explicit").forEach(edge =>
+    activeSelectionEdges.set(selectionEdgeKey(edge), { ...edge, selection: "explicit" }));
+  syncSelectionUI();
+}
+
+function deleteSelectionGroup(group) {
+  const index = selectionGroups.findIndex(candidate => candidate.id === group.id);
+  if (index === -1) return;
+  selectionGroups.splice(index, 1);
+  if (editingSelectionGroupID === group.id) resetGroupComposer();
+  renderSavedGroups();
+}
+
+function groupAction(label, className, action) {
+  const button = document.createElement("button");
+  button.type = "button"; button.textContent = label; button.className = className;
+  button.addEventListener("click", action);
+  return button;
+}
+
+function renderSavedGroups() {
+  const list = document.getElementById("saved-groups");
+  if (!list) return;
+  list.innerHTML = "";
+  selectionGroups.forEach(group => {
+    const item = document.createElement("div"); item.className = "saved-group";
+    item.dataset.groupId = group.id;
+    const name = document.createElement("div"); name.className = "saved-group-name";
+    name.textContent = group.name || group.id;
+    const meta = document.createElement("div"); meta.className = "saved-group-meta";
+    meta.textContent = `${group.nodes.length} notes · ${group.edges.length} relationships` +
+      (group.classification ? ` · ${group.classification}` : "");
+    item.appendChild(name); item.appendChild(meta);
+    if (group.comment) {
+      const comment = document.createElement("div"); comment.className = "saved-group-comment";
+      comment.textContent = group.comment; item.appendChild(comment);
+    }
+    const actions = document.createElement("div"); actions.className = "saved-group-actions";
+    actions.appendChild(groupAction("Edit", "saved-group-edit", () => editSelectionGroup(group)));
+    actions.appendChild(groupAction("Reselect", "saved-group-reselect", () => reselectSelectionGroup(group)));
+    actions.appendChild(groupAction("Delete", "saved-group-delete", () => deleteSelectionGroup(group)));
+    item.appendChild(actions);
+    list.appendChild(item);
+  });
+  syncSelectionUI();
+}
+
+function activeSelectionSnapshot() {
+  const explicitEdges = [...activeSelectionEdges.values()].map(edge => ({ ...edge, selection: "explicit" }));
+  const explicitKeys = new Set(activeSelectionEdges.keys());
+  const selectionGraph = rootGraphData || currentGraphData || { edges: [] };
+  const implicitEdges = (selectionGraph.edges || [])
+    .filter(edge => {
+      const normalized = normalizedSelectionEdge(edge, "implicit");
+      return activeSelectionNodes.has(normalized.source) && activeSelectionNodes.has(normalized.target) && !explicitKeys.has(selectionEdgeKey(edge));
+    })
+    .map(edge => normalizedSelectionEdge(edge, "implicit"));
+  const nodes = new Map([...activeSelectionNodes].map(id => [id, { id, selection: "explicit" }]));
+  // A directly caught relationship is still interpretable when its endpoints
+  // were outside the rectangle: include those endpoint notes as derived context.
+  explicitEdges.forEach(edge => {
+    if (!nodes.has(edge.source)) nodes.set(edge.source, { id: edge.source, selection: "implicit" });
+    if (!nodes.has(edge.target)) nodes.set(edge.target, { id: edge.target, selection: "implicit" });
+  });
+  return {
+    nodes: [...nodes.values()],
+    edges: [...explicitEdges, ...implicitEdges],
+  };
+}
+
+// Build the canonical grouped answer without flattening note or relationship
+// feedback into duplicate top-level membership. Comments on saved members travel
+// with those members. Comments outside saved groups form one explicit feedback
+// group so the existing item-comment UI remains lossless.
+function canonicalSelectionGroups() {
+  const coveredNodes = new Set();
+  const coveredEdges = new Set();
+  const groups = selectionGroups.map(group => ({
+    ...group,
+    nodes: group.nodes.map(node => {
+      const comment = nodeComments.get(node.id);
+      if (!comment) return { ...node };
+      coveredNodes.add(node.id);
+      return { ...node, comment };
+    }),
+    edges: group.edges.map(edge => {
+      const key = `${edge.source}->${edge.target}`;
+      const feedback = edgeComments.get(key);
+      if (!feedback || !feedback.comment) return { ...edge };
+      coveredEdges.add(key);
+      return { ...edge, comment: feedback.comment };
+    }),
+  }));
+
+  const nodes = [];
+  nodeComments.forEach((comment, id) => {
+    if (!coveredNodes.has(id)) nodes.push({ id, selection: "explicit", comment });
+  });
+  const edges = [];
+  edgeComments.forEach((edge, key) => {
+    if (!coveredEdges.has(key)) edges.push({ ...edge, selection: "explicit" });
+  });
+  if (nodes.length || edges.length) {
+    groups.push({
+      id: "item-feedback",
+      name: "Item feedback",
+      nodes,
+      edges,
+      comment: "",
+    });
+  }
+  return groups;
+}
+
+function saveSelectionGroup() {
+  const hasActive = activeSelectionNodes.size > 0 || activeSelectionEdges.size > 0;
+  const editIndex = editingSelectionGroupID
+    ? selectionGroups.findIndex(group => group.id === editingSelectionGroupID) : -1;
+  if (!hasActive && editIndex === -1) return false;
+
+  const previous = editIndex >= 0 ? selectionGroups[editIndex] : null;
+  const membership = hasActive ? activeSelectionSnapshot() : {
+    nodes: previous.nodes.map(node => ({ ...node })),
+    edges: previous.edges.map(edge => ({ ...edge })),
+  };
+  const group = {
+    id: previous ? previous.id : `group-${nextSelectionGroupNumber++}`,
+    name: document.getElementById("group-name").value.trim(),
+    classification: document.getElementById("group-classification").value,
+    nodes: membership.nodes,
+    edges: membership.edges,
+    comment: document.getElementById("group-comment").value.trim(),
+  };
+  if (editIndex >= 0) selectionGroups.splice(editIndex, 1, group);
+  else selectionGroups.push(group);
+
+  clearActiveSelection();
+  resetGroupComposer();
+  renderSavedGroups();
+  return true;
+}
+
+document.getElementById("save-group").addEventListener("click", saveSelectionGroup);
 
 // Highlight the node or edge whose comment box is currently open, so it is
 // visually clear what the box refers to. Pass ({nodeId}) or ({edgeKey}) or {} to
@@ -1118,7 +1540,7 @@ function rebuildSim(data) {
   const linkHit = gLinks.selectAll("path.link-hit")
     .data(data.edges, d => `${d.source}-${d.target}`)
     .join("path").attr("class", "link-hit").attr("fill", "none")
-    .attr("stroke", "transparent").attr("stroke-width", 10);
+    .attr("stroke", "transparent").attr("stroke-width", 18);
   // Show the link type on hover via the shared #tooltip (native <title> is
   // unreliable — slow to appear and easy to miss on thin geometry).
   linkHit.on("mousemove", (e, d) => {
@@ -1140,6 +1562,11 @@ function rebuildSim(data) {
   linkHit.on("click", (e, d) => {
     if (!document.body.classList.contains("feedback")) return;
     e.stopPropagation();
+    if (e.shiftKey || e.ctrlKey || e.metaKey || interactionMode === "select") {
+      toggleEdgeSelection(d);
+      return;
+    }
+    if (interactionMode === "lasso") return;
     openEdgeCard(d);
     focusCommentBox();
   });
@@ -1147,6 +1574,10 @@ function rebuildSim(data) {
     .data(data.edges, d => `${d.source}-${d.target}`)
     .join("path").attr("class", "link").attr("fill", "none").attr("stroke", edgeStroke)
     .attr("marker-end", "url(#arrow)");
+  const linkLabel = gLinks.selectAll("text.link-label")
+    .data(data.edges, d => `${d.source}-${d.target}`)
+    .join("text").attr("class", "link-label").attr("dy", -7)
+    .text(d => d.type || "link");
 
   const node = gNodes.selectAll("g")
     .data(data.nodes, d => d.id)
@@ -1262,6 +1693,11 @@ function rebuildSim(data) {
     // recenters the ego onto it. The card is never dismissed by a click here —
     // only its ✕ closes it. This keeps the human oriented.
     if (document.body.classList.contains("feedback")) {
+      if (e.shiftKey || e.ctrlKey || e.metaKey || interactionMode === "select") {
+        toggleNodeSelection(d);
+        return;
+      }
+      if (interactionMode === "lasso") return;
       if (selected === d.id) {
         fetch('/event', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id: d.id, title: d.title})});
         pushFocusHistory();
@@ -1353,10 +1789,14 @@ function rebuildSim(data) {
     });
   }
 
-  // Both the visible edge and its hit-line follow the same computed path.
+  const linkLabelX = d => (d.source.x + d.target.x) / 2;
+  const linkLabelY = d => (d.source.y + d.target.y) / 2;
+  // Both the visible edge and its hit-line follow the same computed path; the
+  // visible relationship label tracks the same endpoints.
   simulation.on("tick", () => {
     link.attr("d", linkPath);
     linkHit.attr("d", linkPath);
+    linkLabel.attr("x", linkLabelX).attr("y", linkLabelY);
     node.attr("transform", d=>`translate(${d.x},${d.y})`);
   });
 
@@ -1374,9 +1814,12 @@ function rebuildSim(data) {
     node.transition().duration(T).attr("transform", d => `translate(${d.x},${d.y})`);
     link.transition().duration(T).attr("d", linkPath);
     linkHit.transition().duration(T).attr("d", linkPath);
+    linkLabel.transition().duration(T).attr("x", linkLabelX).attr("y", linkLabelY);
     // Fit AFTER the glide settles: zoomFit reads getBBox, which mid-transition
     // still reflects the old spread-out positions and yields a tiny (wrong)
     // scale. Wait for the transition to finish so it fits the final zoned layout.
+    syncHasComment();
+    syncSelectionUI();
     setTimeout(zoomFit, T + 20);
     return;
   }
@@ -1387,8 +1830,10 @@ function rebuildSim(data) {
   node.attr("transform", d => `translate(${d.x},${d.y})`);
   link.attr("d", linkPath);
   linkHit.attr("d", linkPath);
-  // Re-apply the persistent comment glow to the freshly-created node/edge DOM.
+  linkLabel.attr("x", linkLabelX).attr("y", linkLabelY);
+  // Re-apply persistent feedback and active-selection styling to fresh DOM.
   syncHasComment();
+  syncSelectionUI();
   zoomFit();
   simulation.restart();
 }
@@ -1847,30 +2292,46 @@ if (askSession) {
 
   attachMention(document.getElementById("fbpanel-answer"));
 
-  // Send: package the collected comments (comment ⇔ membership) + overall answer
-  // into the graph-selection result the agent reads.
-  document.getElementById("fbpanel-send").addEventListener("click", async () => {
-    const annotations = {};
-    nodeComments.forEach((v, id) => { if (v) annotations[id] = v; });
+  // Each visible choice is a mutually exclusive terminal action. There is no
+  // persistent handoff state: the clicked button supplies the one result value.
+  const terminalActions = [
+    [document.getElementById("fbpanel-send"), null],
+    [document.getElementById("send-to-canvas"), "canvas"],
+    [document.getElementById("send-to-document"), "document"],
+  ];
+  let submittingGraphFeedback = false;
+
+  // The graph draft and result share one canonical grouped shape. Canvas intent
+  // requests seed metadata; Document intent remains in the graph result. No
+  // action launches a mutation or destination surface.
+  async function submitGraphFeedback(handoff) {
+    if (submittingGraphFeedback) return;
+    submittingGraphFeedback = true;
+    terminalActions.forEach(([button]) => { button.disabled = true; });
     const payload = {
-      selected: [...nodeComments.keys()],
-      annotations,
-      edges: [...edgeComments.values()],
-      answer: document.getElementById("fbpanel-answer").value.trim(),
+      groups: canonicalSelectionGroups(),
+      overall_comment: document.getElementById("fbpanel-answer").value.trim(),
+      handoff,
     };
     try {
-      await fetch(`/session/${askSession}/draft`, {
+      const draftResponse = await fetch(`/session/${askSession}/draft`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      await fetch(`/session/${askSession}/submit`, { method: "POST" });
+      if (!draftResponse.ok) throw new Error(`draft failed (${draftResponse.status})`);
+      const submitResponse = await fetch(`/session/${askSession}/submit`, { method: "POST" });
+      if (!submitResponse.ok) throw new Error(`submit failed (${submitResponse.status})`);
       document.body.innerHTML =
-        '<div style="color:#a8f7c8;font:16px system-ui;padding:40px;text-align:center">' +
-        'Feedback sent. You can close this tab.</div>';
+        '<div style="color:#a8f7c8;font:16px system-ui;padding:40px;text-align:center">Feedback sent. You can close this tab.</div>';
     } catch (e) {
+      submittingGraphFeedback = false;
+      terminalActions.forEach(([button]) => { button.disabled = false; });
       alert("Could not reach nn to submit: " + e);
     }
+  }
+  terminalActions.forEach(([button, handoff]) => {
+    button.addEventListener("click", () => submitGraphFeedback(handoff));
   });
 }
 

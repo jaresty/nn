@@ -79,6 +79,35 @@ edges:
 	}
 }
 
+func TestGraphApplyRejectsMissingAndUnknownEdgeTypes(t *testing.T) {
+	for _, linkType := range []string{"", "invented"} {
+		t.Run(linkType, func(t *testing.T) {
+			_, execute := setupNotebook(t)
+			manifest := `
+notes:
+  - key: source
+    title: Source
+    type: concept
+  - key: target
+    title: Target
+    type: concept
+edges:
+  - from: source
+    to: target
+    type: ` + linkType + `
+    annotation: context
+`
+			mf := filepath.Join(t.TempDir(), "manifest.yaml")
+			if err := os.WriteFile(mf, []byte(manifest), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := execute("graph", "apply", mf, "--commit"); err == nil {
+				t.Fatalf("graph apply edge type %q: want error, got nil", linkType)
+			}
+		})
+	}
+}
+
 // property [2a/2b]: unresolvable edge reference causes error, no notes written
 func TestGraphApplyUnresolvableEdge(t *testing.T) {
 	_, execute := setupNotebook(t)

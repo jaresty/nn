@@ -23,7 +23,7 @@ Create a new note.
 
 ```
 nn new --title TEXT --type TYPE [--tags TEXT] [--content TEXT] [--no-edit]
-       [--link-to ID --annotation TEXT]  # repeatable; --annotation must match --link-to count
+       [--link-to ID --link-type TYPE --annotation TEXT]  # repeatable; all three counts must match
        [--applies-when TEXT]
        [--representation ontology|taxonomy|axiom]
        [--from-stdin]
@@ -43,7 +43,7 @@ nn new --quick --title TEXT [--no-edit]
 - `--from-file PATH` scaffolds the note body from `nn ast` output for a source file (sets title to filename if not given)
 - `--quick` — shorthand capture: sets type=observation, status=draft, content empty; skips type requirement. Use for fast capture when the note will be refined later.
 - `--no-suggest` — skips the link/tag suggestion prompt after creation. Use in non-interactive or batch contexts.
-- `--link-to ID --annotation TEXT` — repeatable; add multiple links at creation time. Each `--link-to` must have a matching `--annotation` (paired by position).
+- `--link-to ID --link-type TYPE --annotation TEXT` — repeatable; add multiple links at creation time. All three flags are paired by position, and every type must be canonical and non-empty.
 - `--check` — opt-in; runs representation graph validation after creation. No-op if the note has no `representation` field.
 
 ### Choosing a type
@@ -300,6 +300,7 @@ Update annotation, type, and/or status of existing links in place — no unlink/
 
 ```
 nn link <from-id-or-title> <to-id-or-title> --annotation "relationship description" --type TYPE [--status draft|reviewed]
+nn link set-type <from-id-or-title> <to-id-or-title> --type TYPE [--annotation-matches "fragment"]
 nn unlink <from-id-or-title> <to-id-or-title> [--type TYPE]
 nn bulk-link <from-id> --to <id> --annotation "..." --type TYPE [--status draft|reviewed] [--to <id> --annotation "..." --type TYPE]...
 nn bulk-unlink <from-id> --to <id> [--to <id> ...] [--type TYPE ...]
@@ -311,7 +312,7 @@ nn bulk-unlink <from-id> --to <id> [--to <id> ...] [--type TYPE ...]
 
 > **`[[id]]` inline references are presentational only.** Writing `[[20260423-1234]]` in a note's prose body does not create a graph edge — it is not parsed by `nn graph`, `nn backlinks`, `nn path`, or `nn links`. Use `nn link` to create edges. This is intentional: the link graph is the authoritative record of relationships, not the prose.
 
-Both `--annotation` and `--type` are required. A bare link is a schema violation.
+Both `--annotation` and a canonical, non-empty `--type` are required for new links. Legacy untyped links remain readable. Use `nn link set-type` to type exactly one legacy relationship atomically; it preserves endpoints and annotation, rejects already-typed or ambiguous matches, and `--annotation-matches` disambiguates by annotation substring.
 
 Canonical types: `refines`, `contradicts`, `source-of`, `extends`, `supports`, `grounded-by`, `questions`, `governs`, `requires`.
 
@@ -349,7 +350,7 @@ JSON output: `{ "nodes": [...], "edges": [...] }`
 nn graph show [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--zones] [--bodies] [--presentation-hints] [--format text|json|mermaid]
 ```
 
-With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 and direction defaults to `outgoing`. `--links` accepts canonical link types, `--status` accepts `draft`, `reviewed`, or `permanent`, and `--representation` accepts one representation value. Filters constrain BFS expansion, so traversal does not pass through an ineligible intermediate note. Without --focus, graph show renders the full graph; explicitly supplied traversal flags, including `--depth`, require `--focus`. Mermaid output preserves stored edge orientation, includes link type and annotation labels, represents missing edge endpoints as deterministic placeholder nodes, and emits deterministic provenance comments for the normalized traversal options. Use `--format json` for structured output or `--format mermaid` for Markdown-compatible diagrams. Prefer focused output when exploring a note's neighborhood.
+With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 and direction defaults to `outgoing`. `--links` accepts canonical link types, `--status` accepts `draft`, `reviewed`, or `permanent`, and `--representation` accepts one representation value. Filters constrain BFS expansion, so traversal does not pass through an ineligible intermediate note. Without --focus, graph show renders the full graph; explicitly supplied traversal flags, including `--depth`, require `--focus`. In zoned views, directly connected legacy untyped links appear under `UNCLASSIFIED`; they remain structurally visible but receive no inferred TOP/BOTTOM/LEFT/RIGHT semantics. Mermaid output preserves stored edge orientation, includes link type and annotation labels, represents missing edge endpoints as deterministic placeholder nodes, and emits deterministic provenance comments for the normalized traversal options. Use `--format json` for structured output or `--format mermaid` for Markdown-compatible diagrams. Prefer focused output when exploring a note's neighborhood.
 
 ### nn graph routes (typed destination discovery)
 
@@ -612,7 +613,7 @@ nn update <id-or-title> [--title TEXT] [--tags TEXT] [--tags-add TAG] [--tags-re
          [--content TEXT] [--stdin] [--append TEXT] [--replace-section HEADING]
          [--type TYPE] [--status STATUS] [--no-edit]
          [--expires YYYY-MM-DD] [--expires-when TEXT] [--clear-expires] [--clear-expires-when]
-         [--link-to ID --annotation TEXT]  # repeatable; --annotation must match --link-to count
+         [--link-to ID --link-type TYPE --annotation TEXT]  # repeatable; all three counts must match
          [--check]
 ```
 
@@ -636,6 +637,7 @@ Accepts a note ID **or a title substring** — if the substring matches exactly 
 | `--no-edit` | Skip `$EDITOR` (always use in non-TTY/LLM context) |
 | `--since RFC3339` | **Required.** Reject update if note was modified after this timestamp; read `modified:` from `nn show` output. Omitting returns an error. |
 | `--link-to ID` | Add a link to an existing note ID (repeatable) |
+| `--link-type TYPE` | Canonical, non-empty link type paired with `--link-to` (repeatable, must match count) |
 | `--annotation TEXT` | Link annotation paired with `--link-to` (repeatable, must match count) |
 | `--check` | Opt-in; runs representation graph validation after update. No-op if note has no `representation` field. |
 
@@ -1000,10 +1002,10 @@ Best-effort web search via DuckDuckGo. Fetches the top N result pages, strips HT
 ## nn ask
 
 ```
-nn ask [--surface canvas|document|web] [--instructions "..."] [--mermaid "<diagram>"] [--document <file|folder>]
+nn ask [--surface canvas|document|graph|web] [--instructions "..."] [--mermaid "<diagram>"] [--document <file|folder>] [--focus <note-id>] [--nodes <id,...>]
 ```
 
-Ask a human for feedback via a chosen **surface**, block until they submit, then print the path to a thin result envelope. The primitive is the job — *"get a human to close a knowledge gap"* — and the surface is a routing decision keyed on the shape of the answer (ADR-0020). `nn ask` runs **without a configured notebook** (it is note-agnostic at the boundary).
+Ask a human for feedback via a chosen **surface**, block until they submit, then print the path to a thin result envelope. The primitive is the job — *"get a human to close a knowledge gap"* — and the surface is a routing decision keyed on the shape of the answer (ADR-0020). Canvas and Document are note-agnostic at the boundary; Graph reads the configured notebook within its explicit bound.
 
 **Result contract.** Every surface writes to a session directory (`~/.config/nn/feedback/<id>/`) and produces `result.json` — a thin envelope naming native artifacts by path:
 
@@ -1019,12 +1021,15 @@ Session directories are **ephemeral scratch**: each `nn ask` run reclaims sessio
 **Surfaces:**
 - `--surface canvas` (default, *hosted*) — an embedded Excalidraw diagram editor. `--mermaid "<diagram>"` seeds the canvas with an editable diagram (converted from Mermaid); the human edits it and clicks Done. Writes `result.excalidraw` (scene) + `result.png` (image).
 - `--surface document` (*delegated*) — hands the document to the `plannotator` peer for text/markdown annotation. Annotates `--document <file|folder|url>` when given (a `https://` URL is passed straight through — plannotator fetches it), otherwise the `--instructions` text. Writes `result.plannotator.json`, a `{ "decision": "approved|annotated|dismissed", "feedback": "..." }` object you read to get the human's annotations.
+- `--surface graph` (*hosted*) — shows only the bounded Graph neighborhood selected by required `--focus` and optional `--nodes`. Its three terminal buttons are `Send` (`handoff: null`), `Send to Canvas` (`handoff: canvas`), and `Send to Document` (`handoff: document`); clicking one submits exactly once and closes the Graph Ask surface. The `graph-selection` artifact has exactly `groups`, `overall_comment`, and `handoff`; only Canvas intent also emits a `canvas-seed` artifact. Graph records intent but does not launch Canvas or Document.
 
 **Flags:**
 - `--surface` — which surface to route to (default `canvas`)
 - `--instructions "..."` — the prompt shown to the human on the surface (canvas), or the content to annotate when no `--document` is given (document)
 - `--mermaid "<diagram>"` — canvas only: seed the canvas from a Mermaid diagram
 - `--document <file|folder>` — document only: the file or folder to annotate
+- `--focus <note-id>` — graph only: required focus whose depth-1 neighborhood bounds the surface
+- `--nodes <id,...>` — graph only: optional explicit comma-separated note allowlist
 
 **Use `nn ask` when:**
 - You reach a point where only a human can supply the missing knowledge — a sketch, a judgment on a diagram, or annotations on prose

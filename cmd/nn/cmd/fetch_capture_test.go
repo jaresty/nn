@@ -24,6 +24,7 @@ func (s *stubBackend) Delete(id string) error                                   
 func (s *stubBackend) BulkWrite(notes []*note.Note) error                                 { return nil }
 func (s *stubBackend) AddLink(fromID, toID, annotation, linkType, linkStatus string) error { return nil }
 func (s *stubBackend) AddLinks(fromID string, targets []backend.LinkTarget) error          { return nil }
+func (s *stubBackend) SetLinkType(fromID, toID, annotationMatches, linkType string) error  { return nil }
 func (s *stubBackend) RemoveLink(fromID, toID string) error                               { return nil }
 func (s *stubBackend) RemoveLinkByType(fromID, toID, linkType string) error               { return nil }
 func (s *stubBackend) RemoveLinks(fromID string, removals []backend.LinkRemoval) error     { return nil }

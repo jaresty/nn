@@ -34,6 +34,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 		noEdit         bool
 		check          bool
 		linkTos        []string
+		linkTypes      []string
 		annotations    []string
 	)
 
@@ -51,8 +52,13 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 			if replaceSection != "" && content == "" && !fromStdin {
 				return fmt.Errorf("--replace-section requires --content or --stdin")
 			}
-			if len(linkTos) != len(annotations) {
-				return fmt.Errorf("--link-to and --annotation must be paired: got %d --link-to and %d --annotation", len(linkTos), len(annotations))
+			if len(linkTos) != len(linkTypes) || len(linkTos) != len(annotations) {
+				return fmt.Errorf("--link-to, --link-type, and --annotation must be paired: got %d --link-to, %d --link-type, and %d --annotation", len(linkTos), len(linkTypes), len(annotations))
+			}
+			for _, linkType := range linkTypes {
+				if !note.IsKnownLinkType(linkType) {
+					return fmt.Errorf("invalid --link-type %q: must be one of %s", linkType, strings.Join(note.LinkTypeOrder, ", "))
+				}
 			}
 			willOpenEditor := !noEdit && isTTYFn()
 			if title == "" && tags == "" && content == "" && appendS == "" &&
@@ -175,7 +181,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 				}
 			}
 			for i, id := range linkTos {
-				n.Links = append(n.Links, note.Link{TargetID: id, Annotation: annotations[i]})
+				n.Links = append(n.Links, note.Link{TargetID: id, Type: linkTypes[i], Annotation: annotations[i]})
 			}
 			n.Modified = updateNowFn()
 			warnIfLarge(cmd, n.Body)
@@ -211,6 +217,7 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&sinceStr, "since", "", "Reject update if note was modified after this RFC3339 timestamp")
 	cmd.Flags().BoolVar(&check, "check", false, "Run representation graph validation after update (requires representation field)")
 	cmd.Flags().StringArrayVar(&linkTos, "link-to", nil, "Add a link to an existing note ID (repeatable)")
+	cmd.Flags().StringArrayVar(&linkTypes, "link-type", nil, "Known link type paired with --link-to (repeatable, must match count)")
 	cmd.Flags().StringArrayVar(&annotations, "annotation", nil, "Link annotation paired with --link-to (repeatable, must match count)")
 	return cmd
 }

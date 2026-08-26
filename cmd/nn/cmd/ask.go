@@ -26,16 +26,16 @@ const feedbackRetention = 7 * 24 * time.Hour
 // askOptions configures a runAsk invocation. open and runPlannotator are
 // injected so tests can drive a session without launching a real surface.
 type askOptions struct {
-	surface      string
-	mermaid      string
-	instructions string
-	document     string // for --surface document: file or folder to annotate
-	focus        string // for --surface graph: required ego note id bounding the scope
-	nodes        string // for --surface graph: optional explicit allowed-node-id allowlist (comma-separated)
-	backend      backend.Backend // for --surface graph: source of notes for scope resolution + serving
-	open         func(url string) error
+	surface        string
+	mermaid        string
+	instructions   string
+	document       string          // for --surface document: file or folder to annotate
+	focus          string          // for --surface graph: required ego note id bounding the scope
+	nodes          string          // for --surface graph: optional explicit allowed-node-id allowlist (comma-separated)
+	backend        backend.Backend // for --surface graph: source of notes for scope resolution + serving
+	open           func(url string) error
 	runPlannotator func(argv []string) error
-	out          io.Writer
+	out            io.Writer
 }
 
 // askSession identifies a completed feedback session.
@@ -160,7 +160,7 @@ func runAsk(opts askOptions) (askSession, error) {
 		if err := runDocumentSurface(opts, dir, id); err != nil {
 			return sess, err
 		}
-		printCompletion(opts.out, dir)
+		printCompletion(opts.out, dir, feedback.OutcomeSubmitted)
 		return sess, nil
 	}
 
@@ -198,9 +198,9 @@ func runAsk(opts askOptions) (askSession, error) {
 		return sess, err
 	}
 
-	srv.Wait()
+	outcome := srv.Wait()
 
-	printCompletion(opts.out, dir)
+	printCompletion(opts.out, dir, outcome)
 	return sess, nil
 }
 
@@ -349,14 +349,16 @@ func (g *backendGraphSource) Graph() ([]feedback.GraphNode, []feedback.GraphEdge
 	return nodes, edges, nil
 }
 
-// printCompletion reports the outcome of a feedback session in a form the agent
-// cannot mistake for "done": it names the session status, enumerates each
-// result artifact with its format and absolute path, and states explicitly that
-// the task is not complete until those artifacts have been read and acted on.
-// It never dumps raw artifact content (a canvas scene is a graph, not prose).
-// The result envelope is best-effort — if it cannot be read, the result path is
-// still printed with the same instruction.
-func printCompletion(out io.Writer, dir string) {
+// printCompletion reports the terminal outcome. A cancellation is complete in
+// itself and has no result artifact to read. A submission names each native
+// artifact and tells the agent to consume it before treating the task as done.
+// Raw artifact content is never dumped (a canvas scene is a graph, not prose).
+func printCompletion(out io.Writer, dir string, outcome feedback.Outcome) {
+	if outcome == feedback.OutcomeCancelled {
+		fmt.Fprintf(out, "Feedback cancelled (session %s).\n", filepath.Base(dir))
+		return
+	}
+
 	resultPath := filepath.Join(dir, "result.json")
 	result, err := feedback.ReadResult(dir)
 	if err != nil {

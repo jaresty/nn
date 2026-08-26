@@ -99,6 +99,18 @@ func TestValidTypes(t *testing.T) {
 	}
 }
 
+func TestIsKnownLinkTypeRejectsEmptyAndUnknown(t *testing.T) {
+	if note.IsKnownLinkType("") {
+		t.Error("IsKnownLinkType(empty) = true, want false")
+	}
+	if note.IsKnownLinkType("invented") {
+		t.Error("IsKnownLinkType(unknown) = true, want false")
+	}
+	if !note.IsKnownLinkType("grounded-by") {
+		t.Error("IsKnownLinkType(grounded-by) = false, want true")
+	}
+}
+
 func TestValidStatuses(t *testing.T) {
 	valid := []note.Status{
 		note.StatusDraft,
@@ -221,6 +233,27 @@ func TestLinkParsing(t *testing.T) {
 	}
 	if lnk.Annotation == "" {
 		t.Error("Link Annotation is empty, want non-empty")
+	}
+}
+
+func TestLegacyUntypedLinkRemainsReadableAndRoundTrips(t *testing.T) {
+	n, err := note.Parse([]byte(sampleMarkdown))
+	if err != nil {
+		t.Fatalf("Parse legacy untyped link: %v", err)
+	}
+	if got := n.Links[0].Type; got != "" {
+		t.Fatalf("legacy link type = %q, want empty", got)
+	}
+	data, err := n.Marshal()
+	if err != nil {
+		t.Fatalf("Marshal legacy untyped link: %v", err)
+	}
+	roundTripped, err := note.Parse(data)
+	if err != nil {
+		t.Fatalf("Parse(Marshal(legacy)): %v", err)
+	}
+	if len(roundTripped.Links) != 1 || roundTripped.Links[0].Type != "" || roundTripped.Links[0].Annotation != n.Links[0].Annotation {
+		t.Fatalf("legacy link not preserved: %+v", roundTripped.Links)
 	}
 }
 

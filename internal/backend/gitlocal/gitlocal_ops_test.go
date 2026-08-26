@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jaresty/nn/internal/backend"
 	"github.com/jaresty/nn/internal/note"
 )
 
@@ -24,13 +25,37 @@ func newNoteWithLinks(t *testing.T) (*note.Note, *note.Note) {
 	return n1, n2
 }
 
+func TestNewNoteWritesRejectMissingAndUnknownLinkTypes(t *testing.T) {
+	for _, linkType := range []string{"", "invented"} {
+		t.Run(linkType, func(t *testing.T) {
+			newLinkedNote := func(title string) *note.Note {
+				n, _ := newNoteWithLinks(t)
+				n.Title = title
+				n.Links = []note.Link{{TargetID: "legacy-target", Annotation: "context", Type: linkType}}
+				return n
+			}
+
+			b, _ := newBackend(t)
+			if err := b.Write(newLinkedNote("single")); err == nil {
+				t.Fatalf("Write type %q: want error, got nil", linkType)
+			}
+			if err := b.BulkWrite([]*note.Note{newLinkedNote("bulk")}); err == nil {
+				t.Fatalf("BulkWrite type %q: want error, got nil", linkType)
+			}
+			if err := b.BulkApply([]*note.Note{newLinkedNote("apply")}, nil); err == nil {
+				t.Fatalf("BulkApply new-note type %q: want error, got nil", linkType)
+			}
+		})
+	}
+}
+
 func TestAddLink(t *testing.T) {
 	b, _ := newBackend(t)
 	n1, n2 := newNoteWithLinks(t)
 	b.Write(n1)
 	b.Write(n2)
 
-	if err := b.AddLink(n1.ID, n2.ID, "provides context for", "", "draft"); err != nil {
+	if err := b.AddLink(n1.ID, n2.ID, "provides context for", "supports", "draft"); err != nil {
 		t.Fatalf("AddLink: %v", err)
 	}
 
@@ -46,12 +71,74 @@ func TestAddLink(t *testing.T) {
 	}
 }
 
+func TestAddLinkRejectsMissingAndUnknownTypes(t *testing.T) {
+	for _, linkType := range []string{"", "invented"} {
+		t.Run(linkType, func(t *testing.T) {
+			b, _ := newBackend(t)
+			n1, n2 := newNoteWithLinks(t)
+			if err := b.Write(n1); err != nil {
+				t.Fatal(err)
+			}
+			if err := b.Write(n2); err != nil {
+				t.Fatal(err)
+			}
+			if err := b.AddLink(n1.ID, n2.ID, "context", linkType, "draft"); err == nil {
+				t.Fatalf("AddLink type %q: want error, got nil", linkType)
+			}
+		})
+	}
+}
+
+func TestAddLinksRejectsMissingAndUnknownTypes(t *testing.T) {
+	for _, linkType := range []string{"", "invented"} {
+		t.Run(linkType, func(t *testing.T) {
+			b, _ := newBackend(t)
+			n1, n2 := newNoteWithLinks(t)
+			if err := b.Write(n1); err != nil {
+				t.Fatal(err)
+			}
+			if err := b.Write(n2); err != nil {
+				t.Fatal(err)
+			}
+			err := b.AddLinks(n1.ID, []backend.LinkTarget{{ToID: n2.ID, Annotation: "context", Type: linkType, Status: "draft"}})
+			if err == nil {
+				t.Fatalf("AddLinks type %q: want error, got nil", linkType)
+			}
+		})
+	}
+}
+
+func TestLinkTypeUpdatesRejectMissingAndUnknownTypes(t *testing.T) {
+	for _, linkType := range []string{"", "invented"} {
+		t.Run(linkType, func(t *testing.T) {
+			b, _ := newBackend(t)
+			n1, n2 := newNoteWithLinks(t)
+			if err := b.Write(n1); err != nil {
+				t.Fatal(err)
+			}
+			if err := b.Write(n2); err != nil {
+				t.Fatal(err)
+			}
+			if err := b.AddLink(n1.ID, n2.ID, "context", "supports", "draft"); err != nil {
+				t.Fatal(err)
+			}
+			if err := b.UpdateLink(n1.ID, n2.ID, nil, &linkType, nil); err == nil {
+				t.Fatalf("UpdateLink type %q: want error, got nil", linkType)
+			}
+			updates := []backend.LinkUpdate{{ToID: n2.ID, Type: &linkType}}
+			if err := b.BulkUpdateLinks(n1.ID, updates); err == nil {
+				t.Fatalf("BulkUpdateLinks type %q: want error, got nil", linkType)
+			}
+		})
+	}
+}
+
 func TestAddLinkCommitMessage(t *testing.T) {
 	b, dir := newBackend(t)
 	n1, n2 := newNoteWithLinks(t)
 	b.Write(n1)
 	b.Write(n2)
-	b.AddLink(n1.ID, n2.ID, "provides context for", "", "draft")
+	b.AddLink(n1.ID, n2.ID, "provides context for", "supports", "draft")
 
 	cmd := exec.Command("git", "log", "--oneline", "-1")
 	cmd.Dir = dir
@@ -66,7 +153,7 @@ func TestRemoveLink(t *testing.T) {
 	n1, n2 := newNoteWithLinks(t)
 	b.Write(n1)
 	b.Write(n2)
-	b.AddLink(n1.ID, n2.ID, "provides context for", "", "draft")
+	b.AddLink(n1.ID, n2.ID, "provides context for", "supports", "draft")
 
 	if err := b.RemoveLink(n1.ID, n2.ID); err != nil {
 		t.Fatalf("RemoveLink: %v", err)

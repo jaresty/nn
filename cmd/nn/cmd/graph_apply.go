@@ -109,6 +109,9 @@ func newGraphApplyCmd(state *rootState) *cobra.Command {
 				if e.Annotation == "" {
 					return fmt.Errorf("graph apply: edges[%d] missing annotation", i)
 				}
+				if !note.IsKnownLinkType(e.Type) {
+					return fmt.Errorf("graph apply: edges[%d] has invalid type %q", i, e.Type)
+				}
 				edges = append(edges, resolvedEdge{
 					fromID:     fromID,
 					toID:       toID,
@@ -210,4 +213,3 @@ func resolveRef(ref string, keyMap map[string]string) (string, error) {
 	}
 	return id, nil
 }
-

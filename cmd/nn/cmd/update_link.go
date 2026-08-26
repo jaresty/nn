@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/jaresty/nn/internal/note"
 )
 
 func newUpdateLinkCmd(state *rootState) *cobra.Command {
@@ -28,6 +31,9 @@ func newUpdateLinkCmd(state *rootState) *cobra.Command {
 				annPtr = &annotation
 			}
 			if typeChanged {
+				if !note.IsKnownLinkType(linkType) {
+					return fmt.Errorf("invalid --type %q: must be one of %s", linkType, strings.Join(note.LinkTypeOrder, ", "))
+				}
 				typePtr = &linkType
 			}
 			if statusChanged {

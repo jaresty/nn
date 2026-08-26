@@ -32,7 +32,7 @@ const (
 )
 
 // KnownLinkTypes is the canonical set of link relationship types.
-// nn link --type warns when the type is not in this set.
+// New relationship writes reject types outside this set.
 var KnownLinkTypes = map[string]bool{
 	"refines":     true,
 	"contradicts": true,
@@ -73,7 +73,7 @@ var LinkTypeWarnings = map[string]string{
 
 // IsKnownLinkType reports whether t is in the canonical link type set.
 func IsKnownLinkType(t string) bool {
-	return t == "" || KnownLinkTypes[t]
+	return KnownLinkTypes[t]
 }
 
 // ValidTypes returns the list of recognised note type strings.

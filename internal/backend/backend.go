@@ -38,6 +38,7 @@ type Backend interface {
 	List() ([]*note.Note, error)
 	AddLink(fromID, toID, annotation, linkType, linkStatus string) error
 	AddLinks(fromID string, targets []LinkTarget) error
+	SetLinkType(fromID, toID, annotationMatches, linkType string) error
 	RemoveLink(fromID, toID string) error
 	RemoveLinkByType(fromID, toID, linkType string) error
 	RemoveLinks(fromID string, removals []LinkRemoval) error

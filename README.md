@@ -80,7 +80,10 @@ Every command accepts named flags — no prompts, no editor, no TTY required:
 
 ```sh
 nn new --title "..." --type concept --content "..." --no-edit
-nn link <from> <to> --annotation "..."
+nn new --title "..." --type concept --content "..." --no-edit \
+  --link-to <id> --link-type grounded-by --annotation "evidence basis"
+nn link <from> <to> --type extends --annotation "builds on this"
+nn link set-type <from> <to> --type supports  # migrate one legacy untyped link
 nn list --json
 ```
 
@@ -93,6 +96,14 @@ nn install-pi                  # Pi skills plus the nn global-context extension
 ```
 
 `nn install-pi` installs a Pi extension that loads `nn show --global` at session start and injects the global protocol context before each agent turn. Restart Pi or run `/reload` after installing.
+
+### Graph Ask
+
+```sh
+nn ask --surface graph --focus <note-id> [--nodes <id,...>] --instructions "Review this neighborhood."
+```
+
+Graph Ask stays inside the bounded notebook neighborhood and offers three terminal buttons: `Send` (`handoff: null`), `Send to Canvas` (`handoff: canvas`), and `Send to Document` (`handoff: document`). Clicking one submits exactly once and closes the Graph Ask surface. The result uses exactly `groups`, `overall_comment`, and `handoff`; Canvas alone adds a non-stored canvas seed, while Document has no separate seed.
 
 ## Note format
 

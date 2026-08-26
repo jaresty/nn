@@ -84,6 +84,20 @@ func TestBulkLinkRequiresType(t *testing.T) {
 	}
 }
 
+func TestBulkLinkRejectsUnknownType(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	src := newTestNoteForCLI(note.GenerateID(), "Source", note.TypeConcept)
+	dst := newTestNoteForCLI(note.GenerateID(), "Target", note.TypeConcept)
+	writeNoteFile(t, nbDir, src)
+	writeNoteFile(t, nbDir, dst)
+
+	_, err := execute("bulk-link", src.ID,
+		"--to", dst.ID, "--annotation", "context", "--type", "invented")
+	if err == nil {
+		t.Fatal("nn bulk-link with unknown --type: want error, got nil")
+	}
+}
+
 // Assertion E: single --type broadcasts to all --to entries.
 func TestBulkLinkSingleTypeBroadcasts(t *testing.T) {
 	nbDir, execute := setupNotebook(t)

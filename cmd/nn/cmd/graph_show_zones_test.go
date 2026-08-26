@@ -107,6 +107,51 @@ func TestGraphShowZonesReciprocalEvidenceEdgesAgree(t *testing.T) {
 	}
 }
 
+func TestGraphShowZonesExposesDirectUntypedLinksAsUnclassified(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	ego := newTestNoteForCLI(note.GenerateID(), "Ego", note.TypeModel)
+	legacy := newTestNoteForCLI(note.GenerateID(), "Legacy Neighbor", note.TypeConcept)
+	ego.Links = []note.Link{{TargetID: legacy.ID, Annotation: "stored context"}}
+	writeNoteFile(t, nbDir, ego)
+	writeNoteFile(t, nbDir, legacy)
+
+	jsonOut, err := execute("graph", "show", "--focus", ego.ID, "--depth", "1", "--direction", "both", "--zones", "--format", "json")
+	if err != nil {
+		t.Fatalf("graph show unclassified JSON: %v", err)
+	}
+	var result struct {
+		Nodes []struct {
+			ID   string `json:"id"`
+			Zone string `json:"zone"`
+		} `json:"nodes"`
+	}
+	if err := json.Unmarshal([]byte(jsonOut), &result); err != nil {
+		t.Fatalf("decode graph show unclassified JSON: %v\n%s", err, jsonOut)
+	}
+	zone := "missing"
+	for _, n := range result.Nodes {
+		if n.ID == legacy.ID {
+			zone = n.Zone
+		}
+	}
+	if zone != "unclassified" {
+		t.Errorf("legacy neighbor zone = %q, want unclassified", zone)
+	}
+
+	text, err := execute("graph", "show", "--focus", ego.ID, "--depth", "1", "--direction", "both", "--zones", "--format", "text")
+	if err != nil {
+		t.Fatalf("graph show unclassified text: %v", err)
+	}
+	if !strings.Contains(text, "UNCLASSIFIED") || !strings.Contains(text, legacy.ID) {
+		t.Errorf("untyped direct neighbor omitted from UNCLASSIFIED category:\n%s", text)
+	}
+	for _, semantic := range []string{"TOP\n  " + legacy.ID, "BOTTOM\n  " + legacy.ID, "LEFT\n  " + legacy.ID, "RIGHT\n  " + legacy.ID} {
+		if strings.Contains(text, semantic) {
+			t.Errorf("untyped neighbor assigned semantic zone %q:\n%s", semantic, text)
+		}
+	}
+}
+
 // TestGraphShowZonesText verifies that `--zones --format text` groups nodes
 // under directional zone headers.
 //
@@ -161,10 +206,10 @@ func TestGraphShowZonesText(t *testing.T) {
 	}
 }
 
-// isZoneHeader reports whether a trimmed line is one of the four zone section headers.
+// isZoneHeader reports whether a trimmed line is a graph-show category header.
 func isZoneHeader(s string) bool {
 	switch s {
-	case "TOP", "BOTTOM", "LEFT", "RIGHT":
+	case "TOP", "BOTTOM", "LEFT", "RIGHT", "UNCLASSIFIED":
 		return true
 	}
 	return false

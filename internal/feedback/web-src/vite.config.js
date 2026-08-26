@@ -6,8 +6,9 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 // inlines at its own build time (a public Firebase config for its hosted
 // collaboration/room-persistence, which we do not use). The key is a literal in
 // excalidraw.production.min.js, so a Vite `define` cannot reach it — we redact
-// the emitted bundle instead. Verified: the canvas renders and edits fine
-// without it. This keeps our committed go:embed bundle free of secrets.
+// the emitted bundle instead. It also normalizes generated trailing whitespace
+// so the committed single-file bundle remains clean under `git diff --check`.
+// Verified: the canvas renders and edits fine without the hosted key.
 function stripEmbeddedSecrets() {
   return {
     name: "strip-embedded-secrets",
@@ -16,9 +17,13 @@ function stripEmbeddedSecrets() {
       const googleKey = /AIza[0-9A-Za-z_-]{35}/g;
       for (const file of Object.values(bundle)) {
         if (file.type === "asset" && typeof file.source === "string") {
-          file.source = file.source.replace(googleKey, "");
+          file.source = file.source
+            .replace(googleKey, "")
+            .replace(/[ \t]+$/gm, "");
         } else if (file.type === "chunk" && typeof file.code === "string") {
-          file.code = file.code.replace(googleKey, "");
+          file.code = file.code
+            .replace(googleKey, "")
+            .replace(/[ \t]+$/gm, "");
         }
       }
     },

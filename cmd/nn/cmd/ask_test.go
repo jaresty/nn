@@ -236,6 +236,42 @@ func TestRunAskSeedsRequestFromFlags(t *testing.T) {
 	}
 }
 
+// retained property [3]: cancellation is a distinct terminal CLI outcome. It
+// reports neither collected feedback nor a result path/read instruction because
+// cancellation deliberately requires no result artifact.
+func TestRunAskCancellationHasExactCLIOutput(t *testing.T) {
+	t.Setenv("NN_CONFIG_DIR", t.TempDir())
+
+	var openedURL string
+	hook := func(url string) error {
+		openedURL = url
+		u, err := neturl.Parse(url)
+		if err != nil {
+			return err
+		}
+		id := u.Query().Get("session")
+		resp, err := http.Post(u.Scheme+"://"+u.Host+"/session/"+id+"/cancel", "application/json", nil)
+		if err != nil {
+			return err
+		}
+		resp.Body.Close()
+		return nil
+	}
+
+	var out bytes.Buffer
+	sess, err := runAsk(askOptions{surface: "canvas", open: hook, out: &out})
+	if err != nil {
+		t.Fatalf("runAsk cancellation: %v", err)
+	}
+	want := fmt.Sprintf("Feedback surface: %s\nFeedback cancelled (session %s).\n", openedURL, sess.id)
+	if got := out.String(); got != want {
+		t.Fatalf("cancellation CLI output:\n%q\nwant exactly:\n%q", got, want)
+	}
+	if _, err := feedback.ReadResult(sess.dir); err == nil {
+		t.Fatal("cancelled session unexpectedly requires a result artifact")
+	}
+}
+
 func TestRunAskDrivesSessionToResult(t *testing.T) {
 	t.Setenv("NN_CONFIG_DIR", t.TempDir())
 
@@ -299,10 +335,11 @@ func TestRunAskDrivesSessionToResult(t *testing.T) {
 
 // TestRunAskCompletionListsArtifactsAndInstructs pins the completion output
 // contract so the agent cannot finish without consuming the feedback:
-//   property A1:  the session status appears
-//   property A2a: each artifact's format appears
-//   property A2b: each artifact's absolute path appears
-//   property A3:  an explicit "not complete until read/acted on" instruction appears
+//
+//	property A1:  the session status appears
+//	property A2a: each artifact's format appears
+//	property A2b: each artifact's absolute path appears
+//	property A3:  an explicit "not complete until read/acted on" instruction appears
 func TestRunAskCompletionListsArtifactsAndInstructs(t *testing.T) {
 	t.Setenv("NN_CONFIG_DIR", t.TempDir())
 

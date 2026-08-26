@@ -84,9 +84,16 @@ func newStatusCmd(state *rootState) *cobra.Command {
 				}
 			}
 
-			var drafts, broken, unknownTypes, draftLinks int
+			type linkTypeIssue struct {
+				From string `json:"from"`
+				To   string `json:"to"`
+				Type string `json:"type,omitempty"`
+			}
+			var drafts, broken, missingTypes, unknownTypes, draftLinks int
 			var orphanList, globalProtocolList, level1HeadingNotes []*note.Note
 			var brokenList []string
+			missingTypeLinks := make([]linkTypeIssue, 0)
+			unknownTypeLinks := make([]linkTypeIssue, 0)
 			var longNotes []*note.Note
 			var duplicateLinkNotes []struct {
 				n     *note.Note
@@ -130,8 +137,12 @@ func newStatusCmd(state *rootState) *cobra.Command {
 						broken++
 						brokenList = append(brokenList, fmt.Sprintf("%s→%s", n.ID, lnk.TargetID))
 					}
-					if !note.IsKnownLinkType(lnk.Type) {
+					if lnk.Type == "" {
+						missingTypes++
+						missingTypeLinks = append(missingTypeLinks, linkTypeIssue{From: n.ID, To: lnk.TargetID})
+					} else if !note.IsKnownLinkType(lnk.Type) {
 						unknownTypes++
+						unknownTypeLinks = append(unknownTypeLinks, linkTypeIssue{From: n.ID, To: lnk.TargetID, Type: lnk.Type})
 					}
 					if lnk.Status == "draft" {
 						draftLinks++
@@ -233,25 +244,31 @@ func newStatusCmd(state *rootState) *cobra.Command {
 					dupLinkJSON[i] = dupLinkEntry{ID: d.n.ID, Title: d.n.Title, Edges: edges}
 				}
 				out := struct {
-					Total              int           `json:"total"`
-					Orphans            []noteEntry   `json:"orphans"`
-					GlobalProtocols    []noteEntry   `json:"global_protocols"`
-					Drafts             int           `json:"drafts"`
-					BrokenLinks        []brokenEntry `json:"broken_links"`
-					UnknownLinkTypes   int           `json:"unknown_link_types"`
-					DraftLinks         int           `json:"draft_links"`
-					LongNotes          []longEntry   `json:"long_notes"`
-					HubNotes           []hubEntry    `json:"hub_notes"`
-					Level1HeadingNotes []noteEntry   `json:"level1_heading_notes"`
-					DuplicateIDs       []dupIDEntry  `json:"duplicate_ids"`
-					DuplicateLinks     []dupLinkEntry `json:"duplicate_links"`
+					Total              int             `json:"total"`
+					Orphans            []noteEntry     `json:"orphans"`
+					GlobalProtocols    []noteEntry     `json:"global_protocols"`
+					Drafts             int             `json:"drafts"`
+					BrokenLinks        []brokenEntry   `json:"broken_links"`
+					MissingLinkTypes   int             `json:"missing_link_types"`
+					MissingTypeLinks   []linkTypeIssue `json:"missing_link_type_links"`
+					UnknownLinkTypes   int             `json:"unknown_link_types"`
+					UnknownTypeLinks   []linkTypeIssue `json:"unknown_link_type_links"`
+					DraftLinks         int             `json:"draft_links"`
+					LongNotes          []longEntry     `json:"long_notes"`
+					HubNotes           []hubEntry      `json:"hub_notes"`
+					Level1HeadingNotes []noteEntry     `json:"level1_heading_notes"`
+					DuplicateIDs       []dupIDEntry    `json:"duplicate_ids"`
+					DuplicateLinks     []dupLinkEntry  `json:"duplicate_links"`
 				}{
 					Total:              len(notes),
 					Orphans:            orphans,
 					GlobalProtocols:    globals,
 					Drafts:             drafts,
 					BrokenLinks:        brokens,
+					MissingLinkTypes:   missingTypes,
+					MissingTypeLinks:   missingTypeLinks,
 					UnknownLinkTypes:   unknownTypes,
+					UnknownTypeLinks:   unknownTypeLinks,
 					DraftLinks:         draftLinks,
 					LongNotes:          longs,
 					HubNotes:           hubs,
@@ -278,7 +295,14 @@ func newStatusCmd(state *rootState) *cobra.Command {
 			for _, b := range brokenList {
 				fmt.Fprintf(w, "  broken: %s\n", b)
 			}
+			fmt.Fprintf(w, "missing link types: %d\n", missingTypes)
+			for _, issue := range missingTypeLinks {
+				fmt.Fprintf(w, "  missing type: %s→%s\n", issue.From, issue.To)
+			}
 			fmt.Fprintf(w, "unknown link types: %d\n", unknownTypes)
+			for _, issue := range unknownTypeLinks {
+				fmt.Fprintf(w, "  unknown type: %s→%s [%s]\n", issue.From, issue.To, issue.Type)
+			}
 			fmt.Fprintf(w, "draft links: %d\n", draftLinks)
 			if len(longNotes) > 0 {
 				fmt.Fprintf(w, "long notes (%d):\n", len(longNotes))

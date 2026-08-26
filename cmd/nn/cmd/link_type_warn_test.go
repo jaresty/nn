@@ -1,26 +1,32 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/jaresty/nn/internal/note"
 )
 
-// Assertion: nn link --type <unknown> prints warning to stderr, exit 0.
-func TestLinkUnknownTypeWarns(t *testing.T) {
+// ADR-0025: nn link rejects unknown relationship types without writing.
+func TestLinkUnknownTypeRejected(t *testing.T) {
 	nbDir, cfgFile := setupNotebookWithCfg(t)
 	src := newTestNoteForCLI(note.GenerateID(), "From", note.TypeConcept)
 	dst := newTestNoteForCLI(note.GenerateID(), "To", note.TypeConcept)
 	writeNoteFile(t, nbDir, src)
 	writeNoteFile(t, nbDir, dst)
 
-	_, stderr, err := executeWithStderr(t, cfgFile, "link", src.ID, dst.ID, "--annotation", "test", "--type", "bogus-type")
-	if err != nil {
-		t.Fatalf("nn link unknown type should exit 0: %v", err)
+	_, _, err := executeWithStderr(t, cfgFile, "link", src.ID, dst.ID, "--annotation", "test", "--type", "bogus-type")
+	if err == nil {
+		t.Fatal("nn link unknown type: want error, got nil")
 	}
-	if !strings.Contains(stderr, "warning") {
-		t.Errorf("expected warning for unknown link type, got stderr: %q", stderr)
+	data, readErr := os.ReadFile(filepath.Join(nbDir, src.Filename()))
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if strings.Contains(string(data), dst.ID) {
+		t.Errorf("unknown link type was written:\n%s", data)
 	}
 }
 

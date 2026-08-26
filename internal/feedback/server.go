@@ -32,10 +32,10 @@ const (
 // Server hosts a single feedback session over an ephemeral loopback listener.
 // The process is disposable; the session directory on disk is durable.
 type Server struct {
-	id    string
-	dir   string
-	ln    net.Listener
-	srv   *http.Server
+	id        string
+	dir       string
+	ln        net.Listener
+	srv       *http.Server
 	done      chan Outcome
 	graph     GraphSource // optional: supplies data for the graph surface's /graph endpoint
 	graphHTML []byte      // optional: graph-viewer shell served at / for the graph surface
@@ -205,16 +205,23 @@ func (s *Server) handleGetGraph(w http.ResponseWriter, r *http.Request) {
 	// edges whose both endpoints are in scope. Non-empty AllowedNodes means the
 	// request declared a bound; an empty set serves nothing rather than leaking
 	// the whole notebook.
-	outNodes := make([]GraphNode, 0, len(nodes))
-	for _, n := range nodes {
-		if allowed[n.ID] {
-			outNodes = append(outNodes, n)
-		}
-	}
 	outEdges := make([]GraphEdge, 0, len(edges))
+	scopedDegree := make(map[string]int, len(allowed))
 	for _, e := range edges {
 		if allowed[e.Source] && allowed[e.Target] {
 			outEdges = append(outEdges, e)
+			scopedDegree[e.Source]++
+			scopedDegree[e.Target]++
+		}
+	}
+	outNodes := make([]GraphNode, 0, len(nodes))
+	for _, n := range nodes {
+		if allowed[n.ID] {
+			// Degree must describe the graph this endpoint can actually reveal. Using
+			// full-notebook degree advertises out-of-scope neighbors that recentering
+			// is intentionally forbidden from serving.
+			n.Degree = scopedDegree[n.ID]
+			outNodes = append(outNodes, n)
 		}
 	}
 
@@ -308,15 +315,30 @@ func (s *Server) promoteDraftToResult() error {
 				result.Artifacts = append(result.Artifacts, Artifact{Format: "png", Path: "result.png"})
 			}
 		case "graph":
-			// The graph draft is the human's selection: the chosen node ids, any
-			// per-node annotations, and a free-text answer. Materialize it as the
-			// native result.graph.json artifact so the agent reads a selection,
-			// not an opaque draft. The bytes are the surface's native output.
+			// Decode before promotion so the result can contain only the canonical
+			// graph-selection schema. Graph feedback remains an artifact only and
+			// never applies notebook mutations.
+			selection, err := DecodeGraphSelection(draft)
+			if err != nil {
+				return err
+			}
 			selPath := filepath.Join(s.dir, "result.graph.json")
-			if err := os.WriteFile(selPath, draft, 0o644); err != nil {
+			if err := writeJSON(selPath, selection); err != nil {
 				return err
 			}
 			result.Artifacts = []Artifact{{Format: "graph-selection", Path: "result.graph.json"}}
+
+			// Canvas intent receives a deterministic NON_STORED seed for the later
+			// agent-mediated handoff. Document intent needs no extra artifact: it is
+			// represented completely by the graph-selection handoff field. No action
+			// launches a surface or changes notebook files here.
+			if selection.hasHandoff(GraphHandoffCanvas) {
+				seedPath := filepath.Join(s.dir, "result.canvas-seed.json")
+				if err := writeJSON(seedPath, newCanvasSeed(selection)); err != nil {
+					return err
+				}
+				result.Artifacts = append(result.Artifacts, Artifact{Format: "canvas-seed", Path: "result.canvas-seed.json"})
+			}
 		default:
 			result.Artifacts = []Artifact{{Format: "draft", Path: "draft.json"}}
 		}

@@ -27,6 +27,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 		noSuggest   bool
 		check       bool
 		linkTos     []string
+		linkTypes   []string
 		annotations []string
 		fromStdin   bool
 		fromFile    string
@@ -119,11 +120,14 @@ func newNewCmd(state *rootState) *cobra.Command {
 				Body:        content,
 			}
 
-			if len(linkTos) != len(annotations) {
-				return fmt.Errorf("--link-to and --annotation must be paired: got %d --link-to and %d --annotation", len(linkTos), len(annotations))
+			if len(linkTos) != len(linkTypes) || len(linkTos) != len(annotations) {
+				return fmt.Errorf("--link-to, --link-type, and --annotation must be paired: got %d --link-to, %d --link-type, and %d --annotation", len(linkTos), len(linkTypes), len(annotations))
 			}
 			for i, id := range linkTos {
-				n.Links = append(n.Links, note.Link{TargetID: id, Annotation: annotations[i]})
+				if !note.IsKnownLinkType(linkTypes[i]) {
+					return fmt.Errorf("invalid --link-type %q: must be one of %s", linkTypes[i], strings.Join(note.LinkTypeOrder, ", "))
+				}
+				n.Links = append(n.Links, note.Link{TargetID: id, Type: linkTypes[i], Annotation: annotations[i]})
 			}
 
 			if !noEdit && isTTYFn() {
@@ -162,6 +166,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&noSuggest, "no-suggest", false, "Suppress post-write link and tag suggestions")
 	cmd.Flags().BoolVar(&check, "check", false, "Run representation graph validation after creation (requires representation field)")
 	cmd.Flags().StringArrayVar(&linkTos, "link-to", nil, "Immediately link to an existing note ID (repeatable)")
+	cmd.Flags().StringArrayVar(&linkTypes, "link-type", nil, "Known link type paired with --link-to (repeatable, must match count)")
 	cmd.Flags().StringArrayVar(&annotations, "annotation", nil, "Link annotation paired with --link-to (repeatable, must match count)")
 	cmd.Flags().StringVar(&appliesWhen, "applies-when", "", "Set applies_when field (protocol notes)")
 	cmd.Flags().StringVar(&representation, "representation", "", "Set representation type (ontology|taxonomy|axiom)")

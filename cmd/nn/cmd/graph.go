@@ -478,11 +478,22 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					// ego -> N is dirOut; N -> ego is dirIn. Nodes with no direct
 					// ego edge (and the ego itself) keep an empty zone.
 					zoneByID := make(map[string]string)
+					assignCategory := func(id string, lnk note.Link, direction linkDir) {
+						if lnk.Type == "" {
+							// Untyped legacy links stay visible, but never acquire a
+							// directional semantic zone by inference.
+							if zoneByID[id] == "" {
+								zoneByID[id] = "unclassified"
+							}
+							return
+						}
+						if z := zoneOf(lnk.Type, direction); z != zoneNone {
+							zoneByID[id] = string(z) // semantic classification wins over an untyped parallel edge
+						}
+					}
 					for _, lnk := range root.Links {
 						if lnk.TargetID != root.ID {
-							if z := zoneOf(lnk.Type, dirOut); z != zoneNone {
-								zoneByID[lnk.TargetID] = string(z)
-							}
+							assignCategory(lnk.TargetID, lnk, dirOut)
 						}
 					}
 					for _, n := range byID {
@@ -491,9 +502,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 						}
 						for _, lnk := range n.Links {
 							if lnk.TargetID == root.ID {
-								if z := zoneOf(lnk.Type, dirIn); z != zoneNone {
-									zoneByID[n.ID] = string(z)
-								}
+								assignCategory(n.ID, lnk, dirIn)
 							}
 						}
 					}
@@ -615,6 +624,9 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					to, toOK := aliases[e.To]
 					if fromOK && toOK {
 						label := e.LinkType
+						if label == "" {
+							label = "UNCLASSIFIED"
+						}
 						if e.Annotation != "" {
 							label += " — " + e.Annotation
 						}
@@ -688,7 +700,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 			// stays clean and parseable; never suppresses them.
 			useMarkers := colorMode == "always" || (colorMode == "auto" && isTTYFn())
 			// zoneEmoji: the same zone→meaning mapping the viewer uses.
-			zoneEmoji := map[string]string{"top": "🔵", "bottom": "🟢", "left": "🔴", "right": "🔷"}
+			zoneEmoji := map[string]string{"top": "🔵", "bottom": "🟢", "left": "🔴", "right": "🔷", "unclassified": "⚪"}
 			// familyEmoji maps a link type to its semantic family circle, kept
 			// consistent with the zone families: tension = red, lateral = blue,
 			// structural = blue-square.
@@ -758,6 +770,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				fmt.Fprintf(w, "  %s — tension: contradicts, questions\n", paint("left", "LEFT"))
 				fmt.Fprintf(w, "  %s — lateral: source-of, requires\n", paint("right", "RIGHT"))
 				fmt.Fprintf(w, "  %s — builds-on: governs/supports (out), refines/extends/grounded-by (in)\n", paint("bottom", "BOTTOM"))
+				fmt.Fprintf(w, "  %s — stored relationships without navigation semantics\n", paint("unclassified", "UNCLASSIFIED"))
 				if useMarkers {
 					// Marker scheme: node titles carry a note-type circle, edge
 					// labels a link-family circle (same families as the zones).
@@ -782,6 +795,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					{"left", "LEFT"},
 					{"right", "RIGHT"},
 					{"bottom", "BOTTOM"},
+					{"unclassified", "UNCLASSIFIED"},
 				}
 				for _, z := range order {
 					group := byZone[z.key]
@@ -837,7 +851,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 						}
 						linkLabel := e.LinkType
 						if linkLabel == "" {
-							linkLabel = "link"
+							linkLabel = "UNCLASSIFIED"
 						}
 						if e.Annotation != "" {
 							fmt.Fprintf(w, "%s  %s [%s] %s  %s  %s — %s\n", indent, tree.arrow, paintEdge(e.LinkType, linkLabel), tree.neighbor, paintNode(tree.neighbor, target.Title), degreeMarker(tree.neighbor), e.Annotation)

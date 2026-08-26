@@ -72,6 +72,333 @@ func TestNNNavigateSkillIsValidAndDiscoverable(t *testing.T) {
 	}
 }
 
+func TestADR0024RecordsJobsAndAffordanceDrivenIA(t *testing.T) {
+	data, err := os.ReadFile("../../../docs/adr/0024-ask-as-navigate-human-consultation.md")
+	if err != nil {
+		t.Fatalf("read ADR-0024: %v", err)
+	}
+	content := string(data)
+	for _, required := range []string{
+		"bound the evidence",
+		"express structure",
+		"correct the interpretation",
+		"spatial explanation",
+		"preserve epistemic boundaries",
+		"return a coherent answer",
+		"correction as strongly as accumulation",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("ADR-0024 jobs/affordance analysis missing %q", required)
+		}
+	}
+}
+
+func TestNNNavigateOwnsAskConsultationContract(t *testing.T) {
+	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	content := string(data)
+	for _, required := range []string{
+		"◇ Ask…",
+		"◇ human consultation; retained focus and history",
+		"Review or group this graph material",
+		"Explain or critique these concepts",
+		"Annotate the reasoning",
+		"focus: note-id",
+		"visited_evidence",
+		"menu_stack",
+		"Positioned → AskPrepared → AwaitingHuman → ResultAvailable → Positioned",
+		"does not change focus",
+		"does not push Back or clear Forward",
+		"multiple saved, optionally named groups",
+		"explicitly selected edges",
+		"implicitly",
+		"Send to Canvas",
+		"Send to Document",
+		"NON_STORED",
+		"Cancellation",
+		"reopen the invoking Ask submenu",
+		"human input could materially change the next decision",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("nn-navigate Ask contract missing %q", required)
+		}
+	}
+}
+
+// retained properties [17]-[21]: Graph Ask has three terminal choices, one
+// singular strict handoff value, and destination-specific artifact behavior.
+func TestNNNavigateGraphAskUsesSingularTerminalHandoff(t *testing.T) {
+	paths := []string{
+		"../../../docs/adr/0024-ask-as-navigate-human-consultation.md",
+		"../../../skills/nn-navigate/SKILL.md",
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		content := string(data)
+		for _, required := range []string{
+			"exactly `groups`, `overall_comment`, and `handoff` at top level",
+			"accepts exactly `null`, `canvas`, or `document`",
+			"strictly rejects obsolete `handoffs` and `explain_on_canvas`",
+			"three mutually exclusive terminal buttons",
+			"**Send** → `handoff: null`",
+			"**Send to Canvas** → `handoff: canvas`",
+			"**Send to Document** → `handoff: document`",
+			"submits exactly once and closes",
+			"canvas-seed artifact only for `canvas`",
+			"Document has no separate seed artifact",
+			"The Graph server and the `nn ask` CLI MUST NOT launch Canvas or Document directly.",
+		} {
+			if !strings.Contains(content, required) {
+				t.Errorf("%s retained properties [17]-[21] missing %q", path, required)
+			}
+		}
+		for _, forbidden := range []string{
+			"independently toggleable",
+			"independently toggleable intent controls",
+			"both intents",
+		} {
+			if strings.Contains(content, forbidden) {
+				t.Errorf("%s retains obsolete plural/toggle behavior %q", path, forbidden)
+			}
+		}
+	}
+}
+
+func TestGraphAskGuideAndReadmeUseSingularTerminalHandoff(t *testing.T) {
+	for _, path := range []string{"../../../skills/nn-guide/SKILL.md", "../../../README.md"} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		content := string(data)
+		for _, required := range []string{
+			"three terminal buttons",
+			"`Send` (`handoff: null`)",
+			"`Send to Canvas` (`handoff: canvas`)",
+			"`Send to Document` (`handoff: document`)",
+			"exactly once and closes",
+		} {
+			if !strings.Contains(content, required) {
+				t.Errorf("%s Graph Ask reference missing %q", path, required)
+			}
+		}
+	}
+}
+
+// retained property [13]: nn-navigate and ADR-0024 pin the agent-owned Document
+// handoff, while the broad command guide remains only a dispatch/reference layer.
+func TestNNNavigateOwnsGraphSelectionToDocumentHandoff(t *testing.T) {
+	paths := []string{
+		"../../../docs/adr/0024-ask-as-navigate-human-consultation.md",
+		"../../../skills/nn-navigate/SKILL.md",
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		contract := strings.Join(strings.Fields(string(data)), " ")
+		for _, required := range []string{
+			"selected note bodies and stored edges",
+			"temporary Markdown brief",
+			"purpose",
+			"groups",
+			"source IDs and bounded excerpts",
+			"stored edge evidence",
+			"interpretation",
+			"uncertainties",
+			"explicit review questions",
+			"NON_STORED/generated disclosure",
+			"`nn ask --surface document --document",
+			"interpret the Plannotator result",
+			"restore the exact snapshotted frame",
+		} {
+			if !strings.Contains(contract, required) {
+				t.Errorf("%s retained property [13] missing %q", path, required)
+			}
+		}
+	}
+
+	guideData, err := os.ReadFile("../../../skills/nn-guide/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-guide: %v", err)
+	}
+	for _, ownerOnly := range []string{
+		"NON_STORED/generated disclosure",
+		"interpret the Plannotator result",
+		"restore the exact snapshotted frame",
+	} {
+		if strings.Contains(string(guideData), ownerOnly) {
+			t.Errorf("nn-guide duplicates nn-navigate Document handoff detail %q", ownerOnly)
+		}
+	}
+}
+
+// retained properties [14]-[16]: a prior Graph Ask can be reopened only by
+// rerunning the existing bounded surface from retained agent state.
+func TestNNNavigateReopensRetainedGraphAskWithoutDraftResumption(t *testing.T) {
+	paths := []string{
+		"../../../docs/adr/0024-ask-as-navigate-human-consultation.md",
+		"../../../skills/nn-navigate/SKILL.md",
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		contract := strings.Join(strings.Fields(string(data)), " ")
+		for _, required := range []string{
+			"The conversational shorthand is exactly `reopen graph ask`.",
+			"rerun `nn ask --surface graph`",
+			"same retained focus",
+			"exact bounded node scope",
+			"same goal and instructions",
+			"new clean surface",
+			"previous result and groups are retained only as agent evidence",
+			"must not be silently injected",
+			"terminal completion or cancellation restores the exact navigation frame",
+			"not browser Back",
+			"not draft resumption",
+			"no retained prior Graph Ask",
+			"report the action unavailable and invent nothing",
+		} {
+			if !strings.Contains(contract, required) {
+				t.Errorf("%s retained properties [14]-[16] missing %q", path, required)
+			}
+		}
+	}
+
+	// This is a conversation-owned rerun contract, not a CLI, schema, server,
+	// or Graph-frontend feature. Keep dedicated reopen vocabulary out of those
+	// implementation layers so a later change cannot silently turn it into one.
+	for _, path := range []string{
+		"ask.go",
+		"../../../internal/feedback/graph.go",
+		"../../../internal/feedback/server.go",
+		"templates/graph.html",
+	} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		for _, forbidden := range []string{
+			"reopen graph ask",
+			"--reopen",
+			"reopenGraphAsk",
+			"reopen_graph_ask",
+			"reopen-graph-ask",
+		} {
+			if strings.Contains(strings.ToLower(string(data)), strings.ToLower(forbidden)) {
+				t.Errorf("%s introduces reopen-specific CLI/schema/server/frontend behavior %q", path, forbidden)
+			}
+		}
+	}
+}
+
+// retained properties [7]-[8]: Graph Ask lasso distinguishes direct geometric
+// catches from derived graph context in both the ADR and navigation owner.
+func TestGraphAskLassoContractIsEdgeAware(t *testing.T) {
+	paths := []string{
+		"../../../docs/adr/0024-ask-as-navigate-human-consultation.md",
+		"../../../skills/nn-navigate/SKILL.md",
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		content := strings.Join(strings.Fields(string(data)), " ")
+		for _, required := range []string{
+			"rendered circle intersects",
+			"rendered path midpoint",
+			"visible relationship label",
+			"segment merely crossing elsewhere",
+			"unchosen connecting edge between explicitly lassoed nodes",
+			"unless its midpoint or label",
+			"endpoint outside the rectangle",
+			"implicit node",
+		} {
+			if !strings.Contains(content, required) {
+				t.Errorf("%s retained properties [7]-[8] missing %q", path, required)
+			}
+		}
+	}
+}
+
+// retained properties [1]-[2]: nn-navigate owns semantic enrichment, uses one
+// diagram-level epistemic note instead of noisy per-element labels, emits real
+// multiline Mermaid labels, reads native Canvas output, and restores the frame.
+func TestNNNavigateOwnsGraphSelectionToCanvasHandoff(t *testing.T) {
+	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate: %v", err)
+	}
+	contract := strings.Join(strings.Fields(string(data)), " ")
+	const diagramNote = "Illustrative layout and inferred relationships — not literal notebook structure. Source IDs identify evidence; only edges explicitly marked STORED are notebook edges."
+	for _, required := range []string{
+		"`nn-navigate` MUST read the selected note bodies",
+		"derive Mermaid capable of representing in-node structure",
+		"sections, claims, evidence, assumptions, and implications",
+		"exactly one unobtrusive diagram-level explanatory note",
+		diagramNote,
+		"real newlines inside Mermaid Markdown-string labels",
+		"rather than literal `<br>`",
+		"`nn ask --surface canvas --mermaid`",
+		"read the returned Canvas artifact",
+		"restore the exact snapshotted frame",
+	} {
+		if !strings.Contains(contract, required) {
+			t.Errorf("nn-navigate retained property [1]-[2] missing %q", required)
+		}
+	}
+	if got := strings.Count(contract, diagramNote); got != 1 {
+		t.Errorf("nn-navigate diagram-level explanatory note occurs %d times, want exactly 1", got)
+	}
+	for _, forbidden := range []string{
+		"Label every derived relation and the seed itself **NON_STORED**",
+		"label the seed and every derived node, relation, arrow, containment, ordering, proximity, and grouping `NON_STORED`",
+	} {
+		if strings.Contains(contract, forbidden) {
+			t.Errorf("nn-navigate repeats NON_STORED on each node/relation via forbidden instruction %q", forbidden)
+		}
+	}
+}
+
+func TestADR0024PinsCanvasDiagramDisclosureAndMultilineLabels(t *testing.T) {
+	data, err := os.ReadFile("../../../docs/adr/0024-ask-as-navigate-human-consultation.md")
+	if err != nil {
+		t.Fatalf("read ADR-0024: %v", err)
+	}
+	contract := strings.Join(strings.Fields(string(data)), " ")
+	const diagramNote = "Illustrative layout and inferred relationships — not literal notebook structure. Source IDs identify evidence; only edges explicitly marked STORED are notebook edges."
+	for _, required := range []string{
+		"exactly one unobtrusive diagram-level explanatory note",
+		diagramNote,
+		"real newlines inside Mermaid Markdown-string labels",
+		"rather than literal `<br>`",
+	} {
+		if !strings.Contains(contract, required) {
+			t.Errorf("ADR-0024 retained property [1]-[2] missing %q", required)
+		}
+	}
+	if got := strings.Count(contract, diagramNote); got != 1 {
+		t.Errorf("ADR-0024 diagram-level explanatory note occurs %d times, want exactly 1", got)
+	}
+	for _, forbidden := range []string{
+		"label the seed and every derived node, relation, arrow, containment, ordering, proximity, and grouping `NON_STORED`",
+		"seed and every derived node, relation, arrow, containment, ordering, proximity, and grouping are explicitly labeled `NON_STORED`",
+	} {
+		if strings.Contains(contract, forbidden) {
+			t.Errorf("ADR-0024 repeats NON_STORED on each node/relation via forbidden instruction %q", forbidden)
+		}
+	}
+}
+
 func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 	data, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
 	if err != nil {

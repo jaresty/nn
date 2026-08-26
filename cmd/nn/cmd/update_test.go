@@ -108,8 +108,8 @@ func TestUpdateMultipleLinkTo(t *testing.T) {
 	writeNoteFile(t, nbDir, b)
 
 	_, err := execute("update", n.ID, "--since", sinceFor(n), "--no-edit",
-		"--link-to", a.ID, "--annotation", "link to a",
-		"--link-to", b.ID, "--annotation", "link to b")
+		"--link-to", a.ID, "--link-type", "grounded-by", "--annotation", "link to a",
+		"--link-to", b.ID, "--link-type", "extends", "--annotation", "link to b")
 	if err != nil {
 		t.Fatalf("nn update with multiple --link-to: %v", err)
 	}
@@ -123,6 +123,31 @@ func TestUpdateMultipleLinkTo(t *testing.T) {
 	}
 	if !strings.Contains(out, b.ID) {
 		t.Errorf("show output does not contain link target %s:\n%s", b.ID, out)
+	}
+	if !strings.Contains(out, "[grounded-by]") || !strings.Contains(out, "[extends]") {
+		t.Errorf("show output does not contain paired link types:\n%s", out)
+	}
+}
+
+func TestUpdateLinkToRequiresPairedKnownLinkType(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	n := newTestNoteForCLI(note.GenerateID(), "My Note", note.TypeConcept)
+	writeNoteFile(t, nbDir, n)
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"missing", []string{"--link-to", "someid", "--annotation", "context"}},
+		{"unknown", []string{"--link-to", "someid", "--link-type", "invented", "--annotation", "context"}},
+		{"mismatched", []string{"--link-to", "a", "--link-type", "supports", "--annotation", "a", "--link-to", "b", "--annotation", "b"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := []string{"update", n.ID, "--since", sinceFor(n), "--no-edit"}
+			_, err := execute(append(args, tc.args...)...)
+			if err == nil {
+				t.Fatalf("nn update with %s link type: want error, got nil", tc.name)
+			}
+		})
 	}
 }
 

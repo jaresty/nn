@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jaresty/nn/internal/backend"
+	"github.com/jaresty/nn/internal/note"
 )
 
 func newBulkLinkCmd(state *rootState) *cobra.Command {
@@ -37,6 +39,11 @@ func newBulkLinkCmd(state *rootState) *cobra.Command {
 			}
 			if linkStatus != "draft" && linkStatus != "reviewed" {
 				return fmt.Errorf("bulk-link: --status must be draft or reviewed")
+			}
+			for _, linkType := range types {
+				if !note.IsKnownLinkType(linkType) {
+					return fmt.Errorf("bulk-link: invalid --type %q: must be one of %s", linkType, strings.Join(note.LinkTypeOrder, ", "))
+				}
 			}
 			targets := make([]backend.LinkTarget, len(toIDs))
 			for i, id := range toIDs {
