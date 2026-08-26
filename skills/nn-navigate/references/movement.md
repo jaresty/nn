@@ -41,7 +41,7 @@ Use a navigation-return footer at a seam where the positioned frame remains avai
 
 > Say navigate to reopen Focus + Map + Moves at the retained focus.
 
-Do not use this footer as a substitute for the deterministic transient-action return. After Show verbatim, Explain in depth, Analogize, Find an analog, Visualize, or a completed Quiz, reopen the invoking picker with the compact or full presentation required by the rendering policy.
+Do not use this footer as a substitute for the deterministic transient-action return. After Show verbatim, Explain in depth, Analogize, Find an analog, Find gaps, Visualize, or a completed Quiz, reopen the invoking picker with the compact or full presentation required by the rendering policy.
 
 If no focus is retained, say that resume is structurally unavailable and treat `navigate <query>` as a cold Teleport request. A bare `navigate` with no retained focus should ask for a query or offer Scan and Arrive rather than inventing a destination.
 

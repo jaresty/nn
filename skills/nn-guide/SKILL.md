@@ -409,7 +409,7 @@ Before navigating, run `nn skills list` if it has not yet run this session, then
 nn skills get nn-navigate
 ```
 
-`nn-navigate` owns the detailed zoned navigation model, arrival scaling, route/impact/path overlays, teleport/scan/peek behavior, chooser and presentation discipline, and conversation-scoped history, bookmarks, and compaction. Its compact core dispatches those actions to lazy references. Before an applicable action, follow the core's ownership table and fetch each owner with `nn skills get nn-navigate --reference <name>`; use `--list-references` to inspect the stable names and applicability. nn-navigate owns Find an analog and the optional Analogize, Visualize, and Quiz lenses. Do not conduct the iterative workflow from this command reference alone or treat the compact core as inlined action detail.
+`nn-navigate` owns the detailed zoned navigation model, arrival scaling, route/impact/path overlays, teleport/scan/peek behavior, chooser and presentation discipline, and conversation-scoped history, bookmarks, and compaction. Its compact core dispatches those actions to lazy references. Before an applicable action, follow the core's ownership table and fetch each owner with `nn skills get nn-navigate --reference <name>`; use `--list-references` to inspect the stable names and applicability. nn-navigate owns Find an analog and the optional Analogize, Find gaps, Visualize, and Quiz lenses. Do not conduct the iterative workflow from this command reference alone or treat the compact core as inlined action detail.
 
 ### nn graph apply (YAML changeset manifest)
 

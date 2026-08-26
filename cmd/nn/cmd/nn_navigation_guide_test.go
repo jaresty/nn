@@ -603,7 +603,7 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 	exactMenus := []string{
 		"1. `Recenter`\n2. `Peek`\n3. `Scan`",
 		"1. `○ Show verbatim`\n2. `○ Explain in depth`",
-		"1. `○ Analogize`\n2. `↗ Find an analog`\n3. `○ Visualize`\n4. `○ Quiz`",
+		"1. `○ Analogize`\n2. `↗ Find an analog`\n3. `○ Find gaps`\n4. `○ Visualize`\n5. `○ Quiz`",
 		"1. `○ Local territory`\n2. `↗ Global landscape`",
 	}
 	for _, menu := range exactMenus {
@@ -775,7 +775,7 @@ func TestNNNavigateOwnsTransientActionReturnAndDeepPeekContracts(t *testing.T) {
 	}
 	content := string(data)
 	for _, required := range []string{
-		"Show verbatim, Explain in depth, Analogize, Find an analog, and Visualize are transient actions",
+		"Show verbatim, Explain in depth, Analogize, Find an analog, Find gaps, and Visualize are transient actions",
 		"A completed Quiz follows the same return",
 		"show the compact breadcrumb, say focus is unchanged",
 		"reopen Peek, Lenses, Scan, or Quick actions as specified",
@@ -825,6 +825,19 @@ func TestNNNavigateOwnsFindAnAnalogAndLensContracts(t *testing.T) {
 			"what it clarifies",
 			"where it breaks",
 			"generated, non-evidence",
+		},
+		"find gaps lens": {
+			"### Find gaps",
+			"nn graph show --focus <id> --depth <n> --direction both --format json",
+			"nn graph bodies --focus <id> --depth <n>",
+			"every page under one validated snapshot",
+			"nn list --similar <id>",
+			"Observed structural gaps",
+			"Body-derived gaps",
+			"Candidate missing links",
+			"Bounded unknowns",
+			"does not mutate focus, history, notes, or links",
+			"Do not add or invoke `nn gap --focus`",
 		},
 		"visualize lens": {
 			"### Visualize",
@@ -1021,7 +1034,7 @@ func TestNNGuideDispatchesHumanNavigationWithoutDuplicatingOwner(t *testing.T) {
 		"nn skills list", "nn skills get nn-navigate",
 		"teleport", "orient", "recenter", "peek", "scan", "arrive",
 		"history", "bookmarks", "compaction",
-		"nn-navigate owns Find an analog and the optional Analogize, Visualize, and Quiz lenses",
+		"nn-navigate owns Find an analog and the optional Analogize, Find gaps, Visualize, and Quiz lenses",
 	} {
 		if !strings.Contains(strings.ToLower(content), strings.ToLower(required)) {
 			t.Errorf("nn-guide navigation dispatch missing %q", required)
@@ -1278,7 +1291,7 @@ func TestVirtualCLIReferenceDispatchesNavigationWithoutOwningWorkflow(t *testing
 		"if you have not yet done so this session, run `nn skills list`",
 		"run `nn skills get nn-navigate`",
 		"binding skill dispatch",
-		"nn-navigate owns Find an analog and the optional Analogize, Visualize, and Quiz lenses",
+		"nn-navigate owns Find an analog and the optional Analogize, Find gaps, Visualize, and Quiz lenses",
 		"nn graph show",
 		"nn graph routes",
 		"nn graph impact",

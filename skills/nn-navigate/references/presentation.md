@@ -49,6 +49,7 @@ Use exactly these promotion criteria:
 
 - Analog candidate survives correspondence mapping, where it holds, and where it breaks.
 - Visualize when the evidence has process, state, or relationship structure.
+- Find gaps when the retained goal needs missing evidence, unanswered questions, unresolved tension, or plausible unlinked context identified around the exact focus.
 - Quiz when the sources support a consequential distinction.
 - Show verbatim when exact wording matters.
 - Explain in depth when the focus is connected, contested, complex, or load-bearing.
@@ -81,8 +82,9 @@ Show verbatim and Explain in depth remain Peek actions. The `Lenses…` row is a
 
 1. `○ Analogize`
 2. `↗ Find an analog`
-3. `○ Visualize`
-4. `○ Quiz`
+3. `○ Find gaps`
+4. `○ Visualize`
+5. `○ Quiz`
 
 Find an analog is a human-intent Lens and internally uses Scan retrieval across another region. That implementation detail does not place it in the Scan picker.
 

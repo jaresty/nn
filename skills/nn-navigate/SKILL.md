@@ -48,7 +48,7 @@ Do not guess a reference path, read a packaged path directly, or assume the comp
 | Ask preparation, launch, cancellation, retained Graph Ask reopening, Graph result interpretation, or Graph→Canvas/Document handoff | `ask`; also `state`; fetch `presentation` before reopening a picker |
 | Enter, Orient, Recenter, Peek, Teleport, Arrive, or conversational `navigate` resume | `movement`; also `presentation`; fetch `state` when a retained frame/history is read or changed |
 | Local territory, Global landscape, typed destination discovery, typed impact, or typed path witnesses | `scan-and-routes`; also `presentation`; fetch `movement` before a resulting Recenter/Arrive |
-| Show verbatim, Explain in depth, Analogize, Find an analog, Visualize, or Quiz | `lenses`; also `presentation`; fetch `state` if recovery or retained-frame validity is at issue |
+| Show verbatim, Explain in depth, Analogize, Find an analog, Find gaps, Visualize, or Quiz | `lenses`; also `presentation`; fetch `state` if recovery or retained-frame validity is at issue |
 | Teleport/Visit/Recenter/Go to history mutation, Back, Forward, Bookmark, Where am I?, Ask frame preservation, unknown-state recovery, or compaction | `state`; fetch `movement` and `presentation` before restoring a positioned view |
 
 Reference ownership is action ownership. Execute no specialized detail from memory when its owner has not been fetched. If an action becomes applicable only after inspecting evidence—for example, a Scan reveals a Recenter destination—pause at that boundary, fetch the newly applicable owner, and only then act. If compaction removed a fetched reference from active context, treat it as unfetched and retrieve it again.
