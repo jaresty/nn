@@ -33,7 +33,7 @@ Topology may establish IDs, zones, stored edges, degrees, and relay budgets whil
 
 ## Navigation help by interaction mode
 
-Navigation help is the contextual adaptive menu on chooser-capable surfaces and an equivalent compact labeled action list on other human conversational surfaces. It is presentation, not a CLI shell. Guided mode is the default and keeps Navigation help persistent: render it after every completed action, even when the positioned frame can use a compact unchanged return. Advanced mode keeps the help closed. `:help` opens a complete canonical command catalog temporarily without changing Advanced mode; dismissal or one completed action closes it again. This catalog is a textual reference, not a picker, so contextual picker row limits do not truncate it. `:guided` makes help persistent, while `:advanced` closes it immediately. An unanswered Quiz and an awaiting Ask retain their waiting UI rather than claiming the action completed.
+Navigation help is the contextual adaptive menu on chooser-capable surfaces and an equivalent compact labeled action list on other human conversational surfaces. It is presentation, not a CLI shell. Guided mode is the default and keeps Navigation help available while another navigation choice is naturally pending. A clearly completed explicit direct intent may instead use a **quiet return**: report completion, retain the complete frame and semantic menu position, and show the compact `navigate`/`:help` affordance without immediately forcing another chooser. Advanced mode keeps the help closed. `:help` opens a complete canonical command catalog temporarily without changing Advanced mode; dismissal or one completed action closes it again. This catalog is a textual reference, not a picker, so contextual picker row limits do not truncate it. `:guided` makes help persistent when another choice is pending, while `:advanced` closes it immediately. An unanswered Quiz and an awaiting Ask retain their waiting UI rather than claiming the action completed.
 
 The complete catalog lists every core shorthand with its human label and argument shape: `Help — :help`; `Guided mode — :guided`; `Advanced mode — :advanced`; `Look at current positioned view — :look`; `Where am I? — :where`; `Orient or refresh — :orient`; `Recenter — :recenter "<label>"`; `Peek — :peek "<label>"`; `Show verbatim — :show`; `Explain in depth — :explain`; `Find gaps — :gaps`; `Local territory — :scan local`; `Global landscape — :scan global`; `Analogize — :analogize`; `Find an analog — :find-analog`; `Visualize — :visualize`; `Quiz — :quiz`; `Ask… — :ask`; `Back — :back`; `Forward — :forward`; `Bookmark — :bookmark "<name>"`; `Go to bookmark — :goto "<bookmark>"`; and `Arrive — :arrive`. Contextual target rows use their actual grounded labels, for example `Recenter on Replay-safe checkpointing — :recenter "Replay-safe checkpointing"` and `Peek at Replay-safe checkpointing — :peek "Replay-safe checkpointing"`. Contextual menus may hide unavailable actions or summarize controls to respect row limits, but `:help` itself always shows the complete catalog.
 
@@ -85,16 +85,16 @@ Every picker that contains a concrete action carries this adjacent legend: **→
 
 1. `○ Show verbatim`
 2. `○ Explain in depth`
+3. `↗ Find an analog`
 
-Show verbatim and Explain in depth remain Peek actions. The `Lenses…` row is always present at the top level and opens this exact submenu one picker level away under `<short-id> · Quick actions › Lenses`:
+Show verbatim, Explain in depth, and Find an analog remain Peek actions. Find an analog is a human-intent Peek-family action that retains focus and internally uses Scan retrieval across another region. That implementation detail does not place it in the Scan picker.
+
+The `Lenses…` row is always present at the top level and opens this exact submenu one picker level away under `<short-id> · Quick actions › Lenses`:
 
 1. `○ Analogize`
-2. `↗ Find an analog`
-3. `○ Find gaps`
-4. `○ Visualize`
-5. `○ Quiz`
-
-Find an analog is a human-intent Lens and internally uses Scan retrieval across another region. That implementation detail does not place it in the Scan picker.
+2. `○ Find gaps`
+3. `○ Visualize`
+4. `○ Quiz`
 
 `Scan` opens `<short-id> · Quick actions › All actions › Scan` with exactly:
 
@@ -110,20 +110,20 @@ Treat **show, explain, analogize, find an analog, find gaps, visualize, quiz, sc
 Returns are deterministic and restore the relevant semantic menu position without changing focus, history, or interaction mode:
 
 - A Lens invoked from Lenses returns to Lenses.
-- Show verbatim and Explain in depth return to Peek.
+- Show verbatim, Explain in depth, and Find an analog return to Peek.
 - Local territory and Global landscape return to Scan.
 - Ask completion or Cancellation reopens the invoking Ask submenu in Guided mode; a promoted Ask returns to Quick actions, always with the complete prior frame unchanged.
 - A promoted top-level transient returns to Quick actions.
 - Quiz suspends the picker while unanswered; completion, pass, skip, or `I don't know` returns to the Lenses or Quick actions menu that invoked it.
 - `navigate` aborts Quiz and returns to Quick actions.
 
-In Guided mode, each completed return renders Navigation help at that menu, so the help/menu remains persistent and continues teaching shorthand. In Advanced mode, the same return position is retained but the help stays closed; if the action was selected from temporary `:help`, completion closes that help. Ambiguity and unavailability may open narrowed temporary help but never switch mode.
+In Guided mode, a completed return reopens Navigation help at that menu when another choice is naturally pending. A clearly completed explicit direct intent uses a quiet return instead: retain the semantic menu position, report completion and unchanged focus, and show `navigate`/`:help` without forcing a picker. In Advanced mode, the same return position is retained but the help stays closed; if the action was selected from temporary `:help`, completion closes that help. Ambiguity and unavailability may open narrowed temporary help but never switch mode.
 
 Focus-changing Recenter, Teleport, Back, Forward, and Go to rerun Orient and reset the menu to Quick actions. `navigate` always reruns Orient and resets to Quick actions. Both preserve interaction mode: Guided renders Quick actions help and Advanced leaves it closed. Arrive stops and retains focus; Guided still presents contextual Navigation help after the completed Arrive report, while Advanced uses only the navigation-return affordance.
 
 ### Transient rendering policy
 
-Do not redundantly rerender Focus + Map + Moves after a transient action when the complete retained frame and notebook are unchanged. In Guided mode, return with the compact breadcrumb, state that focus is unchanged, and reopen the invoking picker. This compact return is not a degraded full map; it reuses the complete frame already visible in the conversation. In Advanced mode, report the transient result and unchanged focus without reopening a picker; temporary help closes on completion. Thus deterministic return selects a semantic menu position, while interaction mode controls whether that menu is rendered.
+Do not redundantly rerender Focus + Map + Moves after a transient action when the complete retained frame and notebook are unchanged. In Guided mode, show the compact breadcrumb, say focus is unchanged, and reopen Peek, Lenses, Scan, or Quick actions when another choice is naturally pending. When a clearly completed explicit direct intent already answers the request, use a quiet return: retain the semantic menu position and complete frame, report completion and unchanged focus, and show the compact `navigate`/`:help` affordance without invoking a chooser. This compact return is not a degraded full map; it reuses the complete frame already visible in the conversation. In Advanced mode, report the transient result and unchanged focus without reopening a picker; temporary help closes on completion. Thus deterministic return selects a semantic menu position, while completion context and interaction mode control whether that menu is rendered.
 
 Perform a full render only when the focus, filters, traversal context, or notebook changed; when navigation resumes after discussion; after an explicit Refresh; or when the cached frame is stale or unknown. A full render preserves the readable full map and all presentation discipline: visible nodes keep IDs, readable titles, and substantive body-derived reasons, with immediately adjacent legends for compact labels. Full frame rendering does not force Advanced Navigation help open. `navigate` still reruns Orient and resets Quick actions; after discussion it full-renders, while an unchanged Quiz abort may compactly reopen Quick actions in Guided mode after Orient confirms the cache.
 
@@ -133,7 +133,7 @@ Keep the stable section order **Focus → Map → Moves**. Within each section a
 
 1. **Identity and action** — what or where this is, and what selecting it does;
 2. **Relationship meaning** — the complete marker, zone, and local semantic meaning;
-3. **Evidence and state effect** — the body-derived reason, degree-scaled detail, and whether focus/history changes.
+3. **Evidence and state effect** — the body-derived reason, view-local importance depth, visible connectivity, and whether focus/history changes.
 
 Use headings, line breaks, and typographic emphasis to expose those layers instead of flattening every field into one dense sentence. **This hierarchy changes emphasis, not content**: it never removes required IDs, readable titles, body-derived claims, semantic triples, marker legends, degrees, evidence reasons, or one-level access to Recenter, Peek, Scan, and Arrive.
 
@@ -174,10 +174,13 @@ Relationship templates embedded in a complete promoted label include `→ Recent
 - [ ] central claim summarized
 - [ ] neighborhood role explained
 - [ ] positional map uses compact stable labels by default, with TOP above, LEFT left, RIGHT right, and BOTTOM below focus
-- [ ] every stored edge shows its canonical type and stored source-to-target direction between endpoint labels
-- [ ] an immediately adjacent complete node key maps every label exactly once to ID, readable title, note type, degree, and body-derived claim
+- [ ] every empty zone visibly shows `[∅]` in its geometric slot
+- [ ] direct focus relationships show canonical type and stored direction in geometry; secondary stored relationships appear in the adjacent complete ledger
+- [ ] every arrowhead sits beside its stored target, including separately typed reciprocal vertical relationships
+- [ ] an immediately adjacent complete evidence index maps every label exactly once to ID, readable title, note type, degree, importance marker, and body-derived claim
+- [ ] at most two `★` decision-shaping nodes receive expanded summaries; `◆` supporting nodes receive one sentence; `·` context nodes receive one clause
+- [ ] degree remains visible connectivity and never establishes importance by itself
 - [ ] no orphan, duplicate, title-only, or ID-only labels
-- [ ] high-degree neighbors receive expanded summaries
 - [ ] Recenter available one level away
 - [ ] Peek available one level away
 - [ ] Scan available one level away
@@ -192,9 +195,9 @@ Run this check internally before invoking a picker. A missing item blocks presen
 **This is the single source of truth for how any walk view is presented to a human. Every point that presents a positioned view — Orient, the return after `peek`, the landing after `teleport`, `scan` — cites this block by name rather than restating it. A rule stated only at one step definition does not travel across a seam that re-enters the walk from elsewhere; centralizing it here is what stops per-seam drift.** When presenting to a human on a capable surface, all four apply jointly:
 
 - **P1 — Colors and relay budgets on.** Every color-capable human-facing navigation view uses the stable markers below—not only post-landing Orient, but also the JSON-backed pre-landing Teleport chooser, the return after Peek, Scan at both altitudes, and Arrive. Run topology first with the underlying `nn graph show … --zones --presentation-hints --color always`, then complete the identically filtered `nn graph bodies` page loop before deriving body claims. Graph text sources MUST use `--color always` for a color-capable human relay; do not trust `auto`, because tool stdout is commonly non-TTY. JSON sources are marker-free by design: parse them, then manually apply the relay palette to the human-facing chooser, headings, map, focus, and region labels—never mutate or claim markers exist in the JSON. The stable emoji marker and textual zone/meaning triple remains mandatory even when the surrounding surface cannot render terminal color; `--presentation-hints` keeps each topology node's relay budget in context while its body arrives losslessly through the separate transport.
-- **P2 — Focus + Map + Moves.** Give the Focus summary (substance), positional/ASCII Map plus immediately adjacent degree-scaled node key (structure and neighbor substance), and compact Moves (direction and decision reason) defined above. Every directional use in all three parts follows [Semantic-direction enforcement](#semantic-direction-enforcement). None is sufficient alone: a map without its key is a skeleton you can't read; a key without a map loses the spatial relationships. Never relay raw command output. (Detailed as (a)/(b)/(c) below.)
+- **P2 — Focus + Map + Moves.** Give the Focus summary (substance), positional/ASCII Map plus immediately adjacent importance-scaled evidence index and secondary stored-relationship ledger (structure and neighbor substance), and compact Moves (direction and decision reason) defined above. Every directional use in all three parts follows [Semantic-direction enforcement](#semantic-direction-enforcement). None is sufficient alone: a map without its index is a skeleton you can't read; an index without a map loses the spatial relationships. Never relay raw command output. (Detailed as (a)/(b)/(c) below.)
 - **P3 — Adaptive hierarchical quick-actions picker.** When the harness exposes a chooser affordance, a human is co-navigating, and Navigation help is open under Guided mode or temporary help, show up to one evidence-backed contextual concrete shortcut, a stable `Lenses…` row, a stable `All navigation actions…` row, and the final row is always `■ Arrive`; keep Lenses and Recenter / Peek / Scan / Arrive exactly one level away through those stable rows. Apply breadcrumbs, shorthand labels, effect markers, menu-stack transitions, and mode-aware compact-return rules from the picker contract. In Advanced mode do not open the picker automatically. On a surface without a chooser, use the equivalent labeled help only when mode requires it; an autonomous run picks the move per the goal while keeping all four action classes discoverable in prose. This applies wherever a positioned walk presents an onward decision, including after `peek` and a completed `teleport` landing.
-- **P4 — Degree-scaled summaries.** Scale each summary's length to the node's inbound degree (the tiers in (c)); daily/index hubs are connectors-by-aggregation, not substance.
+- **P4 — View-local importance summaries.** Classify every neighbor from the retained goal and complete evidence as at most two `★` decision-shaping nodes, `◆` decision-supporting nodes, or `·` orienting context. Degree remains connectivity, not importance, and is only a final tie-breaker. Scale evidence-index depth by this importance class.
 
 ##### Stable emoji relay palette
 
@@ -210,58 +213,54 @@ Preserve note-type markers and edge-family markers already emitted by graph text
 
 The three parts, in detail:
 
-##### Compact spatial map and complete node key
+##### Compact spatial map and complete evidence index
 
-Compact stable labels are the default map representation for every full positioned view. Assign deterministic labels within the view by semantic zone and local order—for example `[T1]`, `[L1]`, `[R1]`, and `[B1]`—and use those labels consistently in Map and Moves. A full inline map is permitted only when the view has one or two neighbors and explicitly states why inline form is clearer; in that exception each inline node still carries its note ID, readable title, note type, degree, and degree-scaled body-derived central claim. The inline form replaces the compact labels and node key only for that justified view; it never weakens identity, substance, degree, edge, geometry, or semantic-direction requirements.
+Compact stable labels are the default map representation for every full positioned view. Assign deterministic labels within the view by semantic zone and local order—for example `[T1]`, `[L1]`, `[R1]`, and `[B1]`—and use those labels consistently in Map and Moves. A full inline map is permitted only when the view has one or two neighbors and explicitly states why inline form is clearer; in that exception each inline node still carries its note ID, readable title, note type, degree, importance marker, and importance-scaled body-derived central claim. The inline form replaces compact labels only for that justified view; it never weakens identity, substance, connectivity, importance, edge, geometry, or semantic-direction requirements.
 
-TOP labels appear above focus, LEFT labels to its left, RIGHT labels to its right, and BOTTOM labels below it. Geometry is semantic, not decorative: never stack RIGHT or LEFT beneath focus merely because prose is long. The aligned geometry block keeps each zone emoji directly beside its compact label while semantic prose stays in the immediately adjacent zone key. Alignment must be checked against the rendered example; compact markers are retained because they improve scanning, while long semantic descriptions—not color—are what leave the geometry block. Every displayed stored edge names its canonical type and shows its stored source-to-target direction between endpoint labels. Arrowheads sit beside their stored target endpoint, even when the zone meaning reads in the opposite conversational direction.
+TOP is above focus, LEFT is left, RIGHT is right, and BOTTOM is below. Geometry is semantic, not decorative: never stack RIGHT or LEFT beneath focus merely because prose is long. Every empty zone visibly occupies its geometric slot as `[∅]`; a prose-only empty-zone statement is insufficient. The aligned geometry block keeps each zone emoji and `★`/`◆`/`·` importance marker directly beside its compact label while semantic prose stays in the immediately adjacent zone key.
 
-Immediately below the map, render one complete node key that maps every compact label exactly once to its note ID, readable title, note type, degree, and body-derived central claim. Scale each claim under P4. The key is the single identity-and-substance surface for mapped neighbors: no orphan, duplicate, title-only, or ID-only labels, and no deferred key in another section, picker, or turn. A compact unchanged transient return may reference the complete frame already visible instead of redrawing it.
+Direct focus relationships appear in the geometry. Every one names its canonical type and places each arrowhead beside its stored target, even when conversational movement reads in the opposite direction. Reciprocal vertical relationships share one stem attached directly between the vertical-zone node and focus, with separately named canonical types and distinct target arrowheads; they never become one generic bidirectional edge. Neighbor-to-neighbor relationships do not compete with the positional cross: preserve every one in an immediately adjacent complete **secondary stored-relationship ledger** with canonical type and stored source-to-target direction.
 
-Moves reference the compact labels, retain the complete marker/zone/local-meaning semantic triple and action effect, and add only the decision-relevant action reason instead of repeating complete node-key entries. Focus retains its full identity and central claim in the Focus section. Concrete quick actions still name their target ID and readable title plus the substantive evidence-derived reason required by the picker contract, because they may be acted on independently of the map.
+Immediately below the map, render one complete evidence index that maps every compact label exactly once to its note ID, readable title, note type, degree, importance marker, and body-derived central claim. Scale each claim under P4. The index is the single identity-and-substance surface for mapped neighbors: no orphan, duplicate, title-only, or ID-only labels, and no deferred key in another section, picker, or turn. A compact unchanged transient return may reference the complete frame already visible instead of redrawing it.
 
-Empty zones have no node-key entry, but retain the complete semantic gloss: marker, zone name, local relationship meaning, and what the emptiness means for this focus. Region blobs that do not represent individual notes likewise need a semantic region gloss; any individual representative, bridge, match, or candidate note shown inside them receives a compact label and complete adjacent key entry.
+Moves reference the compact labels, retain the complete marker/zone/local-meaning semantic triple and action effect, and add only the decision-relevant action reason instead of repeating complete evidence-index entries. Focus retains its full identity and central claim in the Focus section. Concrete quick actions still name their target ID and readable title plus the substantive evidence-derived reason required by the picker contract, because they may be acted on independently of the map.
 
-**Compliant default compact map and adjacent key:**
+Empty zones have no evidence-index entry, but retain `[∅]` in their literal geometric slot plus the complete semantic gloss: marker, zone name, local relationship meaning, and what the emptiness means for this focus. Region blobs that do not represent individual notes likewise need a semantic region gloss; any individual representative, bridge, match, or candidate note shown inside them receives a compact label and complete adjacent index entry.
+
+**Compliant default compact map, evidence index, and ledger:**
 
 ```text
-Map (compact color markers; no semantic prose in alignment columns)
-                     🔵 [T1]
-                         ^
-                         | grounded-by: 🟠 [FOCUS] -> 🔵 [T1]
-                         |
-🔴 [L1] <--contradicts-- 🟠 [FOCUS] <--source-of-- 🔷 [R1]
-                         ^
-                         | refines: 🟢 [B1] -> 🟠 [FOCUS]
-                     🟢 [B1]
+                              🔵 TOP
+                              ◆ [T1]
+                       source-of ▲
+                                 │
+                                 ▼ supports
+🔴 LEFT · [∅] ───────────── 🟠 [FOCUS] ──source-of──→ ★ [R1] 🔷 RIGHT
+                                 │
+                             🟢 BOTTOM
+                               · [∅]
 
-Zone key (immediately adjacent)
+Zone key
 🔵 [T1] = TOP — what the focus answers to
-🔴 [L1] = LEFT — what contests or questions the focus
+🔴 [∅] = LEFT — what contests or questions the focus: empty
 🔷 [R1] = RIGHT — lateral provenance or task relationships
-🟢 [B1] = BOTTOM — what builds on the focus
+🟢 [∅] = BOTTOM — what builds on the focus: empty
 🟠 [FOCUS] = retained focus
 
-Node key (immediately adjacent)
-[T1] = 20250101120000-t001 — Accepted recovery policy — concept · ↑1 ↓5 —
-       Defines the durable boundary that retries must restore. Its five inbound
-       dependents make this policy load-bearing across the recovery region.
-[L1] = 20250101120000-l001 — Unsafe partial-state baseline — argument · ↑1 ↓2 —
-       Contests recovery that treats a partial write as durable.
-[R1] = 20250101120000-r001 — Recovery design review — observation · ↑2 ↓1 —
-       Supplies the review provenance for the retained policy.
-[B1] = 20250101120000-b001 — Replay-safe checkpointing — concept · ↑2 ↓6 —
-       Failed replays restore the last durable boundary before retry. Six inbound
-       dependents make this checkpoint rule load-bearing for safe recovery.
+Evidence index
+◆ [T1] = 20250101120000-t001 — Accepted recovery policy — concept · ↑1 ↓5 —
+         Defines the durable boundary that retries must restore.
+★ [R1] = 20250101120000-r001 — Recovery design review — observation · ↑2 ↓1 —
+         Supplies the decision-changing review evidence. Its constraints determine
+         whether the retained policy can be adopted and what must change first.
+
+Secondary stored relationships
+[R1] ──supports──→ [T1]
 
 Moves
-- [B1] — Recenter 🟢 BOTTOM — what builds on the focus because its checkpoint rule directly advances the safe-recovery goal.
-- [L1] — Peek 🔴 LEFT — what contests or questions the focus because its counterexample tests whether the focus admits partial state.
+- [R1] — Recenter 🔷 RIGHT — lateral provenance or task relationships because its review evidence changes the retained goal's next decision.
 
-Quick action
-→ Recenter 🟢 BOTTOM — what builds on the focus: move to 20250101120000-b001 —
-Replay-safe checkpointing (changes focus) because failed replays restore the last durable boundary before retry.
-Legend: → focus changes; ○ focus retained; ■ stops; ↗ explores beyond local. ◇ human consultation; retained focus and history.
+Legend: ★ decision-shaping; ◆ decision-supporting; · orienting context. ▲/▼ and → point to stored targets.
 ```
 
 **Noncompliant skeletal presentation:**
@@ -274,18 +273,12 @@ Quick action: Recenter BOTTOM to 4302 because supporting experiment
 
 This is bad because `[N1]` is orphaned, `4302` is ID-only, neither node has a readable title and body-derived central claim, the direction omits its semantic triple, and `supporting experiment` names only a vague role rather than substantive evidence.
 
-**(a) Summarize the current note — length scaled to its degree (see the tiers in (c)).** Before the map, characterize where the reader is standing: what this note *is* (its type/status and its central claim, drawn from its body — what it argues, not just its title), and how it sits in `🔵 TOP — what the focus answers to`, `🟢 BOTTOM — what builds on the focus`, `🔴 LEFT — what contests or questions the focus`, and `🔷 RIGHT — lateral provenance or task relationships`. Apply the same degree tiers as the neighbors: a high-degree focus (a hub you've landed on) earns the fuller 2–3 sentence treatment; a low-degree focus (a leaf you're passing through) gets a brief one. This is the anchor the rest of the view hangs off.
+**(a) Summarize the current note.** Before the map, characterize where the reader is standing: what this note *is* (type/status and body-derived central claim) and how it sits in all four semantic zones. Scale the focus explanation to its actual complexity and role in the retained goal, not to degree alone.
 
-**(b) Draw the map.** Follow the compliant compact colored example above: lay compact labels out so TOP is above focus, LEFT is left, RIGHT is right, and BOTTOM is below; keep long semantic prose out of alignment columns; place each arrowhead beside its stored target; and put the complete zone key and node key immediately below the geometry. Do not introduce a second prose-heavy map template or serialize the zones into a vertical prose list.
+**(b) Draw the map.** Follow the compliant example above: all four zone slots remain literal, `[∅]` marks emptiness, long prose stays outside alignment columns, direct focus edges remain in geometry, and every arrowhead sits beside its stored target. Put the complete zone key, evidence index, and secondary stored-relationship ledger immediately below the geometry. Do not serialize zones into a prose list or draw neighbor-to-neighbor edges through the positional cross.
 
-**(c) Build the complete node key + name the moves — scale each key entry's body-derived claim to that neighbor's inbound degree (`↓`).** Put identity and substance once in the immediately adjacent node key, then let Moves reference the compact label and add only why that action matters relative to the goal. Do not repeat full key entries in Moves or give every key entry a uniform one-liner. Use these tiers:
+**(c) Assign importance, build the complete evidence index, and name Moves.** Evaluate each neighbor in this order: explicit retained goal or human selection; whether removing its evidence changes the next action; relationship consequence; unresolved leverage; specificity; then degree only as a final tie-breaker. Use at most two `★` decision-shaping nodes (2–3 sentences), `◆` decision-supporting nodes (one sentence), and `·` orienting context nodes (one claim clause). Every entry still includes ID, readable title, note type, and `↑out ↓in` connectivity. Put identity and substance once in the adjacent evidence index, then let Moves reference compact labels and add only why the action matters relative to the goal.
 
-| Inbound degree | Length |
-|----------------|--------|
-| leaf (↓0–1) | ID + readable title + type + one body-derived claim clause |
-| connected (↓2–4) | ID + readable title + one full sentence on its body-derived claim |
-| hub (↓5+, or the highest-degree node in view) | ID + readable title + 2–3 sentences: its body-derived claim *and* why it's load-bearing |
-
-The body transport never truncates semantic content: it splits large bodies into lossless bounded segments, and the presentation gate waits for all pages before summarizing. Degree tells *you* how much to relay. With `--presentation-hints`, each topology text node carries a `relay budget:` line and each topology JSON node carries structured `summary_budget` metadata mirroring these tiers, so the policy remains visible while bodies travel separately. Two overrides: a high-degree *daily* or index note is a hub by connectivity, not substance—treat it as connected (one sentence) and say so; and a low-degree axiom whose body is clearly central gets promoted a tier—let the body's actual claim override the degree. Empty zones carry meaning and the full semantic triple: say, for example, `🔴 LEFT — what contests or questions the focus: empty; nothing contests or questions this focus.`
+The body transport remains lossless: it splits large bodies into bounded segments, and the presentation gate waits for all pages before summarizing. `--presentation-hints` supplies degree-based source hints, but those hints do not establish view-local importance or final summary length. Empty zones retain `[∅]` in geometry and the full semantic gloss beside it.
 
 Keep `--depth 1` when zoning—only direct neighbors carry a zone, and the zoned text view omits unzoned nodes. Use topology alone only when you need shape without claims. When substance is required, use `nn graph bodies` with the identical traversal, retrieve every page under the same snapshot, reconstruct every body, and only then read and relay it. The deprecated `nn graph show --bodies` compatibility path is unbounded and is not a navigation source.

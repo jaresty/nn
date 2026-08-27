@@ -64,7 +64,7 @@ The canonical grammar is exactly **`:help`, `:guided`, `:advanced`, `:look`, `:w
 
 ### Guided and Advanced interaction
 
-The conversation-scoped field is `interaction mode: guided | advanced`. **Guided mode is the default.** Navigation help remains visible after every completed action, including a completed transient, move, Ask, cancellation, and Arrive, and shows each action beside its canonical shorthand. A pending Ask or unanswered Quiz is not completed and keeps its owned waiting presentation.
+The conversation-scoped field is `interaction mode: guided | advanced`. **Guided mode is the default.** Navigation help remains visible while another choice is pending. A clearly completed explicit direct intent may use `presentation`'s quiet return, retaining the frame and semantic menu position with `navigate`/`:help` instead of another chooser. Pending Ask and unanswered Quiz keep their waiting presentation.
 
 **Advanced mode keeps Navigation help closed.** `:help` opens it temporarily without changing mode, rendering a complete canonical command catalog; picker limits never truncate that catalog. `:guided` switches to Guided mode and opens persistent Navigation help. `:advanced` switches to Advanced mode and closes it. A direct launch beginning **`navigate advanced`** starts or resumes the walk in Advanced mode and treats any remaining words as the ordinary navigation query or intent. Mode switching never changes focus, graph history, the goal, filters, bookmarks, or notebook content.
 
@@ -207,14 +207,15 @@ Fetch `presentation` before evaluating or rendering this gate. Before every huma
 - [ ] focus central claim summarized from its stored body
 - [ ] focus neighborhood role explained relative to the retained goal
 - [ ] zone/type/edge color markers use the stable relay palette
-- [ ] compact colored labels occupy true zone positions; prose stays out alignment columns
+- [ ] compact colored labels occupy true TOP/LEFT/RIGHT/BOTTOM positions, with `[∅]` for empties and prose outside alignment columns
 - [ ] adjacent zone key gives each label's zone name and local meaning
 - [ ] visible legend explains carried color, note-type, and edge-family markers
 - [ ] compact-label map replaces raw command output
 - [ ] stored edges show canonical type and source-to-target direction
 - [ ] empty zones explain their meaning and emptiness
-- [ ] adjacent node key preserves ID, title, type, degree, and body-derived claim
-- [ ] key claims are degree-scaled; no orphan, duplicate, ID-only, or title-only labels
+- [ ] adjacent evidence index preserves ID, title, type, degree, importance marker, and body-derived claim
+- [ ] goal-based `★` (at most two), `◆`, and `·` importance stays separate from degree; direct edges stay in geometry and secondary edges in the ledger
+- [ ] no orphan, duplicate, ID-only, or title-only labels
 - [ ] directional actions carry full semantic triples; compact map labels carry markers and resolve through the adjacent zone key
 - [ ] every concrete quick action states its effect on focus and an evidence-derived reason
 - [ ] Recenter available exactly one picker level away when structurally possible
@@ -233,7 +234,7 @@ The complete semantic triples, stable palette, effect markers, menu rows, summar
 
 Graph focus/history and menu UI are orthogonal. Esc or a declined submenu chooser pops only menu UI. Esc at Quick actions closes only the picker and retains focus/history; report the retained focus and the `navigate` resume affordance rather than implying Arrive. Conversational Back restores graph history and is never an explicit picker row.
 
-Transient actions return semantically to their invoking menu under `presentation`: Peek details return to Peek, lenses to Lenses, scans to Scan, promoted transients to Quick actions, and Ask to its invoking Ask submenu unless promoted. In Guided mode, use the compact breadcrumb, state that focus is unchanged, and reopen the invoking picker so Navigation help remains visible. In Advanced mode, preserve the same deterministic menu position but keep Navigation help closed; a temporary `:help` also closes after the completed action. Focus-changing actions, Back/Forward, Go to, Teleport, and `navigate` rerun Orient and reset Quick actions without changing interaction mode. Arrive stops with focus retained. Quiz may suspend the picker while unanswered; its `navigate` escape resumes through Orient without grading or revealing.
+Transient actions return semantically to their invoking menu under `presentation`: Peek details return to Peek, lenses to Lenses, scans to Scan, promoted transients to Quick actions, and Ask to its invoking Ask submenu unless promoted. Guided reopens the invoking picker when another choice is pending; a clearly completed explicit direct intent may instead use the quiet return with unchanged focus, frame, and semantic menu position. Advanced retains that position with help closed. Focus-changing actions and `navigate` rerun Orient and reset Quick actions without changing mode. Arrive retains focus. Quiz may suspend; `navigate` exits without grading.
 
 Do not redundantly full-render an unchanged complete frame when the owner permits compact return. Do full-render after focus/filter/traversal/notebook changes, stale or unknown cache, explicit Refresh, or resumption after discussion. Compact return references the complete frame still visible; it cannot redraw a reduced skeleton or omit Navigation help when Guided requires it. Advanced compact returns do not fabricate a picker merely to satisfy an obsolete unconditional-return rule.
 

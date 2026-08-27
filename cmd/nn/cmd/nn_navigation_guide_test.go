@@ -473,7 +473,7 @@ func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 			"P1 — Colors and relay budgets on",
 			"P2 — Focus + Map + Moves",
 			"P3 — Adaptive hierarchical quick-actions picker",
-			"P4 — Degree-scaled summaries",
+			"P4 — View-local importance summaries",
 			"--zones --presentation-hints --color always",
 			"nn graph bodies",
 			"retrieve every page",
@@ -574,20 +574,20 @@ func TestNNNavigateUsesCompactSpatialMapsByDefault(t *testing.T) {
 	}
 	content := string(data)
 	assertions := map[string]string{
-		"P1 compact map default":        "Compact stable labels are the default map representation for every full positioned view.",
-		"P2 adjacent complete node key": "Immediately below the map, render one complete node key that maps every compact label exactly once to its note ID, readable title, note type, degree, and body-derived central claim.",
-		"P2 compliant node-key example": "Node key (immediately adjacent)",
-		"P3 faithful zone geometry":     "TOP labels appear above focus, LEFT labels to its left, RIGHT labels to its right, and BOTTOM labels below it.",
-		"P3 compact marker geometry":    "The aligned geometry block keeps each zone emoji directly beside its compact label while semantic prose stays in the immediately adjacent zone key",
-		"P3 spatial example":            "🔴 [L1] <--contradicts-- 🟠 [FOCUS] <--source-of-- 🔷 [R1]",
-		"P3 adjacent semantic zone key": "Zone key (immediately adjacent)",
-		"P4 typed directed edges":       "Every displayed stored edge names its canonical type and shows its stored source-to-target direction between endpoint labels.",
-		"P4 vertical edge direction":    "^\n                         | refines: 🟢 [B1] -> 🟠 [FOCUS]",
-		"P5 nonduplicative moves":       "Moves reference the compact labels, retain the complete marker/zone/local-meaning semantic triple and action effect, and add only the decision-relevant action reason instead of repeating complete node-key entries.",
-		"P1 complete inline exception":  "each inline node still carries its note ID, readable title, note type, degree, and degree-scaled body-derived central claim",
-		"P2 hub key detail":             "dependents make this policy load-bearing",
-		"P2 second hub key detail":      "dependents make this checkpoint rule load-bearing",
-		"P5 compact Moves example":      "- [B1] — Recenter 🟢 BOTTOM — what builds on the focus because",
+		"P1 compact map default":           "Compact stable labels are the default map representation for every full positioned view.",
+		"P2 adjacent evidence index":       "Immediately below the map, render one complete evidence index that maps every compact label exactly once",
+		"P2 compliant index example":       "Evidence index",
+		"P3 faithful zone geometry":        "TOP is above focus, LEFT is left, RIGHT is right, and BOTTOM is below.",
+		"P3 compact marker geometry":       "keeps each zone emoji and `★`/`◆`/`·` importance marker directly beside its compact label",
+		"P3 visible empty-zone example":    "🔴 LEFT · [∅]",
+		"P3 adjacent semantic zone key":    "Zone key",
+		"P4 direct typed edges":            "Direct focus relationships appear in the geometry.",
+		"P4 vertical reciprocal direction": "source-of ▲",
+		"P5 nonduplicative moves":          "instead of repeating complete evidence-index entries.",
+		"P1 complete inline exception":     "each inline node still carries its note ID, readable title, note type, degree, importance marker, and importance-scaled body-derived central claim",
+		"P2 primary index detail":          "Supplies the decision-changing review evidence.",
+		"P2 supporting index detail":       "Defines the durable boundary that retries must restore.",
+		"P5 compact Moves example":         "- [R1] — Recenter 🔷 RIGHT — lateral provenance or task relationships because",
 	}
 	for assertion, required := range assertions {
 		if !strings.Contains(content, required) {
@@ -609,7 +609,7 @@ func TestNNNavigateUsesCompactSpatialMapsByDefault(t *testing.T) {
 		t.Fatalf("read nn-navigate core: %v", err)
 	}
 	skill := string(skillData)
-	if !strings.Contains(skill, "compact colored labels occupy true zone positions") {
+	if !strings.Contains(skill, "compact colored labels occupy true TOP/LEFT/RIGHT/BOTTOM positions") {
 		t.Error("nn-navigate core missing compact-label default")
 	}
 	if strings.Contains(skill, "Width pressure permits compact map labels only") {
@@ -626,9 +626,9 @@ func TestNNNavigateUsesCompactSpatialMapsByDefault(t *testing.T) {
 	adr := string(adrData)
 	for _, required := range []string{
 		"Compact labels are the default map representation",
-		"one immediately adjacent complete node key",
-		"Spatial placement remains literal",
-		"Moves reference labels rather than repeating the node key",
+		"one immediately adjacent complete evidence index",
+		"Spatial placement remains literal and invariant",
+		"Moves reference labels rather than repeating the evidence index",
 	} {
 		if !strings.Contains(adr, required) {
 			t.Errorf("ADR-0038 compact-map decision missing %q", required)
@@ -726,8 +726,8 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 
 	exactMenus := []string{
 		"1. `Recenter`\n2. `Peek`\n3. `Scan`",
-		"1. `○ Show verbatim`\n2. `○ Explain in depth`",
-		"1. `○ Analogize`\n2. `↗ Find an analog`\n3. `○ Find gaps`\n4. `○ Visualize`\n5. `○ Quiz`",
+		"1. `○ Show verbatim`\n2. `○ Explain in depth`\n3. `↗ Find an analog`",
+		"1. `○ Analogize`\n2. `○ Find gaps`\n3. `○ Visualize`\n4. `○ Quiz`",
 		"1. `○ Local territory`\n2. `↗ Global landscape`",
 	}
 	for _, menu := range exactMenus {
@@ -738,8 +738,8 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 	for _, required := range []string{
 		"`All navigation actions…` opens the action-class submenu exactly one level away",
 		"The `Lenses…` row is always present at the top level and opens this exact submenu one picker level away",
-		"Show verbatim and Explain in depth remain Peek actions",
-		"Find an analog is a human-intent Lens",
+		"Show verbatim, Explain in depth, and Find an analog remain Peek actions",
+		"Find an analog is a human-intent Peek-family action",
 		"internally uses Scan retrieval",
 		"Scan contains exactly Local territory and Global landscape",
 		"`Recenter` may open `<short-id> · Quick actions › All actions › Recenter destinations`",
@@ -761,7 +761,7 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 		"`Use a lens`",
 		"3. `Back`",
 		"4. `Back`",
-		"3. `Find an analog`",
+		"1. `○ Analogize`\n2. `↗ Find an analog`",
 		"1. `Recenter`\n2. `Peek`\n3. `Scan`\n4. `■ Arrive`",
 	} {
 		if strings.Contains(picker, contradictory) {
@@ -824,7 +824,7 @@ func TestNNNavigateSupportsDirectConversationalActionsAndDeterministicReturns(t 
 		"direct conversational intents from any menu",
 		"not `nn` subcommands",
 		"A Lens invoked from Lenses returns to Lenses.",
-		"Show verbatim and Explain in depth return to Peek.",
+		"Show verbatim, Explain in depth, and Find an analog return to Peek.",
 		"Local territory and Global landscape return to Scan.",
 		"A promoted top-level transient returns to Quick actions.",
 		"Quiz suspends the picker while unanswered",
@@ -849,7 +849,9 @@ func TestNNNavigateAvoidsRedundantTransientRenders(t *testing.T) {
 	for _, required := range []string{
 		"Do not redundantly rerender Focus + Map + Moves",
 		"complete retained frame and notebook are unchanged",
-		"compact breadcrumb, state that focus is unchanged, and reopen the invoking picker",
+		"show the compact breadcrumb, say focus is unchanged",
+		"reopen Peek, Lenses, Scan, or Quick actions when another choice is naturally pending",
+		"When a clearly completed explicit direct intent already answers the request, use a quiet return",
 		"focus, filters, traversal context, or notebook changed",
 		"navigation resumes after discussion",
 		"explicit Refresh",
@@ -899,10 +901,13 @@ func TestNNNavigateOwnsTransientActionReturnAndDeepPeekContracts(t *testing.T) {
 	}
 	content := string(data)
 	for _, required := range []string{
-		"Show verbatim, Explain in depth, Analogize, Find an analog, Find gaps, and Visualize are transient actions",
+		"Show verbatim, Explain in depth, Find an analog, Analogize, Find gaps, and Visualize are transient actions",
 		"A completed Quiz follows the same return",
 		"show the compact breadcrumb, say focus is unchanged",
-		"reopen Peek, Lenses, Scan, or Quick actions as specified",
+		"quiet return",
+		"clearly completed explicit direct intent",
+		"retain the semantic menu position",
+		"reopen Peek, Lenses, Scan, or Quick actions when another choice is naturally pending",
 		"Show the complete stored body verbatim, without truncation",
 		"separate metadata, stored links, and display-only injected material",
 		"source-bounded full treatment",
@@ -929,7 +934,7 @@ func TestNNNavigateOwnsFindAnAnalogAndLensContracts(t *testing.T) {
 			"Find an analog",
 			"Scan retrieval move across another region",
 			"relational structure, not lexical similarity",
-			"may be reached through Lenses or promoted",
+			"Peek-family action",
 			"never mutate focus or navigation history",
 		},
 		"analog retrieval workflow": {
@@ -1025,8 +1030,8 @@ func TestNNNavigateDefinesGuidedAndAdvancedConversationalDSL(t *testing.T) {
 		},
 		"guided mode": {
 			"Guided mode is the default",
-			"Navigation help remains visible after every completed action",
-			"shows each action beside its canonical shorthand",
+			"Navigation help remains visible while another choice is pending",
+			"canonical shorthand",
 		},
 		"advanced mode": {
 			"Advanced mode keeps Navigation help closed",

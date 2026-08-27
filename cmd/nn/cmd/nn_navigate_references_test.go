@@ -68,7 +68,7 @@ func TestNNNavigateCompactCoreRetainsBindingDispatchContracts(t *testing.T) {
 		},
 		"[26] blocking presentation checklist": {
 			"Navigation presentation blocker checklist",
-			"adjacent node key preserves ID, title, type, degree, and body-derived claim",
+			"adjacent evidence index preserves ID, title, type, degree, importance marker, and body-derived claim",
 			"Arrive always visible as final top-level action",
 			"A missing item blocks presentation",
 		},
@@ -115,6 +115,41 @@ func TestNNNavigatePresentationReferencePreservesFourRowPickerSemantics(t *testi
 	example := presentation[start:end]
 	if !strings.Contains(example, "- ■ Arrive") {
 		t.Fatal("compliant top-level picker example omits the mandatory final Arrive row")
+	}
+}
+
+func TestNNNavigatePresentationReferencePreservesLosslessImportanceLayout(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "presentation.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read presentation reference: %v", err)
+	}
+	presentation := string(data)
+
+	for property, required := range map[string][]string{
+		"four-zone geometry and visible emptiness": {
+			"Every empty zone visibly occupies its geometric slot as `[∅]`",
+			"TOP is above focus, LEFT is left, RIGHT is right, and BOTTOM is below",
+		},
+		"view-local importance separate from connectivity": {
+			"view-local importance",
+			"at most two `★` decision-shaping nodes",
+			"`◆` decision-supporting",
+			"`·` orienting context",
+			"Degree remains connectivity",
+		},
+		"direct geometry and secondary ledger": {
+			"Direct focus relationships appear in the geometry",
+			"secondary stored-relationship ledger",
+			"arrowhead beside its stored target",
+			"reciprocal vertical relationships",
+		},
+	} {
+		for _, snippet := range required {
+			if !strings.Contains(presentation, snippet) {
+				t.Errorf("presentation property %s missing %q", property, snippet)
+			}
+		}
 	}
 }
 
