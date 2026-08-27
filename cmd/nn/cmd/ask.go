@@ -92,7 +92,7 @@ func newAskCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&surface, "surface", "canvas", "Feedback surface (canvas, document, graph, web)")
 	cmd.Flags().StringVar(&instructions, "instructions", "", "Instructions shown to the human on the surface")
 	cmd.Flags().StringVar(&mermaid, "mermaid", "", "Mermaid diagram source to seed the canvas (converted to editable elements)")
-	cmd.Flags().StringVar(&document, "document", "", "For --surface document: file, folder, or URL to annotate (defaults to a session file from --instructions)")
+	cmd.Flags().StringVar(&document, "document", "", "For --surface document or web: file, folder, or URL to annotate (defaults to a session file from --instructions)")
 	cmd.Flags().StringVar(&focus, "focus", "", "For --surface graph: required ego note id — the human sees only its depth-1 neighborhood")
 	cmd.Flags().StringVar(&nodes, "nodes", "", "For --surface graph: optional comma-separated allowlist of note ids to scope the surface to")
 	return cmd
@@ -154,9 +154,10 @@ func runAsk(opts askOptions) (askSession, error) {
 		return sess, err
 	}
 
-	// property [15a]/[15b]: the document surface is a delegated adapter — it
-	// invokes the plannotator peer rather than hosting a server.
-	if opts.surface == "document" {
+	// property [15a]/[15b]: document and its web compatibility alias are
+	// delegated adapters — they invoke the plannotator peer rather than hosting
+	// a server.
+	if opts.surface == "document" || opts.surface == "web" {
 		if err := runDocumentSurface(opts, dir, id); err != nil {
 			return sess, err
 		}

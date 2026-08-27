@@ -55,6 +55,43 @@ func TestRunAskPrintsSurfaceURL(t *testing.T) {
 	}
 }
 
+// Assertion [P 1a.1]: surface=web delegates to Plannotator with the supplied HTML path.
+// Assertion [P 1a.2]: surface=web does not open a hosted feedback URL.
+func TestRunAskWebAliasesDocumentSurface(t *testing.T) {
+	t.Setenv("NN_CONFIG_DIR", t.TempDir())
+
+	document := filepath.Join(t.TempDir(), "review.html")
+	var gotArgv []string
+	opened := false
+	_, err := runAsk(askOptions{
+		surface:  "web",
+		document: document,
+		open: func(url string) error {
+			opened = true
+			u, err := neturl.Parse(url)
+			if err != nil {
+				return err
+			}
+			_, err = http.Post(u.Scheme+"://"+u.Host+"/session/"+u.Query().Get("session")+"/cancel", "application/json", nil)
+			return err
+		},
+		runPlannotator: func(argv []string) error {
+			gotArgv = append([]string(nil), argv...)
+			return nil
+		},
+		out: io.Discard,
+	})
+	if err != nil {
+		t.Fatalf("runAsk(surface=web): %v", err)
+	}
+	if opened {
+		t.Error("surface=web opened a hosted feedback URL; want Plannotator delegation")
+	}
+	if len(gotArgv) < 2 || gotArgv[0] != "annotate" || gotArgv[1] != document {
+		t.Fatalf("surface=web Plannotator argv = %q, want annotate %q ...", gotArgv, document)
+	}
+}
+
 func TestAskCommandRegistered(t *testing.T) {
 	cmd := newAskCmd(&rootState{})
 	if !strings.HasPrefix(cmd.Use, "ask") {
