@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -177,6 +178,96 @@ func TestAskDocumentPassesURLThrough(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(sess.dir, "document.md")); err == nil {
 		t.Fatalf("session document.md written for a URL")
 	}
+}
+
+// property [30a]: local HTML delegates with a session-scoped Plannotator data dir.
+// property [30b]: the override is child-local and does not mutate the nn process.
+// property [30c]: the ordinary thin result envelope still completes.
+func TestAskDocumentLocalHTMLIsolatesPlannotatorHistory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake plannotator executable uses a POSIX shell")
+	}
+	t.Setenv("NN_CONFIG_DIR", t.TempDir())
+	t.Setenv("PLANNOTATOR_DATA_DIR", "/existing/plannotator-data")
+
+	capture := installFakePlannotator(t)
+	htmlPath := filepath.Join(t.TempDir(), "review.HTML")
+	if err := os.WriteFile(htmlPath, []byte("<!doctype html><h1>review</h1>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	sess, err := runAsk(askOptions{surface: "document", document: htmlPath, out: io.Discard})
+	if err != nil {
+		t.Fatalf("runAsk(local HTML): %v", err)
+	}
+	got, err := os.ReadFile(capture)
+	if err != nil {
+		t.Fatalf("read child environment capture: %v", err)
+	}
+	want := filepath.Join(sess.dir, "plannotator-data")
+	if string(got) != want {
+		t.Fatalf("PLANNOTATOR_DATA_DIR = %q, want session-scoped %q", got, want)
+	}
+	if got := os.Getenv("PLANNOTATOR_DATA_DIR"); got != "/existing/plannotator-data" {
+		t.Fatalf("parent PLANNOTATOR_DATA_DIR = %q, want unchanged", got)
+	}
+	result, err := feedback.ReadResult(sess.dir)
+	if err != nil {
+		t.Fatalf("ReadResult: %v", err)
+	}
+	if result.Surface != "document" || len(result.Artifacts) != 1 || result.Artifacts[0].Format != "plannotator-decision" {
+		t.Fatalf("result envelope = %+v, want unchanged document decision artifact", result)
+	}
+}
+
+// property [31]: non-HTML documents retain the inherited Plannotator data dir.
+func TestAskDocumentMarkdownPreservesPlannotatorHistory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake plannotator executable uses a POSIX shell")
+	}
+	t.Setenv("NN_CONFIG_DIR", t.TempDir())
+	t.Setenv("PLANNOTATOR_DATA_DIR", "/existing/plannotator-data")
+
+	capture := installFakePlannotator(t)
+	markdownPath := filepath.Join(t.TempDir(), "review.md")
+	if err := os.WriteFile(markdownPath, []byte("# review"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runAsk(askOptions{surface: "document", document: markdownPath, out: io.Discard}); err != nil {
+		t.Fatalf("runAsk(markdown): %v", err)
+	}
+	got, err := os.ReadFile(capture)
+	if err != nil {
+		t.Fatalf("read child environment capture: %v", err)
+	}
+	if string(got) != "/existing/plannotator-data" {
+		t.Fatalf("markdown PLANNOTATOR_DATA_DIR = %q, want inherited value", got)
+	}
+}
+
+func installFakePlannotator(t *testing.T) string {
+	t.Helper()
+	binDir := t.TempDir()
+	capture := filepath.Join(t.TempDir(), "plannotator-env.txt")
+	script := filepath.Join(binDir, "plannotator")
+	body := `#!/bin/sh
+printf '%s' "${PLANNOTATOR_DATA_DIR-}" > "$PLANNOTATOR_CAPTURE"
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "--result-file" ]; then
+    shift
+    printf '%s' '{"decision":"annotated","feedback":""}' > "$1"
+    exit 0
+  fi
+  shift
+done
+exit 1
+`
+	if err := os.WriteFile(script, []byte(body), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PLANNOTATOR_CAPTURE", capture)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return capture
 }
 
 // property [29]: the --document flag help names URL as an accepted input.

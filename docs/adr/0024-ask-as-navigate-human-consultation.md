@@ -237,6 +237,15 @@ Document has no separate seed artifact. A seed would duplicate the
 Graph result and the source-grounded brief that the agent must build, so omitting it
 avoids unnecessary artifact proliferation.
 
+The standalone delegated adapter also accepts local HTML as a raw rendered page. For
+local `.html` and `.htm` files only, `nn` launches Plannotator with a data directory
+inside the disposable Ask session. This avoids the confirmed Plannotator 0.27.8 failure
+where a large persisted HTML version diff leaves the client viewport blank. The
+exception intentionally gives up cross-session Plannotator version history for local
+HTML reviews; Markdown, text, folders, URLs, and generated instruction documents keep
+the inherited Plannotator environment and ordinary history behavior. The document
+argument, result-file protocol, and thin envelope remain unchanged.
+
 After Graph Ask completes, `nn-navigate` must:
 
 1. read the selected note bodies and stored edges for every selected or grouped

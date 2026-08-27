@@ -105,9 +105,6 @@ func runAsk(opts askOptions) (askSession, error) {
 	if opts.open == nil {
 		opts.open = openBrowser
 	}
-	if opts.runPlannotator == nil {
-		opts.runPlannotator = runPlannotator
-	}
 	if opts.out == nil {
 		opts.out = io.Discard
 	}
@@ -401,7 +398,21 @@ func runDocumentSurface(opts askOptions, dir, id string) error {
 	resultFile := filepath.Join(dir, "result.plannotator.json")
 	// property [16b]: request path in, --result-file out, then exit.
 	argv := []string{"annotate", contentPath, "--gate", "--json", "--result-file", resultFile}
-	if err := opts.runPlannotator(argv); err != nil {
+	var err error
+	if opts.runPlannotator != nil {
+		err = opts.runPlannotator(argv)
+	} else {
+		dataDir := ""
+		if isLocalHTMLDocument(contentPath) {
+			// Plannotator 0.27.8 can blank its client while constructing a large
+			// historical HTML diff. Keep local HTML review history inside this
+			// disposable Ask session; every other document target retains the
+			// ordinary inherited Plannotator environment.
+			dataDir = filepath.Join(dir, "plannotator-data")
+		}
+		err = runPlannotator(argv, dataDir)
+	}
+	if err != nil {
 		return err
 	}
 
@@ -417,10 +428,29 @@ func runDocumentSurface(opts askOptions, dir, id string) error {
 	return feedback.WriteResult(dir, result)
 }
 
+func isLocalHTMLDocument(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	if ext != ".html" && ext != ".htm" {
+		return false
+	}
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
 // runPlannotator invokes the plannotator binary with argv, wiring stdio through
-// so the human interacts with its UI.
-func runPlannotator(argv []string) error {
+// so the human interacts with its UI. A non-empty dataDir replaces that variable
+// in the child only; the nn process environment remains unchanged.
+func runPlannotator(argv []string, dataDir string) error {
 	cmd := exec.Command("plannotator", argv...)
+	if dataDir != "" {
+		env := make([]string, 0, len(os.Environ())+1)
+		for _, entry := range os.Environ() {
+			if !strings.HasPrefix(entry, "PLANNOTATOR_DATA_DIR=") {
+				env = append(env, entry)
+			}
+		}
+		cmd.Env = append(env, "PLANNOTATOR_DATA_DIR="+dataDir)
+	}
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
