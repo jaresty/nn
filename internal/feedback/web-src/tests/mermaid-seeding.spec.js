@@ -97,6 +97,46 @@ test("Mermaid seeding uses the mounted public API after fonts are ready", async 
   await expect.poll(() => drafts.at(-1)?.elements?.length ?? 0).toBeGreaterThan(0);
 });
 
+test("invalid Mermaid exposes a safe editable fallback instead of an ordinary blank canvas", async ({ page }) => {
+  const id = "invalid-mermaid";
+  let draftPuts = 0;
+  await page.route(`**/session/${id}{,/**}`, async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    const session = `/session/${id}`;
+    if (path === session && request.method() === "GET") {
+      await route.fulfill({ json: { id, surface: "canvas", mermaid: "flowchart TD\n  A[broken" } });
+      return;
+    }
+    if (path === `${session}/draft` && request.method() === "GET") {
+      await route.fulfill({ status: 404 });
+      return;
+    }
+    if (path === `${session}/draft` && request.method() === "PUT") {
+      draftPuts++;
+      await route.fulfill({ status: 204 });
+      return;
+    }
+    await route.fulfill({ status: 404 });
+  });
+
+  await page.goto(`/?session=${id}`);
+  await expect(page.locator(".excalidraw")).toBeVisible();
+  await expect(page.getByText("Mermaid seed could not be rendered. Blank canvas is available.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Done" })).toBeEnabled();
+  await expect(page.getByText(/broken image/i)).toHaveCount(0);
+
+  // Draw into the fallback so autosave runs; the conversion warning must remain
+  // visible instead of being replaced by the ordinary "Draft saved" status.
+  await page.keyboard.press("r");
+  await page.mouse.move(320, 260);
+  await page.mouse.down();
+  await page.mouse.move(430, 340);
+  await page.mouse.up();
+  await expect.poll(() => draftPuts).toBeGreaterThan(0);
+  await expect(page.getByText("Mermaid seed could not be rendered. Blank canvas is available.", { exact: true })).toBeVisible();
+});
+
 test("Mermaid insertion lifecycle keeps conversion authoritative and has no geometry mutator", () => {
   expect(appSource).not.toMatch(
     /padConvertedLabelContainers|BOUND_TEXT_PADDING|measureText|actualBoundingBox/,
@@ -401,14 +441,15 @@ test("initial camera fits every element in a complete wide Mermaid seed", async 
   );
 
   await expect.poll(async () => {
-    const appState = await page.evaluate(() => window.h?.app?.state ?? null);
     const elements = drafts.at(-1)?.elements?.filter((element) => !element.isDeleted) ?? [];
-    const zoom = appState?.zoom?.value;
-    if (!elements.length || !zoom || !appState.width || !appState.height) return false;
-    const left = -appState.scrollX;
-    const top = -appState.scrollY;
-    const right = left + appState.width / zoom;
-    const bottom = top + appState.height / zoom;
+    const encodedCamera = await page.getByTestId("canvas-surface").getAttribute("data-camera");
+    const camera = encodedCamera ? JSON.parse(encodedCamera) : null;
+    const zoom = camera?.zoom;
+    if (!elements.length || !zoom || !camera.width || !camera.height) return false;
+    const left = -camera.scrollX;
+    const top = -camera.scrollY;
+    const right = left + camera.width / zoom;
+    const bottom = top + camera.height / zoom;
     return elements.every((element) =>
       element.x >= left - 2 &&
       element.y >= top - 2 &&

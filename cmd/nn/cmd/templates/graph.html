@@ -369,6 +369,8 @@ body.feedback #right-col.open { margin-right: 300px; }
   border-radius: 5px; padding: 6px 8px; font-size: 11px; cursor: pointer; font-weight: 600;
 }
 #save-group:disabled { opacity: .4; cursor: default; }
+#group-draft-status { min-height: 16px; margin-top: 5px; color: #f2c879; font-size: 10px; font-weight: 600; }
+#group-validation { min-height: 16px; margin-top: 3px; color: #ff9d9d; font-size: 10px; }
 #saved-groups { display: flex; flex-direction: column; gap: 5px; margin-top: 7px; }
 .saved-group { background: #0e1228; border: 1px solid #3a4a6a; border-radius: 5px; padding: 6px 7px; }
 .saved-group-name { color: #cfe2ff; font-size: 11px; font-weight: 600; }
@@ -595,6 +597,8 @@ input.brief-body-toggle { accent-color: #7eb8f7; }
       <option value="unclear">unclear</option>
     </select>
     <textarea id="group-comment" placeholder="Comment on this selection…"></textarea>
+    <div id="group-draft-status" aria-live="polite"></div>
+    <div id="group-validation" role="alert"></div>
     <button id="save-group" disabled>Save selection as group</button>
     <div id="saved-groups"></div>
   </div>
@@ -833,6 +837,8 @@ const activeSelectionEdges = new Map();
 const selectionGroups = [];
 let nextSelectionGroupNumber = 1;
 let editingSelectionGroupID = null;
+let reselectedSelectionGroupID = null;
+let groupComposerDirty = false;
 
 // Minimal, safe markdown → HTML for the note body panel. Escapes HTML first,
 // then renders headings, lists, inline code, links, bold/italic, paragraphs.
@@ -991,6 +997,44 @@ function normalizedSelectionEdge(d, selection) {
   };
 }
 
+function groupComposerHasText() {
+  return document.getElementById("group-name").value.trim() !== "" ||
+    document.getElementById("group-classification").value !== "" ||
+    document.getElementById("group-comment").value.trim() !== "";
+}
+
+function activeSelectionMatchesGroup(group) {
+  if (!group) return false;
+  const actualNodes = [...activeSelectionNodes].sort();
+  const expectedNodes = group.nodes
+    .filter(node => node.selection !== "implicit").map(node => node.id).sort();
+  const actualEdges = [...activeSelectionEdges.keys()].sort();
+  const expectedEdges = group.edges
+    .filter(edge => edge.selection === "explicit").map(selectionEdgeKey).sort();
+  return JSON.stringify(actualNodes) === JSON.stringify(expectedNodes) &&
+    JSON.stringify(actualEdges) === JSON.stringify(expectedEdges);
+}
+
+function isGroupComposerDirty() {
+  const hasActive = activeSelectionNodes.size > 0 || activeSelectionEdges.size > 0;
+  if (editingSelectionGroupID) {
+    const previous = selectionGroups.find(group => group.id === editingSelectionGroupID);
+    if (!previous) return hasActive || groupComposerHasText();
+    const membershipChanged = reselectedSelectionGroupID === editingSelectionGroupID
+      ? !activeSelectionMatchesGroup(previous) : hasActive;
+    return membershipChanged ||
+      document.getElementById("group-name").value.trim() !== (previous.name || "") ||
+      document.getElementById("group-classification").value !== (previous.classification || "") ||
+      document.getElementById("group-comment").value.trim() !== (previous.comment || "");
+  }
+  return hasActive || groupComposerHasText();
+}
+
+function markGroupComposerDirty() {
+  const validation = document.getElementById("group-validation");
+  if (validation) validation.textContent = "";
+}
+
 function syncSelectionUI() {
   if (typeof gNodes !== "undefined")
     gNodes.selectAll("g.node").classed("selection-member", d => activeSelectionNodes.has(d.id));
@@ -1004,11 +1048,15 @@ function syncSelectionUI() {
   const hasActive = activeSelectionNodes.size > 0 || activeSelectionEdges.size > 0;
   const save = document.getElementById("save-group");
   if (save) save.disabled = !(hasActive || editingSelectionGroupID);
+  groupComposerDirty = isGroupComposerDirty();
+  const draftStatus = document.getElementById("group-draft-status");
+  if (draftStatus) draftStatus.textContent = groupComposerDirty ? "Unsaved group" : "";
 }
 
 function toggleNodeSelection(d) {
   if (activeSelectionNodes.has(d.id)) activeSelectionNodes.delete(d.id);
   else activeSelectionNodes.add(d.id);
+  markGroupComposerDirty();
   syncSelectionUI();
 }
 
@@ -1016,6 +1064,7 @@ function toggleEdgeSelection(d) {
   const key = selectionEdgeKey(d);
   if (activeSelectionEdges.has(key)) activeSelectionEdges.delete(key);
   else activeSelectionEdges.set(key, normalizedSelectionEdge(d, "explicit"));
+  markGroupComposerDirty();
   syncSelectionUI();
 }
 
@@ -1077,6 +1126,8 @@ function finishLasso(end, selectNodes) {
       if (midpointContained || labelIntersects)
         activeSelectionEdges.set(selectionEdgeKey(d), normalizedSelectionEdge(d, "explicit"));
     });
+    // Dirty state is derived by comparing membership with the saved reselected
+    // baseline; misses and exact restoration remain clean.
     syncSelectionUI();
   }
   lassoRect.style("display", "none").attr("width", 0).attr("height", 0);
@@ -1119,35 +1170,63 @@ function clearActiveSelection() {
 
 function resetGroupComposer() {
   editingSelectionGroupID = null;
+  reselectedSelectionGroupID = null;
+  groupComposerDirty = false;
   document.getElementById("group-name").value = "";
   document.getElementById("group-classification").value = "";
   document.getElementById("group-comment").value = "";
+  document.getElementById("group-validation").textContent = "";
   document.getElementById("save-group").textContent = "Save selection as group";
 }
 
 function editSelectionGroup(group) {
+  const groupID = group.id;
+  if (!prepareForComposerReplacement()) return;
+  const current = selectionGroups.find(candidate => candidate.id === groupID);
+  if (!current) return;
   clearActiveSelection();
-  editingSelectionGroupID = group.id;
-  document.getElementById("group-name").value = group.name || "";
-  document.getElementById("group-classification").value = group.classification || "";
-  document.getElementById("group-comment").value = group.comment || "";
+  reselectedSelectionGroupID = null;
+  editingSelectionGroupID = current.id;
+  document.getElementById("group-name").value = current.name || "";
+  document.getElementById("group-classification").value = current.classification || "";
+  document.getElementById("group-comment").value = current.comment || "";
   document.getElementById("save-group").textContent = "Update group";
+  groupComposerDirty = false;
   syncSelectionUI();
 }
 
 function reselectSelectionGroup(group) {
+  const groupID = group.id;
+  if (!prepareForComposerReplacement()) return;
+  const current = selectionGroups.find(candidate => candidate.id === groupID);
+  if (!current) return;
   clearActiveSelection();
-  group.nodes.filter(node => node.selection !== "implicit").forEach(node => activeSelectionNodes.add(node.id));
-  group.edges.filter(edge => edge.selection === "explicit").forEach(edge =>
+  editingSelectionGroupID = current.id;
+  reselectedSelectionGroupID = current.id;
+  document.getElementById("group-name").value = current.name || "";
+  document.getElementById("group-classification").value = current.classification || "";
+  document.getElementById("group-comment").value = current.comment || "";
+  document.getElementById("save-group").textContent = "Update group";
+  current.nodes.filter(node => node.selection !== "implicit").forEach(node => activeSelectionNodes.add(node.id));
+  current.edges.filter(edge => edge.selection === "explicit").forEach(edge =>
     activeSelectionEdges.set(selectionEdgeKey(edge), { ...edge, selection: "explicit" }));
+  // Reselect restores saved working-state membership for inspection; it is not
+  // a new draft until the human changes membership or composer fields.
+  groupComposerDirty = false;
   syncSelectionUI();
 }
 
 function deleteSelectionGroup(group) {
   const index = selectionGroups.findIndex(candidate => candidate.id === group.id);
   if (index === -1) return;
+  const wasReselected = reselectedSelectionGroupID === group.id;
   selectionGroups.splice(index, 1);
   if (editingSelectionGroupID === group.id) resetGroupComposer();
+  if (wasReselected) {
+    clearActiveSelection();
+    reselectedSelectionGroupID = null;
+    groupComposerDirty = false;
+  }
   renderSavedGroups();
 }
 
@@ -1281,6 +1360,41 @@ function saveSelectionGroup() {
 }
 
 document.getElementById("save-group").addEventListener("click", saveSelectionGroup);
+["group-name", "group-classification", "group-comment"].forEach(id => {
+  document.getElementById(id).addEventListener("input", () => {
+    markGroupComposerDirty();
+    syncSelectionUI();
+  });
+});
+
+function prepareForComposerReplacement() {
+  syncSelectionUI();
+  if (!groupComposerDirty) return true;
+  const hasActive = activeSelectionNodes.size > 0 || activeSelectionEdges.size > 0;
+  const hasEditableMembership = editingSelectionGroupID &&
+    selectionGroups.some(group => group.id === editingSelectionGroupID);
+  if ((reselectedSelectionGroupID && !hasActive) || (!hasActive && !hasEditableMembership)) {
+    document.getElementById("group-validation").textContent =
+      "Select at least one note or relationship before replacing this unsaved group.";
+    return false;
+  }
+  return saveSelectionGroup();
+}
+
+function flushPendingSelectionGroup() {
+  syncSelectionUI();
+  if (!groupComposerDirty) return true;
+  const hasActive = activeSelectionNodes.size > 0 || activeSelectionEdges.size > 0;
+  const hasEditableMembership = editingSelectionGroupID &&
+    selectionGroups.some(group => group.id === editingSelectionGroupID);
+  if ((reselectedSelectionGroupID && !hasActive) || (!hasActive && !hasEditableMembership)) {
+    document.getElementById("group-validation").textContent =
+      "Select at least one note or relationship before sending this group.";
+    syncSelectionUI();
+    return false;
+  }
+  return saveSelectionGroup();
+}
 
 // Highlight the node or edge whose comment box is currently open, so it is
 // visually clear what the box refers to. Pass ({nodeId}) or ({edgeKey}) or {} to
@@ -2306,6 +2420,7 @@ if (askSession) {
   // action launches a mutation or destination surface.
   async function submitGraphFeedback(handoff) {
     if (submittingGraphFeedback) return;
+    if (!flushPendingSelectionGroup()) return;
     submittingGraphFeedback = true;
     terminalActions.forEach(([button]) => { button.disabled = true; });
     const payload = {

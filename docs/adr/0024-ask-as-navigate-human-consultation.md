@@ -163,7 +163,12 @@ The surface supports:
 The answer-building lifecycle is `Select → Organize → Explain → Review`. Selection
 is transient working state; saved groups are editable session-local answer objects.
 Clearing a selection does not delete a saved group, and deleting a group never
-mutates notes or links.
+mutates notes or links. Changed active membership or composer fields are visibly
+marked **Unsaved group**. A terminal action first saves a pending group with note or
+relationship membership; a non-empty memberless draft blocks with visible guidance.
+No terminal action silently discards group names, classifications, comments, or
+membership, and reselect/edit actions preserve or commit an existing pending draft
+before replacing composer state.
 
 This lifecycle serves six durable jobs independent of the current controls: **bound the evidence**
 under discussion; **express structure** rather than mere membership;
@@ -222,7 +227,7 @@ This is **not browser Back** and **not draft resumption**. It creates a fresh sy
 
 ### 5. Use explicit handoff intent for source-grounded review and explanation
 
-Graph Ask exposes three mutually exclusive terminal buttons: **Send** → `handoff: null`; **Send to Canvas** → `handoff: canvas`; **Send to Document** → `handoff: document`. There is no persistent toggle or fallback state. Clicking any one submits exactly once and closes the Graph Ask surface. Graph emits only the one terminal intent and appropriate seed metadata. It never launches either destination surface.
+Graph Ask exposes three mutually exclusive terminal buttons: **Send** → `handoff: null`; **Send to Canvas** → `handoff: canvas`; **Send to Document** → `handoff: document`. There is no persistent toggle or fallback state. Clicking any one applies the pending-group rule above, then submits exactly once and closes the Graph Ask surface. Graph emits only the one terminal intent and appropriate seed metadata. It never launches either destination surface.
 
 #### Document handoff
 
@@ -323,6 +328,17 @@ adds every returned helper file before `updateScene`, performs no manual glyph
 measurement, padding, resizing, or container mutation, and fits the complete
 seed exactly once. A restored draft remains authoritative initial data: Canvas
 does not rerun Mermaid conversion or refit it.
+
+If Mermaid conversion fails, Canvas keeps a blank editor available but shows a
+persistent conversion-warning status that ordinary autosave cannot replace. The
+fallback is never presented as a successfully rendered seed or broken image.
+
+When interpreting the final Canvas artifact, the agent compares it with retained
+Mermaid source and reports every evidenced human annotation, including unmatched
+text, without dismissing unclear meaning. The current contract does not retain a
+native converted-scene baseline, so geometry-only authorship remains explicitly
+uncertain unless another artifact establishes it; generated geometry is never
+silently attributed to the human.
 
 Canvas cancellation is terminal for the hosted browser lifecycle. It stops pending
 and in-flight autosave, requests server cancellation, and attempts `window.close()`.

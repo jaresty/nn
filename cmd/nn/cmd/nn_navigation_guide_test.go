@@ -371,6 +371,9 @@ func TestNNNavigateOwnsGraphSelectionToCanvasHandoff(t *testing.T) {
 		"rather than literal `<br>`",
 		"`nn ask --surface canvas --mermaid`",
 		"read the returned Canvas artifact",
+		"compare the generated seed baseline with the returned Canvas artifact",
+		"report every human-added or human-edited annotation",
+		"never dismiss an annotation because its meaning is unclear",
 		"restore the exact snapshotted frame",
 	} {
 		if !strings.Contains(contract, required) {
@@ -944,7 +947,8 @@ func TestNNNavigateDefinesGuidedAndAdvancedConversationalDSL(t *testing.T) {
 			"colon-prefixed skill-level intents",
 			"not `nn` subcommands",
 			"Natural conversational intents remain accepted",
-			"`:help`", "`:guided`", "`:advanced`", "`:where`", "`:orient`",
+			"`:help`", "`:guided`", "`:advanced`", "`:look`", "`:where`", "`:orient`",
+			"retrieve topology and complete bodies before rendering `:look`",
 			"`:recenter \"<label>\"`", "`:peek \"<label>\"`", "`:show`", "`:explain`", "`:gaps`",
 			"`:scan local`", "`:scan global`", "`:analogize`", "`:find-analog`", "`:visualize`",
 			"`:quiz`", "`:ask`", "`:back`", "`:forward`", "`:bookmark \"<name>\"`",
@@ -961,6 +965,7 @@ func TestNNNavigateDefinesGuidedAndAdvancedConversationalDSL(t *testing.T) {
 			"`:guided` switches to Guided mode",
 			"`:advanced` switches to Advanced mode",
 			"navigate advanced",
+			"complete canonical command catalog",
 		},
 		"context label resolution": {
 			"current-context menu labels",
@@ -968,6 +973,8 @@ func TestNNNavigateDefinesGuidedAndAdvancedConversationalDSL(t *testing.T) {
 			"must not create generated note aliases",
 			"Ambiguity opens narrowed help",
 			"An unavailable target never guesses",
+			"Unknown colon-prefixed intents never become navigation queries",
+			"suggest `:look`, `:where`, and `:help`",
 		},
 		"conversation-only mode state": {
 			"interaction mode: guided | advanced",
@@ -982,6 +989,25 @@ func TestNNNavigateDefinesGuidedAndAdvancedConversationalDSL(t *testing.T) {
 			if !strings.Contains(content, snippet) {
 				t.Errorf("assertion %q failed: nn-navigate missing %q", assertion, snippet)
 			}
+		}
+	}
+}
+
+func TestADR0038TracksLocationAndCompleteHelpDSL(t *testing.T) {
+	data, err := os.ReadFile("../../../docs/adr/0038-conversational-navigation-dsl.md")
+	if err != nil {
+		t.Fatalf("read ADR-0038: %v", err)
+	}
+	content := string(data)
+	for _, required := range []string{
+		":look",
+		"complete current Focus + Map + Moves view",
+		"`:where` reports compact focus",
+		"complete textual catalog of every canonical shorthand",
+		"Unknown colon-prefixed intents never become searches or moves",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("ADR-0038 missing current Navigation DSL decision %q", required)
 		}
 	}
 }

@@ -29,6 +29,7 @@ function debounce(fn, ms) {
 export default function App() {
   const [api, setApi] = useState(null);
   const [status, setStatus] = useState("Loading session…");
+  const [seedWarning, setSeedWarning] = useState("");
   // property [6]: prior draft is restored as initialData on reopen. Mermaid
   // never uses initialData: it is inserted only after the empty editor mounts.
   const [initialData, setInitialData] = useState(null);
@@ -39,6 +40,7 @@ export default function App() {
   const draftRequestRef = useRef(null);
   const sceneReadyRef = useRef(false);
   const seedStartedRef = useRef(false);
+  const canvasSurfaceRef = useRef(null);
 
   useEffect(() => {
     if (!base) {
@@ -118,8 +120,12 @@ export default function App() {
           animate: false,
         });
       } catch {
-        // Parse failure retains the mounted blank canvas as the fallback.
+        // Keep the editor usable, but never present conversion failure as an
+        // ordinary successful blank seed. The persistent status makes the
+        // fallback explicit while allowing the human to sketch manually.
+        if (cancelled) return;
         sceneReadyRef.current = true;
+        setSeedWarning("Mermaid seed could not be rendered. Blank canvas is available.");
       }
     })(mermaidSeed);
 
@@ -163,6 +169,18 @@ export default function App() {
 
   const onChange = useCallback(
     (elements, appState, files) => {
+      // Expose only transient camera geometry from Excalidraw's public callback.
+      // This gives production-bundle browser tests a stable behavioral seam
+      // without relying on React internals or persisting camera state in drafts.
+      if (canvasSurfaceRef.current) {
+        canvasSurfaceRef.current.dataset.camera = JSON.stringify({
+          scrollX: appState.scrollX,
+          scrollY: appState.scrollY,
+          zoom: appState.zoom?.value,
+          width: appState.width,
+          height: appState.height,
+        });
+      }
       // Do not let the intentionally empty mounted editor overwrite the session
       // while Mermaid conversion is waiting for fonts.
       if (sceneReadyRef.current) putDraft(elements, appState, files);
@@ -251,6 +269,7 @@ export default function App() {
       >
         <strong>nn ask</strong>
         <span style={{ color: "#555", flex: 1 }}>{status}</span>
+        {seedWarning ? <strong role="status" style={{ color: "#b45309" }}>{seedWarning}</strong> : null}
         <button onClick={onCancel} disabled={terminal === "cancelled"}>Cancel</button>
         <button
           onClick={onDone}
@@ -269,7 +288,7 @@ export default function App() {
           This Canvas session is cancelled. No further drafts will be saved.
         </div>
       ) : (
-        <div style={{ flex: 1, minHeight: 0 }}>
+        <div ref={canvasSurfaceRef} data-testid="canvas-surface" style={{ flex: 1, minHeight: 0 }}>
           <Excalidraw
             initialData={initialData}
             onChange={onChange}

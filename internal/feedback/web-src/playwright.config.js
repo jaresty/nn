@@ -8,7 +8,9 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 41873",
+    // Exercise the committed single-file bundle served by Go in production,
+    // not Vite's source-transforming dev server.
+    command: "npm run preview -- --host 127.0.0.1 --port 41873",
     url: "http://127.0.0.1:41873",
     reuseExistingServer: false,
   },

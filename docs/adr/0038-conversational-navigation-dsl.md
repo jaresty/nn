@@ -18,6 +18,7 @@ The navigation mode, complete frames, history, bookmarks, Ask snapshots, and men
 :help
 :guided
 :advanced
+:look
 :where
 :orient
 :recenter "<label>"
@@ -41,11 +42,13 @@ The navigation mode, complete frames, history, bookmarks, Ask snapshots, and men
 
 These are skill-level intents interpreted by the agent, not `nn` subcommands, flags, shell syntax, or a runtime parser. Existing natural conversational intents remain valid. The direct conversational launch `navigate advanced ...` selects Advanced mode before interpreting the remaining query or intent.
 
+`:look` renders the complete current Focus + Map + Moves view without mutating navigation state. `:where` reports compact focus, traversal/filter, immediate history, and bookmark state. `:orient` performs fresh topology/body retrieval and recomputes the positioned interpretation when evidence may be stale. Unknown colon-prefixed intents never become searches or moves; they retain state, report the unknown shorthand, and teach the location/help commands without guessing.
+
 ### Guided and Advanced presentation
 
 Guided is the default. Its Navigation help remains visible after each completed action and presents human labels beside canonical shorthand so use teaches the terse grammar. Pending Ask and unanswered Quiz states are not completed actions.
 
-Advanced keeps Navigation help closed. `:help` opens contextual help temporarily without changing mode; completing an action or dismissing the help closes it. `:guided` and `:advanced` switch mode without changing graph state. Existing adaptive-menu hierarchy and row limits apply whenever help is rendered.
+Advanced keeps Navigation help closed. `:help` opens a complete textual catalog of every canonical shorthand temporarily without changing mode; completing an action or dismissing the help closes it. The catalog is distinct from contextual adaptive pickers, so picker hierarchy and row limits do not truncate it. Contextual menus still apply their existing hierarchy and limits. `:guided` and `:advanced` switch mode without changing graph state.
 
 Deterministic transient returns now restore a semantic menu position independently of rendering it. Guided reopens that menu and keeps help visible. Advanced retains the same return position but does not render help. Focus-changing moves and `navigate` still Orient and reset the semantic menu to Quick actions while preserving interaction mode. Arrive preserves mode and focus; Guided shows help after the report and Advanced shows only the resume affordance.
 

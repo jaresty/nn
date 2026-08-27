@@ -684,6 +684,148 @@ test('modifier multi-select saves multiple named annotated groups with explicit 
   expect(selection.groups[1].edges[0].selection).toBe('explicit');
 });
 
+// Pending group drafts are user input even before Save is clicked. Every
+// terminal action must commit a selected draft exactly once and preserve its
+// complete metadata and membership.
+for (const action of [
+  { label: 'Send', id: '#fbpanel-send', handoff: null },
+  { label: 'Send to Canvas', id: '#send-to-canvas', handoff: 'canvas' },
+  { label: 'Send to Document', id: '#send-to-document', handoff: 'document' },
+]) {
+  test(`${action.label} auto-saves a selected pending group without an Add group click`, async ({ page }) => {
+    const s = await launchSession();
+    await page.goto(s.url);
+    await modifierClickNode(page, EGO);
+    await modifierClickNode(page, NBR_OUT);
+    await page.locator('#group-name').fill('Unsaved evidence');
+    await page.locator('#group-classification').selectOption('evidence');
+    await page.locator('#group-comment').fill('Preserve this pending explanation.');
+
+    await expect(page.locator('#group-draft-status')).toHaveText('Unsaved group');
+    await realPointerClick(page, page.locator(action.id));
+    await expect.poll(() => fs.existsSync(path.join(s.dir, 'result.json')), { timeout: 5000 }).toBe(true);
+
+    const result = JSON.parse(fs.readFileSync(path.join(s.dir, 'result.json'), 'utf8'));
+    const graphArtifact = result.artifacts.find((a: any) => a.format === 'graph-selection');
+    const selection = JSON.parse(fs.readFileSync(path.join(s.dir, graphArtifact.path), 'utf8'));
+    expectCanonicalGraphSelectionShape(selection);
+    expect(selection.handoff).toBe(action.handoff);
+    expect(selection.groups).toHaveLength(1);
+    expect(selection.groups[0]).toMatchObject({
+      name: 'Unsaved evidence',
+      classification: 'evidence',
+      comment: 'Preserve this pending explanation.',
+    });
+    expect(selection.groups[0].nodes).toEqual(expect.arrayContaining([
+      { id: EGO, selection: 'explicit' },
+      { id: NBR_OUT, selection: 'explicit' },
+    ]));
+    expect(selection.groups[0].edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: EGO, target: NBR_OUT, type: 'refines', selection: 'implicit' }),
+    ]));
+  });
+}
+
+test('comment-only pending group blocks terminal submission with visible validation', async ({ page }) => {
+  const s = await launchSession();
+  await page.goto(s.url);
+  await page.locator('#group-comment').fill('This needs members.');
+  await expect(page.locator('#group-draft-status')).toHaveText('Unsaved group');
+  await realPointerClick(page, page.locator('#send-to-canvas'));
+
+  await expect(page.locator('#group-validation')).toContainText('Select at least one note or relationship');
+  await expect(page.locator('#group-comment')).toHaveValue('This needs members.');
+  await expect.poll(() => fs.existsSync(path.join(s.dir, 'result.json'))).toBe(false);
+  expect(s.proc.exitCode).toBeNull();
+});
+
+test('clearing composer text clears unsaved state instead of trapping submission', async ({ page }) => {
+  const s = await launchSession();
+  await page.goto(s.url);
+  await page.locator('#group-comment').fill('temporary');
+  await expect(page.locator('#group-draft-status')).toHaveText('Unsaved group');
+  await page.locator('#group-comment').fill('');
+  await expect(page.locator('#group-draft-status')).toHaveText('');
+  await realPointerClick(page, page.locator('#fbpanel-send'));
+  await expect.poll(() => fs.existsSync(path.join(s.dir, 'result.json')), { timeout: 5000 }).toBe(true);
+  const result = JSON.parse(fs.readFileSync(path.join(s.dir, 'result.json'), 'utf8'));
+  const artifact = result.artifacts.find((a: any) => a.format === 'graph-selection');
+  const selection = JSON.parse(fs.readFileSync(path.join(s.dir, artifact.path), 'utf8'));
+  expect(selection.groups).toEqual([]);
+});
+
+test('Reselect commits a dirty edit before restoring saved membership', async ({ page }) => {
+  const s = await launchSession();
+  await page.goto(s.url);
+  await modifierClickNode(page, EGO);
+  await page.locator('#group-name').fill('Editable group');
+  await page.locator('#group-comment').fill('Original comment');
+  await page.locator('#save-group').click();
+
+  await page.locator('.saved-group').getByRole('button', { name: 'Edit' }).click();
+  await page.locator('#group-comment').fill('Updated before reselect');
+  await expect(page.locator('#group-draft-status')).toHaveText('Unsaved group');
+  await page.locator('.saved-group').getByRole('button', { name: 'Reselect' }).click();
+
+  await expect(page.locator('#saved-groups')).toContainText('Updated before reselect');
+  await expect(page.locator('#group-draft-status')).toHaveText('');
+  await expect(page.locator('g.node.selection-member')).toHaveCount(1);
+});
+
+test('reselected membership uses a semantic baseline and never duplicates or discards revisions', async ({ page }) => {
+  const s = await launchSession();
+  await page.goto(s.url);
+  await modifierClickNode(page, EGO);
+  await page.locator('#group-name').fill('Membership baseline');
+  await page.locator('#save-group').click();
+  await page.locator('.saved-group').getByRole('button', { name: 'Reselect' }).click();
+
+  // Removing the final member is a real pending revision and cannot silently
+  // fall back to the saved membership.
+  await modifierClickNode(page, EGO);
+  await expect(page.locator('#group-draft-status')).toHaveText('Unsaved group');
+  await realPointerClick(page, page.locator('#fbpanel-send'));
+  await expect(page.locator('#group-validation')).toContainText('Select at least one note or relationship');
+  await expect.poll(() => fs.existsSync(path.join(s.dir, 'result.json'))).toBe(false);
+
+  // Restoring the exact baseline makes the composer clean again and terminal
+  // submission preserves one saved group rather than creating a duplicate.
+  await modifierClickNode(page, EGO);
+  await expect(page.locator('#group-draft-status')).toHaveText('');
+  await realPointerClick(page, page.locator('#fbpanel-send'));
+  await expect.poll(() => fs.existsSync(path.join(s.dir, 'result.json')), { timeout: 5000 }).toBe(true);
+  const result = JSON.parse(fs.readFileSync(path.join(s.dir, 'result.json'), 'utf8'));
+  const artifact = result.artifacts.find((a: any) => a.format === 'graph-selection');
+  const selection = JSON.parse(fs.readFileSync(path.join(s.dir, artifact.path), 'utf8'));
+  expect(selection.groups).toHaveLength(1);
+  expect(selection.groups[0].nodes).toEqual([{ id: EGO, selection: 'explicit' }]);
+});
+
+test('repeated Edit reloads the freshly auto-committed group instead of stale metadata', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await modifierClickNode(page, EGO);
+  await page.locator('#group-name').fill('Fresh metadata');
+  await page.locator('#group-comment').fill('Original');
+  await page.locator('#save-group').click();
+  await page.locator('.saved-group').getByRole('button', { name: 'Edit' }).click();
+  await page.locator('#group-comment').fill('Freshly committed');
+  await page.locator('.saved-group').getByRole('button', { name: 'Edit' }).click();
+  await expect(page.locator('#group-comment')).toHaveValue('Freshly committed');
+  await expect(page.locator('#saved-groups')).toContainText('Freshly committed');
+});
+
+test('deleting a clean reselected group clears its working membership', async ({ page }) => {
+  await page.goto(surfaceURL);
+  await modifierClickNode(page, EGO);
+  await page.locator('#group-name').fill('Delete after reselect');
+  await page.locator('#save-group').click();
+  await page.locator('.saved-group').getByRole('button', { name: 'Reselect' }).click();
+  await expect(page.locator('g.node.selection-member')).toHaveCount(1);
+  await page.locator('.saved-group').getByRole('button', { name: 'Delete' }).click();
+  await expect(page.locator('g.node.selection-member')).toHaveCount(0);
+  await expect(page.locator('#active-selection-count')).toContainText('0 notes · 0 relationships');
+});
+
 // retained properties [17]-[18], [21]: the three actions are mutually
 // exclusive terminal submissions. Drive their actual pointer targets and prove
 // one click writes one draft, posts one submit, closes the session, and emits

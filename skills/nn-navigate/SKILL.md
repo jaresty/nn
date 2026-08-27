@@ -36,6 +36,7 @@ The navigation DSL is a static skill contract of **colon-prefixed skill-level in
 :help
 :guided
 :advanced
+:look
 :where
 :orient
 :recenter "<label>"
@@ -57,15 +58,19 @@ The navigation DSL is a static skill contract of **colon-prefixed skill-level in
 :arrive
 ```
 
-The canonical grammar is exactly **`:help`, `:guided`, `:advanced`, `:where`, `:orient`**; **`:recenter "<label>"`, `:peek "<label>"`, `:show`, `:explain`, `:gaps`**; **`:scan local`, `:scan global`, `:analogize`, `:find-analog`, `:visualize`**; and **`:quiz`, `:ask`, `:back`, `:forward`, `:bookmark "<name>"`, `:goto "<bookmark>"`, `:arrive`**. Quoted placeholders are arguments, not literal quote requirements when an unquoted remainder is unambiguous. Bookmark names retain the case-sensitive rules in `state`; label targets use the contextual resolution rule below.
+The canonical grammar is exactly **`:help`, `:guided`, `:advanced`, `:look`, `:where`, `:orient`**; **`:recenter "<label>"`, `:peek "<label>"`, `:show`, `:explain`, `:gaps`**; **`:scan local`, `:scan global`, `:analogize`, `:find-analog`, `:visualize`**; and **`:quiz`, `:ask`, `:back`, `:forward`, `:bookmark "<name>"`, `:goto "<bookmark>"`, `:arrive`**. Quoted placeholders are arguments, not literal quote requirements when an unquoted remainder is unambiguous. Bookmark names retain the case-sensitive rules in `state`; label targets use the contextual resolution rule below.
+
+`:look` redraws retained Focus + Map + Moves; `:where` gives compact location state; `:orient` may refresh evidence. All location queries preserve navigation state; owners define details.
 
 ### Guided and Advanced interaction
 
 The conversation-scoped field is `interaction mode: guided | advanced`. **Guided mode is the default.** Navigation help remains visible after every completed action, including a completed transient, move, Ask, cancellation, and Arrive, and shows each action beside its canonical shorthand. A pending Ask or unanswered Quiz is not completed and keeps its owned waiting presentation.
 
-**Advanced mode keeps Navigation help closed.** `:help` opens it temporarily without changing mode; the temporary help closes after one completed action or explicit dismissal. `:guided` switches to Guided mode and opens persistent Navigation help. `:advanced` switches to Advanced mode and closes it. A direct launch beginning **`navigate advanced`** starts or resumes the walk in Advanced mode and treats any remaining words as the ordinary navigation query or intent. Mode switching never changes focus, graph history, the goal, filters, bookmarks, or notebook content.
+**Advanced mode keeps Navigation help closed.** `:help` opens it temporarily without changing mode, rendering a complete canonical command catalog; picker limits never truncate that catalog. `:guided` switches to Guided mode and opens persistent Navigation help. `:advanced` switches to Advanced mode and closes it. A direct launch beginning **`navigate advanced`** starts or resumes the walk in Advanced mode and treats any remaining words as the ordinary navigation query or intent. Mode switching never changes focus, graph history, the goal, filters, bookmarks, or notebook content.
 
 A target-taking command such as `:recenter` or `:peek` resolves only against **current-context menu labels** already grounded in the current complete frame. Accept a complete displayed label or a **unique case-insensitive label fragment**. The skill **must not create generated note aliases**, silently broaden the candidate set, or resolve against a stale/hidden context. **Ambiguity opens narrowed help** containing only the matching grounded labels, even in Advanced mode, without changing mode or navigation state. **An unavailable target never guesses**: state why it is unavailable and show only applicable contextual help. This label rule does not weaken exact, case-sensitive bookmark lookup for `:goto`.
+
+Unknown colon-prefixed intents never become navigation queries or moves. Retain state, report the unknown shorthand, and suggest `:look`, `:where`, and `:help`; never execute a guessed correction.
 
 Treat mode as conversation state and preserve it through moves, lenses, Ask, and compaction independently of graph frames and menu position. Missing interaction mode defaults to Guided, even when missing graph or history state must remain unknown. Conversation handoffs may carry it, but never persist interaction mode to notes, frontmatter, links, SQLite, protocol notes, Git, configuration, or environment. Skill retrieval remains deterministic and untemplated: DSL text and mode are never interpolated into `nn skills get nn-navigate` or reference retrieval.
 
@@ -90,10 +95,10 @@ Do not guess a reference path, read a packaged path directly, or assume the comp
 | Conversational DSL help, Guided/Advanced presentation, or contextual target-label resolution | `presentation`; also `state` when interaction mode changes or is recovered |
 | Any human-facing Focus + Map + Moves view, chooser, return, relay color/legend, semantic direction label, or presentation validation | `presentation` |
 | Ask preparation, launch, cancellation, retained Graph Ask reopening, Graph result interpretation, or Graph→Canvas/Document handoff | `ask`; also `state`; fetch `presentation` before reopening a picker |
-| Enter, Orient, Recenter, Peek, Teleport, Arrive, or conversational `navigate` resume | `movement`; also `presentation`; fetch `state` when a retained frame/history is read or changed |
+| Enter, Look, Orient, Recenter, Peek, Teleport, Arrive, or conversational `navigate` resume | `movement`; also `presentation`; fetch `state` when a retained frame/history is read or changed |
 | Local territory, Global landscape, typed destination discovery, typed impact, or typed path witnesses | `scan-and-routes`; also `presentation`; fetch `movement` before a resulting Recenter/Arrive |
 | Show verbatim, Explain in depth, Analogize, Find an analog, Find gaps, Visualize, or Quiz | `lenses`; also `presentation`; fetch `state` if recovery or retained-frame validity is at issue |
-| Teleport/Visit/Recenter/Go to history mutation, Back, Forward, Bookmark, Where am I?, Ask frame preservation, unknown-state recovery, or compaction | `state`; fetch `movement` and `presentation` before restoring a positioned view |
+| Teleport/Visit/Recenter/Go to history mutation, Back, Forward, Bookmark, Look, Where am I?, Ask frame preservation, unknown-state recovery, or compaction | `state`; fetch `movement` and `presentation` before restoring a positioned view |
 
 Reference ownership is action ownership. Execute no specialized detail from memory when its owner has not been fetched. If an action becomes applicable only after inspecting evidence—for example, a Scan reveals a Recenter destination—pause at that boundary, fetch the newly applicable owner, and only then act. If compaction removed a fetched reference from active context, treat it as unfetched and retrieve it again.
 
