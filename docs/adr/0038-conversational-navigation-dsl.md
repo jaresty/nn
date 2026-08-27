@@ -52,6 +52,16 @@ Advanced keeps Navigation help closed. `:help` opens a complete textual catalog 
 
 Deterministic transient returns now restore a semantic menu position independently of rendering it. Guided reopens that menu and keeps help visible. Advanced retains the same return position but does not render help. Focus-changing moves and `navigate` still Orient and reset the semantic menu to Quick actions while preserving interaction mode. Arrive preserves mode and focus; Guided shows help after the report and Advanced shows only the resume affordance.
 
+### Compact spatial maps with complete adjacent keys
+
+Compact labels are the default map representation for every full positioned Navigation view. This keeps the Map spatially legible while preserving the evidence pressure that previously forced full descriptions into every occurrence. Labels are deterministic within the view by semantic zone and local order, such as `[T1]`, `[L1]`, `[R1]`, and `[B1]`.
+
+Every compact map has one immediately adjacent complete node key. Each label maps exactly once to the note ID, readable title, note type, degree, and degree-scaled body-derived central claim. No label may be orphaned, duplicated, ID-only, or title-only. A full inline map is allowed only for a one- or two-neighbor view that explicitly states why inline form is clearer; each inline node must preserve the same ID, title, type, degree, and degree-scaled claim, so the exception changes representation rather than evidence content.
+
+Spatial placement remains literal: TOP is above focus, LEFT is left, RIGHT is right, and BOTTOM is below. Each compact label keeps its zone emoji directly beside it in the aligned geometry block because color improves scanning; long semantic prose moves to an immediately adjacent zone key so it cannot distort the columns. Alignment is validated on the rendered compact example rather than by removing color. Every displayed stored edge carries its canonical type and stored source-to-target direction between endpoint labels, with each arrowhead beside its stored target. Moves reference labels rather than repeating the node key; they retain the complete semantic triple and action effect, then add only the decision-relevant reason for acting. Concrete quick actions retain target ID, readable title, effect, and evidence-derived reason because they can be selected independently of the map.
+
+This changes presentation structure, not evidence acquisition, graph semantics, focus/history behavior, runtime parsing, or notebook persistence.
+
 ### Context-grounded targets
 
 `:recenter "<label>"` and `:peek "<label>"` resolve only against human labels in the current complete-frame menu/help context. A complete label or unique case-insensitive fragment may resolve. The agent does not generate or retain note aliases, widen the candidates, consult hidden stale menus, or guess from likely intent.

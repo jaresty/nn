@@ -207,15 +207,15 @@ Fetch `presentation` before evaluating or rendering this gate. Before every huma
 - [ ] focus central claim summarized from its stored body
 - [ ] focus neighborhood role explained relative to the retained goal
 - [ ] zone/type/edge color markers use the stable relay palette
-- [ ] zone positions carry their marker and complete local relationship meaning
-- [ ] a visible legend/key explains every carried color, note-type, and edge-family marker
-- [ ] positional map rendered rather than raw command output relayed
-- [ ] edge meanings and stored directions visible
-- [ ] empty zones state both their semantic meaning and what emptiness means here
-- [ ] every visible non-focus node has ID, readable title, and body-derived claim
-- [ ] summaries are degree-scaled, with expanded treatment for load-bearing neighbors
-- [ ] compact labels have an immediately adjacent complete legend; no orphan, ID-only, or title-only nodes
-- [ ] every directional human-facing label carries marker, zone name, and local relationship meaning together
+- [ ] compact colored labels occupy true zone positions; prose stays out alignment columns
+- [ ] adjacent zone key gives each label's zone name and local meaning
+- [ ] visible legend explains carried color, note-type, and edge-family markers
+- [ ] compact-label map replaces raw command output
+- [ ] stored edges show canonical type and source-to-target direction
+- [ ] empty zones explain their meaning and emptiness
+- [ ] adjacent node key preserves ID, title, type, degree, and body-derived claim
+- [ ] key claims are degree-scaled; no orphan, duplicate, ID-only, or title-only labels
+- [ ] directional actions carry full semantic triples; compact map labels carry markers and resolve through the adjacent zone key
 - [ ] every concrete quick action states its effect on focus and an evidence-derived reason
 - [ ] Recenter available exactly one picker level away when structurally possible
 - [ ] Peek available exactly one picker level away
@@ -225,7 +225,7 @@ Fetch `presentation` before evaluating or rendering this gate. Before every huma
 - [ ] Arrive always visible as final top-level action
 - [ ] chooser row limit, breadcrumb, adjacent effect legend, and deterministic return satisfy `presentation`
 
-A missing item blocks presentation unless structurally unavailable and the response explains why. Do not weaken the gate at Teleport landing, Orient, Peek/Lens return, Scan, Back/Forward restoration, `navigate` resume, or Arrive. JSON is marker-free input: the agent manually applies the relay palette without claiming those markers were in JSON. Width pressure permits compact map labels only with an immediately adjacent complete legend.
+A missing item blocks presentation unless structurally unavailable and explained. Do not weaken the gate at any re-entry seam. JSON is marker-free input; apply relay markers manually. Compact-map and bounded inline-exception detail is owned by `presentation`.
 
 The complete semantic triples, stable palette, effect markers, menu rows, summary budgets, transient-render invalidation rules, and full Arrive presentation are owned by `presentation`; this checklist enforces their presence but does not replace fetching that reference.
 

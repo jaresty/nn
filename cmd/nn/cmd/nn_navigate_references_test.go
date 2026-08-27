@@ -68,7 +68,7 @@ func TestNNNavigateCompactCoreRetainsBindingDispatchContracts(t *testing.T) {
 		},
 		"[26] blocking presentation checklist": {
 			"Navigation presentation blocker checklist",
-			"every visible non-focus node has ID, readable title, and body-derived claim",
+			"adjacent node key preserves ID, title, type, degree, and body-derived claim",
 			"Arrive always visible as final top-level action",
 			"A missing item blocks presentation",
 		},

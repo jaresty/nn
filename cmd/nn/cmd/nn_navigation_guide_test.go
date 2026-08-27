@@ -463,8 +463,8 @@ func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 			"Navigation presentation check:",
 			"[ ] focus type and status shown",
 			"[ ] zone/type/edge color markers applied (stable relay palette)",
-			"[ ] zone positions carry their color markers in the map",
-			"[ ] legend/key for the color markers shown so they are interpretable",
+			"[ ] compact colored labels occupy their true positions while semantic prose stays outside alignment columns",
+			"[ ] an immediately adjacent zone key maps every occupied label to its zone name and local meaning",
 			"[ ] Arrive always visible as final top-level action",
 			"Bad:",
 			"Why bad:",
@@ -563,6 +563,75 @@ func TestNNNavigateOwnsAdaptiveHumanNavigationContract(t *testing.T) {
 			if !strings.Contains(content, snippet) {
 				t.Errorf("assertion %q failed: nn-navigate missing %q", assertion, snippet)
 			}
+		}
+	}
+}
+
+func TestNNNavigateUsesCompactSpatialMapsByDefault(t *testing.T) {
+	data, err := os.ReadFile("../../../skills/nn-navigate/references/presentation.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate presentation reference: %v", err)
+	}
+	content := string(data)
+	assertions := map[string]string{
+		"P1 compact map default":        "Compact stable labels are the default map representation for every full positioned view.",
+		"P2 adjacent complete node key": "Immediately below the map, render one complete node key that maps every compact label exactly once to its note ID, readable title, note type, degree, and body-derived central claim.",
+		"P2 compliant node-key example": "Node key (immediately adjacent)",
+		"P3 faithful zone geometry":     "TOP labels appear above focus, LEFT labels to its left, RIGHT labels to its right, and BOTTOM labels below it.",
+		"P3 compact marker geometry":    "The aligned geometry block keeps each zone emoji directly beside its compact label while semantic prose stays in the immediately adjacent zone key",
+		"P3 spatial example":            "🔴 [L1] <--contradicts-- 🟠 [FOCUS] <--source-of-- 🔷 [R1]",
+		"P3 adjacent semantic zone key": "Zone key (immediately adjacent)",
+		"P4 typed directed edges":       "Every displayed stored edge names its canonical type and shows its stored source-to-target direction between endpoint labels.",
+		"P4 vertical edge direction":    "^\n                         | refines: 🟢 [B1] -> 🟠 [FOCUS]",
+		"P5 nonduplicative moves":       "Moves reference the compact labels, retain the complete marker/zone/local-meaning semantic triple and action effect, and add only the decision-relevant action reason instead of repeating complete node-key entries.",
+		"P1 complete inline exception":  "each inline node still carries its note ID, readable title, note type, degree, and degree-scaled body-derived central claim",
+		"P2 hub key detail":             "dependents make this policy load-bearing",
+		"P2 second hub key detail":      "dependents make this checkpoint rule load-bearing",
+		"P5 compact Moves example":      "- [B1] — Recenter 🟢 BOTTOM — what builds on the focus because",
+	}
+	for assertion, required := range assertions {
+		if !strings.Contains(content, required) {
+			t.Errorf("assertion %q failed: nn-navigate presentation missing %q", assertion, required)
+		}
+	}
+	for _, obsolete := range []string{
+		"Width pressure may replace map node text with compact labels",
+		"Every visible non-focus node in Focus, Map, or Moves MUST carry the complete identity-and-substance form",
+		"🔴 LEFT — what contests or questions the focus ◀── 🟠 YOU ARE HERE",
+	} {
+		if strings.Contains(content, obsolete) {
+			t.Errorf("compact-map contract retains obsolete rule %q", obsolete)
+		}
+	}
+
+	skillData, err := os.ReadFile("../../../skills/nn-navigate/SKILL.md")
+	if err != nil {
+		t.Fatalf("read nn-navigate core: %v", err)
+	}
+	skill := string(skillData)
+	if !strings.Contains(skill, "compact colored labels occupy true zone positions") {
+		t.Error("nn-navigate core missing compact-label default")
+	}
+	if strings.Contains(skill, "Width pressure permits compact map labels only") {
+		t.Error("nn-navigate core retains obsolete width-pressure fallback")
+	}
+	if strings.Contains(skill, "every directional human-facing label carries marker, zone name, and local relationship meaning together") {
+		t.Error("nn-navigate core applies inline semantic triples to compact map labels")
+	}
+
+	adrData, err := os.ReadFile("../../../docs/adr/0038-conversational-navigation-dsl.md")
+	if err != nil {
+		t.Fatalf("read ADR-0038: %v", err)
+	}
+	adr := string(adrData)
+	for _, required := range []string{
+		"Compact labels are the default map representation",
+		"one immediately adjacent complete node key",
+		"Spatial placement remains literal",
+		"Moves reference labels rather than repeating the node key",
+	} {
+		if !strings.Contains(adr, required) {
+			t.Errorf("ADR-0038 compact-map decision missing %q", required)
 		}
 	}
 }
@@ -1232,7 +1301,9 @@ func TestNNNavigateEnforcesSemanticDirectionInEveryHumanFacingUse(t *testing.T) 
 	content := string(data)
 
 	for _, required := range []string{
-		"every human-facing directional map label, move, chooser label and description, recommendation, Peek return, and Recenter return",
+		"every human-facing move, chooser label and description, recommendation, Peek return, and Recenter return",
+		"each bracketed node label keeps its zone emoji directly beside it",
+		"immediately adjacent zone key supplies the full zone name and local meaning",
 		"stable emoji marker, zone name, and local relationship meaning",
 		"`🔵 TOP — what the focus answers to`",
 		"`🟢 BOTTOM — what builds on the focus`",
@@ -1289,42 +1360,6 @@ func TestNNNavigateSemanticDirectionDetailDoesNotLeakIntoDispatchReferences(t *t
 			if strings.Contains(content, ownerOnly) {
 				t.Errorf("%s duplicates nn-navigate semantic-direction detail %q", name, ownerOnly)
 			}
-		}
-	}
-}
-
-func TestNNNavigateRequiresCompleteVisibleNodeDescriptionsAtEverySeam(t *testing.T) {
-	data, err := readNNNavigateBundle()
-	if err != nil {
-		t.Fatalf("read nn-navigate: %v", err)
-	}
-	content := string(data)
-
-	for _, required := range []string{
-		"Every visible non-focus node",
-		"Orient, a full Peek or Lens return, Scan, Teleport landing, Back/Forward restoration, and a full `navigate` resume",
-		"`<id> — <readable title> — <body-derived central claim>`",
-		"scaled to that node's inbound degree",
-		"IDs supplement identity and substance; they never replace either one.",
-		"[ ] every visible non-focus node has ID, readable title, and body-derived claim",
-		"[ ] compact labels have an immediately adjacent complete legend; no orphan or ID-only nodes",
-		"Width pressure may replace map node text with compact labels only",
-		"immediately adjacent complete legend",
-		"every compact label to that node's ID, readable title, and body-derived central claim",
-		"Orphan labels and ID-only nodes are prohibited.",
-		"Empty zones are exempt from node description",
-		"retain the complete semantic gloss",
-		"Every concrete quick-action target MUST include its ID, readable target title",
-		"substantive body- or evidence-derived reason",
-		"`supporting experiment` alone is not a substantive reason",
-		"A compact unchanged transient return references the complete frame already visible instead of redrawing a skeleton.",
-		"**Compliant descriptive node and compact-map fallback:**",
-		"**Noncompliant skeletal presentation:**",
-		"Replay-safe checkpointing",
-		"the body says failed replays restore the last durable boundary",
-	} {
-		if !strings.Contains(content, required) {
-			t.Errorf("nn-navigate complete visible-node presentation contract missing %q", required)
 		}
 	}
 }
