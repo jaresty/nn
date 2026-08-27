@@ -122,6 +122,60 @@ func TestNNNavigatePresentationReferencePreservesFourRowPickerSemantics(t *testi
 	}
 }
 
+// retained properties [1a], [1b], [2], [3a], and [3b]: Arrive is terminal
+// in every mode, retains the positioned frame, and exposes only a textual resume.
+func TestNNNavigatePresentationReferenceKeepsArriveTerminal(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "presentation.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read presentation reference: %v", err)
+	}
+	presentation := string(data)
+	for assertion, required := range map[string]string{
+		"[P1a/P1b/P3b] Arrive stops without automatically opening a chooser": "Arrive is terminal in every interaction mode: close any open chooser and do not automatically open another chooser or modal",
+		"[P2] Arrive retains the final positioned frame":                         "Retain the final focus, complete frame, history, bookmarks, and interaction mode",
+		"[P3a] Arrive exposes only the explicit conversational resume":           "Show only the non-modal `navigate` resume affordance after the Arrive report",
+	} {
+		if !strings.Contains(presentation, required) {
+			t.Errorf("%s: presentation reference missing %q", assertion, required)
+		}
+	}
+	const contradictory = "Guided still presents contextual Navigation help after the completed Arrive report"
+	if strings.Contains(presentation, contradictory) {
+		t.Errorf("[P1b/P3b] Arrive retains contradictory automatic chooser rule %q", contradictory)
+	}
+
+	movementPath := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "movement.md")
+	movementData, err := os.ReadFile(movementPath)
+	if err != nil {
+		t.Fatalf("read movement reference: %v", err)
+	}
+	movement := string(movementData)
+	const movementRequired = "After the completed Arrive report, do not invoke a picker in Guided or Advanced mode"
+	if !strings.Contains(movement, movementRequired) {
+		t.Errorf("[P1a/P1b/P3b] Movement owner missing terminal Arrive rule %q", movementRequired)
+	}
+	const movementContradictory = "After the completed report, Guided mode renders persistent Navigation help"
+	if strings.Contains(movement, movementContradictory) {
+		t.Errorf("[P1b/P3b] Movement owner retains contradictory automatic chooser rule %q", movementContradictory)
+	}
+
+	adrPath := filepath.Join("..", "..", "..", "docs", "adr", "0038-conversational-navigation-dsl.md")
+	adrData, err := os.ReadFile(adrPath)
+	if err != nil {
+		t.Fatalf("read ADR-0038: %v", err)
+	}
+	adr := string(adrData)
+	const adrRequired = "Arrive is terminal in both modes: it closes any chooser, preserves mode and the complete retained frame, and shows only the explicit `navigate` resume affordance"
+	if !strings.Contains(adr, adrRequired) {
+		t.Errorf("[P1a/P1b/P2/P3a/P3b] ADR missing terminal Arrive decision %q", adrRequired)
+	}
+	const adrContradictory = "Guided shows help after the report"
+	if strings.Contains(adr, adrContradictory) {
+		t.Errorf("[P1b/P3b] ADR retains contradictory automatic chooser decision %q", adrContradictory)
+	}
+}
+
 // retained property [1a]: a completed lens selected from a Guided picker
 // visibly returns to its invoking menu rather than taking the quiet-return path.
 func TestNNNavigatePresentationReferenceReturnsPickerSelectedLensesToInvokingMenu(t *testing.T) {
@@ -148,7 +202,7 @@ func TestNNNavigatePresentationReferenceLimitsQuietReturnToConversationalIntent(
 	}
 	presentation := string(data)
 	const assertion = "[P1b] quiet return is limited to conversational direct intent"
-	const required = "Only a completed action requested directly in conversation may use a quiet return"
+	const required = "Only a completed non-terminal action requested directly in conversation may use a quiet return"
 	if !strings.Contains(presentation, required) {
 		t.Errorf("%s: presentation reference missing %q", assertion, required)
 	}

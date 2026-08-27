@@ -21,7 +21,7 @@ State:
 - which paths remain unexplored;
 - that focus remains at the final note.
 
-Arrive does not clear interaction mode. After the completed report, Guided mode renders persistent Navigation help with canonical shorthand labels; Advanced mode keeps it closed and uses only the navigation-return footer below.
+Arrive does not clear interaction mode. **After the completed Arrive report, do not invoke a picker in Guided or Advanced mode.** Close any open chooser, retain the final focus and complete frame, and show only the non-modal `navigate` navigation-return footer below. Navigation resumes only when the human explicitly says `navigate` or requests another action.
 
 ### Arrival depth
 

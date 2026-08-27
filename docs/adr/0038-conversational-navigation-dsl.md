@@ -60,7 +60,7 @@ Application delegates to existing `nn` workflows and preserves their concurrency
 
 Advanced keeps Navigation help closed. `:help` opens a complete textual catalog of every canonical shorthand temporarily without changing mode; completing an action or dismissing the help closes it. The catalog is distinct from contextual adaptive pickers, so picker hierarchy and row limits do not truncate it. Contextual menus still apply their existing hierarchy and limits. `:guided` and `:advanced` switch mode without changing graph state.
 
-Deterministic transient returns now restore a semantic menu position independently of rendering it. Guided reopens that menu and keeps help visible. Advanced retains the same return position but does not render help. Focus-changing moves and `navigate` still Orient and reset the semantic menu to Quick actions while preserving interaction mode. Arrive preserves mode and focus; Guided shows help after the report and Advanced shows only the resume affordance.
+Deterministic transient returns now restore a semantic menu position independently of rendering it. Guided reopens that menu and keeps help visible. Advanced retains the same return position but does not render help. Focus-changing moves and `navigate` still Orient and reset the semantic menu to Quick actions while preserving interaction mode. **Arrive is terminal in both modes: it closes any chooser, preserves mode and the complete retained frame, and shows only the explicit `navigate` resume affordance.** Navigation help reopens only after the human explicitly resumes or requests another action.
 
 ### Compact spatial maps with complete adjacent keys
 
