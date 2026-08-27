@@ -153,6 +153,62 @@ func TestNNNavigatePresentationReferencePreservesLosslessImportanceLayout(t *tes
 	}
 }
 
+// Retained properties [1]-[5]: vertical zones share one post-classification
+// renderer without changing stored edge meaning or the surrounding evidence hierarchy.
+func TestNNNavigatePresentationReferenceDefinesSharedVerticalZoneRenderer(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "presentation.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read presentation reference: %v", err)
+	}
+	presentation := string(data)
+
+	properties := map[string][]string{
+		"[1] stored edge fidelity survives placement": {
+			"one post-classification vertical renderer",
+			"stored source, canonical type, and stored target remain invariant",
+			"arrowhead beside its stored target",
+		},
+		"[2] exact edge sets select the rendering mode": {
+			"exactly one stored edge uses an attached typed stem",
+			"exactly one reciprocal pair over one focus/node pair",
+			"centered borderless attached rail",
+		},
+		"[3] dense geometry preserves one-to-one correspondence": {
+			"one endpoint-complete unit per stored edge",
+			"rail remains attached to the vertical-zone axis",
+			"[FOCUS] ──refines──────→ ★ [B3]",
+		},
+		"[4] narrow wrapping keeps target arrows attached": {
+			"wrap only inside that edge unit",
+			"arrow and stored target remain on the same line",
+			"→ ◆ [B2]",
+		},
+		"[5] surrounding evidence hierarchy remains intact": {
+			"Direct focus relationships remain in geometry",
+			"neighbor-to-neighbor stored relationships remain in the secondary stored-relationship ledger",
+			"evidence index still maps each note label exactly once",
+		},
+	}
+	for property, snippets := range properties {
+		for _, snippet := range snippets {
+			if !strings.Contains(presentation, snippet) {
+				t.Errorf("vertical renderer property %s missing %q", property, snippet)
+			}
+		}
+	}
+
+	for _, obsolete := range []string{
+		"separate TOP and BOTTOM rendering rules",
+		"derive arrow direction from placement",
+		"detached rectangular comb",
+	} {
+		if strings.Contains(presentation, obsolete) {
+			t.Errorf("vertical renderer retains rejected rule %q", obsolete)
+		}
+	}
+}
+
 func TestNNNavigateReferenceActionOwnership(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "skills", "nn-navigate")
 	files := map[string]string{}

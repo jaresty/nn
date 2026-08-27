@@ -219,7 +219,38 @@ Compact stable labels are the default map representation for every full position
 
 TOP is above focus, LEFT is left, RIGHT is right, and BOTTOM is below. Geometry is semantic, not decorative: never stack RIGHT or LEFT beneath focus merely because prose is long. Every empty zone visibly occupies its geometric slot as `[∅]`; a prose-only empty-zone statement is insufficient. The aligned geometry block keeps each zone emoji and `★`/`◆`/`·` importance marker directly beside its compact label while semantic prose stays in the immediately adjacent zone key.
 
-Direct focus relationships appear in the geometry. Every one names its canonical type and places each arrowhead beside its stored target, even when conversational movement reads in the opposite direction. Reciprocal vertical relationships share one stem attached directly between the vertical-zone node and focus, with separately named canonical types and distinct target arrowheads; they never become one generic bidirectional edge. Neighbor-to-neighbor relationships do not compete with the positional cross: preserve every one in an immediately adjacent complete **secondary stored-relationship ledger** with canonical type and stored source-to-target direction.
+Direct focus relationships appear in the geometry. Classify stored edges into semantic zones before drawing them, then use **one post-classification vertical renderer** for TOP and BOTTOM. The classifier and each zone's semantic gloss remain distinct; only the rendering grammar is shared. Mirroring placement never mirrors graph meaning: every stored source, canonical type, and stored target remain invariant, and each form keeps its arrowhead beside its stored target.
+
+Select the vertical form from the exact classified edge set:
+
+- an empty set visibly renders `[∅]`;
+- exactly one stored edge uses an attached typed stem;
+- exactly one reciprocal pair over one focus/node pair uses one attached stem with separately named canonical types and distinct target arrows;
+- every other edge set uses a **centered borderless attached rail** with one endpoint-complete unit per stored edge.
+
+The rail remains attached to the vertical-zone axis; it is direct-edge geometry, not a detached box or a secondary ledger. Each endpoint-complete unit renders stored order explicitly, even when that repeats `[FOCUS]` or a compact node label. Repeated labels are endpoint references; the evidence index still maps each note label exactly once. For example, a dense BOTTOM rail may contain:
+
+```text
+                    🟠 [FOCUS]
+                         │
+                    🟢 BOTTOM
+                         │
+        ★ [B1] ──grounded-by──→ [FOCUS]
+        ◆ [B2] ──grounded-by──→ [FOCUS]
+        [FOCUS] ──refines──────→ ★ [B3]
+        [FOCUS] ──refines──────→ ◆ [B4]
+        [FOCUS] ──refines──────→ ★ [B5]
+```
+
+A dense TOP rail uses the same post-classification renderer above focus with zone-valid edges; never place an identical stored edge in another zone merely to mirror the picture. At narrow width, wrap only inside that edge unit so the arrow and stored target remain on the same line:
+
+```text
+        [FOCUS]
+          refines
+          → ◆ [B2]
+```
+
+Direct focus relationships remain in geometry; neighbor-to-neighbor stored relationships remain in the secondary stored-relationship ledger with canonical type and stored source-to-target direction. The centered rail is required whenever a shared stem would merge types, hide multiplicity, or make edge-to-node correspondence depend on row order.
 
 Immediately below the map, render one complete evidence index that maps every compact label exactly once to its note ID, readable title, note type, degree, importance marker, and body-derived central claim. Scale each claim under P4. The index is the single identity-and-substance surface for mapped neighbors: no orphan, duplicate, title-only, or ID-only labels, and no deferred key in another section, picker, or turn. A compact unchanged transient return may reference the complete frame already visible instead of redrawing it.
 
@@ -275,7 +306,7 @@ This is bad because `[N1]` is orphaned, `4302` is ID-only, neither node has a re
 
 **(a) Summarize the current note.** Before the map, characterize where the reader is standing: what this note *is* (type/status and body-derived central claim) and how it sits in all four semantic zones. Scale the focus explanation to its actual complexity and role in the retained goal, not to degree alone.
 
-**(b) Draw the map.** Follow the compliant example above: all four zone slots remain literal, `[∅]` marks emptiness, long prose stays outside alignment columns, direct focus edges remain in geometry, and every arrowhead sits beside its stored target. Put the complete zone key, evidence index, and secondary stored-relationship ledger immediately below the geometry. Do not serialize zones into a prose list or draw neighbor-to-neighbor edges through the positional cross.
+**(b) Draw the map.** Follow the compliant example and shared vertical renderer above: all four zone slots remain literal, `[∅]` marks emptiness, long prose stays outside alignment columns, direct focus edges remain in geometry, and every arrowhead sits beside its stored target. Select vertical stems or rails from the exact classified edge set rather than node count, and preserve one endpoint-complete unit per dense stored edge. Put the complete zone key, evidence index, and secondary stored-relationship ledger immediately below the geometry. Do not serialize zones into a prose list, detach a dense vertical comb from its nodes, or draw neighbor-to-neighbor edges through the positional cross.
 
 **(c) Assign importance, build the complete evidence index, and name Moves.** Evaluate each neighbor in this order: explicit retained goal or human selection; whether removing its evidence changes the next action; relationship consequence; unresolved leverage; specificity; then degree only as a final tie-breaker. Use at most two `★` decision-shaping nodes (2–3 sentences), `◆` decision-supporting nodes (one sentence), and `·` orienting context nodes (one claim clause). Every entry still includes ID, readable title, note type, and `↑out ↓in` connectivity. Put identity and substance once in the adjacent evidence index, then let Moves reference compact labels and add only why the action matters relative to the goal.
 

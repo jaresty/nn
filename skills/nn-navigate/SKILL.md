@@ -212,6 +212,7 @@ Fetch `presentation` before evaluating or rendering this gate. Before every huma
 - [ ] visible legend explains carried color, note-type, and edge-family markers
 - [ ] compact-label map replaces raw command output
 - [ ] stored edges show canonical type and source-to-target direction
+- [ ] TOP/BOTTOM share the post-classification vertical renderer: one edge uses a stem, one reciprocal pair uses a reciprocal stem, and every other ambiguous edge set uses an attached endpoint-complete rail
 - [ ] empty zones explain their meaning and emptiness
 - [ ] adjacent evidence index preserves ID, title, type, degree, importance marker, and body-derived claim
 - [ ] goal-based `★` (at most two), `◆`, and `·` importance stays separate from degree; direct edges stay in geometry and secondary edges in the ledger
