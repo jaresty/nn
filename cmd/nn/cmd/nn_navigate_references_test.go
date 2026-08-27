@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestNNNavigateHasCompactCoreAndExactlySixReferences(t *testing.T) {
+func TestNNNavigateHasCompactCoreAndExactlySevenReferences(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "skills", "nn-navigate")
 	core, err := os.ReadFile(filepath.Join(root, "SKILL.md"))
 	if err != nil {
@@ -31,7 +31,7 @@ func TestNNNavigateHasCompactCoreAndExactlySixReferences(t *testing.T) {
 			names = append(names, entry.Name())
 		}
 	}
-	want := []string{"ask.md", "lenses.md", "movement.md", "presentation.md", "scan-and-routes.md", "state.md"}
+	want := []string{"ask.md", "integrate.md", "lenses.md", "movement.md", "presentation.md", "scan-and-routes.md", "state.md"}
 	if !reflect.DeepEqual(names, want) {
 		t.Fatalf("nn-navigate references = %v, want exactly %v", names, want)
 	}
@@ -75,6 +75,10 @@ func TestNNNavigateCompactCoreRetainsBindingDispatchContracts(t *testing.T) {
 		"[27] compaction dispatch": {
 			"Before compaction", "--reference state", "full current frame", "Back and Forward stacks",
 			"every bookmark", "current menu and ordered menu stack", "never invent",
+		},
+		"[28] contextual Integrate dispatch": {
+			"✚ Integrate", "--reference integrate", "contextual shortcut", "notebook truth",
+			"focus and history retained", "Orient refreshes",
 		},
 	}
 	for property, snippets := range properties {
@@ -211,6 +215,34 @@ func TestNNNavigatePresentationReferenceKeepsEscapeGuidanceOutsidePickerRows(t *
 	}
 }
 
+// retained properties [1] and [6]: Integrate may occupy only the contextual
+// shortcut and uses a mutation-specific marker without changing stable rows.
+func TestNNNavigatePresentationReferenceDefinesContextualIntegrateAction(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "presentation.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read presentation reference: %v", err)
+	}
+	presentation := string(data)
+	for property, snippets := range map[string][]string{
+		"[P1] contextual-only placement": {
+			"A promoted `Integrate` action may occupy the contextual shortcut slot",
+			"Integrate is never a permanent picker row",
+			"stable rows remain unchanged",
+		},
+		"[P6] mutation effect": {
+			"✚ notebook truth changes; focus and history retained; Orient refreshes",
+			"✚ Integrate",
+		},
+	} {
+		for _, snippet := range snippets {
+			if !strings.Contains(presentation, snippet) {
+				t.Errorf("Integrate presentation assertion %s missing %q", property, snippet)
+			}
+		}
+	}
+}
+
 func TestNNNavigatePresentationReferencePreservesLosslessImportanceLayout(t *testing.T) {
 	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "presentation.md")
 	data, err := os.ReadFile(path)
@@ -302,6 +334,54 @@ func TestNNNavigatePresentationReferenceDefinesSharedVerticalZoneRenderer(t *tes
 	}
 }
 
+// retained properties [1]-[6]: Integrate is a contextual, approval-gated
+// notebook-mutation gateway with truthful execution and retained navigation state.
+func TestNNNavigateIntegrateReferenceDefinesBoundedNotebookMutation(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "integrate.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read integrate reference: %v", err)
+	}
+	integrate := string(data)
+	properties := map[string][]string{
+		"[P1] contextual evidence-backed eligibility": {
+			"concrete bounded notebook mutation supported by visited evidence",
+			"contextual shortcut slot",
+			"never a permanent menu row",
+		},
+		"[P2] all notebook edit kinds and explicit approval": {
+			"create, update, retitle, retag, retype, change status, or delete notes",
+			"add, remove, retype, or revise typed relationships",
+			"explicit human approval",
+		},
+		"[P3] complete review disclosure": {
+			"affected IDs and exact before/after intent",
+			"supported by both endpoint bodies",
+			"backlinks and loss consequences",
+		},
+		"[P4] truthful execution boundary": {
+			"never represent multiple semantic operations or commits as one atomic application",
+			"scope reduction or a separately implemented atomic capability",
+		},
+		"[P5] specialized safeguards": {
+			"does not bypass specialized safeguards",
+			"deletion, status, and formal-representation workflows",
+		},
+		"[P6] mutation effect and refresh": {
+			"✚ notebook truth changes; focus and history retained; Orient refreshes",
+			"invalidate the cached frame",
+			"rerun Orient before presentation",
+		},
+	}
+	for property, snippets := range properties {
+		for _, snippet := range snippets {
+			if !strings.Contains(integrate, snippet) {
+				t.Errorf("Integrate assertion %s missing %q", property, snippet)
+			}
+		}
+	}
+}
+
 func TestNNNavigateReferenceActionOwnership(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "skills", "nn-navigate")
 	files := map[string]string{}
@@ -310,7 +390,7 @@ func TestNNNavigateReferenceActionOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	files["core"] = string(core)
-	for _, name := range []string{"ask", "lenses", "movement", "presentation", "scan-and-routes", "state"} {
+	for _, name := range []string{"ask", "integrate", "lenses", "movement", "presentation", "scan-and-routes", "state"} {
 		data, err := os.ReadFile(filepath.Join(root, "references", name+".md"))
 		if err != nil {
 			t.Fatalf("read %s reference: %v", name, err)

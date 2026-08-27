@@ -89,7 +89,7 @@ func TestSkillsGetListsReferencesWithStableSortedApplicability(t *testing.T) {
 		}
 		names = append(names, fields[0])
 	}
-	want := []string{"ask", "lenses", "movement", "presentation", "scan-and-routes", "state"}
+	want := []string{"ask", "integrate", "lenses", "movement", "presentation", "scan-and-routes", "state"}
 	if !reflect.DeepEqual(names, want) {
 		t.Fatalf("reference names = %v, want stable sorted %v", names, want)
 	}

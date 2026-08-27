@@ -51,7 +51,7 @@ func TestPiPackageManifestExposesGlobalContextExtension(t *testing.T) {
 	if !strings.Contains(string(navigate), "name: nn-navigate") {
 		t.Fatalf("packaged nn-navigate has invalid frontmatter: %s", navigate)
 	}
-	for _, name := range []string{"ask", "lenses", "movement", "presentation", "scan-and-routes", "state"} {
+	for _, name := range []string{"ask", "integrate", "lenses", "movement", "presentation", "scan-and-routes", "state"} {
 		path := filepath.Join(repoRoot, "skills", "nn-navigate", "references", name+".md")
 		data, err := os.ReadFile(path)
 		if err != nil {

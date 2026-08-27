@@ -155,7 +155,7 @@ func TestReferencesRejectSymlinkEscapes(t *testing.T) {
 }
 
 func TestNNNavigateReferencesEmbeddedAndCopiedInstallation(t *testing.T) {
-	wantNames := []string{"ask", "lenses", "movement", "presentation", "scan-and-routes", "state"}
+	wantNames := []string{"ask", "integrate", "lenses", "movement", "presentation", "scan-and-routes", "state"}
 
 	embedded, err := ListReferences(FS, "nn-navigate")
 	if err != nil {

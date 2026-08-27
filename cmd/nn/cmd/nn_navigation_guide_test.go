@@ -707,7 +707,7 @@ func TestNNNavigateOwnsAdaptiveHierarchicalQuickActionsPicker(t *testing.T) {
 		"stable **`Lenses…`** row",
 		"stable `All navigation actions…` row",
 		"final row is always `■ Arrive`",
-		"names its action class (`Recenter`, `Peek`, `Scan`, or `Lens`)",
+		"names its action class (`Recenter`, `Peek`, `Scan`, `Lens`, or `Integrate`)",
 		"states whether selecting it changes or retains focus",
 		"body- or evidence-derived reason",
 		"Generic availability is not evidence",
@@ -997,8 +997,8 @@ func TestNNNavigateOwnsFindAnAnalogAndLensContracts(t *testing.T) {
 			"derived-framework recall",
 		},
 		"later mutation boundary": {
-			"Lens findings may inform a later explicit Recenter or link suggestion",
 			"the lens itself does not mutate focus, history, notes, or links",
+			"Any later notebook mutation—notes, metadata, status, deletion, or relationships—must dispatch to `integrate`",
 		},
 	}
 	for assertion, required := range assertions {

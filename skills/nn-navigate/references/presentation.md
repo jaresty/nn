@@ -45,7 +45,7 @@ When a human is driving a positioned walk, a chooser is available, and Navigatio
 
 Every promoted shortcut:
 
-1. names its action class (`Recenter`, `Peek`, `Scan`, or `Lens`); a promoted consultation names `Ask`;
+1. names its action class (`Recenter`, `Peek`, `Scan`, `Lens`, or `Integrate`); a promoted consultation names `Ask`;
 2. states whether selecting it changes or retains focus; and
 3. gives a body- or evidence-derived reason why this concrete action matters now.
 
@@ -63,6 +63,9 @@ Use exactly these promotion criteria:
 - Explain in depth when the focus is connected, contested, complex, or load-bearing.
 - Ask only when human input could materially change the next decision; do not promote it when the move is unambiguous or expected decision improvement is smaller than interruption cost.
 - Recenter when a specific destination clearly advances the retained goal.
+- Integrate only when complete visited evidence supports a concrete bounded mutation to notebook truth. Fetch `integrate` before proposing or applying it; generic cleanup, similarity, analogy, proximity, and generated geometry are insufficient.
+
+A promoted `Integrate` action may occupy the contextual shortcut slot and executes its non-mutating proposal directly. **Integrate is never a permanent picker row**: the stable rows remain unchanged, and no Integrate category is added to `All navigation actions…`.
 
 ### Stable menus, breadcrumbs, and effects
 
@@ -70,7 +73,7 @@ The menu model is conversation-scoped UI state: retain the interaction mode plus
 
 The top breadcrumb is `<short-id> · Quick actions`. Every submenu shows this breadcrumb form: **`<short-id> · Quick actions › ...`**, using stable menu names for each level, for example `<short-id> · Quick actions › All actions › Peek` and `<short-id> · Quick actions › Lenses`.
 
-Every picker that contains a concrete action carries this adjacent legend: **→ focus changes; ○ focus retained; ■ stops; ↗ explores beyond local. ◇ human consultation; retained focus and history**. Every concrete action row includes exactly one applicable effect marker. Category rows such as `Recenter`, `Peek`, `Scan`, `Lenses…`, and `All navigation actions…` do not execute an action and therefore have no effect marker. Promoted shortcuts and Recenter destinations still include readable titles and substantive body- or evidence-derived reasons; the marker never replaces that content.
+Every picker that contains a concrete action carries this adjacent legend: **→ focus changes; ○ focus retained; ■ stops; ↗ explores beyond local; ◇ human consultation with retained focus/history; ✚ notebook truth changes; focus and history retained; Orient refreshes**. Every concrete action row includes exactly one applicable effect marker. Category rows such as `Recenter`, `Peek`, `Scan`, `Lenses…`, and `All navigation actions…` do not execute an action and therefore have no effect marker. Promoted shortcuts and Recenter destinations still include readable titles and substantive body- or evidence-derived reasons; the marker never replaces that content. A concrete mutation shortcut begins `✚ Integrate — <bounded notebook change>` and states that it proposes first and writes only after explicit approval.
 
 `All navigation actions…` opens the action-class submenu exactly one level away, under `<short-id> · Quick actions › All actions`, with exactly these rows and no duplicate Arrive:
 

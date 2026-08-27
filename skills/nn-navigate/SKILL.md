@@ -1,7 +1,7 @@
 ---
 name: nn-navigate
-description: "Use when a human is iteratively navigating the nn graph or asks to teleport, orient, recenter, peek, scan, invoke positioned Navigation Ask, arrive, use Back/Forward history, or manage navigation bookmarks. Standalone `nn ask` is owned by `nn-guide`. Load the compact core with `nn skills get nn-navigate`, then fetch each applicable owning reference."
-when_to_use: "When graph exploration is human-driven or iterative and must retain a positioned focus, including teleport, orient, recenter, peek, scan, positioned Navigation Ask, arrive, history, bookmarks, and navigation resumption."
+description: "Use when a human iteratively navigates the nn graph or asks to teleport, orient, recenter, peek, scan, Integrate a bounded notebook edit, invoke positioned Navigation Ask, arrive, use history, or manage bookmarks. Standalone `nn ask` is owned by `nn-guide`. Load the compact core, then each applicable owner."
+when_to_use: "When human-driven graph exploration must retain a positioned focus, including teleport, orient, recenter, peek, scan, contextual notebook integration, positioned Ask, arrive, history, bookmarks, and resumption."
 ---
 
 # nn-navigate
@@ -95,6 +95,7 @@ Do not guess a reference path, read a packaged path directly, or assume the comp
 | Conversational DSL help, Guided/Advanced presentation, or contextual target-label resolution | `presentation`; also `state` when interaction mode changes or is recovered |
 | Any human-facing Focus + Map + Moves view, chooser, return, relay color/legend, semantic direction label, or presentation validation | `presentation` |
 | Ask preparation, launch, cancellation, retained Graph Ask reopening, Graph result interpretation, or Graph→Canvas/Document handoff | `ask`; also `state`; fetch `presentation` before reopening a picker |
+| ✚ Integrate proposal, review, notebook mutation, cancellation, or return | `integrate`; also `state`; fetch `movement` and `presentation` after a successful write |
 | Enter, Look, Orient, Recenter, Peek, Teleport, Arrive, or conversational `navigate` resume | `movement`; also `presentation`; fetch `state` when a retained frame/history is read or changed |
 | Local territory, Global landscape, typed destination discovery, typed impact, or typed path witnesses | `scan-and-routes`; also `presentation`; fetch `movement` before a resulting Recenter/Arrive |
 | Show verbatim, Explain in depth, Analogize, Find an analog, Find gaps, Visualize, or Quiz | `lenses`; also `presentation`; fetch `state` if recovery or retained-frame validity is at issue |
@@ -179,9 +180,9 @@ Every human-driven positioned step keeps discoverable these classes:
 4. **◇ Ask… — suspend for one bounded human decision while retaining the complete frame**
 5. **■ Arrive — stop and retain focus**
 
-Peek and Scan are always discoverable unless structurally impossible with the reason stated. Ask is neither look nor move. Arrive remains the final top-level action. A chooser-capable human surface uses the adaptive hierarchy owned by `presentation` only when Guided or temporary help is open; Advanced otherwise keeps it closed. An autonomous or non-interactive run chooses actions from the retained goal without invoking a picker, while still making the action classes discoverable in prose.
+Peek and Scan are always discoverable unless structurally impossible with the reason stated. Ask is neither look nor move. Arrive remains the final top-level action. **✚ Integrate** is not a permanent action-class row: promote it only in the contextual shortcut slot for a concrete visited-evidence-supported change to notebook truth. Its effect is **✚ notebook truth changes; focus and history retained; Orient refreshes**. A chooser-capable human surface uses the adaptive hierarchy owned by `presentation` only when Guided or temporary help is open; Advanced otherwise keeps it closed.
 
-Treat `show`, `explain`, `analogize`, `find an analog`, `visualize`, `quiz`, `scan`, `ask`, `arrive`, and `navigate` as direct conversational intents when their preconditions hold. Do not force a human to traverse picker categories before honoring a direct intent. A bare Scan asks for its owned altitude choice; an explicit Local territory or Global landscape request executes that choice. `navigate` is the universal conversational resume/escape and never an `nn` subcommand.
+Treat `show`, `explain`, `analogize`, `find an analog`, `visualize`, `quiz`, `scan`, `ask`, `integrate`, `arrive`, and `navigate` as direct conversational intents when their preconditions hold. Do not force a human to traverse picker categories before honoring a direct intent. A bare Scan asks for its owned altitude choice; an explicit Local territory or Global landscape request executes that choice. `navigate` is the universal conversational resume/escape and never an `nn` subcommand.
 
 Dispatch sequence:
 
@@ -241,16 +242,10 @@ Do not redundantly full-render an unchanged complete frame when the owner permit
 
 ## Compaction dispatch and recovery
 
-Before compaction, fetch `nn skills get nn-navigate --reference state` and follow it. The handoff MUST serialize the full current frame, Back and Forward stacks in order, every bookmark with its case-sensitive name and complete saved frame, bounded visited evidence, and a separate menu UI state containing interaction mode plus the current menu and ordered menu stack. Preserve active direction, link types, status, representation, depth, route, impact, destination-query, and other traversal context—not only the focus ID.
-
-Also record which reference contracts remain actively needed after compaction, but never claim their full text survives: after compaction, rerun this core and refetch every applicable owner before acting. A handoff summary is dispatch evidence, not a replacement for a reference.
-
-If navigation state is absent or incomplete after compaction, report it unknown and never invent it. If menu position is absent, retain known graph state but reset menu state only through explicit Orient, a focus-changing move, or conversational `navigate`; do not reconstruct a prior submenu. If interaction mode alone is absent, default it to Guided rather than declaring graph state unknown. If all state is absent, ask for a query/new landing or a human restatement while using Guided presentation. Notebook notes, protocol content, and Git history are never recovery stores for conversational navigation state.
+Before compaction, fetch `nn skills get nn-navigate --reference state`. Serialize the full current frame, ordered Back and Forward stacks, every bookmark, bounded visited evidence, interaction mode, current menu and ordered menu stack, plus all active traversal/filter context. Record needed owners; after compaction rerun this core and refetch them. If state is incomplete, report it unknown and never invent it. Default only a missing interaction mode to Guided; reset unknown menu position only through Orient, movement, or `navigate`. Notebook content never recovers conversation state.
 
 ## Epistemic and mutation boundary
 
-Files remain notebook truth and the index remains cache. Navigation displays may combine stored bodies and stored edges with agent-composed maps, relay markers, route choices, human artifacts, analogies, and layouts. Keep those categories explicit. Human feedback is evidence, not notebook truth. Derived geometry, grouping, containment, proposed routes, analogical correspondence, and explanatory arrows remain non-stored unless a separate explicit mutation workflow applies a valid note or typed link in its own operation.
+Files are notebook truth; the index is cache. Keep stored bodies/edges distinct from generated maps, routes, human artifacts, analogies, and layouts. Search, similarity, geometry, or analogy is not relationship proof. Read exact affected bodies and stored edges before mutation.
 
-Read selected bodies and stored relationships whenever an owning reference requires source-grounded interpretation. IDs establish provenance but do not substitute for bodies. Search or similarity establishes relevance candidates, not relationship proof. Typed route/impact witnesses preserve stored edge semantics and are movement evidence, not permission to infer unstored closure.
-
-At every seam: retain state first, fetch ownership second, read bounded source evidence third, present only after the blocker passes, and mutate focus or notebook truth only under the action that explicitly owns that mutation.
+Only **✚ Integrate** owns Navigation-discovered notebook mutation; fetch `nn skills get nn-navigate --reference integrate`. It proposes before writing, requires approval, preserves specialized safeguards, and never treats generated material as stored truth. Other actions may suggest changes but remain non-mutating. At every seam: retain state, fetch ownership, read bounded evidence, present after validation, and mutate only under the explicit owner.

@@ -87,7 +87,7 @@ func TestInstallSkillsForPiRecursivelyCopiesReferences(t *testing.T) {
 	if _, err := execute("install-skills", "--for", "pi", "--dest", dest); err != nil {
 		t.Fatalf("nn install-skills --for pi: %v", err)
 	}
-	for _, name := range []string{"ask", "lenses", "movement", "presentation", "scan-and-routes", "state"} {
+	for _, name := range []string{"ask", "integrate", "lenses", "movement", "presentation", "scan-and-routes", "state"} {
 		installedPath := filepath.Join(dest, "nn-navigate", "references", name+".md")
 		installed, err := os.ReadFile(installedPath)
 		if err != nil {
