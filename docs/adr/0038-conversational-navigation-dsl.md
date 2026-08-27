@@ -46,7 +46,9 @@ These are skill-level intents interpreted by the agent, not `nn` subcommands, fl
 
 ### Guided and Advanced presentation
 
-Guided is the default. Its Navigation help remains visible while another navigation choice is naturally pending and presents human labels beside canonical shorthand so use teaches the terse grammar. A clearly completed explicit direct intent may instead use a **quiet return**: report completion, retain the semantic menu position and complete frame, and show the compact `navigate`/`:help` affordance without immediately forcing another chooser. Pending Ask and unanswered Quiz states are not completed actions.
+Guided is the default. Its Navigation help remains visible while another navigation choice is naturally pending and presents human labels beside canonical shorthand so use teaches the terse grammar. A completed action selected from a Guided picker always reopens its invoking menu. Only a completed action requested directly in conversation may instead use a **quiet return**: report completion, retain the semantic menu position and complete frame, and show the compact `navigate`/`:help` affordance without immediately forcing another chooser. Pending Ask and unanswered Quiz states are not completed actions.
+
+Every submenu visibly displays adjacent `Esc: back to <parent-menu-name>` guidance. The hint is not an option row: canonical submenu rows remain unchanged and every picker keeps its four-row cap. This makes the existing menu-stack pop behavior discoverable without displacing a lens or adding a fifth Back action.
 
 Advanced keeps Navigation help closed. `:help` opens a complete textual catalog of every canonical shorthand temporarily without changing mode; completing an action or dismissing the help closes it. The catalog is distinct from contextual adaptive pickers, so picker hierarchy and row limits do not truncate it. Contextual menus still apply their existing hierarchy and limits. `:guided` and `:advanced` switch mode without changing graph state.
 

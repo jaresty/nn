@@ -118,6 +118,99 @@ func TestNNNavigatePresentationReferencePreservesFourRowPickerSemantics(t *testi
 	}
 }
 
+// retained property [1a]: a completed lens selected from a Guided picker
+// visibly returns to its invoking menu rather than taking the quiet-return path.
+func TestNNNavigatePresentationReferenceReturnsPickerSelectedLensesToInvokingMenu(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "presentation.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read presentation reference: %v", err)
+	}
+	presentation := string(data)
+	const assertion = "[P1a] Guided picker-selected lens completion reopens the invoking menu"
+	const required = "A completed action selected from a Guided picker always reopens its invoking menu"
+	if !strings.Contains(presentation, required) {
+		t.Errorf("%s: presentation reference missing %q", assertion, required)
+	}
+}
+
+// retained property [1b]: quiet return remains available only to a completed
+// lens requested directly in conversation, not to a picker selection.
+func TestNNNavigatePresentationReferenceLimitsQuietReturnToConversationalIntent(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "presentation.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read presentation reference: %v", err)
+	}
+	presentation := string(data)
+	const assertion = "[P1b] quiet return is limited to conversational direct intent"
+	const required = "Only a completed action requested directly in conversation may use a quiet return"
+	if !strings.Contains(presentation, required) {
+		t.Errorf("%s: presentation reference missing %q", assertion, required)
+	}
+}
+
+// retained property [2a]: every submenu makes its Esc dismissal affordance visible.
+func TestNNNavigatePresentationReferenceMakesSubmenuEscapeVisible(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "presentation.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read presentation reference: %v", err)
+	}
+	presentation := string(data)
+	const assertion = "[P2a] every submenu visibly identifies Esc"
+	const required = "Every submenu picker visibly displays `Esc`"
+	if !strings.Contains(presentation, required) {
+		t.Errorf("%s: presentation reference missing %q", assertion, required)
+	}
+}
+
+// retained property [2b]: every submenu's visible Esc guidance names its parent.
+func TestNNNavigatePresentationReferenceNamesSubmenuEscapeDestination(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "presentation.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read presentation reference: %v", err)
+	}
+	presentation := string(data)
+	const assertion = "[P2b] every submenu Esc hint names its parent menu"
+	const required = "The guidance names that submenu's parent menu"
+	if !strings.Contains(presentation, required) {
+		t.Errorf("%s: presentation reference missing %q", assertion, required)
+	}
+}
+
+// retained property [3a]: visible Esc guidance is not an option and preserves
+// the canonical rows in every submenu.
+func TestNNNavigatePresentationReferencePreservesSubmenuRowsWithEscapeGuidance(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "presentation.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read presentation reference: %v", err)
+	}
+	presentation := string(data)
+	const assertion = "[P3a] Esc guidance preserves canonical submenu rows"
+	const required = "canonical submenu rows remain unchanged"
+	if !strings.Contains(presentation, required) {
+		t.Errorf("%s: presentation reference missing %q", assertion, required)
+	}
+}
+
+// retained property [3b]: visible Esc guidance never creates a fifth picker row.
+func TestNNNavigatePresentationReferenceKeepsEscapeGuidanceOutsidePickerRows(t *testing.T) {
+	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "presentation.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read presentation reference: %v", err)
+	}
+	presentation := string(data)
+	const assertion = "[P3b] Esc guidance keeps every submenu at four rows or fewer"
+	const required = "each submenu picker still contains at most four rows"
+	if !strings.Contains(presentation, required) {
+		t.Errorf("%s: presentation reference missing %q", assertion, required)
+	}
+}
+
 func TestNNNavigatePresentationReferencePreservesLosslessImportanceLayout(t *testing.T) {
 	path := filepath.Join("..", "..", "..", "skills", "nn-navigate", "references", "presentation.md")
 	data, err := os.ReadFile(path)

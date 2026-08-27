@@ -64,7 +64,7 @@ The canonical grammar is exactly **`:help`, `:guided`, `:advanced`, `:look`, `:w
 
 ### Guided and Advanced interaction
 
-The conversation-scoped field is `interaction mode: guided | advanced`. **Guided mode is the default.** Navigation help remains visible while another choice is pending. A clearly completed explicit direct intent may use `presentation`'s quiet return, retaining the frame and semantic menu position with `navigate`/`:help` instead of another chooser. Pending Ask and unanswered Quiz keep their waiting presentation.
+The conversation-scoped field is `interaction mode: guided | advanced`. **Guided mode is the default.** Navigation help remains visible while another choice is pending. Picker-selected completions reopen their invoking menu; only completed conversational requests may use `presentation`'s quiet return. Pending Ask and unanswered Quiz keep their waiting presentation.
 
 **Advanced mode keeps Navigation help closed.** `:help` opens it temporarily without changing mode, rendering a complete canonical command catalog; picker limits never truncate that catalog. `:guided` switches to Guided mode and opens persistent Navigation help. `:advanced` switches to Advanced mode and closes it. A direct launch beginning **`navigate advanced`** starts or resumes the walk in Advanced mode and treats any remaining words as the ordinary navigation query or intent. Mode switching never changes focus, graph history, the goal, filters, bookmarks, or notebook content.
 
@@ -233,9 +233,9 @@ The complete semantic triples, stable palette, effect markers, menu rows, summar
 
 ## State, menu, and action return boundaries
 
-Graph focus/history and menu UI are orthogonal. Esc or a declined submenu chooser pops only menu UI. Esc at Quick actions closes only the picker and retains focus/history; report the retained focus and the `navigate` resume affordance rather than implying Arrive. Conversational Back restores graph history and is never an explicit picker row.
+Graph focus/history and menu UI are orthogonal. Esc or a declined submenu chooser pops only menu UI. Every submenu visibly shows `Esc: back to <parent-menu-name>` beside—not inside—its unchanged canonical rows; each picker remains within four rows. Esc at Quick actions closes only the picker and retains focus/history; report the retained focus and the `navigate` resume affordance rather than implying Arrive. Conversational Back restores graph history and is never an explicit picker row.
 
-Transient actions return semantically to their invoking menu under `presentation`: Peek details return to Peek, lenses to Lenses, scans to Scan, promoted transients to Quick actions, and Ask to its invoking Ask submenu unless promoted. Guided reopens the invoking picker when another choice is pending; a clearly completed explicit direct intent may instead use the quiet return with unchanged focus, frame, and semantic menu position. Advanced retains that position with help closed. Focus-changing actions and `navigate` rerun Orient and reset Quick actions without changing mode. Arrive retains focus. Quiz may suspend; `navigate` exits without grading.
+Transient actions return semantically to their invoking menu under `presentation`: Peek details return to Peek, lenses to Lenses, scans to Scan, promoted transients to Quick actions, and Ask to its invoking Ask submenu unless promoted. Guided uses the origin-sensitive return rule above; Advanced retains that position with help closed. Focus-changing actions and `navigate` rerun Orient and reset Quick actions without changing mode. Arrive retains focus. Quiz may suspend; `navigate` exits without grading.
 
 Do not redundantly full-render an unchanged complete frame when the owner permits compact return. Do full-render after focus/filter/traversal/notebook changes, stale or unknown cache, explicit Refresh, or resumption after discussion. Compact return references the complete frame still visible; it cannot redraw a reduced skeleton or omit Navigation help when Guided requires it. Advanced compact returns do not fabricate a picker merely to satisfy an obsolete unconditional-return rule.
 
