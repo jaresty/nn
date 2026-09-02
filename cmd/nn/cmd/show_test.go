@@ -263,8 +263,11 @@ func TestShowFreshnessStale(t *testing.T) {
 	if !strings.Contains(out, "freshness: stale") {
 		t.Errorf("want freshness: stale in output, got:\n%s", out)
 	}
-	if !strings.Contains(out, "content may be outdated") {
-		t.Errorf("want 'content may be outdated' hint in output, got:\n%s", out)
+	if !strings.Contains(out, "revalidate before using as evidence of current conditions") {
+		t.Errorf("want present-use revalidation hint in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "does not imply the historical note should expire") {
+		t.Errorf("want historical-expiry disclaimer in output, got:\n%s", out)
 	}
 	if !strings.Contains(out, "ago") {
 		t.Errorf("want age 'ago' in output, got:\n%s", out)
