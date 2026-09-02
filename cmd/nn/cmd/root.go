@@ -81,6 +81,7 @@ Workflow guidance is embedded in the binary:
 		newGapCmd(state),
 		newIndexCmd(state),
 		newCaptureCmd(state),
+		newMediaCmd(state, newProductionMediaService()),
 		newSkillsCmd(),
 		newInstallCmd(),
 		newInstallSkillsCmd(),
@@ -103,11 +104,15 @@ func NewRootCmdForTest(cfgFile string) *cobra.Command {
 
 // initState resolves the notebook directory and initialises the backend.
 func initState(cmd *cobra.Command, state *rootState, cfgFile string) error {
+	if cmd.Parent() != nil && cmd.Parent().Name() == "media" {
+		return nil
+	}
 	// These commands manage config/skills and don't need a notebook. `ask` is
 	// note-agnostic at the boundary (ADR-0020) — it collects human feedback to a
 	// session path and does not read or write the notebook — so it runs without
 	// a config too.
-	if cmd.Name() == "install-skills" || cmd.Name() == "install-hooks" || cmd.Name() == "install-extensions" || cmd.Name() == "install" || cmd.Name() == "init" || cmd.Name() == "skills" || cmd.Name() == "ask" {
+	switch cmd.Name() {
+	case "install-skills", "install-hooks", "install-extensions", "install", "init", "skills", "ask":
 		return nil
 	}
 

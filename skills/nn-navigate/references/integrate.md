@@ -11,6 +11,17 @@ applies_when: "When Navigation proposes, reviews, applies, declines, or returns 
 
 Integrate may create, update, retitle, retag, retype, change status, or delete notes; add, remove, retype, or revise typed relationships; apply a supported mixed change; or conclude that no mutation is justified. “Retype” for notes means changing note type through the existing update workflow; relationship retyping uses the existing edge workflow. Configuration, source-code edits, and conversation-scoped Navigation state are outside Integrate.
 
+## Media-run integration
+
+A natural request such as “integrate this media run RUN_ID” invokes Integrate directly and is not an `nn integrate` command. Before proposing any notebook change:
+
+1. Run `nn media context --run RUN_ID --page 1` and retrieve every disclosed next page; context retrieval must not reprocess media.
+2. Validate run, source, bundle, and manifest provenance plus qualified coverage and truncation disclosures.
+3. Use the available image-reading capability to load each actual path from every typed `image_attachments` record; a path string alone is not visual evidence. Treat image timestamps as sampled instants, never intervening coverage.
+4. Treat transcript chunks and images as evidence with their distinct limits. Synthesized document transcript boundaries are not native sentence timings.
+5. Search and read relevant existing notebook truth before deciding whether any creation, update, or relationship is justified.
+6. Produce the existing non-mutating proposal with sourced claims separated from interpretation, uncertainty, affected notes/edges, complete before/after intent, and expected operation/commit count. Write only after explicit human approval through existing mutation workflows.
+
 ## Contextual promotion
 
 Promote `✚ Integrate — <concrete change>` only when the current complete visited evidence supports a **concrete bounded notebook mutation supported by visited evidence**. The proposal must name the exact receiving note, new note, relationship, correction, status change, or deletion under consideration and explain why it matters to the retained goal. Generic cleanup, lexical similarity, graph proximity, or “the notebook could be better” is insufficient.
