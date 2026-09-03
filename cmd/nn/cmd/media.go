@@ -30,7 +30,6 @@ type mediaCommandResult struct {
 	ManifestLocator string                 `json:"manifest_locator,omitempty"`
 	Outcome         string                 `json:"outcome"`
 	Stages          []mediaStageResult     `json:"stages,omitempty"`
-	NoteCapture     string                 `json:"note_capture,omitempty"`
 	Warnings        []string               `json:"warnings,omitempty"`
 	Errors          []mediaStructuredError `json:"errors,omitempty"`
 }
@@ -39,11 +38,9 @@ type mediaCommandRequest struct {
 	Frames                                           []string
 	ContactSheet, NonInteractive, Confirm            bool
 }
-type mediaNoteProjection struct{ Title, Markdown string }
 type mediaCommandService interface {
 	Execute(context.Context, mediaCommandRequest) (mediaCommandResult, error)
 	Discover(context.Context, string) (mediaCommandResult, error)
-	Project(context.Context, string) (mediaNoteProjection, mediaCommandResult, error)
 	Context(context.Context, string, int, int) (any, error)
 	Doctor(context.Context, mediaCommandRequest) (mediaCommandResult, error)
 }
@@ -59,11 +56,6 @@ func (s unavailableMediaService) Discover(_ context.Context, id string) (mediaCo
 	x := s.unavailable("runs")
 	x.RunID = id
 	return x, nil
-}
-func (s unavailableMediaService) Project(_ context.Context, id string) (mediaNoteProjection, mediaCommandResult, error) {
-	x := s.unavailable("context")
-	x.RunID = id
-	return mediaNoteProjection{}, x, nil
 }
 func (s unavailableMediaService) Context(context.Context, string, int, int) (any, error) {
 	return nil, fmt.Errorf("media service unavailable")
@@ -153,13 +145,6 @@ func newMediaCmd(_ *rootState, service mediaCommandService) *cobra.Command {
 	contextCmd.Flags().IntVar(&maxBytes, "max-bytes", 32768, "Maximum transcript text bytes per packet page")
 	contextCmd.Flags().IntVar(&page, "page", 1, "Transcript packet page")
 	cmd.AddCommand(contextCmd)
-	var captureRun string
-	capture := &cobra.Command{Use: "capture [file]", Deprecated: "use 'nn media prepare <file>' then 'nn media context --run RUN_ID' and conversational Integrate", Args: cobra.MaximumNArgs(1), RunE: func(c *cobra.Command, _ []string) error {
-		fmt.Fprintln(outWriter(c), "deprecated: use nn media prepare, nn media context --run RUN_ID, then conversational Integrate; no notebook changes were made")
-		return nil
-	}}
-	capture.Flags().StringVar(&captureRun, "run", "", "Deprecated run identifier (no write)")
-	cmd.AddCommand(capture)
 	var doctor mediaCommandRequest
 	doctor.Operation = "doctor"
 	doctorCmd := &cobra.Command{Use: "doctor", Args: cobra.NoArgs, RunE: func(c *cobra.Command, _ []string) error {

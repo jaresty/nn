@@ -10,18 +10,18 @@ import (
 )
 
 type Rational struct {
-	Numerator   int
-	Denominator int
+	Numerator   int `json:"numerator"`
+	Denominator int `json:"denominator"`
 }
 
 type Metadata struct {
-	Duration   time.Duration
-	Formats    []string
-	VideoCodec string
-	Width      int
-	Height     int
-	FrameRate  Rational
-	HasAudio   bool
+	Duration   time.Duration `json:"duration"`
+	Formats    []string      `json:"formats,omitempty"`
+	VideoCodec string        `json:"video_codec,omitempty"`
+	Width      int           `json:"width,omitempty"`
+	Height     int           `json:"height,omitempty"`
+	FrameRate  Rational      `json:"frame_rate"`
+	HasAudio   bool          `json:"has_audio"`
 }
 
 type probeDocument struct {

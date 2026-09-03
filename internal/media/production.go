@@ -123,6 +123,7 @@ type ContextPacket struct {
 	SourceID        SourceID          `json:"source_id"`
 	BundleID        BundleID          `json:"bundle_id"`
 	ManifestLocator string            `json:"manifest_locator"`
+	SourceMetadata  Metadata          `json:"source_metadata"`
 	Coverage        Coverage          `json:"coverage"`
 	Transcript      []TranscriptChunk `json:"transcript_chunks"`
 	Images          []ImageAttachment `json:"image_attachments"`
@@ -130,16 +131,12 @@ type ContextPacket struct {
 	Truncated       bool              `json:"truncated"`
 	NextPage        int               `json:"next_page,omitempty"`
 }
-type NoteProjection struct {
-	Title    string `json:"title"`
-	Markdown string `json:"markdown"`
-}
 type StoredRun struct {
-	Result     RunResult           `json:"result"`
-	Manifest   Manifest            `json:"manifest"`
-	Projection NoteProjection      `json:"projection"`
-	Transcript []TranscriptSegment `json:"transcript,omitempty"`
-	Images     []ImageAttachment   `json:"images,omitempty"`
+	Result         RunResult           `json:"result"`
+	Manifest       Manifest            `json:"manifest"`
+	SourceMetadata Metadata            `json:"source_metadata"`
+	Transcript     []TranscriptSegment `json:"transcript,omitempty"`
+	Images         []ImageAttachment   `json:"images,omitempty"`
 }
 type LocalRunStore struct{ root string }
 
@@ -222,16 +219,6 @@ func (s *LocalRunStore) Discover(_ context.Context, id string) (StoredRun, error
 	}
 	return run, nil
 }
-func (s *LocalRunStore) Project(ctx context.Context, id string) (NoteProjection, error) {
-	run, err := s.Discover(ctx, id)
-	if err != nil {
-		return NoteProjection{}, err
-	}
-	if run.Projection.Markdown == "" {
-		return NoteProjection{}, fmt.Errorf("run %q has no note projection", id)
-	}
-	return run.Projection, nil
-}
 func (s *LocalRunStore) Context(ctx context.Context, id string, maxBytes, page int) (ContextPacket, error) {
 	run, err := s.Discover(ctx, id)
 	if err != nil {
@@ -272,7 +259,7 @@ func (s *LocalRunStore) Context(ctx context.Context, id string, maxBytes, page i
 			remaining = remaining[n:]
 		}
 	}
-	packet := ContextPacket{SchemaVersion: ContextPacketSchemaVersion, RunID: run.Result.RunID, SourceID: run.Result.SourceID, BundleID: run.Result.BundleID, ManifestLocator: run.Result.ManifestLocator, Coverage: run.Manifest.Coverage, Images: run.Images, Page: page}
+	packet := ContextPacket{SchemaVersion: ContextPacketSchemaVersion, RunID: run.Result.RunID, SourceID: run.Result.SourceID, BundleID: run.Result.BundleID, ManifestLocator: run.Result.ManifestLocator, SourceMetadata: run.SourceMetadata, Coverage: run.Manifest.Coverage, Images: run.Images, Page: page}
 	if page <= len(pages) {
 		packet.Transcript = pages[page-1]
 	}

@@ -15,10 +15,9 @@ import (
 )
 
 type fakeMediaService struct {
-	executeCalls, discoverCalls, projectCalls, doctorCalls int
-	request                                                mediaCommandRequest
-	result                                                 mediaCommandResult
-	projection                                             mediaNoteProjection
+	executeCalls, discoverCalls, doctorCalls int
+	request                                  mediaCommandRequest
+	result                                   mediaCommandResult
 }
 
 func (f *fakeMediaService) Execute(_ context.Context, r mediaCommandRequest) (mediaCommandResult, error) {
@@ -30,11 +29,6 @@ func (f *fakeMediaService) Discover(_ context.Context, id string) (mediaCommandR
 	f.discoverCalls++
 	f.request.RunID = id
 	return f.result, nil
-}
-func (f *fakeMediaService) Project(_ context.Context, id string) (mediaNoteProjection, mediaCommandResult, error) {
-	f.projectCalls++
-	f.request.RunID = id
-	return f.projection, f.result, nil
 }
 func (f *fakeMediaService) Context(_ context.Context, id string, _, _ int) (any, error) {
 	f.discoverCalls++
@@ -82,7 +76,7 @@ func TestProductionRootMediaDoctorUsesConcreteService(t *testing.T) {
 
 func TestMediaCommandExposesADR0040Operations(t *testing.T) {
 	cmd := newMediaCmd(&rootState{}, nil)
-	for _, name := range []string{"inspect", "sample", "transcribe", "prepare", "context", "capture", "doctor", "runs"} {
+	for _, name := range []string{"inspect", "sample", "transcribe", "prepare", "context", "doctor", "runs"} {
 		child, _, err := cmd.Find([]string{name})
 		if err != nil || child == cmd || child.Name() != name {
 			t.Errorf("media command exposes %q subcommand: missing", name)
@@ -149,7 +143,7 @@ func TestMediaDoctorNonTTYRequiresExplicitConfirmation(t *testing.T) {
 }
 
 func TestAllMediaCommandsLeaveNotebookUnchanged(t *testing.T) {
-	cases := [][]string{{"inspect", "movie.mp4"}, {"sample", "movie.mp4"}, {"transcribe", "movie.mp4", "--engine", "parakeet"}, {"prepare", "movie.mp4", "--frames", "1s"}, {"context", "--run", "run-1"}, {"capture", "--run", "run-1"}, {"doctor"}, {"runs", "run-1"}}
+	cases := [][]string{{"inspect", "movie.mp4"}, {"sample", "movie.mp4"}, {"transcribe", "movie.mp4", "--engine", "parakeet"}, {"prepare", "movie.mp4", "--frames", "1s"}, {"context", "--run", "run-1"}, {"doctor"}, {"runs", "run-1"}}
 	for _, args := range cases {
 		t.Run(strings.Join(args, "_"), func(t *testing.T) {
 			store := &recordingBackend{}
@@ -176,7 +170,7 @@ func TestMediaDocumentationCoversCommandsRemediationRecoveryAndExamples(t *testi
 			t.Fatal(err)
 		}
 		text := string(data)
-		for _, required := range []string{"nn media inspect", "nn media sample", "nn media transcribe", "nn media prepare", "nn media context", "nn media capture", "nn media doctor", "nn media runs", "non-TTY", "--confirm", "--run", "no notebook"} {
+		for _, required := range []string{"nn media inspect", "nn media sample", "nn media transcribe", "nn media prepare", "nn media context", "nn media doctor", "nn media runs", "non-TTY", "--confirm", "--run"} {
 			if !strings.Contains(text, required) {
 				t.Errorf("media documentation %s contains %q", path, required)
 			}
@@ -199,20 +193,24 @@ func TestMediaIntegrateSkillRoutesContextAndImages(t *testing.T) {
 	}
 }
 
-func TestDeprecatedMediaCaptureNeverWritesNotebook(t *testing.T) {
-	service := &fakeMediaService{projection: mediaNoteProjection{Title: "Media: run-1", Markdown: "## Coverage\npartial"}, result: mediaCommandResult{SchemaVersion: mediaResultVersion, RunID: "run-1", Outcome: "succeeded"}}
-	store := &recordingBackend{}
+func TestMediaCaptureCommandIsAbsent(t *testing.T) {
+	cmd := newMediaCmd(&rootState{}, &fakeMediaService{})
+	child, _, err := cmd.Find([]string{"capture"})
+	if err == nil || child != cmd {
+		t.Fatalf("capture must not resolve as a media subcommand: child=%q err=%v", child.Name(), err)
+	}
+}
+
+func TestMediaJSONOmitsNoteCapture(t *testing.T) {
+	service := &fakeMediaService{result: mediaCommandResult{SchemaVersion: mediaResultVersion, Command: "prepare", Outcome: "succeeded"}}
+	cmd := newMediaCmd(&rootState{}, service)
 	var out bytes.Buffer
-	cmd := newMediaCmd(&rootState{backend: store}, service)
 	cmd.SetOut(&out)
-	cmd.SetArgs([]string{"capture", "--run", "run-1"})
+	cmd.SetArgs([]string{"--json", "prepare", "movie.mp4"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if store.writes != 0 || service.projectCalls != 0 || service.executeCalls != 0 {
-		t.Fatalf("deprecated capture performs no notebook write or projection: writes=%d project=%d execute=%d", store.writes, service.projectCalls, service.executeCalls)
-	}
-	if !strings.Contains(out.String(), "deprecated") || !strings.Contains(out.String(), "media prepare") || !strings.Contains(out.String(), "media context") || !strings.Contains(out.String(), "Integrate") {
-		t.Fatalf("deprecated capture directs migration: %s", out.String())
+	if strings.Contains(out.String(), "note_capture") {
+		t.Fatalf("media result exposes removed note_capture state: %s", out.String())
 	}
 }

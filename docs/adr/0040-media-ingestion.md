@@ -9,7 +9,7 @@
 
 Transcription can improve coverage, but it is not equivalent to visual review and no single transcription runtime should become a hard dependency. Local engines such as Parakeet may be appropriate on supported machines; other installations may prefer `whisper.cpp`, `faster-whisper`, a hosted service, or no transcription at all.
 
-A captured note must not imply that an entire recording was reviewed when only sampled frames were inspected. Generated images, transcripts, and manifests can also be too large or unsuitable for storage directly inside note Markdown. Because files are truth and the SQLite index is a rebuildable cache, media ingestion needs an explicit durable-artifact boundary rather than hiding outputs in the index.
+Integrated notebook claims must not imply that an entire recording was reviewed when only sampled frames were inspected. Generated images, transcripts, and manifests can also be too large or unsuitable for storage directly inside note Markdown. Because files are truth and the SQLite index is a rebuildable cache, media ingestion needs an explicit durable-artifact boundary rather than hiding outputs in the index.
 
 ## Decision
 
@@ -31,11 +31,11 @@ Exact command names and flags may be refined during implementation, but the foll
 
 ### Expose one versioned command-result contract
 
-Every media command emits the same versioned result envelope. It identifies the command, run, source, bundle and manifest locators, overall outcome, per-stage outcomes, note-capture outcome, warnings, and structured errors. Human output is a projection of that envelope.
+Every media command emits the same versioned result envelope. It identifies the command, run, source, bundle and manifest locators, overall outcome, per-stage outcomes, warnings, and structured errors. Human output is a projection of that envelope.
 
 Stdout carries only the primary result. Stderr carries progress and diagnostics. JSON mode emits one final object; a future streaming mode must be explicitly selected and use a separately versioned event format. Redirecting stdout changes presentation, never command semantics.
 
-Stages distinguish at least `not_requested`, `pending`, `running`, `succeeded`, `partial`, `inapplicable`, `unavailable`, `failed`, `interrupted`, and `cancelled`. Overall outcomes are derived from requested stage states rather than asserted independently. Complete success, usable partial evidence, invocation or prerequisite failure, processing failure, cancellation, and note-capture failure are distinct symbolic outcomes. Exact numeric exit codes remain an implementation choice, but partial completion is non-success and remains machine-detectable while preserving the run and manifest locators.
+Stages distinguish at least `not_requested`, `pending`, `running`, `succeeded`, `partial`, `inapplicable`, `unavailable`, `failed`, `interrupted`, and `cancelled`. Overall outcomes are derived from requested stage states rather than asserted independently. Complete success, usable partial evidence, invocation or prerequisite failure, processing failure, and cancellation are distinct symbolic outcomes. Exact numeric exit codes remain an implementation choice, but partial completion is non-success and remains machine-detectable while preserving the run and manifest locators.
 
 Every media choice has a flag or configuration equivalent. Non-TTY execution never prompts, launches a picker or editor, or silently selects a different engine. The CLI exposes effective stage planning, engine capability discovery, and run discovery in both human and machine-readable forms.
 
@@ -61,7 +61,7 @@ Video sampling uses `ffmpeg` to create:
 - individual frames at explicit timestamps; and
 - a manifest entry for every generated artifact, including its timestamp and effective extraction parameters.
 
-Sampling defaults must remain visible in command output and captured notes. A contact sheet or selected frame is evidence about the sampled instant, not evidence that intervening content was reviewed.
+Sampling defaults must remain visible in command output and integration context. A contact sheet or selected frame is evidence about the sampled instant, not evidence that intervening content was reviewed.
 
 Generated visual artifacts are ordinary files in the evidence bundle. They are not embedded as binary data in note Markdown or stored in SQLite.
 
@@ -97,7 +97,7 @@ Manifest records have stable identifiers and explicit epistemic kinds, including
 
 Media-relative timestamps identify their timeline and time base and distinguish requested from effective positions when they can differ. Wall-clock event times are a separate timestamp class. Transcript coverage records process completion, attempted temporal span, represented span, known gaps, and confidence availability separately; it never implies semantic accuracy. Video samples cover instants, not intervening intervals. Unknown, known absent, none observed, not requested, inapplicable, and failed to determine are distinct states.
 
-Human-readable Markdown is a projection of the manifest and authored claim records. It must preserve run identity, evidence references, authorship, timestamps, failures, and coverage qualifiers without inventing stronger claims.
+Human-readable rendering is derived from typed manifest and authored claim records. It must preserve run identity, evidence references, authorship, timestamps, failures, and coverage qualifiers without inventing stronger claims.
 
 A bounded integration packet separates source metadata, coverage, transcript evidence, visual artifacts, and manifest provenance. It contains no generated observations or inferences. `Coverage` states the audio span attempted and represented, processing outcome, known decode or transcript gaps, which video instants were sampled, and which requested stages failed or were skipped. It does not imply transcript correctness or coverage of unsampled intervals.
 

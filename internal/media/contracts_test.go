@@ -33,19 +33,17 @@ func TestDeriveOutcome(t *testing.T) {
 	tests := []struct {
 		name   string
 		stages []StageResult
-		note   StageState
 		want   Outcome
 	}{
-		{"success", []StageResult{{Requested: true, State: StageSucceeded}}, StageNotRequested, OutcomeSucceeded},
-		{"partial", []StageResult{{Requested: true, State: StageSucceeded}, {Requested: true, State: StageFailed}}, StageNotRequested, OutcomePartial},
-		{"prerequisite", []StageResult{{Requested: true, State: StageUnavailable}}, StageNotRequested, OutcomePrerequisiteFailed},
-		{"processing", []StageResult{{Requested: true, State: StageFailed}}, StageNotRequested, OutcomeProcessingFailed},
-		{"cancelled", []StageResult{{Requested: true, State: StageCancelled}}, StageNotRequested, OutcomeCancelled},
-		{"note capture", []StageResult{{Requested: true, State: StageSucceeded}}, StageFailed, OutcomeNoteCaptureFailed},
+		{"success", []StageResult{{Requested: true, State: StageSucceeded}}, OutcomeSucceeded},
+		{"partial", []StageResult{{Requested: true, State: StageSucceeded}, {Requested: true, State: StageFailed}}, OutcomePartial},
+		{"prerequisite", []StageResult{{Requested: true, State: StageUnavailable}}, OutcomePrerequisiteFailed},
+		{"processing", []StageResult{{Requested: true, State: StageFailed}}, OutcomeProcessingFailed},
+		{"cancelled", []StageResult{{Requested: true, State: StageCancelled}}, OutcomeCancelled},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := DeriveOutcome(tt.stages, tt.note); got != tt.want {
+			if got := DeriveOutcome(tt.stages); got != tt.want {
 				t.Fatalf("derived outcome assertion: got %q want %q", got, tt.want)
 			}
 		})

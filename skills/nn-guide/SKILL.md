@@ -995,13 +995,11 @@ nn media prepare <file> [--every DURATION] [--frames TIMESTAMPS] [--contact-shee
 nn media context --run RUN_ID [--max-bytes N] [--page N]
 nn media runs RUN_ID [--json]
 nn media doctor [--install DEPENDENCY --confirm] [--json]
-nn media capture ... # deprecated; no notebook write
 ```
 
 - `prepare` combines inspection, requested sampling/contact sheet, and optional explicit Parakeet transcription in one durable run.
 - `context` retrieves that existing run without reprocessing. Its bounded packet preserves run/source/bundle/manifest provenance, qualified coverage, transcript segments/chunks, typed image path+MIME+timestamp attachments, and explicit truncation/next-page disclosure.
 - No media subcommand mutates notebook truth. To integrate evidence, request “integrate this media run RUN_ID”; nn-navigate loads every context page and actual image, searches existing notebook truth, and proposes changes without mutation until approval. There is no `nn integrate` command.
-- `capture` is a deprecated compatibility alias that only directs users to `prepare`, `context`, and conversational Integrate.
 - Explicit `--engine parakeet` remains experimental and requires ffmpeg plus `lucataco/tap/parakeet-cli`; document-level JSON uses disclosed synthesized `[0,duration]` boundaries.
 - Non-TTY execution never prompts or changes the requested plan. `doctor --install` narrows diagnostics but does not execute a package manager.
 

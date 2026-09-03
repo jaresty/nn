@@ -46,12 +46,13 @@ func TestProductionMediaServiceInspectPersistsAcrossInstances(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection, _, err := fresh.Project(context.Background(), result.RunID)
+	packetAny, err := fresh.Context(context.Background(), result.RunID, 32768, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if discovered.RunID != result.RunID || !strings.Contains(projection.Markdown, "## Coverage") {
-		t.Fatalf("fresh production service recovery: %#v %#v", discovered, projection)
+	packet := packetAny.(im.ContextPacket)
+	if discovered.RunID != result.RunID || packet.SourceMetadata.VideoCodec != "h264" {
+		t.Fatalf("fresh production service recovery: %#v %#v", discovered, packet)
 	}
 }
 
@@ -75,13 +76,6 @@ func TestProductionMediaServicePersistsDocumentLevelTranscriptEvidence(t *testin
 	if result.Outcome != "succeeded" {
 		t.Fatalf("non-empty document transcript succeeds: %#v", result)
 	}
-	projection, _, err := service.Project(context.Background(), result.RunID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(projection.Markdown, "synthesized document-level boundaries") {
-		t.Fatalf("coverage discloses synthesized timing: %s", projection.Markdown)
-	}
 	stored, err := service.store.Discover(context.Background(), result.RunID)
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +91,7 @@ func TestProductionMediaServicePersistsDocumentLevelTranscriptEvidence(t *testin
 	}
 }
 
-func TestProductionMediaServiceSamplingFlagsAndDirectCaptureSharePipeline(t *testing.T) {
+func TestProductionMediaServiceSamplingFlagsAndPrepareSharePipeline(t *testing.T) {
 	fixture, err := os.ReadFile(filepath.Join("..", "..", "..", "internal", "media", "testdata", "ffprobe-video-audio.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -130,18 +124,11 @@ func TestProductionMediaServiceSamplingFlagsAndDirectCaptureSharePipeline(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection, _, err := service.Project(context.Background(), result.RunID)
-	if err != nil {
-		t.Fatal(err)
-	}
 	joined := commandArgs(commands)
 	for _, required := range []string{"00:00:00.000", "00:01:00.000", "00:03:20.000", "tile=4x1"} {
 		if !strings.Contains(joined, required) {
 			t.Errorf("sample flags affect execution: missing %q in %s", required, joined)
 		}
-	}
-	if !strings.Contains(projection.Markdown, "Contact sheet") {
-		t.Errorf("contact sheet persisted in evidence projection: %s", projection.Markdown)
 	}
 	stored, err := service.(*productionMediaService).store.Discover(context.Background(), result.RunID)
 	if err != nil {
@@ -157,7 +144,7 @@ func TestProductionMediaServiceSamplingFlagsAndDirectCaptureSharePipeline(t *tes
 		t.Fatal(err)
 	}
 	if got := stageNames(capture.Stages); got != "inspect,sample,transcribe" {
-		t.Fatalf("direct capture shares requested pipeline stages: %s", got)
+		t.Fatalf("prepare combines requested pipeline stages: %s", got)
 	}
 	joined = commandArgs(commands)
 	if !strings.Contains(joined, "00:01:00.000") || !strings.Contains(joined, "tile=4x1") || !strings.Contains(joined, "parakeet") {

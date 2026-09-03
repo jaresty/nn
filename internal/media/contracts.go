@@ -27,7 +27,6 @@ const (
 	OutcomePrerequisiteFailed Outcome = "prerequisite_failed"
 	OutcomeProcessingFailed   Outcome = "processing_failed"
 	OutcomeCancelled          Outcome = "cancelled"
-	OutcomeNoteCaptureFailed  Outcome = "note_capture_failed"
 )
 
 type StageState string
@@ -60,17 +59,13 @@ type RunResult struct {
 	ManifestLocator string            `json:"manifest_locator,omitempty"`
 	Outcome         Outcome           `json:"outcome"`
 	Stages          []StageResult     `json:"stages,omitempty"`
-	NoteCapture     StageState        `json:"note_capture,omitempty"`
 	Warnings        []string          `json:"warnings,omitempty"`
 	Errors          []StructuredError `json:"errors,omitempty"`
 }
 
 type StructuredError struct{ Code, Message, Stage string }
 
-func DeriveOutcome(stages []StageResult, note StageState) Outcome {
-	if note == StageFailed {
-		return OutcomeNoteCaptureFailed
-	}
+func DeriveOutcome(stages []StageResult) Outcome {
 	hasSuccess, hasFailure := false, false
 	for _, stage := range stages {
 		if !stage.Requested {

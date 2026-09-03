@@ -1,10 +1,11 @@
 package media
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 )
@@ -38,7 +39,7 @@ func TestOSProcessRunnerCancellation(t *testing.T) {
 func TestLocalRunStoreSurvivesFreshInstance(t *testing.T) {
 	root := t.TempDir()
 	first := NewLocalRunStore(root)
-	run := StoredRun{Result: RunResult{SchemaVersion: RunResultSchemaVersion, Command: "capture", RunID: "run-1", BundleID: "bundle-1", Outcome: OutcomePartial}, Manifest: Manifest{SchemaVersion: ManifestSchemaVersion, RunID: "run-1", BundleID: "bundle-1", Lifecycle: LifecycleCompleted, Publication: PublicationPublished}, Projection: NoteProjection{Title: "Media run-1", Markdown: "## Coverage\nPartial visual evidence."}}
+	run := StoredRun{Result: RunResult{SchemaVersion: RunResultSchemaVersion, Command: "prepare", RunID: "run-1", BundleID: "bundle-1", Outcome: OutcomePartial}, Manifest: Manifest{SchemaVersion: ManifestSchemaVersion, RunID: "run-1", BundleID: "bundle-1", Lifecycle: LifecycleCompleted, Publication: PublicationPublished}, SourceMetadata: Metadata{Duration: time.Second, VideoCodec: "h264"}}
 	if err := first.Publish(context.Background(), run); err != nil {
 		t.Fatal(err)
 	}
@@ -47,12 +48,18 @@ func TestLocalRunStoreSurvivesFreshInstance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection, err := fresh.Project(context.Background(), "run-1")
+	if got.Result.RunID != "run-1" || got.SourceMetadata.VideoCodec != "h264" {
+		t.Fatalf("fresh service discovers typed persisted run: %#v", got)
+	}
+}
+
+func TestStoredRunJSONOmitsProjection(t *testing.T) {
+	data, err := json.Marshal(StoredRun{Result: RunResult{RunID: "run-1"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Result.RunID != "run-1" || !strings.Contains(projection.Markdown, "## Coverage") {
-		t.Fatalf("fresh service discovers and projects persisted run: %#v %#v", got, projection)
+	if bytes.Contains(data, []byte(`"projection"`)) || bytes.Contains(data, []byte(`"note_capture"`)) {
+		t.Fatalf("stored run contains removed note projection state: %s", data)
 	}
 }
 
