@@ -87,3 +87,47 @@ func TestListFieldsPassthrough(t *testing.T) {
 		t.Errorf("passthrough result missing 'type'")
 	}
 }
+
+// hasDateFieldProjected runs `nn list --json --fields id,<field>` (optionally
+// with a search query) and returns whether each result carries <field>.
+func hasDateFieldProjected(t *testing.T, execute func(args ...string) (string, error), field string, searchArgs ...string) {
+	t.Helper()
+	args := append([]string{"list", "--json", "--fields", "id," + field}, searchArgs...)
+	out, err := execute(args...)
+	if err != nil {
+		t.Fatalf("nn %v: %v", args, err)
+	}
+	var results []map[string]any
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &results); err != nil {
+		t.Fatalf("parse JSON: %v\noutput: %s", err, out)
+	}
+	if len(results) == 0 {
+		t.Fatal("expected at least one result")
+	}
+	for _, r := range results {
+		if _, ok := r[field]; !ok {
+			t.Errorf("result missing projected field %q: %v", field, r)
+		}
+	}
+}
+
+// Property P1: --fields created is projected on the non-search path.
+func TestListFieldsCreatedProjected(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	writeNoteFile(t, nbDir, newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept))
+	hasDateFieldProjected(t, execute, "created")
+}
+
+// Property P2: --fields modified is projected on the non-search path.
+func TestListFieldsModifiedProjected(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	writeNoteFile(t, nbDir, newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept))
+	hasDateFieldProjected(t, execute, "modified")
+}
+
+// Property P3: --fields created is projected on the search path.
+func TestListFieldsCreatedProjectedWithSearch(t *testing.T) {
+	nbDir, execute := setupNotebook(t)
+	writeNoteFile(t, nbDir, newTestNoteForCLI(note.GenerateID(), "Alpha", note.TypeConcept))
+	hasDateFieldProjected(t, execute, "created", "--search", "Alpha")
+}

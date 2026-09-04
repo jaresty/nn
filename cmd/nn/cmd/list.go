@@ -433,6 +433,8 @@ type noteJSON struct {
 	Type           string   `json:"type"`
 	Status         string   `json:"status"`
 	Tags           []string `json:"tags"`
+	Created        string   `json:"created"`
+	Modified       string   `json:"modified"`
 	AppliesWhen    string   `json:"applies_when,omitempty"`
 	Representation string   `json:"representation,omitempty"`
 }
@@ -455,6 +457,7 @@ type noteSearchJSON struct {
 	Tags           []string       `json:"tags"`
 	Excerpt        string         `json:"excerpt"`
 	Score          float64        `json:"score"`
+	Created        string         `json:"created"`
 	Modified       string         `json:"modified"`
 	MatchReason    string         `json:"match_reason"`
 	IsProtocol     bool           `json:"is_protocol"`
@@ -562,6 +565,7 @@ func printSearchJSON(cmd *cobra.Command, notes []*note.Note, allNotes []*note.No
 			Tags:           tags,
 			Excerpt:        ex,
 			Score:          normalizedScore,
+			Created:        n.Created.UTC().Format(time.RFC3339Nano),
 			Modified:       n.Modified.UTC().Format(time.RFC3339Nano),
 			MatchReason:    computeMatchReason(n, query),
 			IsProtocol:     isProtocol,
@@ -616,6 +620,7 @@ func printSearchEnvelopeJSON(cmd *cobra.Command, notes []*note.Note, query strin
 			AppliesWhen:    n.AppliesWhen,
 			Excerpt:        extractExcerpt(n.Body, query),
 			Score:          normalizedScore,
+			Created:        n.Created.UTC().Format(time.RFC3339Nano),
 			Modified:       n.Modified.UTC().Format(time.RFC3339Nano),
 			MatchReason:    computeMatchReason(n, query),
 			IsProtocol:     isProtocol,
@@ -737,6 +742,8 @@ func printNotesJSON(cmd *cobra.Command, notes []*note.Note, requestedFields []st
 			Type:           string(n.Type),
 			Status:         string(n.Status),
 			Tags:           tags,
+			Created:        n.Created.UTC().Format(time.RFC3339Nano),
+			Modified:       n.Modified.UTC().Format(time.RFC3339Nano),
 			AppliesWhen:    n.AppliesWhen,
 			Representation: n.Representation,
 		}
