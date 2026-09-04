@@ -105,20 +105,21 @@ var virtualGlobalProtocols = []virtualProtocol{
 			"- **Current-state claim** — the claim's truth depends on mutable present or future conditions (e.g. \"production currently uses X\", \"main points to Y\", \"this workaround is required\"). A later change can invalidate it. Check `modified:`: if modified >14 days ago, write `stale: current-state — mutable, flagging` and run `nn update <id> --expires <date+14d> --since <modified>` (where `<date+14d>` is today plus 14 days, YYYY-MM-DD); if modified >28 days ago use `<date+7d>` instead. If recently modified, write `stale: current-state — recent` and take no action yet.\n" +
 			"- **Forecast or unresolved assumption** — the claim predicts or presumes without confirmation (e.g. \"the team plans to launch X\", \"this is probably the authoritative workflow\"). Prefer a condition over a date: write `stale: forecast — set expires-when` and run `nn update <id> --expires-when \"<condition under which the claim should be revalidated>\" --since <modified>` (e.g. \"stakeholders confirm authority\").\n" +
 			"Decision sequence: is the claim explicitly bounded to a past source/event/version? If yes → historical, retain. If no → does its truth depend on mutable present or future conditions? If yes → current-state (expiry) or forecast (expires_when); if no (a timeless principle or model) → write `stale: timeless — retain` and take no action.\n\n" +
-			"**If the quoted result is an existing draft note:** promote it — `nn update <id> --status reviewed` — re-discovery is the usefulness signal.\n",
+			"**If the quoted result is an existing draft note:** promote it — `nn update <id> --status reviewed` — re-discovery is the usefulness signal.\n\n" +
+			"**Aliases:** when creating a note whose title is commonly abbreviated, set `--aliases \"ACRONYM\"` on `nn new` (or `nn update <id> --aliases-add ACRONYM`) so search converges the acronym and the spelled-out title. One key per short form; a case-folded duplicate across notes silently disables the table.\n",
 	},
 	{
 		ID:          "virtual-nn-cli-reference",
 		Title:       "Protocol: nn CLI reference",
 		AppliesWhen: "always — reference for valid nn command flags, types, and statuses",
-		Body: "**nn new** `--title \"...\" --type <type> --content \"...\" --no-edit [--tags \"t1,t2\"] [--link-to <id> --link-type <type> --annotation \"...\"] [--applies-when \"...\"] [--representation <rep>] [--expires YYYY-MM-DD] [--expires-when \"condition\"] [--check]`\n" +
+		Body: "**nn new** `--title \"...\" --type <type> --content \"...\" --no-edit [--tags \"t1,t2\"] [--aliases \"TDD,ACR\"] [--link-to <id> --link-type <type> --annotation \"...\"] [--applies-when \"...\"] [--representation <rep>] [--expires YYYY-MM-DD] [--expires-when \"condition\"] [--check]`\n" +
 			"Valid --type: concept|argument|model|hypothesis|observation|question|protocol\n" +
 			"New notes are always created as draft. Promote with: `nn update <id> --status reviewed`\n" +
 			"**nn new --quick** `--title \"...\" --no-edit` — quick capture: sets type=observation, status=draft, content empty; no --type required\n" +
 			"**nn new --no-suggest** — skip link/tag suggestion prompt after creation; use in non-interactive or batch contexts\n" +
 			"Note: `--content` is literal — the shell does not expand `\\n` in double-quoted strings. Use `$'...'` ANSI-C quoting or pipe via stdin for multiline content.\n" +
 			"Note: `--link-to`, `--link-type`, and `--annotation` form repeatable positional triples. If any one is supplied, all three are required and their counts must match. Link types must be canonical and non-empty.\n\n" +
-			"**nn update** `<id> --since <RFC3339> --status <status>` | `--title \"...\"` | `--applies-when \"...\"` | `--expires YYYY-MM-DD` | `--expires-when \"condition\"` | `--clear-expires` | `--clear-expires-when` | `--content \"...\" --no-edit` | `[--link-to <id> --link-type <type> --annotation \"...\"] [--check]`\n" +
+			"**nn update** `<id> --since <RFC3339> --status <status>` | `--title \"...\"` | `--tags \"...\"` | `--tags-add <t>` | `--tags-remove <t>` | `--aliases \"...\"` | `--aliases-add <a>` | `--aliases-remove <a>` | `--applies-when \"...\"` | `--expires YYYY-MM-DD` | `--expires-when \"condition\"` | `--clear-expires` | `--clear-expires-when` | `--content \"...\" --no-edit` | `[--link-to <id> --link-type <type> --annotation \"...\"] [--check]`\n" +
 			"Valid --status: draft|reviewed|permanent\n" +
 			"--since is required: read 'modified:' from nn show output; update is rejected if the note was changed after that timestamp\n" +
 			"--clear-expires removes the expiration date; --clear-expires-when removes the expires_when condition.\n" +
