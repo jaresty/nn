@@ -18,6 +18,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 		title       string
 		typ         string
 		tags        string
+		aliases     string
 		content     string
 		appliesWhen    string
 		representation string
@@ -96,6 +97,15 @@ func newNewCmd(state *rootState) *cobra.Command {
 				}
 			}
 
+			var parsedAliases []string
+			if aliases != "" {
+				for _, a := range strings.Split(aliases, ",") {
+					if a = strings.TrimSpace(a); a != "" {
+						parsedAliases = append(parsedAliases, a)
+					}
+				}
+			}
+
 			now := time.Now().UTC()
 			var expires *time.Time
 			if expiresStr != "" {
@@ -111,6 +121,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 				Type:        noteType,
 				Status:      note.StatusDraft,
 				Tags:        parsedTags,
+				Aliases:     parsedAliases,
 				AppliesWhen:    appliesWhen,
 				Representation: representation,
 				ExpiresWhen: expiresWhen,
@@ -161,6 +172,7 @@ func newNewCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "Note title")
 	cmd.Flags().StringVar(&typ, "type", "", "Note type: concept|argument|model|hypothesis|observation|question|protocol")
 	cmd.Flags().StringVar(&tags, "tags", "", "Comma-separated tags")
+	cmd.Flags().StringVar(&aliases, "aliases", "", "Comma-separated search aliases (e.g. acronyms for the title)")
 	cmd.Flags().StringVar(&content, "content", "", "Note body (use with --no-edit)")
 	cmd.Flags().BoolVar(&noEdit, "no-edit", false, "Skip opening $EDITOR")
 	cmd.Flags().BoolVar(&noSuggest, "no-suggest", false, "Suppress post-write link and tag suggestions")

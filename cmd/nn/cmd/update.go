@@ -19,6 +19,9 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 		tags           string
 		tagsAdd        []string
 		tagsRemove     []string
+		aliases        string
+		aliasesAdd     []string
+		aliasesRemove  []string
 		content        string
 		appendS        string
 		typ            string
@@ -64,8 +67,9 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 			if title == "" && tags == "" && content == "" && appendS == "" &&
 				typ == "" && status == "" && appliesWhen == "" && expiresWhen == "" && expiresStr == "" && !fromStdin && replaceSection == "" &&
 				len(tagsAdd) == 0 && len(tagsRemove) == 0 && len(linkTos) == 0 && !willOpenEditor &&
+				aliases == "" && len(aliasesAdd) == 0 && len(aliasesRemove) == 0 &&
 				!clearExpires && !clearExpiresWhen {
-				return fmt.Errorf("at least one of --title, --tags, --tags-add, --tags-remove, --content, --stdin, --append, --type, --status, --applies-when, --expires-when, --expires, --clear-expires, --clear-expires-when, --replace-section, --link-to is required")
+				return fmt.Errorf("at least one of --title, --tags, --tags-add, --tags-remove, --aliases, --aliases-add, --aliases-remove, --content, --stdin, --append, --type, --status, --applies-when, --expires-when, --expires, --clear-expires, --clear-expires-when, --replace-section, --link-to is required")
 			}
 			isDailyAlias := strings.ToLower(args[0]) == "daily"
 			if sinceStr == "" && !isDailyAlias {
@@ -125,6 +129,32 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 					merged = append(merged, t)
 				}
 				n.Tags = merged
+			}
+			if aliases != "" {
+				var parsed []string
+				for _, a := range strings.Split(aliases, ",") {
+					if a = strings.TrimSpace(a); a != "" {
+						parsed = append(parsed, a)
+					}
+				}
+				n.Aliases = parsed
+			}
+			if len(aliasesAdd) > 0 || len(aliasesRemove) > 0 {
+				existing := make(map[string]struct{}, len(n.Aliases))
+				for _, a := range n.Aliases {
+					existing[a] = struct{}{}
+				}
+				for _, a := range aliasesAdd {
+					existing[a] = struct{}{}
+				}
+				for _, a := range aliasesRemove {
+					delete(existing, a)
+				}
+				merged := make([]string, 0, len(existing))
+				for a := range existing {
+					merged = append(merged, a)
+				}
+				n.Aliases = merged
 			}
 			if typ != "" {
 				t := note.Type(typ)
@@ -202,6 +232,9 @@ func newUpdateCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&tags, "tags", "", "Replace tags (comma-separated)")
 	cmd.Flags().StringArrayVar(&tagsAdd, "tags-add", nil, "Add a tag (repeatable)")
 	cmd.Flags().StringArrayVar(&tagsRemove, "tags-remove", nil, "Remove a tag (repeatable)")
+	cmd.Flags().StringVar(&aliases, "aliases", "", "Replace search aliases (comma-separated)")
+	cmd.Flags().StringArrayVar(&aliasesAdd, "aliases-add", nil, "Add a search alias (repeatable)")
+	cmd.Flags().StringArrayVar(&aliasesRemove, "aliases-remove", nil, "Remove a search alias (repeatable)")
 	cmd.Flags().StringVar(&content, "content", "", "Replace note body entirely")
 	cmd.Flags().StringVar(&appendS, "append", "", "Append text to note body")
 	cmd.Flags().StringVar(&typ, "type", "", "Change note type")
