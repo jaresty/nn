@@ -126,6 +126,7 @@ type Note struct {
 	Type           Type
 	Status         Status
 	Tags           []string
+	Aliases        []string
 	AppliesWhen    string
 	Representation string
 	ExpiresWhen    string
@@ -199,6 +200,7 @@ type frontmatterYAML struct {
 	Type           string     `yaml:"type"`
 	Status         string     `yaml:"status"`
 	Tags           []string   `yaml:"tags"`
+	Aliases        []string   `yaml:"aliases,omitempty"`
 	AppliesWhen    string     `yaml:"applies_when,omitempty"`
 	Representation string     `yaml:"representation,omitempty"`
 	ExpiresWhen    string     `yaml:"expires_when,omitempty"`
@@ -254,6 +256,7 @@ func Parse(data []byte) (*Note, error) {
 		Type:           noteType,
 		Status:         noteStatus,
 		Tags:           raw.Tags,
+		Aliases:        raw.Aliases,
 		AppliesWhen:    raw.AppliesWhen,
 		Representation: raw.Representation,
 		ExpiresWhen:    raw.ExpiresWhen,
@@ -330,6 +333,7 @@ func (n *Note) Marshal() ([]byte, error) {
 		Type:           string(n.Type),
 		Status:         string(n.Status),
 		Tags:           n.Tags,
+		Aliases:        n.Aliases,
 		AppliesWhen:    n.AppliesWhen,
 		Representation: n.Representation,
 		ExpiresWhen:    n.ExpiresWhen,

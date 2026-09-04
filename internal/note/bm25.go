@@ -1,6 +1,7 @@
 package note
 
 import (
+	"fmt"
 	"math"
 	"strings"
 
@@ -534,12 +535,71 @@ func statusMultiplier(s Status) float64 {
 	}
 }
 
+// aliasTable maps a lowercased alias key to the tokenized title tokens of its
+// declaring note. It is package-global state installed once at corpus-load time
+// via SetAliases and treated as read-only during scoring. tokenize consults it
+// to expand a recognized alias token into the declaring note's title tokens
+// before stemming, so that a query using the alias and the declaring note's
+// title converge on a shared token set.
+//
+// Concurrency: SetAliases is expected to be called at corpus load, before
+// scoring reads the table. The table is not mutated during scoring; callers
+// that install a new corpus must not interleave SetAliases with active scoring.
+var aliasTable map[string][]string
+
+// baseTokenizeTitle lowercases, splits, and stems a title WITHOUT applying alias
+// expansion. It is the value stored in the alias table for a declaring note's
+// title, and matches what tokenize produces for that title (alias expansion is a
+// no-op on a note's own title unless the title itself contains another alias).
+func baseTokenizeTitle(title string) []string {
+	title = strings.ToLower(title)
+	var tokens []string
+	for _, word := range strings.FieldsFunc(title, func(r rune) bool {
+		return !('a' <= r && r <= 'z') && !('0' <= r && r <= '9')
+	}) {
+		if len(word) > 1 {
+			tokens = append(tokens, english.Stem(word, false))
+		}
+	}
+	return tokens
+}
+
+// BuildAliases constructs the alias expansion table from a corpus of notes,
+// mapping each note's lowercased alias to that note's tokenized title. It returns
+// an error naming both declaring note IDs if two distinct notes declare the same
+// case-folded alias key.
+func BuildAliases(notes []*Note) (map[string][]string, error) {
+	table := make(map[string][]string)
+	owner := make(map[string]string) // alias key -> first declaring note ID
+	for _, n := range notes {
+		for _, a := range n.Aliases {
+			key := strings.ToLower(a)
+			if prev, ok := owner[key]; ok && prev != n.ID {
+				return nil, fmt.Errorf("note.BuildAliases: duplicate alias %q declared by notes %s and %s", key, prev, n.ID)
+			}
+			owner[key] = n.ID
+			table[key] = baseTokenizeTitle(n.Title)
+		}
+	}
+	return table, nil
+}
+
+// SetAliases installs the package-global alias table consulted by tokenize.
+// Passing nil clears the table.
+func SetAliases(table map[string][]string) {
+	aliasTable = table
+}
+
 // Tokenize splits text into lowercase tokens. Exported for use in match-reason computation.
 func Tokenize(s string) []string {
 	return tokenize(s)
 }
 
-// tokenize splits text into lowercase tokens.
+// tokenize splits text into lowercase tokens, applying notebook-defined alias
+// expansion before stemming. A word whose lowercase form is a known alias key is
+// replaced by its declaring note's title tokens (already stemmed in the table);
+// all other words are stemmed normally. Because expansion feeds stemmed tokens,
+// a query using an alias and the declaring note's title converge.
 func tokenize(s string) []string {
 	s = strings.ToLower(s)
 	var tokens []string
@@ -547,6 +607,10 @@ func tokenize(s string) []string {
 		return !('a' <= r && r <= 'z') && !('0' <= r && r <= '9')
 	}) {
 		if len(word) > 1 {
+			if expansion, ok := aliasTable[word]; ok {
+				tokens = append(tokens, expansion...)
+				continue
+			}
 			tokens = append(tokens, english.Stem(word, false))
 		}
 	}

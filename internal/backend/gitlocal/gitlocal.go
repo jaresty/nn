@@ -264,6 +264,7 @@ func (b *Backend) List() ([]*note.Note, error) {
 				}
 				notes = append(notes, n)
 			}
+			installAliases(notes)
 			return notes, nil
 		}
 		return nil, fmt.Errorf("gitlocal.List: %w", err)
@@ -276,7 +277,21 @@ func (b *Backend) List() ([]*note.Note, error) {
 		}
 		notes = append(notes, n)
 	}
+	installAliases(notes)
 	return notes, nil
+}
+
+// installAliases builds and installs the notebook-defined alias expansion table
+// from the loaded corpus so tokenize-based search and similarity expand aliases.
+// A duplicate-alias conflict leaves the previously installed table unchanged
+// rather than breaking listing; the conflict surfaces through search behavior and
+// dedicated validation rather than blocking every List call.
+func installAliases(notes []*note.Note) {
+	table, err := note.BuildAliases(notes)
+	if err != nil {
+		return
+	}
+	note.SetAliases(table)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
