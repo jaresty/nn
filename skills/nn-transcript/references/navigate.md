@@ -19,8 +19,11 @@ does not restate them.
    Read only Tier-0/1 signals — always present, no inference:
    - `cost` / `subtree_cost` — token counts, with `cost_status` / `subtree_cost_status` authority:
      complete is measured, unavailable is unknown, partial is a lower bound (*audit*).
-   - `status` — active vs completed.
+   - `status` — producer lifecycle state, not task success; an empty value is unavailable.
    - `parent_id`, `started`, and `ended` — recorded parentage and times (*recover context*).
+   - For Pi, interpret `evidence_scope` and `terminal_record_count` under the core's lifecycle
+     contract before combining timestamps with usage. Cumulative usage and last-run time are
+     not interchangeable scopes.
 
    Draw the spawn DAG with box-drawing branches, marking each node by type and cost per the core
    grammar; emphasize the costly subtree, collapse boring repetition. **Do not infer Tier-2

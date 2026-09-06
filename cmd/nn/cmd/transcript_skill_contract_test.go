@@ -92,8 +92,10 @@ func TestEmbeddedTranscriptSkillJSONFieldContract(t *testing.T) {
 	fields(summary["cost"], "status", "total_tokens input_tokens output_tokens cache_read_tokens cache_creation_tokens measured_agents unavailable_agents", "")
 	fields(summary["topology"], "", "root_count edge_count max_depth max_children", "")
 	fields(first(summary["agent_types"]), "type", "count", "")
-	fields(first(decode("tree", session, "--json")), "id parent_id type started ended status result cost_status subtree_cost_status",
+	treeRow := first(decode("tree", session, "--json")).(map[string]any)
+	fields(treeRow, "id parent_id type started ended status result cost_status subtree_cost_status",
 		"cost subtree_cost input_tokens output_tokens cache_read_tokens cache_creation_tokens", "")
+	fields(treeRow["evidence_scope"], "status timestamps cost subtree_cost", "terminal_record_count", "")
 	page := decode("show", session, "ROOT", "--json")
 	fields(page, "snapshot mode", "page pages next_page", "")
 	fields(first(page.(map[string]any)["segments"]), "text", "segment segments", "")
@@ -105,8 +107,8 @@ func TestEmbeddedTranscriptSkillJSONFieldContract(t *testing.T) {
 func TestEmbeddedTranscriptSkillEvidenceBoundary(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
 	for name, required := range map[string][]string{
-		"SKILL.md":               {"--cursor", "tree_preview", "total_cost", "cost_status", "subtree_cost_status", "token counts, not currency", "exact topology requires", "summary.cost.status", "topology_status", "omitted_agent_count", "summary: null"},
-		"references/navigate.md": {"token counts", "cost_status", "subtree_cost_status", "parent_id", "started", "ended"},
+		"SKILL.md":               {"--cursor", "tree_preview", "total_cost", "cost_status", "subtree_cost_status", "token counts, not currency", "exact topology requires", "summary.cost.status", "topology_status", "omitted_agent_count", "summary: null", "evidence_scope", "last_terminal_record", "retained_sidechain_history"},
+		"references/navigate.md": {"token counts", "cost_status", "subtree_cost_status", "parent_id", "started", "ended", "evidence_scope", "terminal_record_count", "not task success"},
 		"references/patterns.md": {"--cursor", "tree --json", "token counts", "summary.cost", "summary.topology", "types_truncated"},
 	} {
 		body, err := os.ReadFile(filepath.Join(root, name))

@@ -87,6 +87,22 @@ A compact summary is at most 8192 bytes; the whole listing is not byte-bounded.
 Do not fetch every tree merely to recompute available summaries; fetch selected trees for edges,
 agent identities, subtree attribution, or detail not carried by the summary.
 
+## Pi lifecycle scope
+
+Pi `tree --json` nodes include `evidence_scope`; other schemas omit this Pi-specific object.
+Its `status` is `last_terminal_record`, `background_spawn_record`, or `unavailable` for ROOT.
+Its `timestamps` is `last_terminal_record`, `root_message_history`, or `unavailable` for
+provisional children. Last means last in file order, not latest by timestamp; missing timestamps
+remain empty. Its `cost` is `retained_sidechain_history` after authenticated owned hydration,
+`root_message_history` for ROOT, or `unavailable`. Its `subtree_cost` is `subtree_aggregate`:
+that total combines the included nodes' own scopes, not a single run window.
+`terminal_record_count` counts matching producer records, including duplicates—not distinct attempts.
+
+Do not divide cumulative costs by last-run duration or label those costs as latest-run usage.
+Producer `completed` means a terminal status, not task success. Read the complete thread to assess
+outcome; never silently rewrite the producer status from prose. These provenance labels neither
+certify source completeness nor replace `cost_status` / `subtree_cost_status` authority.
+
 ## Discovery contract
 
 - **Tier 1 — MUST copy through** from `ls --json`: `session`, `schema`, observed `total_cost`,

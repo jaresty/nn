@@ -16,15 +16,16 @@ import (
 
 // agent is one node of the normalized spawn-DAG relation (ADR-0042).
 type agent struct {
-	ID                string `json:"id"`
-	ParentID          string `json:"parent_id"`
-	Type              string `json:"type"`
-	Started           string `json:"started"`
-	Ended             string `json:"ended"`
-	Cost              int    `json:"cost"`
-	SubtreeCost       int    `json:"subtree_cost"`
-	CostStatus        string `json:"cost_status"`
-	SubtreeCostStatus string `json:"subtree_cost_status"`
+	EvidenceScope     *agentEvidenceScope `json:"evidence_scope,omitempty"`
+	ID                string              `json:"id"`
+	ParentID          string              `json:"parent_id"`
+	Type              string              `json:"type"`
+	Started           string              `json:"started"`
+	Ended             string              `json:"ended"`
+	Cost              int                 `json:"cost"`
+	SubtreeCost       int                 `json:"subtree_cost"`
+	CostStatus        string              `json:"cost_status"`
+	SubtreeCostStatus string              `json:"subtree_cost_status"`
 	// Typed token components — kept separate because their economics differ
 	// sharply (cache_read is ~cheap, output is ~expensive); a flat total hides
 	// whether a costly-looking thread was really expensive.
@@ -34,6 +35,16 @@ type agent struct {
 	CacheCreationTokens int    `json:"cache_creation_tokens"`
 	Status              string `json:"status"`
 	Result              string `json:"result"`
+}
+
+// agentEvidenceScope names projection sources, not task outcomes or proof of
+// source completeness. Only the Pi recipe populates this additive JSON object.
+type agentEvidenceScope struct {
+	Status              string `json:"status"`
+	Timestamps          string `json:"timestamps"`
+	Cost                string `json:"cost"`
+	SubtreeCost         string `json:"subtree_cost"`
+	TerminalRecordCount int    `json:"terminal_record_count"`
 }
 
 // addUsage accumulates a usage record's typed components into the agent and
@@ -471,7 +482,10 @@ func buildPiTree(session string) ([]agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	root := &agent{ID: "ROOT", Type: "agent"}
+	root := &agent{ID: "ROOT", Type: "agent", EvidenceScope: &agentEvidenceScope{
+		Status: "unavailable", Timestamps: "root_message_history",
+		Cost: "root_message_history", SubtreeCost: "subtree_aggregate",
+	}}
 	agents := map[string]*agent{"ROOT": root}
 	// spawn-record id (a message record hosting an Agent toolCall) -> the agent
 	// that owns that record. Nested spawns live in a subagent's own records, so
@@ -526,6 +540,7 @@ func buildPiTree(session string) ([]agent, error) {
 	}
 
 	// Terminal records supersede provisional status/result, but never parentage.
+	terminalCounts := map[string]int{}
 	for _, r := range recs {
 		if r.Type == "custom" && r.CustomType == "subagents:record" {
 			var d piCustomData
@@ -540,7 +555,13 @@ func buildPiTree(session string) ([]agent, error) {
 					parent = owner
 				}
 			}
+			terminalCounts[d.ID]++
 			a := &agent{
+				EvidenceScope: &agentEvidenceScope{
+					Status: "last_terminal_record", Timestamps: "last_terminal_record",
+					Cost: "unavailable", SubtreeCost: "subtree_aggregate",
+					TerminalRecordCount: terminalCounts[d.ID],
+				},
 				ID:       d.ID,
 				Type:     d.Type,
 				Status:   d.Status,
@@ -586,6 +607,10 @@ func buildPiTree(session string) ([]agent, error) {
 			typ = "agent"
 		}
 		agents[msg.Details.AgentID] = &agent{
+			EvidenceScope: &agentEvidenceScope{
+				Status: "background_spawn_record", Timestamps: "unavailable",
+				Cost: "unavailable", SubtreeCost: "subtree_aggregate",
+			},
 			ID:       msg.Details.AgentID,
 			Type:     typ,
 			Status:   "background",
@@ -624,6 +649,7 @@ func buildPiTree(session string) ([]agent, error) {
 		}
 		if matched {
 			a.CostStatus = "complete"
+			a.EvidenceScope.Cost = "retained_sidechain_history"
 			hydrated[loc.AgentID] = true
 		}
 	}

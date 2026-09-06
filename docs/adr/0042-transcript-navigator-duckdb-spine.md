@@ -282,6 +282,30 @@ source-wide strict UTF-8 validation would be a separate ingestion-policy change,
 transport contract. These guarantees apply consistently to text and raw projections; `--raw` does
 not broaden event ownership.
 
+### Pi lifecycle and usage scope disclosure
+
+Pi `tree --json` nodes add `evidence_scope` without changing legacy fields or text output.
+Other schema recipes omit this Pi-specific object. Its fields describe existing projection sources:
+
+- `status`: `last_terminal_record`, `background_spawn_record`, or `unavailable` for ROOT.
+- `timestamps`: `last_terminal_record` for terminal children, `root_message_history` for ROOT,
+  or `unavailable` for provisional children. Last means last in file order, not maximum timestamp.
+  Scope identifies provenance, not availability or precision; missing legacy timestamps remain empty.
+- `cost`: `retained_sidechain_history` only after authenticated owned event hydration,
+  `root_message_history` for ROOT, or `unavailable` when child usage was not hydrated.
+  These labels inherit existing recipe semantics and do not certify original-source completeness.
+- `subtree_cost`: `subtree_aggregate`, combining each included node's own cost under its own scope.
+- `terminal_record_count`: number of matching producer terminal records encountered, not an inferred
+  attempt count; duplicate records remain counted. ROOT and provisional nodes normally have zero.
+
+A resumed child's cumulative usage may span more history than its last terminal record's timestamps.
+Do not calculate a rate or compare a run's usage using these incompatible windows. Producer
+`completed` is a terminal status, not evidence that the requested task succeeded; task outcome requires
+reading the complete thread and remains interpretation, never a status inferred by this recipe.
+No per-run token allocation, lifecycle repair, or task-outcome inference is introduced. The serving
+skill must disclose these distinctions; cohort summaries still aggregate own costs rather than
+reclassifying them as latest-run usage.
+
 ### Bounded authoritative discovery summaries
 
 Every `ls --json` row adds `summary`, computed from the same un-repaired agent slice already built
