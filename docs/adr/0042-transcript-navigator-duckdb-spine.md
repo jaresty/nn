@@ -227,6 +227,29 @@ This preserves the pure-Go, no-cgo spine untouched and keeps DuckDB escape-hatch
 visual layer is entirely additive and lives in the skill: no new dependency, no spine
 rendering code, no rearchitecture.
 
+### `:enter` is a navigable view, not an annotated node
+
+The `:enter` view is a positioned navigation surface (substance + structure + direction), not a
+flat list of dimensions (which is a map with no substance or direction). It is composed by the
+skill from the spine's JSON + Tier-2 inference, governed by three rules:
+
+- **Salience** picks the 2–3 most interesting dimensions:
+  `score = (deviation + outlier + surprise) × lens_weight`, dropping any dimension with
+  deviation=0 AND outlier=0 (the drop rule is what removes the boring list). Deterministic
+  signals (outlier, cost) come from the spine; interpretive ones (drift, groundedness, surprise)
+  from the LLM.
+- **Encoding** draws each pick in its natural geometry with a single layout backbone plus
+  non-colliding marks: layout-consuming encodings (containment, X/Y, adjacency) are mutually
+  exclusive as the backbone; mark-only encodings (color, width, fill, arrows) attach to distinct
+  channels. Backbone = highest-salience layout dimension, else the deterministic spawn tree.
+- **Pivots** make every labeled feature an enterable move that names its relation to the current
+  subject (explains, caused-by, contains, contrasts, then). A pivot must clear the drop rule
+  (never pivot to a boring dimension). `contains` drills to a child node; every other relation
+  reframes the same node around the new subject dimension, keeping a breadcrumb.
+
+This keeps the spine deterministic (data only) and locates the navigation grammar in the skill,
+consistent with the LLM-composed spatial-ASCII decision above.
+
 ## Consequences
 
 - `nn` stays pure-Go and small; DuckDB becomes a named, doctor-checked prerequisite.

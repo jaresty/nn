@@ -180,27 +180,66 @@ costly subtree; collapse uninteresting repetition. Example:
 └─🔵 abc616  [nn-capture]  $1.7k ▏
 ```
 
-### `:enter` dimension diagram (from `show` + your Tier-2 inference)
+### `:enter` — a NAVIGABLE dimension view (not a flat list)
 
-This is the interpretation-heavy view. After reading the thread, infer 2–4 salient dimensions,
-tag each by grammar, and draw the entered node with its dimensions arranged spatially and
-visually treated. Position/connection come from the spine (fixed); appearance/emphasis are your
-discovery. Example for an entered thread:
+`:enter` is a positioned navigation view, composed by you from `show` + your Tier-2 inference.
+A flat list of every dimension is wrong — it is a map with no substance or direction. The view
+must carry all three: substance (what the thread means), structure (the drawn geometry), and
+direction (labeled moves). Three rules build it.
+
+**1. Salience — pick the 2–3 most interesting dimensions.** A dimension is interesting in
+proportion to how much it would change the viewer's model of the thread:
 
 ```
-        ┌─────────────────────────────┐
-   🟦   │  a7665a  ·  nn-capture       │  ← type (shape/label)
-  spawn │  purpose: browser-demo shots │
-   ↑    └─────────────────────────────┘
-        cost  ██▏ $24.5k                  ← appearance: width = cost
-        🟢 groundedness: high (real URLs, node snippet)
-        🟢 instruction-drift: none (did the screenshot task)
-        🟡 friction: one interrupted tool call
+score(dim) = (deviation + outlier + surprise) × lens_weight(dim)      each component 0–2
+  deviation : how far from its expected baseline (drift vs spawn prompt; cost vs sibling median)
+  outlier   : how extreme vs SIBLING agents (deterministic, from tree --json)
+  surprise  : bonus if it CONTRADICTS what the overview implied
+  lens_weight: ×2 for the current lens's dimensions (debug/audit/recover/harvest)
 ```
 
-Never move node position or invent connection types when drawing — only appearance and
-emphasis are yours (see the discovery boundary above). If a thread needs a new *position*
-dimension, surface it to the human, do not draw it silently.
+Pick the top 2–3, **but drop any dimension with deviation=0 AND outlier=0** — a dimension that
+neither departs from baseline nor stands out is never drawn, even under a matching lens. This
+drop rule is what kills the boring list. (Outlier/cost signals are deterministic from the JSON;
+drift/groundedness/surprise are your Tier-2 read.)
+
+**2. Encoding — draw each in its natural geometry, one backbone + marks.** Encodings split:
+*layout-consuming* (mutually exclusive as the backbone): containment (scope), X/Y (time×
+hierarchy), adjacency (siblings); *mark-only* (coexist on distinct channels): color (tension/
+drift), width (cost), fill (groundedness), arrows (flow/pivots). **Backbone = the highest-
+salience layout-consuming pick**; if the top pick is mark-only, backbone is the highest-scored
+layout dim, else the deterministic spawn tree. Marks attach to distinct channels so several
+coexist without collision. Example — salience picked {scope, cost, drift}:
+
+```
+┌─[scope]────────────────────────────────── 🔴 [drift] ─┐   backbone = containment
+│ a7665a · nn-capture        [cost] ██████▏ $24k        │   cost = width, drift = color
+│  contains:                                            │
+│  ┌─ child-1 ▏$0.4k 🟢 ┐   ┌─ child-2 ▏$0.3k 🟢 ┐      │   nested = scope; each enterable
+│  └────────────────────┘   └────────────────────┘      │
+└────────────────────────────────────────────────────────┘
+```
+
+**3. Pivots — every labeled feature is an enterable move, each naming its relation.** For the
+drawn subject A, offer 1–3 pivots to a dimension B that stands in a **named relation** to A on
+this thread *and* clears the drop rule (never pivot to a boring dimension). Relations: **explains**
+(cost→re-derivation), **caused-by** (drift→pivots), **contains** (scope→children), **contrasts**
+(cost→sibling-cost), **then** (phase1→phase2).
+
+```
+enter → [scope] contains: descend into a child
+        [cost]  explains: re-derivation broke the cache  ·  contrasts: 10× its siblings
+        [drift] caused-by: the pivot at turn 4
+```
+
+Taking a pivot keeps the old subject as a breadcrumb ("from [cost] via explains →") and promotes
+B to subject with its geometry. **`contains` DRILLS (child node); every other relation REFRAMES
+(same node, new subject).** That is the whole grammar: every move is a labeled pivot; each keeps
+a breadcrumb to walk back.
+
+Never move node position or invent connection types when composing — only appearance and
+emphasis are yours (the discovery boundary). If a thread needs a new *position* dimension,
+surface it to the human, do not draw it silently.
 
 ### 5. Lenses (emphasis)
 
