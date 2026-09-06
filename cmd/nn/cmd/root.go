@@ -82,6 +82,7 @@ Workflow guidance is embedded in the binary:
 		newIndexCmd(state),
 		newCaptureCmd(state),
 		newMediaCmd(state, newProductionMediaService()),
+		newTranscriptCmd(state),
 		newSkillsCmd(),
 		newInstallCmd(),
 		newInstallSkillsCmd(),
