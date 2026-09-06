@@ -82,7 +82,16 @@ func TestEmbeddedTranscriptSkillJSONFieldContract(t *testing.T) {
 		}
 		return rows[0]
 	}
-	fields(first(decode("ls", dir, "--json")), "session path modified schema tree_preview cursor", "agent_count total_cost", "")
+	lsRow := first(decode("ls", dir, "--json")).(map[string]any)
+	fields(lsRow, "session path modified schema tree_preview cursor", "agent_count total_cost", "")
+	summary, ok := lsRow["summary"].(map[string]any)
+	if !ok {
+		t.Fatal("ASSERT_TRANSCRIPT_SKILL_JSON_FIELDS: summary must be an object")
+	}
+	fields(summary, "topology_status", "distinct_agent_types omitted_type_count omitted_agent_count", "types_truncated")
+	fields(summary["cost"], "status", "total_tokens input_tokens output_tokens cache_read_tokens cache_creation_tokens measured_agents unavailable_agents", "")
+	fields(summary["topology"], "", "root_count edge_count max_depth max_children", "")
+	fields(first(summary["agent_types"]), "type", "count", "")
 	fields(first(decode("tree", session, "--json")), "id parent_id type started ended status result cost_status subtree_cost_status",
 		"cost subtree_cost input_tokens output_tokens cache_read_tokens cache_creation_tokens", "")
 	page := decode("show", session, "ROOT", "--json")
@@ -96,9 +105,9 @@ func TestEmbeddedTranscriptSkillJSONFieldContract(t *testing.T) {
 func TestEmbeddedTranscriptSkillEvidenceBoundary(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
 	for name, required := range map[string][]string{
-		"SKILL.md":               {"--cursor", "tree_preview", "total_cost", "cost_status", "subtree_cost_status", "token counts, not currency", "exact topology requires"},
+		"SKILL.md":               {"--cursor", "tree_preview", "total_cost", "cost_status", "subtree_cost_status", "token counts, not currency", "exact topology requires", "summary.cost.status", "topology_status", "omitted_agent_count", "summary: null"},
 		"references/navigate.md": {"token counts", "cost_status", "subtree_cost_status", "parent_id", "started", "ended"},
-		"references/patterns.md": {"--cursor", "tree --json", "token counts"},
+		"references/patterns.md": {"--cursor", "tree --json", "token counts", "summary.cost", "summary.topology", "types_truncated"},
 	} {
 		body, err := os.ReadFile(filepath.Join(root, name))
 		if err != nil {

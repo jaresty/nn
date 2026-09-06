@@ -30,17 +30,19 @@ tiers of each, rather than skimming a fragment of every session.
 1. **Aggregate only deterministic fields the cohort actually carries (cheap, no inference).**
    From the swept `ls --json` (the cohort is the front door's one page; page further back with
    `ls --json --cursor <last-row.cursor>` with the same directory/filter for a wider window),
-   use session id, schema, `agent_count`,
-   `total_cost`, and `tree_preview`. Do not claim typed cost, exact depth, or agent-type frequency
-   from `ls`; those require `tree --json` for the selected sessions. Costs are token counts:
-   treat `total_cost` as a provisional discovery signal, not economic cost or complete accounting.
-   Fetch tree authority before comparing costs; do not rank unavailable child costs as zero or
-   partial subtree costs as exact.
+   use session id, schema, `agent_count`, and the bounded summaries described in the core.
+   `summary.cost` provides typed token counts and authority; `summary.topology` provides complete
+   depth/width aggregates when its status allows them. Returned type frequencies are exact, but
+   `types_truncated` and omission counts prohibit treating missing entries as absent.
+   Null summaries are unavailable, not empty sessions. Do not rank unavailable costs as zero or
+   partial totals as exact. Fetch `tree --json` only for actual edges, individual agents, subtree
+   attribution, or uncapped type identities—not merely to recompute available summaries.
 
    Report the supported deterministic patterns first, with their field provenance.
 
 2. **Select a small sample that earns Tier-2** — observed-token candidates, a spread across the
-   time range (recent + older), and structural outliers established from `tree --json` (deep/wide).
+   time range (recent + older), and structural outliers established from complete `summary.topology`
+   metrics (deep/wide). Fetch `tree --json` when the proposed distinction requires actual edges.
    Failure-based selection requires event evidence from `show`, not preview inference.
    **State the sample and why each session is in it.** If a `proposed pattern` was
    carried in from the front door, its named session ids are automatically in the sample. Keep it
@@ -80,8 +82,9 @@ schema is cracked, capture the recipe as an `nn` note for reuse.
 
 ## Worked example
 
-Cohort of 8 sdk-cli sessions. After fetching `tree --json` for each session, three have high
-output-plus-cache-creation token counts with complete accounting and debrief-chain topology;
+Cohort of 8 sdk-cli sessions. The discovery summaries identify three with high
+output-plus-cache-creation token counts and complete accounting. Fetching `tree --json` for those
+three establishes debrief-chain topology;
 a `proposed pattern` `↻×3 re-derive daily-note boundary (b71c, a3f2, 9f2a)` was
 carried in from the front door.
 

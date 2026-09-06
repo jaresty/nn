@@ -282,6 +282,40 @@ source-wide strict UTF-8 validation would be a separate ingestion-policy change,
 transport contract. These guarantees apply consistently to text and raw projections; `--raw` does
 not broaden event ownership.
 
+### Bounded authoritative discovery summaries
+
+Every `ls --json` row adds `summary`, computed from the same un-repaired agent slice already built
+for that row. Existing fields, text output, JSON array shape, ordering, and cursor custody remain
+unchanged. No second tree read is needed. Failed tree construction yields `summary: null`; legacy
+zero counters and `(tree unavailable)` are not evidence of an empty or measured-zero session.
+
+A non-null summary contains:
+
+- `cost`: `total_tokens`, `input_tokens`, `output_tokens`, `cache_read_tokens`,
+  `cache_creation_tokens`, `measured_agents`, `unavailable_agents`, and `status`. Sum each agent's
+  **own** fields once, never subtree totals; `total_tokens` equals the legacy `total_cost`.
+  `status` is `complete` when all agents in a nonempty slice have `cost_status: complete`,
+  `unavailable` when none do, and `partial` otherwise. Missing/unrecognized own authority counts
+  as unavailable. These statuses inherit the schema recipe's measurement semantics; they do not
+  newly certify source completeness. Partial totals are lower bounds, not exact rankings.
+- `topology_status`: `complete` for a rooted forest with nonempty unique IDs, resolved parents,
+  and no cycles; otherwise `invalid`. This checks parentage only, not timestamps or source
+  completeness. `topology` is null when invalid; otherwise it contains `root_count`, `edge_count`,
+  `max_depth` (edges from a root, root depth zero), and `max_children` (direct children).
+  An empty slice has zero for all four metrics. No silent repair is performed for summaries.
+- `agent_types`: at most 16 `{type, count}` entries, sorted count-descending then label-ascending.
+  Each retained type label is at most 64 UTF-8 bytes. Longer labels are omitted, not shortened;
+  the empty label represents an unknown recorded type. Entries are exact frequencies across all
+  agents, including ROOT. `distinct_agent_types`, `omitted_type_count`, `omitted_agent_count`,
+  and `types_truncated` disclose the entire omitted tail, including oversized labels. Retain the
+  first 16 eligible entries; do not mistake omission for absence.
+
+The compact JSON encoding of a non-null summary is at most 8192 bytes, including worst-case string
+escaping. This is a summary bound, not a bound on the whole row, cohort, or pretty-printed transport.
+No agent IDs, result strings, or event bodies are included. Summaries support aggregate cohort
+comparisons without full tree transport; exact edges, agent selection, subtree attribution, and
+uncapped type identities still require `tree --json`. Behavioral claims still require events.
+
 ### Higher-level views get deterministic dimensions eagerly, inferred dimensions on demand
 
 The zoom-out overview needs *aggregate* dimension analysis — signals lit across many agents

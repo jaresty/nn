@@ -18,14 +18,15 @@ import (
 
 // sessionRow is one entry of the recent-sessions menu (the navigator front door).
 type sessionRow struct {
-	Cursor      string `json:"cursor"`
-	Session     string `json:"session"`
-	Path        string `json:"path"`
-	Modified    string `json:"modified"`
-	Schema      string `json:"schema"`
-	AgentCount  int    `json:"agent_count"`
-	TotalCost   int    `json:"total_cost"`
-	TreePreview string `json:"tree_preview"`
+	Cursor      string          `json:"cursor"`
+	Session     string          `json:"session"`
+	Path        string          `json:"path"`
+	Modified    string          `json:"modified"`
+	Schema      string          `json:"schema"`
+	AgentCount  int             `json:"agent_count"`
+	TotalCost   int             `json:"total_cost"`
+	TreePreview string          `json:"tree_preview"`
+	Summary     *sessionSummary `json:"summary"`
 }
 
 func newTranscriptLsCmd() *cobra.Command {
@@ -210,6 +211,7 @@ func listSessionsPage(dir string, limit int, before time.Time, cursor string) ([
 				row.TotalCost += a.Cost
 			}
 			row.TreePreview = miniTree(agents)
+			row.Summary = summarizeSession(agents)
 		} else {
 			row.TreePreview = "(tree unavailable)"
 		}
