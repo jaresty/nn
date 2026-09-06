@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 )
@@ -981,18 +982,29 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 			// reading — accepts the real out-of-session pi-subagents-* location and
 			// rejects traversal/symlink-escape/mismatched-id/arbitrary files.
 			if safe := validatePiSidechainPath(loc.Path, agentID); safe != "" {
-				if side, err := readRecords(safe); err == nil && len(side) > 0 {
-					if terminal != nil {
-						fmt.Fprintf(&b, "type: %s\nstatus: %s\n", terminal.Type, terminal.Status)
-					}
-					if raw {
-						for _, r := range side {
-							fmt.Fprintf(&b, "%s\n", string(r.Message))
+				if side, err := readRecords(safe); err == nil {
+					// An authenticated filename does not establish event ownership.
+					// Match the same explicit owner used for sidechain usage attribution;
+					// never apply the main-stream empty-owner-to-ROOT convention here.
+					var owned []rawRecord
+					for _, r := range side {
+						if isPiEventRecord(r) && r.AgentID == agentID {
+							owned = append(owned, r)
 						}
-					} else {
-						renderMeaningfulEvents(&b, side)
 					}
-					return b.String(), nil
+					if len(owned) > 0 {
+						if terminal != nil {
+							fmt.Fprintf(&b, "type: %s\nstatus: %s\n", terminal.Type, terminal.Status)
+						}
+						if raw {
+							for _, r := range owned {
+								fmt.Fprintf(&b, "%s\n", string(r.Message))
+							}
+						} else {
+							renderMeaningfulEvents(&b, owned)
+						}
+						return b.String(), nil
+					}
 				}
 			}
 			if terminal == nil {
@@ -1063,7 +1075,11 @@ func textContent(raw json.RawMessage) string {
 			// tool CALL: keep the name and a brief arg preview; drop nothing else.
 			arg := strings.TrimSpace(string(bl.Input))
 			if len(arg) > 120 {
-				arg = arg[:120] + "…"
+				end := 120
+				for end > 0 && !utf8.RuneStart(arg[end]) {
+					end--
+				}
+				arg = arg[:end] + "…"
 			}
 			parts = append(parts, fmt.Sprintf("→ %s(%s)", bl.Name, arg))
 		case "tool_result":

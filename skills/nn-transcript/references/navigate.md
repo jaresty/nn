@@ -37,6 +37,11 @@ does not restate them.
    `segment` ordinal, and verify all `segments` ordinals are present before interpreting events.
    Never mix snapshots or make event-derived claims from a partial page set. The reconstruction is
    exactly the legacy text `show` projection for the selected meaningful/raw mode.
+   The snapshot binds the request and projected output, not original source bytes. JSON decoding
+   may replace malformed source UTF-8 with U+FFFD; JSON pagination rejects invalid projected UTF-8.
+   Resolved Pi sidechain events require an explicit matching `agentId`, including in `--raw` mode;
+   foreign or missing-owner records are not attributable detail. If none match, metadata fallback
+   means event detail is unavailable, not that the agent did no work.
 
    Answer one question: **what is worth attending to in THIS thread?** Read the events and
    propose **2–4** salient dimensions, drawing from this palette or naming a novel one the thread

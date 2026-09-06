@@ -221,13 +221,35 @@ output, so changed relevant evidence or mismatched arguments fail stale rather t
 
 Every compact encoded page, including its trailing newline and JSON escaping, is at most 48,000
 bytes. Packing measures actual encoded bytes. Segments split only at UTF-8 rune boundaries; invalid
-UTF-8 is rejected. Every page repeats snapshot, page count, and mode; `next_page` is zero on the
-last page. Segment boundaries and page packing are deterministic. Even empty output has one page
-and one explicit empty segment.
+UTF-8 in the projected output is rejected. Every page repeats snapshot, page count, and mode;
+`next_page` is zero on the last page. Segment boundaries and page packing are deterministic. Even
+empty output has one page and one explicit empty segment.
 
 A consumer retrieves every page under one snapshot and verifies complete ordered segments before
 making event-derived claims. This mirrors ADR-0035's lossless graph-body transport while retaining
 `show`'s existing source-selection and security semantics.
+
+#### Projection ownership and encoding boundary
+
+Path authentication is necessary but not sufficient for Pi sidechain detail. Only event records
+whose explicit `agentId` equals the requested agent are eligible, in both meaningful and raw modes.
+Foreign, missing-owner, and non-event records must not be presented as that agent's events. If no
+eligible events remain, use the existing terminal metadata or provisional unavailable fallback.
+The main transcript's established empty-owner-to-ROOT convention remains unchanged; it does not
+apply to an externally resolved sidechain.
+
+Tool-input previews retain the existing 120-byte budget but end at a UTF-8 rune boundary before
+adding the ellipsis. This corrects malformed previews for valid Unicode input in the shared renderer.
+Text and paginated output use the same corrected projection; byte compatibility does not preserve
+foreign-event attribution or invalid byte truncation as required behavior.
+
+Lossless transport means exact reconstruction of that projection, not preservation or validation
+of original source bytes. Existing JSON string decoding can replace malformed source UTF-8 with
+U+FFFD; two sources producing the same projection under the same request can share a snapshot.
+Raw modes that retain invalid bytes in the projection are rejected by JSON pagination. Adding
+source-wide strict UTF-8 validation would be a separate ingestion-policy change, not part of this
+transport contract. These guarantees apply consistently to text and raw projections; `--raw` does
+not broaden event ownership.
 
 ### Higher-level views get deterministic dimensions eagerly, inferred dimensions on demand
 
