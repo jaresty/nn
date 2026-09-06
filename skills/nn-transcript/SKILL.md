@@ -1,0 +1,154 @@
+---
+name: nn-transcript
+description: Use when a human wants to explore subagent execution transcripts (Claude Code, sdk-cli, pi) — browse recent runs, see the spawn tree, find where a run went wrong, recover context, audit cost, harvest ideas, OR find recurring patterns across many runs (drift, re-derivation, cache burn, stalls, failures). One front door serves both. Load with `nn skills get nn-transcript`.
+when_to_use: >
+  Whenever the question is about agent/subagent transcripts, at either scale — start at the front door; it serves both.
+  ONE session: "look at my agent runs", "what happened in that session", "see the spawn tree",
+  "why did that subagent go wrong", "find where a run went wrong", "recover context after being away",
+  "audit cost", "which subtree was expensive", "harvest an idea from a thread".
+  ACROSS sessions: "where do my runs consistently drift", "which runs burn the most real cost",
+  "how deep do my spawn trees get", "what subagent types recur", "recurring cost shapes / drift /
+  re-derivation / failure modes across runs".
+  Load with `nn skills get nn-transcript`.
+requires: nn CLI (nn transcript spine, ADR-0042); DuckDB only for the unknown-schema escape hatch.
+---
+
+# nn-transcript
+
+The **discovery layer** over the `nn transcript` spine (ADR-0042). The spine
+(`ls`/`scan`/`tree`/`show`/`doctor`) is deterministic and dependency-free; this compact core
+owns the **front door**, the **visual grammar**, the **discovery contract**, the **dispatch
+map**, and the **loop invariant**, and drives the spine through a single entry into two
+branches — **navigate** one session, or **sweep patterns** across sessions. Detailed action
+semantics live in lazy references and are binding, not optional background reading.
+
+**Core principle (the `:enter` boundary, applied everywhere): geography is fixed and
+deterministic; the LLM discovers only appearance and emphasis.** Session identity, cost, agent
+count, and tree shape come from the spine unchanged. What the LLM discovers is which standouts
+to light, how to emphasize them, and which lens to view through — never the numbers or positions.
+
+## The front door (start here, always)
+
+Sweep the recent cohort and draw what stands out:
+
+```bash
+nn transcript ls <dir> --json --limit <N>   # bounded to ONE page — this page IS the cohort
+```
+
+Default `<dir>` is the harness transcript root (e.g. `~/.claude/projects/<project-slug>/`).
+Draw an **LLM-composed** standout view from the JSON (never a fixed template), then present the
+picker. The cohort is **replaced, not accumulated** on every re-sweep.
+
+## Visual grammar (stated once; both branches use it, references never restate it)
+
+Color-relay markers survive markdown/relay. Reuse the `:enter` grammar, plus two cross-session marks:
+
+| Channel | Encodes | Values | Source |
+|---|---|---|---|
+| color marker | emphasis / tension | 🔴 tension · 🟠 expensive · 🟡 caution · 🟢 healthy · 🔵 lateral · 🟦 structural | **discovered** |
+| width / box | cost magnitude | bar ∝ cost | **fixed** (`ls` cost) |
+| shape / label | node type | session · agent · type-name | **fixed** |
+| branch lines `├─ └─ │` | connection | spawn/tree edges | **fixed** |
+| `◈` | outlier-vs-cohort | departs from *this* swept cohort | **discovered** |
+| `↻×N` | recurring-across-N | a shape in N named sessions | **discovered, deterministic only** |
+
+**`↻×N` tightening:** at the front door, `↻×N` may assert **only `ls`-derivable deterministic
+shapes** (repeated cost shape, repeated agent-type, repeated depth) and must name the N session
+ids. Any **behavioral** recurrence (drift, re-derivation, groundedness) is a **proposal to
+sweep** (`◈ … sweep to check?`), never a stated claim — confirming it requires the patterns branch.
+
+## Discovery contract
+
+- **Tier 1 — MUST copy through** from `ls --json`: session id, cost, agent count, tree shape.
+  Every drawn mark must attach to a real listed session.
+- **Tier 2 — MAY discover**: which standouts, emphasis/color, `◈` (relative to current cohort),
+  `↻×N` (deterministic shapes only, with named ids).
+- **Tier 3 — MUST NOT**: invent a session/cost/edge absent from `ls`; assert any Tier-2
+  behavioral interpretation (drift, groundedness, "failed") from the front door alone; move
+  geography. Behavioral claims require escalating to a real read (`tree` → `show`).
+- **On violation**: a drawn id not in the sweep, or a width misrepresenting cost → void the
+  draw, re-render from `ls`. `↻×N` without N named ids → downgrade to a single observation. A
+  front-door behavioral claim with no session read → restate as a proposal.
+
+## Dispatch — the picker routes into two branches
+
+Carried state: **cohort** (the swept page), **session id** (a chosen row), **proposed pattern**
+(an `↻×N`/`◈` line + its named ids).
+
+```
+front door (sweep → draw → picker)
+ ├ [enter a session] → NAVIGATE branch   (reference: navigate)
+ │      tree overview → :enter one thread → discover 2–4 dimensions → lenses
+ ├ [sweep a pattern]  → PATTERNS branch   (reference: patterns)
+ │      patterns = NAVIGATE applied across the cohort:
+ │      sample whole sessions → drive the navigate descent per sample →
+ │      infer ONE Tier-2 dimension → synthesize the cross-session claim → harvest
+ ├ [look further back] → re-sweep `ls --before <oldest.modified>` → new cohort → picker
+ └ [End] → stop; summarize where it landed
+```
+
+## Binding lazy-reference rule
+
+Before executing any applicable branch action, MUST fetch every owning reference, unless that
+exact reference from this exact skill version has already been fetched in the current
+uncompacted context:
+
+```bash
+nn skills get nn-transcript --reference <name>
+```
+
+Discover the stable reference inventory and applicability when needed:
+
+```bash
+nn skills get nn-transcript --list-references
+```
+
+- `[enter a session]` → fetch reference **navigate** before descending.
+- `[sweep a pattern]` → fetch reference **patterns** before sweeping.
+
+The grammar and contract above are shared — references point back here and never restate them.
+
+## Loop invariant (never silently converges)
+
+- The **picker is re-presented after every step**: after the front-door draw, after a `:enter`
+  thread step, after a patterns synthesis, after a `look further back` re-sweep, after a harvest.
+- **End is the only exit.** The skill never stops because it judges the goal "reached."
+- Every picker contains: the **discovered moves** + a **steer-with-your-own-words** affordance +
+  the explicit **End** option.
+
+## Harvest (the capture bridge)
+
+Whenever navigation or a sweep surfaces a durable, non-derivable finding, capture it with
+provenance back to the thread/session:
+
+```bash
+nn new --quick --title "<finding restated as a claim>"
+```
+
+Apply the durability test: capture only what would change behavior in a future session with no
+memory of this one.
+
+## Escape hatch (unknown schema) & the lossy relation
+
+When `scan` reports `unknown`, the spine has no recipe — compose one with DuckDB (`nn transcript
+doctor` first), and **validate the join with the four assertions** before trusting output (see
+reference **patterns** for the assertions; they apply to any reconstructed relation). The `tree`
+relation is the overview *projection* (lossy by design); use `show <session> <agent-id>`
+(`--raw`) for exactly what happened.
+
+## Success criteria (a reviewer can check a transcript against these)
+
+- Navigation always begins at the front door (`ls --json`, bounded to one page = the cohort).
+- Every drawn mark attaches to a real swept session; no invented ids/costs/edges.
+- Front-door `↻×N` asserts only deterministic shapes; behavioral recurrence appears only as a
+  proposal until the patterns branch reads the named sessions.
+- Every non-End step is followed by a picker containing discovered-moves + steer + End; the only
+  picker not followed by another is the one whose End was selected.
+- Grammar + contract appear exactly once (here); branch references never restate them.
+- Every harvested finding is a durable claim with provenance.
+
+## Write to disk
+
+This skill installs at `skills/nn-transcript/SKILL.md` (project-scoped) with its references under
+`skills/nn-transcript/references/`. It replaces `nn-transcript-navigate` and
+`nn-transcript-patterns`.

@@ -21,12 +21,39 @@ const (
 	schemaUnknown    = "unknown"
 )
 
+// transcriptJobHelp is the curated, job-oriented help printed for bare `nn transcript`.
+// It is a static signpost (no LLM inference): it groups subcommands by job, names `ls`
+// as the front door, and points cross-session pattern work at the LLM-driven skill.
+const transcriptJobHelp = `nn transcript — explore agent execution transcripts (ADR-0042)
+
+Start here:
+  ls        browse recent sessions, most-recent-first, each with a mini subagent-tree
+
+Navigate one session:
+  tree      spawn DAG + cost/status for a session
+  show      one agent's events (--raw for the full record)
+
+Utility:
+  scan      classify transcript files by schema
+  doctor    check duckdb (escape-hatch only)
+
+Tip: cross-session patterns (recurring drift/cost/stalls) are LLM-driven —
+     ask your agent, or load ` + "`nn skills get nn-transcript`" + `.
+`
+
 // newTranscriptCmd is the parent for the subagent-transcript navigator (ADR-0042).
 // The spine is pure-Go with zero external dependency; DuckDB is escape-hatch-only.
 func newTranscriptCmd(_ *rootState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "transcript",
 		Short: "Navigate subagent execution transcripts (ADR-0042)",
+		Long:  transcriptJobHelp,
+		// Bare `nn transcript` prints the curated job-oriented help instead of
+		// cobra's default alphabetized command list. Subcommands are unaffected.
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Fprint(cmd.OutOrStdout(), transcriptJobHelp)
+			return nil
+		},
 	}
 	cmd.AddCommand(newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd())
 	return cmd

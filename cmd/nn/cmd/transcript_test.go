@@ -122,3 +122,26 @@ func TestTranscriptDoctorReportsDuckDB(t *testing.T) {
 		t.Errorf("expected escape-hatch note in doctor output:\n%s", out)
 	}
 }
+
+// Assertion [7]: bare `nn transcript` (no subcommand) prints curated job-oriented help —
+// names ls as the start, groups by job, and points at the patterns skill for cross-session work.
+func TestTranscriptBareCommandPrintsJobHelp(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("transcript")
+	if err != nil {
+		t.Fatalf("nn transcript (bare): %v", err)
+	}
+	low := strings.ToLower(out)
+	// names ls as the start
+	if !strings.Contains(low, "ls") || !strings.Contains(low, "start here") {
+		t.Errorf("expected bare help to name ls under a 'Start here' heading:\n%s", out)
+	}
+	// job-grouping heading (navigate one session)
+	if !strings.Contains(low, "navigate one session") {
+		t.Errorf("expected a job-grouping heading in bare help:\n%s", out)
+	}
+	// patterns tip pointing at the skill
+	if !strings.Contains(low, "pattern") || !strings.Contains(low, "nn-transcript") {
+		t.Errorf("expected a cross-session patterns tip naming the nn-transcript skill:\n%s", out)
+	}
+}
