@@ -185,8 +185,7 @@ func classifyTranscript(path string) string {
 			// pi session header record.
 			return schemaPi
 		}
-		if rec.IsSidechain && rec.AgentID != "" && hasPiMessageShape(rec.Message) &&
-			(rec.Type == "message" || rec.Type == "assistant" || rec.Type == "user") {
+		if rec.IsSidechain && rec.AgentID != "" && hasPiMessageShape(rec.Message) && isPiEventType(rec.Type) {
 			// Pi sidechain event: the compound content signature avoids treating an
 			// arbitrary JSONL file with only agentId/isSidechain as a transcript.
 			return schemaPi

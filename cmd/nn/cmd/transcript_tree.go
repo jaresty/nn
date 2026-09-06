@@ -615,7 +615,8 @@ func buildPiTree(session string) ([]agent, error) {
 		}
 		matched := false
 		for _, sr := range side {
-			if !isPiEventRecord(sr) || sr.AgentID != loc.AgentID {
+			// Native tool results are retrievable events, not model usage evidence.
+			if !isPiEventRecord(sr) || sr.Type == "toolResult" || sr.AgentID != loc.AgentID {
 				continue
 			}
 			matched = true
@@ -789,7 +790,11 @@ func anyRecordForAgent(recs []rawRecord, agentID string) bool {
 }
 
 func isPiEventRecord(r rawRecord) bool {
-	return r.Type == "message" || r.Type == "assistant" || r.Type == "user"
+	return isPiEventType(r.Type)
+}
+
+func isPiEventType(kind string) bool {
+	return kind == "message" || kind == "assistant" || kind == "user" || kind == "toolResult"
 }
 
 // findCycleNode returns the id of a node participating in a cycle, or "".

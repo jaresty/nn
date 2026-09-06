@@ -247,6 +247,10 @@ making event-derived claims. This mirrors ADR-0035's lossless graph-body transpo
 
 #### Event modes
 
+Pi event records include `message`, `user`, `assistant`, and native top-level `toolResult` records.
+Classification and retrieval share this event-type vocabulary. Native tool results are raw event
+evidence, not model usage measurements; tool-result-only sidechain evidence leaves usage unavailable.
+
 For all Pi paths (ROOT, inline agent events, direct sidechains, and resolved sidechains), raw detail
 emits each selected event's complete message payload in order, retaining usage and tool results.
 It does not mean the outer JSONL wrapper or unrelated agents' records. Meaningful show and search
