@@ -440,7 +440,7 @@ func buildSDKCLITree(session string) ([]agent, error) {
 	return mapToSlice(agents), nil
 }
 
-// --- pi recipe: custom(subagents:record).parentId -> Agent toolCall record id
+// --- pi recipe: Agent background tool-result -> spawn owner; terminal records -> state
 
 func buildPiTree(session string) ([]agent, error) {
 	recs, err := readRecords(session)
@@ -482,17 +482,39 @@ func buildPiTree(session string) ([]agent, error) {
 		}
 	}
 
-	// subagent records
+	// Background Agent tool-results carry the child identity. Resolve their
+	// owning spawn record before terminal records are applied: terminal parentId
+	// is event sequencing and may point at a preceding completion event.
+	spawnParentByAgentID := map[string]string{}
+	for _, r := range recs {
+		if r.Type != "message" {
+			continue
+		}
+		var msg message
+		if json.Unmarshal(r.Message, &msg) != nil || msg.Details.Status != "background" || msg.Details.AgentID == "" {
+			continue
+		}
+		parent := "ROOT"
+		if owner, ok := recordOwner[r.ParentID]; ok {
+			parent = owner
+		}
+		spawnParentByAgentID[msg.Details.AgentID] = parent
+	}
+
+	// Terminal records supersede provisional status/result, but never parentage.
 	for _, r := range recs {
 		if r.Type == "custom" && r.CustomType == "subagents:record" {
 			var d piCustomData
 			_ = json.Unmarshal(r.Data, &d)
-			// parentId must resolve to a spawning Agent toolCall record owner.
-			// If it does not, preserve the dangling id so validation reports the
-			// unresolved edge rather than silently promoting the agent to a root.
-			parent := r.ParentID
-			if owner, ok := recordOwner[r.ParentID]; ok {
-				parent = owner
+			parent, ok := spawnParentByAgentID[d.ID]
+			if !ok {
+				// Older inline records may point directly at the spawning Agent call.
+				// With no authenticated spawn evidence, attach conservatively to ROOT
+				// rather than exposing a transcript event id as an agent parent.
+				parent = "ROOT"
+				if owner, found := recordOwner[r.ParentID]; found {
+					parent = owner
+				}
 			}
 			a := &agent{
 				ID:       d.ID,

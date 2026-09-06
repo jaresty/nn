@@ -152,6 +152,39 @@ func TestTranscriptTreePiParentEdge(t *testing.T) {
 	}
 }
 
+func TestTranscriptTreePiTerminalEventChainPreservesSpawnParents(t *testing.T) {
+	const assertion = "ASSERT_PI_TERMINAL_EVENT_CHAIN_IS_NOT_AGENT_PARENTAGE"
+	dir := t.TempDir()
+	session := filepath.Join(dir, "pi-terminal-chain.jsonl")
+	writeTranscriptFile(t, session,
+		`{"type":"session","version":3,"id":"01a","cwd":"/x"}`+"\n"+
+			`{"type":"message","id":"m1","parentId":"a0","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_1","name":"Agent","arguments":{}}]}}`+"\n"+
+			`{"type":"message","id":"m2","parentId":"m1","message":{"role":"toolResult","toolCallId":"call_1","toolName":"Agent","content":[{"type":"text","text":"Agent started"}],"details":{"status":"background","agentId":"agent-a","subagentType":"general-purpose"}}}`+"\n"+
+			`{"type":"message","id":"m3","parentId":"m2","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_2","name":"Agent","arguments":{}}]}}`+"\n"+
+			`{"type":"message","id":"m4","parentId":"m3","message":{"role":"toolResult","toolCallId":"call_2","toolName":"Agent","content":[{"type":"text","text":"Agent started"}],"details":{"status":"background","agentId":"agent-b","subagentType":"general-purpose"}}}`+"\n"+
+			`{"type":"custom","customType":"subagents:record","id":"completion-a","parentId":"m4","data":{"id":"agent-a","type":"general-purpose","status":"completed","result":"A"}}`+"\n"+
+			`{"type":"custom","customType":"subagents:record","id":"completion-b","parentId":"completion-a","data":{"id":"agent-b","type":"general-purpose","status":"completed","result":"B"}}`+"\n")
+	_, execute := setupNotebook(t)
+
+	out, err := execute("transcript", "tree", session, "--json", "--strict")
+	if err != nil {
+		t.Fatalf("%s: strict tree rejected event-chain records: %v", assertion, err)
+	}
+	rows := parseTreeJSON(t, out)
+	for _, id := range []string{"agent-a", "agent-b"} {
+		got, ok := rowByID(rows, id)
+		if !ok {
+			t.Fatalf("%s: missing %s in %+v", assertion, id, rows)
+		}
+		if got.ParentID != "ROOT" {
+			t.Fatalf("%s: %s parent=%q, want spawn owner ROOT", assertion, id, got.ParentID)
+		}
+		if got.Status != "completed" {
+			t.Fatalf("%s: %s status=%q, want terminal completed", assertion, id, got.Status)
+		}
+	}
+}
+
 // --- [9] claude-code inline Task (fixture-tested only) ---------------------
 
 func TestTranscriptTreeClaudeCodeInlineTask(t *testing.T) {
@@ -240,25 +273,27 @@ func TestTranscriptTreeTypedTokens(t *testing.T) {
 	}
 }
 
-// --- [11] validation: cycle is rejected -----------------------------------
+// --- [11] terminal record without spawn evidence --------------------------
 
-func TestTranscriptTreeRejectsCycle(t *testing.T) {
+func TestTranscriptTreePiTerminalWithoutSpawnUsesConservativeRoot(t *testing.T) {
 	dir := t.TempDir()
-	// pi fixture where a custom record's parentId points to a non-existent id,
-	// producing an unresolved (orphan) edge — --strict must reject.
-	session := filepath.Join(dir, "bad.jsonl")
+	session := filepath.Join(dir, "terminal-without-spawn.jsonl")
 	writeTranscriptFile(t, session,
 		`{"type":"session","version":3,"id":"01a","cwd":"/x"}`+"\n"+
 			`{"type":"custom","customType":"subagents:record","id":"c1","parentId":"does-not-exist","data":{"id":"d1","status":"completed"}}`+"\n")
 	_, execute := setupNotebook(t)
 
-	// --strict aborts on the unresolved edge (escape-hatch trust gate behavior).
-	if _, err := execute("transcript", "tree", session, "--json", "--strict"); err == nil {
-		t.Errorf("expected --strict validation error for unresolved parent edge, got nil")
+	out, err := execute("transcript", "tree", session, "--json", "--strict")
+	if err != nil {
+		t.Fatalf("strict tree should accept conservative missing-spawn parentage: %v", err)
 	}
-	// default (navigator) mode repairs the orphan and succeeds.
-	if _, err := execute("transcript", "tree", session, "--json"); err != nil {
-		t.Errorf("default tree should repair the orphan and succeed, got: %v", err)
+	rows := parseTreeJSON(t, out)
+	sub, ok := rowByID(rows, "d1")
+	if !ok {
+		t.Fatalf("expected terminal agent d1 in rows: %+v", rows)
+	}
+	if sub.ParentID != "ROOT" {
+		t.Fatalf("terminal agent without spawn evidence parent=%q, want ROOT", sub.ParentID)
 	}
 }
 
