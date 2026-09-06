@@ -257,3 +257,42 @@ func TestTranscriptTreeTextOverview(t *testing.T) {
 		t.Errorf("expected ROOT before aaa before bbb (depth order):\n%s", out)
 	}
 }
+
+// --- [13] show filters noise: no attachment dumps, no tool-result payloads ---
+
+func TestTranscriptShowFiltersNoise(t *testing.T) {
+	dir := t.TempDir()
+	session := filepath.Join(dir, "sess.jsonl")
+	writeTranscriptFile(t, session,
+		`{"type":"assistant","uuid":"root-1","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_root","name":"Task"}]}}`+"\n")
+	base := filepath.Join(dir, "sess", "subagents")
+	// an agent file with: a spawn prompt, an attachment (noise), an assistant
+	// tool_use, and a bulky tool_result (noise).
+	writeTranscriptFile(t, filepath.Join(base, "agent-aaa.jsonl"),
+		`{"type":"user","uuid":"a-0","message":{"role":"user","content":"Run the debrief protocol for the ls-clock session."}}`+"\n"+
+			`{"type":"attachment","uuid":"a-1","attachment":{"type":"deferred_tools_delta","addedNames":["WebFetch","WebSearch","mcp__chrome__click"]}}`+"\n"+
+			`{"type":"assistant","uuid":"a-2","message":{"role":"assistant","content":[{"type":"tool_use","id":"tu_1","name":"Bash","input":{"command":"nn show --global"}}]}}`+"\n"+
+			`{"type":"user","uuid":"a-3","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tu_1","content":"BULKY_RESULT_PAYLOAD_THAT_IS_NOISE"}]}}`+"\n")
+	writeTranscriptFile(t, filepath.Join(base, "agent-aaa.meta.json"),
+		`{"agentType":"nn-hooks:nn-session-debrief","toolUseId":"toolu_root"}`)
+
+	_, execute := setupNotebook(t)
+	out, err := execute("transcript", "show", session, "aaa")
+	if err != nil {
+		t.Fatalf("nn transcript show: %v", err)
+	}
+	// meaningful content is present: the spawn prompt and the tool-call name.
+	if !strings.Contains(out, "debrief protocol") {
+		t.Errorf("expected spawn prompt in show output:\n%s", out)
+	}
+	if !strings.Contains(out, "Bash") {
+		t.Errorf("expected tool-call name 'Bash' in show output:\n%s", out)
+	}
+	// noise is filtered: no attachment tool-name dump, no tool-result payload.
+	if strings.Contains(out, "deferred_tools_delta") || strings.Contains(out, "mcp__chrome__click") {
+		t.Errorf("attachment noise should be filtered from show output:\n%s", out)
+	}
+	if strings.Contains(out, "BULKY_RESULT_PAYLOAD_THAT_IS_NOISE") {
+		t.Errorf("tool-result payload should be filtered from show output:\n%s", out)
+	}
+}

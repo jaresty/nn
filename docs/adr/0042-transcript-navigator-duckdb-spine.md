@@ -3,6 +3,7 @@
 **Status:** Proposed
 **Date:** 2026-09-06
 **Revised:** 2026-09-06 (shoshin review — moved DuckDB out of the deterministic spine)
+**Revised:** 2026-09-06 (shoshin review — ALL spatial-ASCII views are LLM-composed by the skill from the spine's JSON, so each embeds interpretation; the spine does no visual rendering; not Mermaid/HTML, not flat text, not a fixed Go renderer)
 
 ## Context
 
@@ -165,6 +166,57 @@ split by tier:
 
 This keeps the overview cheap and honest: deterministic signals are trustworthy and always
 present; inferred signals are opt-in and paid for explicitly.
+
+### Visual navigation is LLM-composed, not a CLI render flag
+
+The navigator's default surface is text, but text is the **default, not the ceiling**. Two
+navigation views want *visual diagram* output:
+
+- the **session picker** — a rendered diagram per recent session (spawn-tree shape), not a
+  one-line ASCII mini-tree;
+- the **`:enter` view** — a diagram of the thread's discovered dimensions with visual
+  treatment: color encoding emphasis/tension, size encoding cost, shape encoding type, edges
+  encoding connection.
+
+The distinction is not *text vs. graphics* — it is **flat text (one-line strings, prose
+lists) vs. spatial ASCII (multi-line 2D diagrams drawn in characters, with color markers).**
+The defect in the shipped mini-tree was not that it was ASCII; it was that it was a *one-line
+string* instead of a *drawn diagram*. The visual surface is **spatial ASCII**, not Mermaid or
+HTML — this keeps the navigator relay-friendly and dependency-free, and it reuses the existing
+color-relay vocabulary (colored-circle markers: tension / lateral / structural, chosen to
+survive markdown and relay).
+
+Critically, **all** spatial-ASCII rendering — the session picker, the tree overview, and the
+`:enter` dimension diagram — is **LLM-composed by the skill layer from the spine's JSON**, not
+drawn by a fixed Go renderer. The spine performs **no visual composition**: it emits the
+`--json` normalized relation (agents, edges, cost, status) and, at most, a plain text fallback
+for non-interactive use. It does not draw spatial diagrams.
+
+The reason a fixed Go renderer is wrong — even for the deterministic skeleton — is that the
+value of the visual view is **embedded interpretation**, and interpretation must vary per view:
+which branch to emphasize, what to color (the thread that drifted, the expensive subtree),
+what to annotate (a pivot, a stall), what to collapse (the boring parts). A hardcoded renderer
+draws every session identically regardless of what is interesting about it; an LLM composing
+the diagram from the JSON draws *this* session to surface *what matters here*. Most dimensions
+worth seeing on `:enter` (instruction-drift, groundedness, pivots, purpose) are Tier-2 anyway —
+they require interpretation the spine cannot do — so the composition layer is already the LLM;
+extending it to the skeleton's layout keeps a single, consistent, interpretation-bearing
+renderer rather than splitting a dumb Go tree from a smart skill diagram.
+
+Therefore:
+
+- The **spine** emits data only: the `--json` normalized relation, plus a plain text fallback.
+  No box-drawing, no color, no layout decisions.
+- The **skill layer** composes every spatial-ASCII view from that JSON: it lays out the tree
+  with box-drawing branches, applies the color-relay markers (tension / lateral / structural),
+  encodes cost as width/size and type as shape/label, and — on `:enter` — infers the Tier-2
+  dimensions and draws them into the diagram. Every view is an *inference product* that can
+  differ each time based on what the LLM judges salient, consistent with "navigation drives
+  inference."
+
+This preserves the pure-Go, no-cgo spine untouched and keeps DuckDB escape-hatch-only. The
+visual layer is entirely additive and lives in the skill: no new dependency, no spine
+rendering code, no rearchitecture.
 
 ## Consequences
 

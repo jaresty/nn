@@ -30,19 +30,46 @@ Three escalating resolutions of the same descent (from cheap/structural to expen
 
 | Level | Command | Cost | What you see |
 |-------|---------|------|--------------|
+| front door | `nn transcript ls <dir>` | Tier 0/1, deterministic | recent sessions, most-recent-first, each with a mini subagent-tree |
 | zoom out | `nn transcript tree <session>` | Tier 0/1, deterministic | agent spawn tree, lifespans, cost, subtree_cost, status |
-| zoom in | `nn transcript show <session> <agent-id>` | Tier 0, deterministic | one agent's raw events (lossless, schema-native) |
+| zoom in | `nn transcript show <session> <agent-id>` | Tier 0, deterministic | one agent's meaningful events (`--raw` for lossless full record) |
 | `:enter` | *this skill runs inference* | Tier 2, per-thread | the salient discovered dimensions for that thread |
 
 ## Workflow
 
-### 1. Locate and classify
+### 0. Front door — the recent-sessions menu (start here for interactive navigation)
+
+This is the top of the descent: a browsable, time-ordered list of recent sessions, each
+with a compact inline mini-tree of its subagent structure. Start here whenever the human
+has not already named a specific session.
+
+```bash
+nn transcript ls <dir> [--limit N] [--before <RFC3339>]   # recent-first; mini-tree per row
+nn transcript ls <dir> --json                              # structured rows for the picker
+```
+
+Each row is `date  schema  N agents  cost  session-id  mini-tree` where the mini-tree is a
+compact one-line preview like `ROOT─a2bcf1─ae9fa7─…` (deep chain) or `ROOT─┬─A─B` (fan-out).
+
+**Present this as an interactive menu.** Run `nn transcript ls <dir> --json`, then render the
+rows with `AskUserQuestion`: one option per recent session (label = date + schema + agent
+count + cost; description = the mini-tree preview), plus:
+- **"Look further back"** — re-run `ls` with `--before <the oldest shown session's modified>`
+  to page into older sessions, and present the next menu.
+- the human's selection of a session → proceed to **step 2 (overview)** on that session's path.
+
+If the human already named a session or dir with a single obvious session, you may skip
+straight to step 2. Default `<dir>` is the harness transcript root
+(e.g. `~/.claude/projects/<project-slug>/`).
+
+### 1. Classify (when needed)
 
 ```bash
 nn transcript scan <dir>        # counts per schema: claude-code / sdk-cli / pi / unknown
 ```
 
-If a schema is reported `unknown`, jump to **Escape hatch** below. Otherwise proceed — the
+`ls` already classifies each session; use `scan` only for a quick schema census of a dir.
+If a session's schema is `unknown`, jump to **Escape hatch** below. Otherwise proceed — the
 spine has a recipe for it.
 
 ### 2. Overview (zoom out)
@@ -102,6 +129,74 @@ nn new --quick --title "<finding restated as a claim>"
 Then link it to a note representing the run/thread if one exists, or record the session/agent id
 in the note body so the provenance is preserved. Apply the durability test first: capture only
 findings that would change behavior in a future session with no memory of this one.
+
+## Composing the spatial-ASCII views (LLM-drawn, interpretation-bearing)
+
+All visual views — the picker, the tree overview, and the `:enter` dimension diagram — are
+**drawn by you (the LLM) from the spine's JSON**, never by a fixed renderer. The spine emits
+`nn transcript ls --json` and `nn transcript tree --json`; you lay out the ASCII. Because *you*
+compose it, the diagram embeds interpretation and can differ each time: emphasize the expensive
+branch, color the thread that drifted, annotate a pivot, collapse the boring parts. Draw *this*
+session to surface *what matters here* — not a uniform template.
+
+**Color-relay markers** (survive markdown/relay): 🔴 tension (drift, error, contradiction) ·
+🔵 lateral (provenance, process) · 🟦 structural (spawn/derivation) · 🟢 healthy/complete ·
+🟡 caution (friction, stall) · 🟠 expensive. Encode: **color** = emphasis/tension, **width or
+box size** = cost magnitude, **shape/label** = agent type, **branch lines** (`├─ └─ │`) =
+connection.
+
+### Picker view (from `ls --json`)
+
+Draw each recent session as a small **multi-line** ASCII tree (not a one-line string), sized
+and marked by what stands out. Example — three sessions, the middle one flagged expensive:
+
+```
+① 2026-08-09  sdk-cli  31 agents  🟠 $10.3k
+   ROOT
+   └─🟦 debrief-chain ×29  (deep recursive nest)
+
+② 2026-08-10  sdk-cli  2 agents  🟠 $278k
+   ROOT ═══════════════  (heavy main thread)
+   └─🔵 capture: browser-demo
+
+③ 2026-08-12  claude-code  1 agent  🟢 $162k
+   ROOT  (no subagents)
+```
+
+Then offer entry via `AskUserQuestion`. The layout is your call — collapse repetitive chains
+(`×29`), widen expensive nodes, mark what a human should notice first.
+
+### Tree overview (from `tree --json`)
+
+Draw the spawn DAG with box-drawing branches, marking each node by type and cost. Emphasize the
+costly subtree; collapse uninteresting repetition. Example:
+
+```
+🟦 ROOT  [main]  $448k ████████████████
+└─🔵 abc616  [nn-capture]  $1.7k ▏
+```
+
+### `:enter` dimension diagram (from `show` + your Tier-2 inference)
+
+This is the interpretation-heavy view. After reading the thread, infer 2–4 salient dimensions,
+tag each by grammar, and draw the entered node with its dimensions arranged spatially and
+visually treated. Position/connection come from the spine (fixed); appearance/emphasis are your
+discovery. Example for an entered thread:
+
+```
+        ┌─────────────────────────────┐
+   🟦   │  a7665a  ·  nn-capture       │  ← type (shape/label)
+  spawn │  purpose: browser-demo shots │
+   ↑    └─────────────────────────────┘
+        cost  ██▏ $24.5k                  ← appearance: width = cost
+        🟢 groundedness: high (real URLs, node snippet)
+        🟢 instruction-drift: none (did the screenshot task)
+        🟡 friction: one interrupted tool call
+```
+
+Never move node position or invent connection types when drawing — only appearance and
+emphasis are yours (see the discovery boundary above). If a thread needs a new *position*
+dimension, surface it to the human, do not draw it silently.
 
 ### 5. Lenses (emphasis)
 

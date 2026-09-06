@@ -100,12 +100,13 @@ func newTranscriptTreeCmd() *cobra.Command {
 }
 
 func newTranscriptShowCmd() *cobra.Command {
-	return &cobra.Command{
+	var raw bool
+	cmd := &cobra.Command{
 		Use:   "show <session> <agent-id>",
-		Short: "Lossless per-agent events (schema-native fields preserved)",
+		Short: "Per-agent events (meaningful by default; --raw for the lossless full record)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			text, err := showAgent(args[0], args[1])
+			text, err := showAgent(args[0], args[1], raw)
 			if err != nil {
 				return err
 			}
@@ -113,6 +114,8 @@ func newTranscriptShowCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&raw, "raw", false, "emit the lossless full per-agent record (all events, verbatim)")
+	return cmd
 }
 
 // buildTree dispatches to the recipe for the session's sniffed schema and
@@ -509,8 +512,9 @@ func renderOverview(agents []agent) string {
 	return b.String()
 }
 
-// showAgent surfaces the lossless per-agent raw records for one agent id.
-func showAgent(session, agentID string) (string, error) {
+// showAgent surfaces per-agent events for one agent id. By default it renders
+// only meaningful events; raw=true emits the lossless full record.
+func showAgent(session, agentID string, raw bool) (string, error) {
 	schema := classifyTranscript(session)
 	var b strings.Builder
 	fmt.Fprintf(&b, "agent %s (schema %s)\n", agentID, schema)
@@ -534,16 +538,95 @@ func showAgent(session, agentID string) (string, error) {
 		}
 	}
 
-	// sdk-cli: dump the agent's own subagent file verbatim.
+	// sdk-cli: render the agent's meaningful events only. Attachments
+	// (deferred_tools_delta, skill_listing) and tool-result payloads are noise
+	// for the debug/recover use case and are omitted; use --raw for the full file.
 	if schema == schemaSDKCLI {
 		base := strings.TrimSuffix(session, ".jsonl")
 		file := filepath.Join(base, "subagents", "agent-"+agentID+".jsonl")
-		if data, err := os.ReadFile(file); err == nil {
-			b.Write(data)
+		if raw {
+			if data, err := os.ReadFile(file); err == nil {
+				b.Write(data)
+				return b.String(), nil
+			}
+			fmt.Fprintf(&b, "(no per-agent detail found for %s)\n", agentID)
 			return b.String(), nil
 		}
+		recs, err := readRecords(file)
+		if err != nil {
+			fmt.Fprintf(&b, "(no per-agent detail found for %s)\n", agentID)
+			return b.String(), nil
+		}
+		renderMeaningfulEvents(&b, recs)
+		return b.String(), nil
 	}
 
 	fmt.Fprintf(&b, "(no per-agent detail found for %s)\n", agentID)
 	return b.String(), nil
+}
+
+// textContent extracts a plain-text summary from a message content payload,
+// which may be a bare string or an array of typed blocks.
+func textContent(raw json.RawMessage) string {
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s
+	}
+	var blocks []struct {
+		Type string          `json:"type"`
+		Text string          `json:"text"`
+		Name string          `json:"name"`
+		Input json.RawMessage `json:"input"`
+	}
+	if json.Unmarshal(raw, &blocks) != nil {
+		return ""
+	}
+	var parts []string
+	for _, bl := range blocks {
+		switch bl.Type {
+		case "text":
+			if bl.Text != "" {
+				parts = append(parts, bl.Text)
+			}
+		case "tool_use", "toolCall":
+			// tool CALL: keep the name and a brief arg preview; drop nothing else.
+			arg := strings.TrimSpace(string(bl.Input))
+			if len(arg) > 120 {
+				arg = arg[:120] + "…"
+			}
+			parts = append(parts, fmt.Sprintf("→ %s(%s)", bl.Name, arg))
+		case "tool_result":
+			// tool RESULT payloads are omitted for this use case.
+		}
+	}
+	return strings.Join(parts, "\n")
+}
+
+// renderMeaningfulEvents writes prompt / assistant text / tool calls in order,
+// skipping attachment records and tool-result payloads.
+func renderMeaningfulEvents(b *strings.Builder, recs []rawRecord) {
+	for _, r := range recs {
+		switch r.Type {
+		case "attachment":
+			// noise: deferred_tools_delta, skill_listing, file snapshots.
+			continue
+		case "user", "assistant":
+			var msg struct {
+				Role    string          `json:"role"`
+				Content json.RawMessage `json:"content"`
+			}
+			if json.Unmarshal(r.Message, &msg) != nil {
+				continue
+			}
+			text := textContent(msg.Content)
+			if strings.TrimSpace(text) == "" {
+				continue
+			}
+			role := msg.Role
+			if role == "" {
+				role = r.Type
+			}
+			fmt.Fprintf(b, "[%s] %s\n", role, text)
+		}
+	}
 }

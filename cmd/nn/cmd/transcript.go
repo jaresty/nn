@@ -28,7 +28,7 @@ func newTranscriptCmd(_ *rootState) *cobra.Command {
 		Use:   "transcript",
 		Short: "Navigate subagent execution transcripts (ADR-0042)",
 	}
-	cmd.AddCommand(newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd())
+	cmd.AddCommand(newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd())
 	return cmd
 }
 
