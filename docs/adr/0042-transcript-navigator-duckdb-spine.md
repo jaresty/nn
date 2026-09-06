@@ -183,6 +183,52 @@ searches JSON syntax and attachment noise, and cannot reconstruct agent/session 
 does not replace `tree` topology, complete `show` reconstruction, or the whole-session sampling
 required for behavioral patterns.
 
+### Bound complete thread retrieval to a snapshot
+
+Text-mode `nn transcript show <session> <agent-id> [--raw]` remains byte-compatible and unbounded.
+New agent workflows use JSON pagination:
+
+```text
+nn transcript show <session> <agent-id> --json [--raw]
+                   [--page N] [--snapshot SHA256]
+```
+
+The compact JSON envelope is:
+
+```json
+{
+  "snapshot": "<64 lowercase SHA-256 hex characters>",
+  "page": 1,
+  "pages": 3,
+  "next_page": 2,
+  "mode": "meaningful",
+  "segments": [
+    {"segment": 1, "segments": 8, "text": "<exact UTF-8 fragment>"}
+  ]
+}
+```
+
+The segment stream represents the complete bytes that the corresponding legacy text invocation
+would emit, including agent/schema header, composed terminal metadata, and selected event detail.
+Concatenating `text` in global one-based segment order reconstructs that output exactly. `--raw`
+changes both the projection and `mode`; it never changes sidechain authentication or fallback
+selection.
+
+Page 1 defaults when `--page` is omitted and needs no snapshot. Every later page requires the
+snapshot returned by page 1. A supplied snapshot on any page must match. The snapshot hashes a
+versioned canonical encoding of the normalized session/agent/mode request and complete projected
+output, so changed relevant evidence or mismatched arguments fail stale rather than mixing pages.
+
+Every compact encoded page, including its trailing newline and JSON escaping, is at most 48,000
+bytes. Packing measures actual encoded bytes. Segments split only at UTF-8 rune boundaries; invalid
+UTF-8 is rejected. Every page repeats snapshot, page count, and mode; `next_page` is zero on the
+last page. Segment boundaries and page packing are deterministic. Even empty output has one page
+and one explicit empty segment.
+
+A consumer retrieves every page under one snapshot and verifies complete ordered segments before
+making event-derived claims. This mirrors ADR-0035's lossless graph-body transport while retaining
+`show`'s existing source-selection and security semantics.
+
 ### Higher-level views get deterministic dimensions eagerly, inferred dimensions on demand
 
 The zoom-out overview needs *aggregate* dimension analysis — signals lit across many agents
