@@ -859,19 +859,21 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 				return b.String(), nil
 			}
 		}
+		// Retain terminal metadata as fallback, but prefer a readable authenticated
+		// sidechain because it contains the agent's full meaningful event history.
+		var terminal *piCustomData
+		var terminalRaw json.RawMessage
 		for _, r := range recs {
 			if r.Type == "custom" && r.CustomType == "subagents:record" {
 				var d piCustomData
 				_ = json.Unmarshal(r.Data, &d)
 				if d.ID == agentID {
-					fmt.Fprintf(&b, "type: %s\nstatus: %s\nresult: %s\n", d.Type, d.Status, d.Result)
-					fmt.Fprintf(&b, "raw: %s\n", string(r.Data))
-					return b.String(), nil
+					terminal = &d
+					terminalRaw = r.Data
+					break
 				}
 			}
 		}
-		// No terminal inline record: try a background Agent tool-result locator and
-		// render the external sidechain file it points at.
 		for _, loc := range piBackgroundLocators(recs) {
 			if loc.AgentID != agentID {
 				continue
@@ -891,8 +893,16 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 					return b.String(), nil
 				}
 			}
-			// File missing/expired/unauthenticated: provisional metadata, not an error.
-			fmt.Fprintf(&b, "status: background\n(sidechain output unavailable for %s)\n", agentID)
+			if terminal == nil {
+				// File missing/expired/unauthenticated: provisional metadata, not an error.
+				fmt.Fprintf(&b, "status: background\n(sidechain output unavailable for %s)\n", agentID)
+				return b.String(), nil
+			}
+			break
+		}
+		if terminal != nil {
+			fmt.Fprintf(&b, "type: %s\nstatus: %s\nresult: %s\n", terminal.Type, terminal.Status, terminal.Result)
+			fmt.Fprintf(&b, "raw: %s\n", string(terminalRaw))
 			return b.String(), nil
 		}
 	}

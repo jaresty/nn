@@ -380,8 +380,8 @@ func TestTranscriptShowFiltersNoise(t *testing.T) {
 
 // piBackgroundSidechainFixture: a Pi parent whose Agent tool-result is a background
 // spawn — status:background, agentId:A, and an "Output file: <path>" locator pointing
-// at an external sidechain JSONL that holds A's real events. There is NO terminal
-// subagents:record for A, so resolution must follow the locator.
+// at an external sidechain JSONL that holds A's real events. A later terminal record
+// must supply final metadata without hiding the richer sidechain.
 func writePiBackgroundSidechainFixture(t *testing.T, dir string) string {
 	t.Helper()
 	// Real Pi active sidechains live OUTSIDE the session dir, under a temp
@@ -403,13 +403,15 @@ func writePiBackgroundSidechainFixture(t *testing.T, dir string) string {
 	writeTranscriptFile(t, session,
 		`{"type":"session","version":3,"id":"01b","cwd":"/x"}`+"\n"+
 			`{"type":"message","id":"m1","parentId":"a0","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_1","name":"Agent","arguments":{"subagent_type":"general-purpose"}}]}}`+"\n"+
-			bg+"\n")
+			bg+"\n"+
+			`{"type":"custom","customType":"subagents:record","id":"done-1","parentId":"m2","data":{"id":"79d3f783-b96d-4c7","type":"general-purpose","status":"completed","result":"TERMINAL_SUMMARY"}}`+"\n")
 	return session
 }
 
 // Assertion [8]: show follows a Pi background Agent tool-result locator and renders
 // the external sidechain events instead of "(no per-agent detail found ...)".
 func TestTranscriptShowPiBackgroundSidechain(t *testing.T) {
+	const assertion = "ASSERT_COMPLETED_PI_BACKGROUND_SHOW_PREFERS_AUTHENTICATED_SIDECHAIN"
 	dir := t.TempDir()
 	session := writePiBackgroundSidechainFixture(t, dir)
 	_, execute := setupNotebook(t)
@@ -422,7 +424,7 @@ func TestTranscriptShowPiBackgroundSidechain(t *testing.T) {
 		t.Errorf("expected sidechain events, got not-found fallthrough:\n%s", out)
 	}
 	if !strings.Contains(out, "SIDECHAIN_HELLO") {
-		t.Errorf("expected sidechain event text in show output:\n%s", out)
+		t.Errorf("%s: expected sidechain event text instead of terminal-only output:\n%s", assertion, out)
 	}
 }
 
