@@ -63,6 +63,12 @@ type contentBlock struct {
 	ID    string          `json:"id"`
 	Name  string          `json:"name"`
 	Input json.RawMessage `json:"input"`
+	// pi background Agent tool-result fields: a spawned child whose events are
+	// stored in an external sidechain file rather than inline in the parent.
+	Status     string `json:"status"`
+	AgentID    string `json:"agentId"`
+	ToolCallID string `json:"toolCallId"`
+	Output     string `json:"output"`
 }
 
 type message struct {
@@ -229,6 +235,71 @@ func toolUseBlocks(raw json.RawMessage) []contentBlock {
 	return out
 }
 
+// piBackgroundLocator is a normalized background-spawn reference discovered from a
+// Pi Agent tool-result: the child agent id and the external sidechain file that
+// holds its events (path may be unreadable/expired — caller falls back to provisional).
+type piBackgroundLocator struct {
+	AgentID string
+	Path    string // absolute, validated to stay within sessionDir; "" if none/unsafe
+}
+
+// piBackgroundLocators scans a Pi session's records for Agent tool-results carrying
+// status:background + agentId + an "Output file: <path>" locator, returning one
+// normalized locator per background child. Path-escaping and malformed locators are
+// dropped safely (AgentID kept, Path left empty) so discovery never reads outside
+// the session directory and never crashes.
+func piBackgroundLocators(sessionDir string, recs []rawRecord) []piBackgroundLocator {
+	var out []piBackgroundLocator
+	for _, r := range recs {
+		if r.Type != "message" {
+			continue
+		}
+		var msg message
+		if json.Unmarshal(r.Message, &msg) != nil {
+			continue
+		}
+		var blocks []contentBlock
+		_ = json.Unmarshal(msg.Content, &blocks)
+		for _, b := range blocks {
+			if b.Status != "background" || b.AgentID == "" {
+				continue
+			}
+			loc := piBackgroundLocator{AgentID: b.AgentID}
+			if p := parseOutputFileLocator(b.Output); p != "" {
+				if safe := safeSessionPath(sessionDir, p); safe != "" {
+					loc.Path = safe
+				}
+			}
+			out = append(out, loc)
+		}
+	}
+	return out
+}
+
+// parseOutputFileLocator extracts "<path>" from an "Output file: <path>" string.
+func parseOutputFileLocator(s string) string {
+	const marker = "Output file:"
+	_, after, found := strings.Cut(s, marker)
+	if !found {
+		return ""
+	}
+	return strings.TrimSpace(after)
+}
+
+// safeSessionPath resolves p and confirms it does not escape the session's directory
+// (rejecting ../ traversal and absolute paths outside the tree). Returns "" if unsafe.
+func safeSessionPath(sessionDir, p string) string {
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(sessionDir, p)
+	}
+	clean := filepath.Clean(p)
+	root := filepath.Clean(sessionDir)
+	if clean != root && !strings.HasPrefix(clean, root+string(filepath.Separator)) {
+		return ""
+	}
+	return clean
+}
+
 func msgUsage(raw json.RawMessage) usage {
 	var msg message
 	if len(raw) > 0 {
@@ -391,6 +462,39 @@ func buildPiTree(session string) ([]agent, error) {
 			agents[d.ID] = a
 		}
 	}
+
+	// background children: discovered from Agent tool-result locators. A terminal
+	// subagents:record (added above) supersedes, so only add ids not already present.
+	for _, r := range recs {
+		if r.Type != "message" {
+			continue
+		}
+		var msg message
+		if json.Unmarshal(r.Message, &msg) != nil {
+			continue
+		}
+		var blocks []contentBlock
+		_ = json.Unmarshal(msg.Content, &blocks)
+		for _, b := range blocks {
+			if b.Status != "background" || b.AgentID == "" {
+				continue
+			}
+			if _, ok := agents[b.AgentID]; ok {
+				continue // terminal record supersedes provisional spawn state
+			}
+			parent := "ROOT"
+			if owner, ok := recordOwner[r.ParentID]; ok {
+				parent = owner
+			}
+			agents[b.AgentID] = &agent{
+				ID:       b.AgentID,
+				Type:     "agent",
+				Status:   "background",
+				ParentID: parent,
+			}
+		}
+	}
+
 	return mapToSlice(agents), nil
 }
 
@@ -691,6 +795,29 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 					return b.String(), nil
 				}
 			}
+		}
+		// No terminal inline record: try a background Agent tool-result locator and
+		// render the external sidechain file it points at.
+		sessionDir := filepath.Dir(session)
+		for _, loc := range piBackgroundLocators(sessionDir, recs) {
+			if loc.AgentID != agentID {
+				continue
+			}
+			if loc.Path != "" {
+				if side, err := readRecords(loc.Path); err == nil && len(side) > 0 {
+					if raw {
+						for _, r := range side {
+							fmt.Fprintf(&b, "%s\n", string(r.Message))
+						}
+					} else {
+						renderMeaningfulEvents(&b, side)
+					}
+					return b.String(), nil
+				}
+			}
+			// File missing/expired/unsafe: provisional background metadata, not an error.
+			fmt.Fprintf(&b, "status: background\n(sidechain output unavailable for %s)\n", agentID)
+			return b.String(), nil
 		}
 	}
 

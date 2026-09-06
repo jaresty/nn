@@ -342,3 +342,79 @@ func TestTranscriptShowFiltersNoise(t *testing.T) {
 		t.Errorf("tool-result payload should be filtered from show output:\n%s", out)
 	}
 }
+
+// piBackgroundSidechainFixture: a Pi parent whose Agent tool-result is a background
+// spawn — status:background, agentId:A, and an "Output file: <path>" locator pointing
+// at an external sidechain JSONL that holds A's real events. There is NO terminal
+// subagents:record for A, so resolution must follow the locator.
+func writePiBackgroundSidechainFixture(t *testing.T, dir string) string {
+	t.Helper()
+	side := filepath.Join(dir, "tasks", "79d3f783-b96d-4c7.output")
+	writeTranscriptFile(t, side,
+		`{"type":"message","id":"s1","agentId":"79d3f783-b96d-4c7","message":{"role":"assistant","content":[{"type":"text","text":"SIDECHAIN_HELLO"}],"usage":{"input":3,"output":4}}}`+"\n")
+
+	session := filepath.Join(dir, "pi-bg.jsonl")
+	writeTranscriptFile(t, session,
+		`{"type":"session","version":3,"id":"01b","cwd":"/x"}`+"\n"+
+			`{"type":"message","id":"m1","parentId":"a0","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_1","name":"Agent","arguments":{"subagent_type":"general-purpose"}}]}}`+"\n"+
+			`{"type":"message","id":"m2","parentId":"m1","message":{"role":"user","content":[{"type":"toolResult","toolCallId":"call_1","status":"background","agentId":"79d3f783-b96d-4c7","output":"Output file: `+side+`"}]}}`+"\n")
+	return session
+}
+
+// Assertion [8]: show follows a Pi background Agent tool-result locator and renders
+// the external sidechain events instead of "(no per-agent detail found ...)".
+func TestTranscriptShowPiBackgroundSidechain(t *testing.T) {
+	dir := t.TempDir()
+	session := writePiBackgroundSidechainFixture(t, dir)
+	_, execute := setupNotebook(t)
+
+	out, err := execute("transcript", "show", session, "79d3f783-b96d-4c7")
+	if err != nil {
+		t.Fatalf("nn transcript show: %v", err)
+	}
+	if strings.Contains(out, "no per-agent detail found") {
+		t.Errorf("expected sidechain events, got not-found fallthrough:\n%s", out)
+	}
+	if !strings.Contains(out, "SIDECHAIN_HELLO") {
+		t.Errorf("expected sidechain event text in show output:\n%s", out)
+	}
+}
+
+// Assertion [9]: tree includes a Pi background child discovered via its Agent
+// tool-result locator, even with no terminal subagents:record.
+func TestTranscriptTreePiBackgroundSidechain(t *testing.T) {
+	dir := t.TempDir()
+	session := writePiBackgroundSidechainFixture(t, dir)
+	_, execute := setupNotebook(t)
+
+	out, err := execute("transcript", "tree", session)
+	if err != nil {
+		t.Fatalf("nn transcript tree: %v", err)
+	}
+	if !strings.Contains(out, "79d3f783-b96d-4c7") {
+		t.Errorf("expected background child in tree output:\n%s", out)
+	}
+}
+
+// Assertion [10]: a path-escaping locator is dropped safely — the child still appears
+// (provisional), no crash, and no file outside the session dir is read.
+func TestTranscriptShowPiBackgroundLocatorPathEscapeSafe(t *testing.T) {
+	dir := t.TempDir()
+	session := filepath.Join(dir, "pi-escape.jsonl")
+	writeTranscriptFile(t, session,
+		`{"type":"session","version":3,"id":"01c","cwd":"/x"}`+"\n"+
+			`{"type":"message","id":"m1","parentId":"a0","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_1","name":"Agent","arguments":{}}]}}`+"\n"+
+			`{"type":"message","id":"m2","parentId":"m1","message":{"role":"user","content":[{"type":"toolResult","toolCallId":"call_1","status":"background","agentId":"AAA","output":"Output file: ../../../../etc/passwd"}]}}`+"\n")
+	_, execute := setupNotebook(t)
+
+	out, err := execute("transcript", "show", session, "AAA")
+	if err != nil {
+		t.Fatalf("nn transcript show: %v", err)
+	}
+	if strings.Contains(out, "root:") || strings.Contains(out, "/bin/") {
+		t.Errorf("path-escaping locator must not read outside the session dir:\n%s", out)
+	}
+	if !strings.Contains(out, "background") {
+		t.Errorf("expected provisional background metadata for unsafe locator:\n%s", out)
+	}
+}
