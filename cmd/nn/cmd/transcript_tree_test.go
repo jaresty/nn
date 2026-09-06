@@ -350,14 +350,22 @@ func TestTranscriptShowFiltersNoise(t *testing.T) {
 func writePiBackgroundSidechainFixture(t *testing.T, dir string) string {
 	t.Helper()
 	side := filepath.Join(dir, "tasks", "79d3f783-b96d-4c7.output")
+	// Real Pi sidechain records carry isSidechain:true + agentId.
 	writeTranscriptFile(t, side,
-		`{"type":"message","id":"s1","agentId":"79d3f783-b96d-4c7","message":{"role":"assistant","content":[{"type":"text","text":"SIDECHAIN_HELLO"}],"usage":{"input":3,"output":4}}}`+"\n")
+		`{"isSidechain":true,"agentId":"79d3f783-b96d-4c7","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"SIDECHAIN_HELLO"}],"usage":{"input":3,"output":4}}}`+"\n")
 
 	session := filepath.Join(dir, "pi-bg.jsonl")
+	// Real Pi background record: message.role=toolResult, toolName=Agent, structured
+	// status/agentId under message.details, and the path ONLY in content[].text as an
+	// "Output file: <path>" line (no structured output-file field; fullOutputPath null).
+	bg := `{"type":"message","id":"m2","parentId":"m1","message":{` +
+		`"role":"toolResult","toolCallId":"call_1","toolName":"Agent","isError":false,` +
+		`"content":[{"type":"text","text":"Agent started in background.\nAgent ID: 79d3f783-b96d-4c7\nOutput file: ` + side + `"}],` +
+		`"details":{"status":"background","agentId":"79d3f783-b96d-4c7","description":"demo","subagentType":"general-purpose","fullOutputPath":null}}}`
 	writeTranscriptFile(t, session,
 		`{"type":"session","version":3,"id":"01b","cwd":"/x"}`+"\n"+
 			`{"type":"message","id":"m1","parentId":"a0","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_1","name":"Agent","arguments":{"subagent_type":"general-purpose"}}]}}`+"\n"+
-			`{"type":"message","id":"m2","parentId":"m1","message":{"role":"user","content":[{"type":"toolResult","toolCallId":"call_1","status":"background","agentId":"79d3f783-b96d-4c7","output":"Output file: `+side+`"}]}}`+"\n")
+			bg+"\n")
 	return session
 }
 
@@ -404,7 +412,7 @@ func TestTranscriptShowPiBackgroundLocatorPathEscapeSafe(t *testing.T) {
 	writeTranscriptFile(t, session,
 		`{"type":"session","version":3,"id":"01c","cwd":"/x"}`+"\n"+
 			`{"type":"message","id":"m1","parentId":"a0","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_1","name":"Agent","arguments":{}}]}}`+"\n"+
-			`{"type":"message","id":"m2","parentId":"m1","message":{"role":"user","content":[{"type":"toolResult","toolCallId":"call_1","status":"background","agentId":"AAA","output":"Output file: ../../../../etc/passwd"}]}}`+"\n")
+			`{"type":"message","id":"m2","parentId":"m1","message":{"role":"toolResult","toolCallId":"call_1","toolName":"Agent","content":[{"type":"text","text":"Output file: ../../../../etc/passwd"}],"details":{"status":"background","agentId":"AAA"}}}`+"\n")
 	_, execute := setupNotebook(t)
 
 	out, err := execute("transcript", "show", session, "AAA")

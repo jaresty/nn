@@ -63,17 +63,27 @@ type contentBlock struct {
 	ID    string          `json:"id"`
 	Name  string          `json:"name"`
 	Input json.RawMessage `json:"input"`
-	// pi background Agent tool-result fields: a spawned child whose events are
-	// stored in an external sidechain file rather than inline in the parent.
-	Status     string `json:"status"`
-	AgentID    string `json:"agentId"`
-	ToolCallID string `json:"toolCallId"`
-	Output     string `json:"output"`
+	Text  string          `json:"text"` // pi text block: carries the "Output file: <path>" line
+}
+
+// piBackgroundDetails is the structured payload of a Pi background Agent tool-result,
+// nested at message.details. The output-file path is NOT here (fullOutputPath is
+// currently always null); it lives only in the tool-result's content[].text.
+type piBackgroundDetails struct {
+	Status         string `json:"status"`
+	AgentID        string `json:"agentId"`
+	SubagentType   string `json:"subagentType"`
+	FullOutputPath string `json:"fullOutputPath"`
 }
 
 type message struct {
 	Content json.RawMessage `json:"content"`
 	Usage   usage           `json:"usage"`
+	// pi background Agent tool-result: role=toolResult, toolName=Agent, structured
+	// spawn state under details; the output-file path lives only in content[].text.
+	Role     string              `json:"role"`
+	ToolName string              `json:"toolName"`
+	Details  piBackgroundDetails `json:"details"`
 }
 
 type usage struct {
@@ -258,20 +268,30 @@ func piBackgroundLocators(sessionDir string, recs []rawRecord) []piBackgroundLoc
 		if json.Unmarshal(r.Message, &msg) != nil {
 			continue
 		}
-		var blocks []contentBlock
-		_ = json.Unmarshal(msg.Content, &blocks)
-		for _, b := range blocks {
-			if b.Status != "background" || b.AgentID == "" {
-				continue
-			}
-			loc := piBackgroundLocator{AgentID: b.AgentID}
-			if p := parseOutputFileLocator(b.Output); p != "" {
-				if safe := safeSessionPath(sessionDir, p); safe != "" {
-					loc.Path = safe
+		// structured spawn state is nested at message.details.
+		if msg.Details.Status != "background" || msg.Details.AgentID == "" {
+			continue
+		}
+		loc := piBackgroundLocator{AgentID: msg.Details.AgentID}
+		// Prefer a future structured path; today it is null, so fall back to the
+		// "Output file: <path>" line inside the tool-result's text content blocks.
+		path := msg.Details.FullOutputPath
+		if path == "" {
+			var blocks []contentBlock
+			_ = json.Unmarshal(msg.Content, &blocks)
+			for _, b := range blocks {
+				if p := parseOutputFileLocator(b.Text); p != "" {
+					path = p
+					break
 				}
 			}
-			out = append(out, loc)
 		}
+		if path != "" {
+			if safe := safeSessionPath(sessionDir, path); safe != "" {
+				loc.Path = safe
+			}
+		}
+		out = append(out, loc)
 	}
 	return out
 }
@@ -463,8 +483,9 @@ func buildPiTree(session string) ([]agent, error) {
 		}
 	}
 
-	// background children: discovered from Agent tool-result locators. A terminal
-	// subagents:record (added above) supersedes, so only add ids not already present.
+	// background children: discovered from Agent tool-result records (structured spawn
+	// state at message.details). A terminal subagents:record (added above) supersedes,
+	// so only add ids not already present.
 	for _, r := range recs {
 		if r.Type != "message" {
 			continue
@@ -473,25 +494,25 @@ func buildPiTree(session string) ([]agent, error) {
 		if json.Unmarshal(r.Message, &msg) != nil {
 			continue
 		}
-		var blocks []contentBlock
-		_ = json.Unmarshal(msg.Content, &blocks)
-		for _, b := range blocks {
-			if b.Status != "background" || b.AgentID == "" {
-				continue
-			}
-			if _, ok := agents[b.AgentID]; ok {
-				continue // terminal record supersedes provisional spawn state
-			}
-			parent := "ROOT"
-			if owner, ok := recordOwner[r.ParentID]; ok {
-				parent = owner
-			}
-			agents[b.AgentID] = &agent{
-				ID:       b.AgentID,
-				Type:     "agent",
-				Status:   "background",
-				ParentID: parent,
-			}
+		if msg.Details.Status != "background" || msg.Details.AgentID == "" {
+			continue
+		}
+		if _, ok := agents[msg.Details.AgentID]; ok {
+			continue // terminal record supersedes provisional spawn state
+		}
+		parent := "ROOT"
+		if owner, ok := recordOwner[r.ParentID]; ok {
+			parent = owner
+		}
+		typ := msg.Details.SubagentType
+		if typ == "" {
+			typ = "agent"
+		}
+		agents[msg.Details.AgentID] = &agent{
+			ID:       msg.Details.AgentID,
+			Type:     typ,
+			Status:   "background",
+			ParentID: parent,
 		}
 	}
 
