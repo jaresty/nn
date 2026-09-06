@@ -32,6 +32,7 @@ Start here:
 Navigate one session:
   tree      spawn DAG + cost/status for a session
   show      one agent's events (--raw for the full record)
+  search    bounded event matches with session/agent provenance
 
 Utility:
   scan      classify transcript files by schema
@@ -55,7 +56,7 @@ func newTranscriptCmd(_ *rootState) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.AddCommand(newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd())
+	cmd.AddCommand(newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd(), newTranscriptSearchCmd())
 	return cmd
 }
 

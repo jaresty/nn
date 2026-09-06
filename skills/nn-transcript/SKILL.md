@@ -128,6 +128,29 @@ nn new --quick --title "<finding restated as a claim>"
 Apply the durability test: capture only what would change behavior in a future session with no
 memory of this one.
 
+## Targeted transcript search
+
+When the human asks where a phrase, command, error, or decision appears, use the schema-aware
+spine rather than general file grep:
+
+```bash
+nn transcript search "<literal query>" <transcript-root> --json --limit <N>
+nn transcript search "<literal query>" --session <session-path> [--agent <agent-id>] --json
+```
+
+Search is deterministic and returns bounded session/agent/event provenance. It does not establish
+behavioral recurrence: use returned matches to select whole sessions, then enter or sweep them.
+Use `--raw` only when the human explicitly needs schema-native payloads. Never use `nn grep` for
+transcript JSONL: it skips oversized files and cannot preserve transcript ownership provenance.
+
+## Co-versioned command contract
+
+This skill is served by the same `nn` binary as the transcript spine. Do not create a companion
+preflight script or probe a separate capability endpoint. Every command, flag, and JSON field named
+by this skill must be covered by the repository's skill/CLI conformance test. When a source checkout
+and installed binary disagree, report the ordinary `nn` version/build identity and offer an
+explicit reinstall only when the checkout is known; never reinstall automatically.
+
 ## Escape hatch (unknown schema) & the lossy relation
 
 When `scan` reports `unknown`, the spine has no recipe — compose one with DuckDB (`nn transcript

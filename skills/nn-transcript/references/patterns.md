@@ -11,6 +11,13 @@ cohort** — it is the inverse of targeted navigation, statistical coverage over
 closer in spirit to `nn shuf` than to `nn grep`. The visual grammar and discovery contract live
 in the core (`nn skills get nn-transcript`) — this reference does not restate them.
 
+## Targeted matches select sessions; they do not prove patterns
+
+Use `nn transcript search <query> <root> --json` to locate attributable occurrences without the
+size ceiling and provenance loss of `nn grep`. A match is only a candidate-session locator. Add its
+whole session to the sample and run the navigation descent before making a behavioral claim; never
+infer recurrence by counting matching messages alone.
+
 ## The unit of sampling is the SESSION, not the message
 
 Sample whole sessions, never messages within a session — a session is the coherent unit of
@@ -20,17 +27,15 @@ tiers of each, rather than skimming a fragment of every session.
 
 ## Steps
 
-1. **Aggregate the cohort's deterministic signals (cheap, no inference).** From the swept
-   `ls --json` (the cohort is the front door's one page; page further back with
-   `ls --json --before <ts>` for a wider window):
-   - **effective cost** — split by token type. Weight `output_tokens` and
-     `cache_creation_tokens` heavily; weight `cache_read_tokens` lightly. Rank by *effective*
-     cost, **never the flat total** — a session that looks huge may be mostly cache reads.
-   - **depth / fan-out** — recursion depth and agent count per session; flag outliers.
-   - **agent-type frequency** — which subagent types recur.
-   - **schema mix** — claude-code vs sdk-cli vs pi.
+1. **Aggregate only deterministic fields the cohort actually carries (cheap, no inference).**
+   From the swept `ls --json` (the cohort is the front door's one page; page further back with
+   `ls --json --before <ts>` for a wider window), use session id, schema, `agent_count`,
+   `total_cost`, and `tree_preview`. Do not claim typed cost, exact depth, or agent-type frequency
+   from `ls`; those require `tree --json` for the selected sessions. Treat `total_cost` as a flat
+   discovery signal, not economic cost, and do not rank unavailable child costs as zero or partial
+   subtree costs as exact.
 
-   Report the deterministic patterns first: the distribution, the outliers, the recurring types.
+   Report the supported deterministic patterns first, with their field provenance.
 
 2. **Select a small sample that earns Tier-2** — the cost outliers (top effective-cost), a spread
    across the time range (recent + older), and any structural outliers (unusually deep/wide/many
