@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -390,7 +391,8 @@ func writePiBackgroundSidechainFixture(t *testing.T, dir string) string {
 	side := filepath.Join(tmpRoot, "pi-subagents-501", "sess-abc", "tasks", "79d3f783-b96d-4c7.output")
 	// Real Pi sidechain records carry isSidechain:true + agentId.
 	writeTranscriptFile(t, side,
-		`{"isSidechain":true,"agentId":"79d3f783-b96d-4c7","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"SIDECHAIN_HELLO"}],"usage":{"input":3,"output":4}}}`+"\n")
+		`{"isSidechain":true,"agentId":"79d3f783-b96d-4c7","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"SIDECHAIN_HELLO"}],"usage":{"input":3,"output":4}}}`+"\n"+
+			`{"isSidechain":true,"agentId":"NESTED-OTHER","type":"assistant","message":{"role":"assistant","content":[],"usage":{"input":100,"output":200}}}`+"\n")
 
 	session := filepath.Join(dir, "pi-bg.jsonl")
 	// Real Pi background record: message.role=toolResult, toolName=Agent, structured
@@ -402,10 +404,46 @@ func writePiBackgroundSidechainFixture(t *testing.T, dir string) string {
 		`"details":{"status":"background","agentId":"79d3f783-b96d-4c7","description":"demo","subagentType":"general-purpose","fullOutputPath":null}}}`
 	writeTranscriptFile(t, session,
 		`{"type":"session","version":3,"id":"01b","cwd":"/x"}`+"\n"+
-			`{"type":"message","id":"m1","parentId":"a0","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_1","name":"Agent","arguments":{"subagent_type":"general-purpose"}}]}}`+"\n"+
+			`{"type":"message","id":"m1","parentId":"a0","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_1","name":"Agent","arguments":{"subagent_type":"general-purpose"}}],"usage":{"input":2,"output":1}}}`+"\n"+
 			bg+"\n"+
 			`{"type":"custom","customType":"subagents:record","id":"done-1","parentId":"m2","data":{"id":"79d3f783-b96d-4c7","type":"general-purpose","status":"completed","result":"TERMINAL_SUMMARY"}}`+"\n")
 	return session
+}
+
+func TestTranscriptDirectPiSidechainClassification(t *testing.T) {
+	const validAssertion = "ASSERT_DIRECT_PI_SIDECHAIN_IS_RECOGNIZED_AND_RENDERABLE"
+	const spoofAssertion = "ASSERT_INCOMPLETE_PI_SIDECHAIN_SIGNATURE_STAYS_UNKNOWN"
+	dir := t.TempDir()
+	valid := filepath.Join(dir, "direct.output")
+	writeTranscriptFile(t, valid,
+		`{"isSidechain":true,"agentId":"AAA","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"DIRECT_SIDECHAIN_HELLO"}]}}`+"\n")
+
+	if got := classifyTranscript(valid); got != schemaPi {
+		t.Fatalf("%s: classifyTranscript() = %q, want %q", validAssertion, got, schemaPi)
+	}
+	out, err := showAgent(valid, "AAA", false)
+	if err != nil {
+		t.Fatalf("%s: showAgent: %v", validAssertion, err)
+	}
+	if !strings.Contains(out, "DIRECT_SIDECHAIN_HELLO") {
+		t.Fatalf("%s: expected direct sidechain event, got:\n%s", validAssertion, out)
+	}
+
+	controls := map[string]string{
+		"agent-id-only":  `{"agentId":"AAA","type":"message","message":{"role":"assistant","content":[]}}`,
+		"sidechain-only": `{"isSidechain":true,"type":"message","message":{"role":"assistant","content":[]}}`,
+		"non-message":    `{"isSidechain":true,"agentId":"AAA","type":"attachment"}`,
+		"empty-message":  `{"isSidechain":true,"agentId":"AAA","type":"assistant","message":{}}`,
+	}
+	for name, body := range controls {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(dir, name+".output")
+			writeTranscriptFile(t, path, body+"\n")
+			if got := classifyTranscript(path); got != schemaUnknown {
+				t.Fatalf("%s: classifyTranscript() = %q, want %q", spoofAssertion, got, schemaUnknown)
+			}
+		})
+	}
 }
 
 // Assertion [8]: show follows a Pi background Agent tool-result locator and renders
@@ -441,6 +479,134 @@ func TestTranscriptTreePiBackgroundSidechain(t *testing.T) {
 	}
 	if !strings.Contains(out, "79d3f783-b96d-4c7") {
 		t.Errorf("expected background child in tree output:\n%s", out)
+	}
+}
+
+func TestTranscriptTreePiAttributesAuthenticatedSidechainUsageOnce(t *testing.T) {
+	const assertion = "ASSERT_AUTHENTICATED_PI_SIDECHAIN_USAGE_IS_ATTRIBUTED_EXACTLY_ONCE"
+	session := writePiBackgroundSidechainFixture(t, t.TempDir())
+	agents, err := buildTree(session)
+	if err != nil {
+		t.Fatalf("%s: buildTree: %v", assertion, err)
+	}
+	byID := map[string]agent{}
+	for _, a := range agents {
+		byID[a.ID] = a
+	}
+	child := byID["79d3f783-b96d-4c7"]
+	if child.InputTokens != 3 || child.OutputTokens != 4 || child.Cost != 7 {
+		t.Fatalf("%s: child usage = input:%d output:%d cost:%d, want 3/4/7", assertion, child.InputTokens, child.OutputTokens, child.Cost)
+	}
+	if child.CostStatus != "complete" || child.SubtreeCostStatus != "complete" {
+		t.Fatalf("%s: child authority = %q/%q, want complete/complete", assertion, child.CostStatus, child.SubtreeCostStatus)
+	}
+	root := byID["ROOT"]
+	if root.Cost != 3 || root.SubtreeCost != 10 {
+		t.Fatalf("%s: root cost/subtree = %d/%d, want 3/10", assertion, root.Cost, root.SubtreeCost)
+	}
+	if root.CostStatus != "complete" || root.SubtreeCostStatus != "complete" {
+		t.Fatalf("%s: root authority = %q/%q, want complete/complete", assertion, root.CostStatus, root.SubtreeCostStatus)
+	}
+}
+
+func TestTranscriptTreeCostAuthorityPreservesLegacyShape(t *testing.T) {
+	const geographyAssertion = "ASSERT_COST_AUTHORITY_PRESERVES_TREE_GEOGRAPHY"
+	const numericAssertion = "ASSERT_COST_AUTHORITY_PRESERVES_NUMERIC_FIELDS"
+	agents, err := buildTree(writePiFixture(t, t.TempDir()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]agent{}
+	for _, a := range agents {
+		byID[a.ID] = a
+	}
+	if byID["d1"].ParentID != "ROOT" {
+		t.Fatalf("%s: d1 parent=%q, want ROOT", geographyAssertion, byID["d1"].ParentID)
+	}
+
+	encoded, err := json.Marshal(agents)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal(encoded, &rows); err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range rows {
+		if _, ok := row["cost"].(float64); !ok {
+			t.Fatalf("%s: cost JSON type = %T, want number", numericAssertion, row["cost"])
+		}
+		if _, ok := row["subtree_cost"].(float64); !ok {
+			t.Fatalf("%s: subtree_cost JSON type = %T, want number", numericAssertion, row["subtree_cost"])
+		}
+	}
+}
+
+func TestTranscriptTreePiMeasuredZeroCostIsComplete(t *testing.T) {
+	const assertion = "ASSERT_MEASURED_ZERO_PI_SIDECHAIN_COST_IS_COMPLETE"
+	session := writePiBackgroundSidechainFixture(t, t.TempDir())
+	recs, err := readRecords(session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	locs := piBackgroundLocators(recs)
+	if len(locs) != 1 {
+		t.Fatalf("fixture locators = %d, want 1", len(locs))
+	}
+	writeTranscriptFile(t, locs[0].Path,
+		`{"isSidechain":true,"agentId":"79d3f783-b96d-4c7","type":"assistant","message":{"role":"assistant","content":[]}}`+"\n")
+
+	agents, err := buildTree(session)
+	if err != nil {
+		t.Fatalf("%s: buildTree: %v", assertion, err)
+	}
+	for _, a := range agents {
+		if a.ID == "79d3f783-b96d-4c7" {
+			if a.Cost != 0 || a.CostStatus != "complete" {
+				t.Fatalf("%s: cost/status = %d/%q, want 0/complete", assertion, a.Cost, a.CostStatus)
+			}
+			return
+		}
+	}
+	t.Fatalf("%s: child not found", assertion)
+}
+
+func TestTranscriptTreePiMissingSidechainCostIsUnavailable(t *testing.T) {
+	const assertion = "ASSERT_MISSING_PI_SIDECHAIN_COST_IS_UNAVAILABLE_NOT_ZERO"
+	session := writePiBackgroundSidechainFixture(t, t.TempDir())
+	recs, err := readRecords(session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	locs := piBackgroundLocators(recs)
+	if len(locs) != 1 {
+		t.Fatalf("fixture locators = %d, want 1", len(locs))
+	}
+	if err := os.Remove(locs[0].Path); err != nil {
+		t.Fatal(err)
+	}
+
+	agents, err := buildTree(session)
+	if err != nil {
+		t.Fatalf("%s: buildTree: %v", assertion, err)
+	}
+	byID := map[string]agent{}
+	for _, a := range agents {
+		byID[a.ID] = a
+	}
+	child := byID["79d3f783-b96d-4c7"]
+	if child.CostStatus != "unavailable" {
+		t.Fatalf("%s: child cost status = %q, want unavailable", assertion, child.CostStatus)
+	}
+	if child.Cost != 0 {
+		t.Fatalf("%s: compatibility numeric cost = %d, want 0", assertion, child.Cost)
+	}
+	if byID["ROOT"].SubtreeCostStatus != "partial" {
+		t.Fatalf("%s: root subtree status = %q, want partial", assertion, byID["ROOT"].SubtreeCostStatus)
+	}
+	text := renderOverview(agents)
+	if !strings.Contains(text, "cost=?") || !strings.Contains(text, "subtree=≥") {
+		t.Fatalf("%s: text output must expose unavailable/partial authority:\n%s", assertion, text)
 	}
 }
 

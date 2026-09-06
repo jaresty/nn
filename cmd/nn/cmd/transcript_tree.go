@@ -15,13 +15,15 @@ import (
 
 // agent is one node of the normalized spawn-DAG relation (ADR-0042).
 type agent struct {
-	ID          string `json:"id"`
-	ParentID    string `json:"parent_id"`
-	Type        string `json:"type"`
-	Started     string `json:"started"`
-	Ended       string `json:"ended"`
-	Cost        int    `json:"cost"`
-	SubtreeCost int    `json:"subtree_cost"`
+	ID                string `json:"id"`
+	ParentID          string `json:"parent_id"`
+	Type              string `json:"type"`
+	Started           string `json:"started"`
+	Ended             string `json:"ended"`
+	Cost              int    `json:"cost"`
+	SubtreeCost       int    `json:"subtree_cost"`
+	CostStatus        string `json:"cost_status"`
+	SubtreeCostStatus string `json:"subtree_cost_status"`
 	// Typed token components — kept separate because their economics differ
 	// sharply (cache_read is ~cheap, output is ~expensive); a flat total hides
 	// whether a costly-looking thread was really expensive.
@@ -196,6 +198,7 @@ func buildTree(session string) ([]agent, error) {
 	if err != nil {
 		return nil, err
 	}
+	initializeCostAuthority(schema, agents)
 	rollupSubtreeCost(agents)
 	sort.Slice(agents, func(i, j int) bool { return agents[i].ID < agents[j].ID })
 	return agents, nil
@@ -569,6 +572,40 @@ func buildPiTree(session string) ([]agent, error) {
 		}
 	}
 
+	// Attribute usage from each readable authenticated sidechain exactly once.
+	// Both the path identity and each record's agentId must match, so nested agent
+	// events cannot leak into their parent's own cost.
+	hydrated := map[string]bool{}
+	for _, loc := range piBackgroundLocators(recs) {
+		if hydrated[loc.AgentID] {
+			continue
+		}
+		a := agents[loc.AgentID]
+		if a == nil {
+			continue
+		}
+		safe := validatePiSidechainPath(loc.Path, loc.AgentID)
+		if safe == "" {
+			continue
+		}
+		side, err := readRecords(safe)
+		if err != nil {
+			continue
+		}
+		matched := false
+		for _, sr := range side {
+			if !isPiEventRecord(sr) || sr.AgentID != loc.AgentID {
+				continue
+			}
+			matched = true
+			a.addUsage(msgUsage(sr.Message))
+		}
+		if matched {
+			a.CostStatus = "complete"
+			hydrated[loc.AgentID] = true
+		}
+	}
+
 	return mapToSlice(agents), nil
 }
 
@@ -612,7 +649,29 @@ func mapToSlice(m map[string]*agent) []agent {
 	return out
 }
 
-// rollupSubtreeCost sets each agent's subtree_cost = own cost + descendants.
+func initializeCostAuthority(schema string, agents []agent) {
+	for i := range agents {
+		switch schema {
+		case schemaSDKCLI:
+			agents[i].CostStatus = "complete"
+		case schemaClaudeCode:
+			if agents[i].ID == "ROOT" {
+				agents[i].CostStatus = "complete"
+			} else {
+				agents[i].CostStatus = "unavailable"
+			}
+		case schemaPi:
+			if agents[i].ID == "ROOT" {
+				agents[i].CostStatus = "complete"
+			} else if agents[i].CostStatus == "" {
+				agents[i].CostStatus = "unavailable"
+			}
+		}
+	}
+}
+
+// rollupSubtreeCost sets each agent's subtree_cost = own cost + descendants
+// and propagates whether every included own-cost measurement is complete.
 func rollupSubtreeCost(agents []agent) {
 	children := map[string][]int{} // parent id -> indices
 	idIndex := map[string]int{}
@@ -624,19 +683,27 @@ func rollupSubtreeCost(agents []agent) {
 			children[agents[i].ParentID] = append(children[agents[i].ParentID], i)
 		}
 	}
-	var sum func(i int) int
+	var sum func(i int) (int, bool)
 	seen := map[int]bool{}
-	sum = func(i int) int {
+	sum = func(i int) (int, bool) {
 		if seen[i] {
-			return agents[i].Cost // cycle guard; validation reports the real error
+			return agents[i].Cost, agents[i].CostStatus == "complete" // cycle guard; validation reports the real error
 		}
 		seen[i] = true
 		total := agents[i].Cost
+		complete := agents[i].CostStatus == "complete"
 		for _, ci := range children[agents[i].ID] {
-			total += sum(ci)
+			childTotal, childComplete := sum(ci)
+			total += childTotal
+			complete = complete && childComplete
 		}
 		agents[i].SubtreeCost = total
-		return total
+		if complete {
+			agents[i].SubtreeCostStatus = "complete"
+		} else {
+			agents[i].SubtreeCostStatus = "partial"
+		}
+		return total, complete
 	}
 	for i := range agents {
 		if agents[i].ParentID == "" {
@@ -690,14 +757,18 @@ func repairTree(agentsPtr *[]agent) []string {
 	return warnings
 }
 
-// anyRecordForAgent reports whether any message record is owned by agentID.
+// anyRecordForAgent reports whether any renderable Pi event is owned by agentID.
 func anyRecordForAgent(recs []rawRecord, agentID string) bool {
 	for _, r := range recs {
-		if r.Type == "message" && r.AgentID == agentID && agentID != "" {
+		if isPiEventRecord(r) && r.AgentID == agentID && agentID != "" {
 			return true
 		}
 	}
 	return false
+}
+
+func isPiEventRecord(r rawRecord) bool {
+	return r.Type == "message" || r.Type == "assistant" || r.Type == "user"
 }
 
 // findCycleNode returns the id of a node participating in a cycle, or "".
@@ -810,8 +881,16 @@ func renderOverview(agents []agent) string {
 		if status == "" {
 			status = "—"
 		}
-		fmt.Fprintf(&b, "%s%s  [%s]  cost=%d subtree=%d  %s\n",
-			indent, a.ID, a.Type, a.Cost, a.SubtreeCost, status)
+		cost := fmt.Sprintf("%d", a.Cost)
+		if a.CostStatus != "complete" {
+			cost = "?"
+		}
+		subtree := fmt.Sprintf("%d", a.SubtreeCost)
+		if a.SubtreeCostStatus != "complete" {
+			subtree = "≥" + subtree
+		}
+		fmt.Fprintf(&b, "%s%s  [%s]  cost=%s subtree=%s  %s\n",
+			indent, a.ID, a.Type, cost, subtree, status)
 		for _, c := range children[id] {
 			walk(c.ID, depth+1)
 		}
@@ -843,7 +922,7 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 		if agentID == "ROOT" || anyRecordForAgent(recs, agentID) {
 			var owned []rawRecord
 			for _, r := range recs {
-				if r.Type != "message" {
+				if !isPiEventRecord(r) {
 					continue
 				}
 				owner := "ROOT"

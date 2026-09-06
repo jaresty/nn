@@ -133,11 +133,13 @@ func scanTranscriptDir(dir string) (map[string]int, error) {
 
 // transcriptRecord captures the union of fields used for schema discrimination.
 type transcriptRecord struct {
-	Type       string          `json:"type"`
-	ParentUUID *string         `json:"parentUuid"`
-	UUID       string          `json:"uuid"`
-	CustomType string          `json:"customType"`
-	Message    json.RawMessage `json:"message"`
+	Type        string          `json:"type"`
+	ParentUUID  *string         `json:"parentUuid"`
+	UUID        string          `json:"uuid"`
+	AgentID     string          `json:"agentId"`
+	IsSidechain bool            `json:"isSidechain"`
+	CustomType  string          `json:"customType"`
+	Message     json.RawMessage `json:"message"`
 }
 
 // classifyTranscript reads a session .jsonl and returns its recognized schema.
@@ -182,6 +184,12 @@ func classifyTranscript(path string) string {
 			// pi session header record.
 			return schemaPi
 		}
+		if rec.IsSidechain && rec.AgentID != "" && hasPiMessageShape(rec.Message) &&
+			(rec.Type == "message" || rec.Type == "assistant" || rec.Type == "user") {
+			// Pi sidechain event: the compound content signature avoids treating an
+			// arbitrary JSONL file with only agentId/isSidechain as a transcript.
+			return schemaPi
+		}
 		if rec.ParentUUID != nil || rec.UUID != "" {
 			sawUUIDDag = true
 		}
@@ -190,6 +198,13 @@ func classifyTranscript(path string) string {
 		return schemaClaudeCode
 	}
 	return schemaUnknown
+}
+
+func hasPiMessageShape(raw json.RawMessage) bool {
+	var msg struct {
+		Role string `json:"role"`
+	}
+	return json.Unmarshal(raw, &msg) == nil && msg.Role != ""
 }
 
 // hasSubagentMeta reports whether the subagents dir contains at least one
