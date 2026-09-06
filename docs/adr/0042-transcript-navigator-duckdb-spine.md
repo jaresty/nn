@@ -4,6 +4,7 @@
 **Date:** 2026-09-06
 **Revised:** 2026-09-06 (shoshin review — moved DuckDB out of the deterministic spine)
 **Revised:** 2026-09-06 (shoshin review — ALL spatial-ASCII views are LLM-composed by the skill from the spine's JSON, so each embeds interpretation; the spine does no visual rendering; not Mermaid/HTML, not flat text, not a fixed Go renderer)
+**Revised:** 2026-09-06 (the canonical embedded skill and CLI spine are co-versioned; targeted transcript search belongs in the deterministic spine)
 
 ## Context
 
@@ -63,6 +64,7 @@ The intended command family is:
 nn transcript scan [dir]            # discover transcript files, sniff schema, report counts
 nn transcript tree <session>        # reconstruct the spawn DAG → normalized relation
 nn transcript show <agent-id>       # events within one agent (zoom-in / :enter substrate)
+nn transcript search <query> [dir]  # bounded schema-aware event matches with provenance
 nn transcript doctor                # detect duckdb, report version and readiness
 ```
 
@@ -151,6 +153,35 @@ work: per-thread appearance-dimension focus on `:enter`, lens/emphasis selection
 schema. Node geography (spawn hierarchy on the Y bands, time on X, closed position set)
 is deterministic and never moved by the skill layer; the skill may only light appearance
 and choose emphasis.
+
+### Co-version the embedded skill and CLI contract
+
+The canonical `nn-transcript` skill is embedded in and served by the same `nn` binary as the
+transcript spine through `nn skills get nn-transcript`. The skill and commands therefore ship as
+one versioned artifact. Do not add a separate transcript-capabilities command or a companion shell
+preflight merely to negotiate between these two halves: an old binary would serve both an old skill
+and old command set, so self-probing cannot teach that pair about a newer contract.
+
+Instead, keep the coupling explicit and mechanically guarded. Integration tests enumerate every
+transcript command, flag, and JSON field named by the embedded skill and fail when the serving CLI
+does not provide it. When diagnosing a source-checkout versus installed-binary mismatch, report the
+ordinary `nn` build/version identity; installation remains explicit and is never initiated by the
+skill.
+
+### Search transcripts through the spine, not general file grep
+
+Add `nn transcript search <query> [dir]` for targeted lookup across supported transcript schemas.
+The command owns deterministic matching and returns bounded results with session, agent, event,
+timestamp, role, excerpt, and source-path provenance. It searches the same meaningful-event
+projection used by `show` by default, with an explicit raw mode when schema-native payloads are
+required. Matching is deterministic and does not assert drift, recurrence, failure, or other
+behavioral interpretation.
+
+The embedded skill owns query selection and interpretation of returned matches. It uses
+`nn transcript search` rather than `nn grep`: general grep intentionally skips oversized files,
+searches JSON syntax and attachment noise, and cannot reconstruct agent/session provenance. Search
+does not replace `tree` topology, complete `show` reconstruction, or the whole-session sampling
+required for behavioral patterns.
 
 ### Higher-level views get deterministic dimensions eagerly, inferred dimensions on demand
 
@@ -260,6 +291,17 @@ consistent with the LLM-composed spatial-ASCII decision above.
   recipe to satisfy the assertion suite.
 - Live supervision (tailing an in-flight transcript) is explicitly out of scope for this
   decision; it is a different, incremental-ingest data story.
+
+## Additional acceptance criteria
+
+- No separate `nn transcript capabilities` command or transcript preflight shell script is added
+  for communication between the embedded skill and its serving CLI.
+- `nn transcript search` is bounded, deterministic, schema-aware, and emits session/agent/event
+  provenance in JSON.
+- Search defaults to meaningful events and requires an explicit raw option for schema-native noise.
+- The embedded skill uses transcript search instead of `nn grep` for transcript content.
+- A co-versioning integration test fails if the embedded skill names a transcript command, flag, or
+  JSON field absent from the serving CLI.
 
 ## Open burden
 
