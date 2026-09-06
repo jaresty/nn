@@ -55,15 +55,19 @@ func writeClaudeCodeFixture(t *testing.T, dir string) string {
 
 // agentRow mirrors the normalized relation for JSON assertions.
 type agentRow struct {
-	ID         string `json:"id"`
-	ParentID   string `json:"parent_id"`
-	Type       string `json:"type"`
-	Started    string `json:"started"`
-	Ended      string `json:"ended"`
-	Cost       int    `json:"cost"`
-	SubtreeC   int    `json:"subtree_cost"`
-	Status     string `json:"status"`
-	Result     string `json:"result"`
+	ID            string `json:"id"`
+	ParentID      string `json:"parent_id"`
+	Type          string `json:"type"`
+	Started       string `json:"started"`
+	Ended         string `json:"ended"`
+	Cost          int    `json:"cost"`
+	SubtreeC      int    `json:"subtree_cost"`
+	InputTokens   int    `json:"input_tokens"`
+	OutputTokens  int    `json:"output_tokens"`
+	CacheRead     int    `json:"cache_read_tokens"`
+	CacheCreation int    `json:"cache_creation_tokens"`
+	Status        string `json:"status"`
+	Result        string `json:"result"`
 }
 
 func parseTreeJSON(t *testing.T, out string) []agentRow {
@@ -195,6 +199,44 @@ func TestTranscriptTreeCostAndSubtree(t *testing.T) {
 	// ROOT cost 15, subtree = 15 + 30 + 45 = 90
 	if root.SubtreeC != 90 {
 		t.Errorf("ROOT subtree_cost should be 90 (15+30+45), got %d", root.SubtreeC)
+	}
+}
+
+// --- [21][22] typed token components (cache vs fresh vs output) -----------
+
+func TestTranscriptTreeTypedTokens(t *testing.T) {
+	dir := t.TempDir()
+	session := filepath.Join(dir, "sess.jsonl")
+	// one assistant record with all four token classes present.
+	writeTranscriptFile(t, session,
+		`{"type":"assistant","uuid":"root-1","message":{"role":"assistant","content":[],"usage":{"input_tokens":2,"output_tokens":70,"cache_read_input_tokens":1000,"cache_creation_input_tokens":54220}}}`+"\n")
+	_, execute := setupNotebook(t)
+
+	out, err := execute("transcript", "tree", session, "--json")
+	if err != nil {
+		t.Fatalf("nn transcript tree: %v", err)
+	}
+	rows := parseTreeJSON(t, out)
+	root, ok := rowByID(rows, "ROOT")
+	if !ok {
+		t.Fatalf("expected ROOT: %+v", rows)
+	}
+	if root.InputTokens != 2 {
+		t.Errorf("input_tokens want 2 got %d", root.InputTokens)
+	}
+	if root.OutputTokens != 70 {
+		t.Errorf("output_tokens want 70 got %d", root.OutputTokens)
+	}
+	if root.CacheRead != 1000 {
+		t.Errorf("cache_read_tokens want 1000 got %d", root.CacheRead)
+	}
+	if root.CacheCreation != 54220 {
+		t.Errorf("cache_creation_tokens want 54220 got %d", root.CacheCreation)
+	}
+	// [22] cost must include cache tokens — not silently drop them.
+	want := 2 + 70 + 1000 + 54220
+	if root.Cost != want {
+		t.Errorf("cost want %d (incl cache) got %d — cache tokens dropped", want, root.Cost)
 	}
 }
 

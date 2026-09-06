@@ -22,8 +22,26 @@ type agent struct {
 	Ended       string `json:"ended"`
 	Cost        int    `json:"cost"`
 	SubtreeCost int    `json:"subtree_cost"`
-	Status      string `json:"status"`
-	Result      string `json:"result"`
+	// Typed token components — kept separate because their economics differ
+	// sharply (cache_read is ~cheap, output is ~expensive); a flat total hides
+	// whether a costly-looking thread was really expensive.
+	InputTokens         int    `json:"input_tokens"`
+	OutputTokens        int    `json:"output_tokens"`
+	CacheReadTokens     int    `json:"cache_read_tokens"`
+	CacheCreationTokens int    `json:"cache_creation_tokens"`
+	Status              string `json:"status"`
+	Result              string `json:"result"`
+}
+
+// addUsage accumulates a usage record's typed components into the agent and
+// keeps the flat Cost total (including cache) in sync.
+func (a *agent) addUsage(u usage) {
+	i, o, r, c := u.typed()
+	a.InputTokens += i
+	a.OutputTokens += o
+	a.CacheReadTokens += r
+	a.CacheCreationTokens += c
+	a.Cost += i + o + r + c
 }
 
 // rawRecord is the union of fields the recipes read across all schemas.
@@ -52,15 +70,26 @@ type message struct {
 }
 
 type usage struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
-	Input        int `json:"input"`  // pi
-	Output       int `json:"output"` // pi
+	InputTokens         int `json:"input_tokens"`
+	OutputTokens        int `json:"output_tokens"`
+	CacheReadTokens     int `json:"cache_read_input_tokens"`     // Claude Code / sdk-cli
+	CacheCreationTokens int `json:"cache_creation_input_tokens"` // Claude Code / sdk-cli
+	Input               int `json:"input"`                       // pi
+	Output              int `json:"output"`                      // pi
+	CacheRead           int `json:"cacheRead"`                   // pi
+	CacheWrite          int `json:"cacheWrite"`                  // pi
 }
 
-func (u usage) tokens() int {
-	return u.InputTokens + u.OutputTokens + u.Input + u.Output
+// typed returns the four normalized token components (fresh input, output,
+// cache read, cache creation), merging the Claude Code and pi field names.
+func (u usage) typed() (input, output, cacheRead, cacheCreation int) {
+	input = u.InputTokens + u.Input
+	output = u.OutputTokens + u.Output
+	cacheRead = u.CacheReadTokens + u.CacheRead
+	cacheCreation = u.CacheCreationTokens + u.CacheWrite
+	return
 }
+
 
 // piCustomData is the self-contained pi subagent record payload.
 type piCustomData struct {
@@ -216,7 +245,7 @@ func buildSDKCLITree(session string) ([]agent, error) {
 					toolOwner[b.ID] = agentID
 				}
 			}
-			a.Cost += msgUsage(r.Message).tokens()
+			a.addUsage(msgUsage(r.Message))
 			ts := r.Timestamp
 			if ts != "" {
 				if a.Started == "" || ts < a.Started {
@@ -290,7 +319,7 @@ func buildPiTree(session string) ([]agent, error) {
 
 	for _, r := range recs {
 		if r.Type == "message" {
-			root.Cost += msgUsage(r.Message).tokens()
+			root.addUsage(msgUsage(r.Message))
 			if r.Timestamp != "" {
 				if root.Started == "" || r.Timestamp < root.Started {
 					root.Started = r.Timestamp
@@ -354,7 +383,7 @@ func buildClaudeCodeTree(session string) ([]agent, error) {
 	agents := map[string]*agent{"ROOT": root}
 	for _, r := range recs {
 		if r.Type == "assistant" {
-			root.Cost += msgUsage(r.Message).tokens()
+			root.addUsage(msgUsage(r.Message))
 			if r.Timestamp != "" {
 				if root.Started == "" || r.Timestamp < root.Started {
 					root.Started = r.Timestamp

@@ -111,6 +111,15 @@ recursive rollup over the spawn edge (per-record cost is an input; subtree cost 
 derived from the connection layer, so it cannot be produced per-record). This relation is
 the descent-stack overview's data and the `:enter` substrate's index.
 
+**Cost is carried as typed token components.** The relation carries
+`input_tokens`, `output_tokens`, `cache_read_tokens`, and `cache_creation_tokens` alongside the
+`cost` total, because the four classes have sharply different economics (cache-read is cheap,
+output and cache-creation are expensive) and a flat sum cannot distinguish a cheap
+cache-read-dominated thread from an expensive one. The `cost` total includes all four classes —
+no token class is dropped. Skills rank sessions by *effective* (type-weighted) cost, not the
+flat total. (Field names are merged across schemas: Claude Code
+`cache_read_input_tokens`/`cache_creation_input_tokens`, pi `cacheRead`/`cacheWrite`.)
+
 **The normalized relation is lossy by design.** It is the overview *projection*, not the
 full record. Schema-native fields that do not fit the common shape — pi's native dollar
 cost and `custom{customType:"subagents:record"}` records, Claude Code's `uuid` DAG, sdk-cli
