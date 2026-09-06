@@ -255,10 +255,10 @@ type piBackgroundLocator struct {
 
 // piBackgroundLocators scans a Pi session's records for Agent tool-results carrying
 // status:background + agentId + an "Output file: <path>" locator, returning one
-// normalized locator per background child. Path-escaping and malformed locators are
-// dropped safely (AgentID kept, Path left empty) so discovery never reads outside
-// the session directory and never crashes.
-func piBackgroundLocators(sessionDir string, recs []rawRecord) []piBackgroundLocator {
+// normalized locator per background child, carrying the RAW extracted path. Identity+
+// layout authentication is deferred to read time (validatePiSidechainPath in showAgent),
+// which knows the requested agent id. Discovery itself never reads a file.
+func piBackgroundLocators(recs []rawRecord) []piBackgroundLocator {
 	var out []piBackgroundLocator
 	for _, r := range recs {
 		if r.Type != "message" {
@@ -286,11 +286,9 @@ func piBackgroundLocators(sessionDir string, recs []rawRecord) []piBackgroundLoc
 				}
 			}
 		}
-		if path != "" {
-			if safe := safeSessionPath(sessionDir, path); safe != "" {
-				loc.Path = safe
-			}
-		}
+		// Keep the raw extracted path; identity+layout authentication happens at read
+		// time in showAgent (which knows the requested agent id).
+		loc.Path = strings.TrimSpace(path)
 		out = append(out, loc)
 	}
 	return out
@@ -306,18 +304,48 @@ func parseOutputFileLocator(s string) string {
 	return strings.TrimSpace(after)
 }
 
-// safeSessionPath resolves p and confirms it does not escape the session's directory
-// (rejecting ../ traversal and absolute paths outside the tree). Returns "" if unsafe.
-func safeSessionPath(sessionDir, p string) string {
-	if !filepath.IsAbs(p) {
-		p = filepath.Join(sessionDir, p)
-	}
-	clean := filepath.Clean(p)
-	root := filepath.Clean(sessionDir)
-	if clean != root && !strings.HasPrefix(clean, root+string(filepath.Separator)) {
+// validatePiSidechainPath authenticates a Pi background sidechain path against Pi's
+// task-output layout AND the requested agent identity, rather than requiring it to sit
+// under the session directory (real active sidechains live in a temp
+// pi-subagents-*/<session-id>/tasks/<agent-id>.output tree outside the session dir).
+//
+// It returns the resolved canonical path only if, after resolving symlinks and Clean:
+//   - the base filename is exactly "<agentID>.output" (identity binding);
+//   - the immediate parent directory is named "tasks";
+//   - some ancestor directory name matches "pi-subagents-*".
+// It rejects "" and any path that fails these — including ".." traversal (Clean/symlink
+// resolution collapses it, so an arbitrary target cannot masquerade), symlink escape
+// (EvalSymlinks resolves the real target before the checks), a filename for a different
+// agent id, or an arbitrary file outside the pi-subagents layout. Returns "" on rejection.
+func validatePiSidechainPath(p, agentID string) string {
+	if p == "" || agentID == "" {
 		return ""
 	}
-	return clean
+	// Resolve symlinks so the checks apply to the real target, not a link name.
+	resolved, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		return ""
+	}
+	clean := filepath.Clean(resolved)
+	if filepath.Base(clean) != agentID+".output" {
+		return ""
+	}
+	parent := filepath.Dir(clean)
+	if filepath.Base(parent) != "tasks" {
+		return ""
+	}
+	// Walk ancestors for a pi-subagents-* directory.
+	for dir := filepath.Dir(parent); ; {
+		base := filepath.Base(dir)
+		if ok, _ := filepath.Match("pi-subagents-*", base); ok {
+			return clean
+		}
+		next := filepath.Dir(dir)
+		if next == dir { // reached filesystem root without a match
+			return ""
+		}
+		dir = next
+	}
 }
 
 func msgUsage(raw json.RawMessage) usage {
@@ -819,13 +847,15 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 		}
 		// No terminal inline record: try a background Agent tool-result locator and
 		// render the external sidechain file it points at.
-		sessionDir := filepath.Dir(session)
-		for _, loc := range piBackgroundLocators(sessionDir, recs) {
+		for _, loc := range piBackgroundLocators(recs) {
 			if loc.AgentID != agentID {
 				continue
 			}
-			if loc.Path != "" {
-				if side, err := readRecords(loc.Path); err == nil && len(side) > 0 {
+			// Authenticate the path against Pi's tasks/<agentID>.output layout before
+			// reading — accepts the real out-of-session pi-subagents-* location and
+			// rejects traversal/symlink-escape/mismatched-id/arbitrary files.
+			if safe := validatePiSidechainPath(loc.Path, agentID); safe != "" {
+				if side, err := readRecords(safe); err == nil && len(side) > 0 {
 					if raw {
 						for _, r := range side {
 							fmt.Fprintf(&b, "%s\n", string(r.Message))
@@ -836,7 +866,7 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 					return b.String(), nil
 				}
 			}
-			// File missing/expired/unsafe: provisional background metadata, not an error.
+			// File missing/expired/unauthenticated: provisional metadata, not an error.
 			fmt.Fprintf(&b, "status: background\n(sidechain output unavailable for %s)\n", agentID)
 			return b.String(), nil
 		}

@@ -349,7 +349,10 @@ func TestTranscriptShowFiltersNoise(t *testing.T) {
 // subagents:record for A, so resolution must follow the locator.
 func writePiBackgroundSidechainFixture(t *testing.T, dir string) string {
 	t.Helper()
-	side := filepath.Join(dir, "tasks", "79d3f783-b96d-4c7.output")
+	// Real Pi active sidechains live OUTSIDE the session dir, under a temp
+	// pi-subagents-*/<session-id>/tasks/<agent-id>.output layout.
+	tmpRoot := t.TempDir()
+	side := filepath.Join(tmpRoot, "pi-subagents-501", "sess-abc", "tasks", "79d3f783-b96d-4c7.output")
 	// Real Pi sidechain records carry isSidechain:true + agentId.
 	writeTranscriptFile(t, side,
 		`{"isSidechain":true,"agentId":"79d3f783-b96d-4c7","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"SIDECHAIN_HELLO"}],"usage":{"input":3,"output":4}}}`+"\n")
@@ -404,8 +407,9 @@ func TestTranscriptTreePiBackgroundSidechain(t *testing.T) {
 	}
 }
 
-// Assertion [10]: a path-escaping locator is dropped safely — the child still appears
-// (provisional), no crash, and no file outside the session dir is read.
+// Assertion [10]: a locator that does not match Pi's tasks/<agent-id>.output layout
+// (here a traversal to an arbitrary file) is rejected — child still appears provisional,
+// no crash, no arbitrary file read.
 func TestTranscriptShowPiBackgroundLocatorPathEscapeSafe(t *testing.T) {
 	dir := t.TempDir()
 	session := filepath.Join(dir, "pi-escape.jsonl")
@@ -420,9 +424,37 @@ func TestTranscriptShowPiBackgroundLocatorPathEscapeSafe(t *testing.T) {
 		t.Fatalf("nn transcript show: %v", err)
 	}
 	if strings.Contains(out, "root:") || strings.Contains(out, "/bin/") {
-		t.Errorf("path-escaping locator must not read outside the session dir:\n%s", out)
+		t.Errorf("unauthenticated locator must not read an arbitrary file:\n%s", out)
 	}
 	if !strings.Contains(out, "background") {
-		t.Errorf("expected provisional background metadata for unsafe locator:\n%s", out)
+		t.Errorf("expected provisional background metadata for unauthenticated locator:\n%s", out)
+	}
+}
+
+// Assertion [11]: a path whose filename does not match the requested agent id is rejected
+// even when it sits in a valid pi-subagents tasks dir (identity binding).
+func TestTranscriptShowPiBackgroundLocatorAgentMismatchRejected(t *testing.T) {
+	dir := t.TempDir()
+	tmpRoot := t.TempDir()
+	// A real-looking sidechain, but named for a DIFFERENT agent id.
+	wrong := filepath.Join(tmpRoot, "pi-subagents-501", "sess-x", "tasks", "OTHER.output")
+	writeTranscriptFile(t, wrong,
+		`{"isSidechain":true,"agentId":"OTHER","type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"WRONG_AGENT_SECRET"}]}}`+"\n")
+	session := filepath.Join(dir, "pi-mismatch.jsonl")
+	writeTranscriptFile(t, session,
+		`{"type":"session","version":3,"id":"01d","cwd":"/x"}`+"\n"+
+			`{"type":"message","id":"m1","parentId":"a0","message":{"role":"assistant","content":[{"type":"toolCall","id":"call_1","name":"Agent","arguments":{}}]}}`+"\n"+
+			`{"type":"message","id":"m2","parentId":"m1","message":{"role":"toolResult","toolCallId":"call_1","toolName":"Agent","content":[{"type":"text","text":"Output file: `+wrong+`"}],"details":{"status":"background","agentId":"AAA"}}}`+"\n")
+	_, execute := setupNotebook(t)
+
+	out, err := execute("transcript", "show", session, "AAA")
+	if err != nil {
+		t.Fatalf("nn transcript show: %v", err)
+	}
+	if strings.Contains(out, "WRONG_AGENT_SECRET") {
+		t.Errorf("a path named for a different agent id must be rejected:\n%s", out)
+	}
+	if !strings.Contains(out, "background") {
+		t.Errorf("expected provisional background metadata for mismatched locator:\n%s", out)
 	}
 }
