@@ -962,6 +962,9 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 			// rejects traversal/symlink-escape/mismatched-id/arbitrary files.
 			if safe := validatePiSidechainPath(loc.Path, agentID); safe != "" {
 				if side, err := readRecords(safe); err == nil && len(side) > 0 {
+					if terminal != nil {
+						fmt.Fprintf(&b, "type: %s\nstatus: %s\n", terminal.Type, terminal.Status)
+					}
 					if raw {
 						for _, r := range side {
 							fmt.Fprintf(&b, "%s\n", string(r.Message))

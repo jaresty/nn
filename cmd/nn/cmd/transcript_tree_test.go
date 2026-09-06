@@ -464,6 +464,12 @@ func TestTranscriptShowPiBackgroundSidechain(t *testing.T) {
 	if !strings.Contains(out, "SIDECHAIN_HELLO") {
 		t.Errorf("%s: expected sidechain event text instead of terminal-only output:\n%s", assertion, out)
 	}
+	if !strings.Contains(out, "type: general-purpose") || !strings.Contains(out, "status: completed") {
+		t.Errorf("%s: expected terminal type/status composed with sidechain events:\n%s", assertion, out)
+	}
+	if strings.Contains(out, "TERMINAL_SUMMARY") || strings.Contains(out, "raw:") {
+		t.Errorf("%s: terminal summary/raw must not replace or duplicate sidechain events:\n%s", assertion, out)
+	}
 }
 
 // Assertion [9]: tree includes a Pi background child discovered via its Agent
