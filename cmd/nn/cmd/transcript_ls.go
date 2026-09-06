@@ -25,9 +25,9 @@ type sessionRow struct {
 
 func newTranscriptLsCmd() *cobra.Command {
 	var (
-		limit   int
-		before  string
-		asJSON  bool
+		limit  int
+		before string
+		asJSON bool
 	)
 	cmd := &cobra.Command{
 		Use:   "ls [dir]",
@@ -56,6 +56,10 @@ func newTranscriptLsCmd() *cobra.Command {
 				return enc.Encode(rows)
 			}
 			out := cmd.OutOrStdout()
+			if len(rows) == 0 {
+				_, err := fmt.Fprintln(out, "No matching transcript sessions found.")
+				return err
+			}
 			for _, r := range rows {
 				fmt.Fprintf(out, "%s  %-11s  %2d agents  cost=%-7d  %s  %s\n",
 					r.Modified[:10], r.Schema, r.AgentCount, r.TotalCost, r.Session, r.TreePreview)

@@ -33,6 +33,53 @@ func twoSessionDir(t *testing.T) string {
 	return dir
 }
 
+func TestTranscriptLsEmptyDiscovery(t *testing.T) {
+	const notice = "No matching transcript sessions found.\n"
+	childOnly := t.TempDir()
+	writeTranscriptFile(t, filepath.Join(childOnly, "subagents", "agent-aaa.jsonl"),
+		`{"type":"assistant","message":{"role":"assistant","content":"child"}}`+"\n")
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"empty directory", []string{t.TempDir()}},
+		{"children excluded", []string{childOnly}},
+		{"all filtered", []string{twoSessionDir(t), "--before", "1970-01-01T00:00:00Z"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, execute := setupNotebook(t)
+			args := append([]string{"transcript", "ls"}, tc.args...)
+			out, err := execute(args...)
+			if err != nil || out != notice {
+				t.Errorf("ASSERT_TRANSCRIPT_LS_EMPTY_TEXT_IS_EXPLICIT: output=%q error=%v", out, err)
+			}
+			out, err = execute(append(args, "--json")...)
+			if err != nil || out != "[]\n" {
+				t.Errorf("ASSERT_TRANSCRIPT_LS_EMPTY_JSON_STAYS_ARRAY: output=%q error=%v", out, err)
+			}
+		})
+	}
+}
+
+func TestTranscriptLsErrorsAreNotEmptyDiscovery(t *testing.T) {
+	for _, args := range [][]string{
+		{filepath.Join(t.TempDir(), "missing")},
+		{t.TempDir(), "--before", "invalid"},
+	} {
+		for _, asJSON := range []bool{false, true} {
+			_, execute := setupNotebook(t)
+			command := append([]string{"transcript", "ls"}, args...)
+			if asJSON {
+				command = append(command, "--json")
+			}
+			out, err := execute(command...)
+			if err == nil || strings.Contains(out, "No matching transcript sessions found.") || strings.TrimSpace(out) == "[]" {
+				t.Fatalf("discovery error became empty success: args=%v output=%q error=%v", command, out, err)
+			}
+		}
+	}
+}
+
 // Assertion [14]: ls lists sessions most-recent-first with schema, agent count, cost.
 func TestTranscriptLsListsRecentFirst(t *testing.T) {
 	dir := twoSessionDir(t)
