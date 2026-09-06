@@ -245,16 +245,20 @@ func TestTranscriptTreeTypedTokens(t *testing.T) {
 func TestTranscriptTreeRejectsCycle(t *testing.T) {
 	dir := t.TempDir()
 	// pi fixture where a custom record's parentId points to a non-existent id,
-	// producing an unresolved (orphan) edge — validation must reject.
+	// producing an unresolved (orphan) edge — --strict must reject.
 	session := filepath.Join(dir, "bad.jsonl")
 	writeTranscriptFile(t, session,
 		`{"type":"session","version":3,"id":"01a","cwd":"/x"}`+"\n"+
 			`{"type":"custom","customType":"subagents:record","id":"c1","parentId":"does-not-exist","data":{"id":"d1","status":"completed"}}`+"\n")
 	_, execute := setupNotebook(t)
 
-	_, err := execute("transcript", "tree", session, "--json")
-	if err == nil {
-		t.Errorf("expected validation error for unresolved parent edge, got nil")
+	// --strict aborts on the unresolved edge (escape-hatch trust gate behavior).
+	if _, err := execute("transcript", "tree", session, "--json", "--strict"); err == nil {
+		t.Errorf("expected --strict validation error for unresolved parent edge, got nil")
+	}
+	// default (navigator) mode repairs the orphan and succeeds.
+	if _, err := execute("transcript", "tree", session, "--json"); err != nil {
+		t.Errorf("default tree should repair the orphan and succeed, got: %v", err)
 	}
 }
 

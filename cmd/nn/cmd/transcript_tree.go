@@ -51,6 +51,7 @@ type rawRecord struct {
 	ParentUUID *string         `json:"parentUuid"`
 	ID         string          `json:"id"`
 	ParentID   string          `json:"parentId"`
+	AgentID    string          `json:"agentId"`
 	CustomType string          `json:"customType"`
 	Timestamp  string          `json:"timestamp"`
 	Message    json.RawMessage `json:"message"`
@@ -103,6 +104,7 @@ type piCustomData struct {
 
 func newTranscriptTreeCmd() *cobra.Command {
 	var asJSON bool
+	var strict bool
 	cmd := &cobra.Command{
 		Use:   "tree <session>",
 		Short: "Reconstruct the spawn DAG into the normalized relation",
@@ -112,8 +114,20 @@ func newTranscriptTreeCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := validateTree(agents); err != nil {
-				return err
+			if strict {
+				// strict mode (e.g. escape-hatch trust gate): abort on any violation.
+				if err := validateTree(agents); err != nil {
+					return err
+				}
+			} else {
+				// navigator mode: repair orphans so a single dangling edge does not
+				// make a whole session un-navigable; warn to stderr and render anyway.
+				if warnings := repairTree(&agents); len(warnings) > 0 {
+					for _, w := range warnings {
+						fmt.Fprintln(cmd.ErrOrStderr(), "warning: "+w)
+					}
+					rollupSubtreeCost(agents)
+				}
 			}
 			if asJSON {
 				enc := json.NewEncoder(cmd.OutOrStdout())
@@ -125,6 +139,7 @@ func newTranscriptTreeCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit the normalized relation as JSON")
+	cmd.Flags().BoolVar(&strict, "strict", false, "abort on validation failure instead of repairing orphans (use for untrusted/escape-hatch schemas)")
 	return cmd
 }
 
@@ -310,29 +325,36 @@ func buildPiTree(session string) ([]agent, error) {
 	if err != nil {
 		return nil, err
 	}
-	// map: record id -> the agent that record belongs to (ROOT for main thread).
-	// pi keeps the whole session (incl. Agent toolCalls) in the root stream.
 	root := &agent{ID: "ROOT", Type: "agent"}
 	agents := map[string]*agent{"ROOT": root}
-	// toolCall record id (the message record carrying an Agent toolCall) -> ROOT
+	// spawn-record id (a message record hosting an Agent toolCall) -> the agent
+	// that owns that record. Nested spawns live in a subagent's own records, so
+	// the owner is the record's agentId (ROOT for the main stream), not always ROOT.
 	recordOwner := map[string]string{}
 
 	for _, r := range recs {
 		if r.Type == "message" {
-			root.addUsage(msgUsage(r.Message))
-			if r.Timestamp != "" {
-				if root.Started == "" || r.Timestamp < root.Started {
-					root.Started = r.Timestamp
-				}
-				if r.Timestamp > root.Ended {
-					root.Ended = r.Timestamp
+			// which agent does this record belong to? agentId names a subagent;
+			// its absence means the main (ROOT) stream.
+			owner := "ROOT"
+			if r.AgentID != "" {
+				owner = r.AgentID
+			}
+			if owner == "ROOT" {
+				root.addUsage(msgUsage(r.Message))
+				if r.Timestamp != "" {
+					if root.Started == "" || r.Timestamp < root.Started {
+						root.Started = r.Timestamp
+					}
+					if r.Timestamp > root.Ended {
+						root.Ended = r.Timestamp
+					}
 				}
 			}
-			// a message record hosting an Agent toolCall is a spawn point;
-			// its record id owns the spawn.
+			// a record hosting an Agent toolCall is a spawn point owned by `owner`.
 			for _, b := range toolUseBlocks(r.Message) {
 				if b.Name == "Agent" {
-					recordOwner[r.ID] = "ROOT"
+					recordOwner[r.ID] = owner
 				}
 			}
 		}
@@ -451,6 +473,90 @@ func rollupSubtreeCost(agents []agent) {
 	}
 }
 
+// repairTree makes a malformed spawn tree navigable: any agent whose parent_id
+// does not resolve to a present agent is re-parented to ROOT (creating a
+// synthetic ROOT if none exists), and cycles are broken by detaching the
+// back-edge. It returns a human-readable warning per repair so the problem is
+// surfaced rather than hidden. Used in navigator mode; --strict skips it.
+func repairTree(agentsPtr *[]agent) []string {
+	agents := *agentsPtr
+	ids := map[string]bool{}
+	for i := range agents {
+		ids[agents[i].ID] = true
+	}
+	var warnings []string
+	// ensure a ROOT to re-home orphans under.
+	rootID := "ROOT"
+	if !ids["ROOT"] {
+		agents = append(agents, agent{ID: "ROOT", Type: "agent"})
+		ids["ROOT"] = true
+		*agentsPtr = agents
+	}
+	for i := range agents {
+		p := agents[i].ParentID
+		if p == "" || ids[p] {
+			continue
+		}
+		warnings = append(warnings, fmt.Sprintf("agent %q had unresolved parent %q; re-parented to %s", agents[i].ID, p, rootID))
+		agents[i].ParentID = rootID
+	}
+	// break any remaining cycle by detaching the offending edge to ROOT.
+	if cyc := findCycleNode(agents); cyc != "" {
+		for i := range agents {
+			if agents[i].ID == cyc {
+				warnings = append(warnings, fmt.Sprintf("agent %q was in a cycle; detached to %s", cyc, rootID))
+				agents[i].ParentID = ""
+			}
+		}
+	}
+	return warnings
+}
+
+// anyRecordForAgent reports whether any message record is owned by agentID.
+func anyRecordForAgent(recs []rawRecord, agentID string) bool {
+	for _, r := range recs {
+		if r.Type == "message" && r.AgentID == agentID && agentID != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// findCycleNode returns the id of a node participating in a cycle, or "".
+func findCycleNode(agents []agent) string {
+	childIdx := map[string][]string{}
+	for _, a := range agents {
+		if a.ParentID != "" {
+			childIdx[a.ParentID] = append(childIdx[a.ParentID], a.ID)
+		}
+	}
+	color := map[string]int{}
+	var found string
+	var visit func(id string) bool
+	visit = func(id string) bool {
+		color[id] = 1
+		for _, c := range childIdx[id] {
+			if color[c] == 1 {
+				found = c
+				return true
+			}
+			if color[c] == 0 && visit(c) {
+				return true
+			}
+		}
+		color[id] = 2
+		return false
+	}
+	for _, a := range agents {
+		if color[a.ID] == 0 {
+			if visit(a.ID) {
+				return found
+			}
+		}
+	}
+	return ""
+}
+
 // validateTree enforces the ADR-0042 assertions before output.
 func validateTree(agents []agent) error {
 	ids := map[string]bool{}
@@ -554,6 +660,27 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		// ROOT (or a subagent) main-stream events: render the message records
+		// owned by that agent (agentId names a subagent; empty = ROOT stream).
+		if agentID == "ROOT" || anyRecordForAgent(recs, agentID) {
+			var owned []rawRecord
+			for _, r := range recs {
+				if r.Type != "message" {
+					continue
+				}
+				owner := "ROOT"
+				if r.AgentID != "" {
+					owner = r.AgentID
+				}
+				if owner == agentID {
+					owned = append(owned, r)
+				}
+			}
+			if len(owned) > 0 {
+				renderMeaningfulEvents(&b, owned)
+				return b.String(), nil
+			}
+		}
 		for _, r := range recs {
 			if r.Type == "custom" && r.CustomType == "subagents:record" {
 				var d piCustomData
@@ -639,7 +766,8 @@ func renderMeaningfulEvents(b *strings.Builder, recs []rawRecord) {
 		case "attachment":
 			// noise: deferred_tools_delta, skill_listing, file snapshots.
 			continue
-		case "user", "assistant":
+		case "user", "assistant", "message":
+			// "user"/"assistant" = Claude Code / sdk-cli; "message" = pi.
 			var msg struct {
 				Role    string          `json:"role"`
 				Content json.RawMessage `json:"content"`

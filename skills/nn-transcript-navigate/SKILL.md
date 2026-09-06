@@ -58,9 +58,13 @@ count + cost; description = the mini-tree preview), plus:
   to page into older sessions, and present the next menu.
 - the human's selection of a session → proceed to **step 2 (overview)** on that session's path.
 
-If the human already named a session or dir with a single obvious session, you may skip
-straight to step 2. Default `<dir>` is the harness transcript root
-(e.g. `~/.claude/projects/<project-slug>/`).
+**The front door is the default entry — run `ls` first, before any `tree`.** Do not jump
+straight to `tree` on the current/most-recent session: presenting the menu is the point of the
+navigator. The only case for skipping to step 2 is when the human *explicitly* names one
+specific session to open (a path or an unambiguous id) — "the current session", "look", or a
+bare directory are NOT that; for those, run `ls` and present the menu. When in doubt, `ls`
+first. Default `<dir>` is the harness transcript root (e.g. `~/.claude/projects/<project-slug>/`
+or, for pi, the dir of `$PI_SESSION_FILE`).
 
 ### 1. Classify (when needed)
 
