@@ -107,7 +107,6 @@ func (u usage) typed() (input, output, cacheRead, cacheCreation int) {
 	return
 }
 
-
 // piCustomData is the self-contained pi subagent record payload.
 type piCustomData struct {
 	ID          string `json:"id"`
@@ -301,7 +300,10 @@ func parseOutputFileLocator(s string) string {
 	if !found {
 		return ""
 	}
-	return strings.TrimSpace(after)
+	// Pi appends blank lines and usage instructions after the locator. The path
+	// occupies only the remainder of the marker's line.
+	path, _, _ := strings.Cut(after, "\n")
+	return strings.TrimSpace(path)
 }
 
 // validatePiSidechainPath authenticates a Pi background sidechain path against Pi's
@@ -313,6 +315,7 @@ func parseOutputFileLocator(s string) string {
 //   - the base filename is exactly "<agentID>.output" (identity binding);
 //   - the immediate parent directory is named "tasks";
 //   - some ancestor directory name matches "pi-subagents-*".
+//
 // It rejects "" and any path that fails these — including ".." traversal (Clean/symlink
 // resolution collapses it, so an arbitrary target cannot masquerade), symlink escape
 // (EvalSymlinks resolves the real target before the checks), a filename for a different
@@ -907,9 +910,9 @@ func textContent(raw json.RawMessage) string {
 		return s
 	}
 	var blocks []struct {
-		Type string          `json:"type"`
-		Text string          `json:"text"`
-		Name string          `json:"name"`
+		Type  string          `json:"type"`
+		Text  string          `json:"text"`
+		Name  string          `json:"name"`
 		Input json.RawMessage `json:"input"`
 	}
 	if json.Unmarshal(raw, &blocks) != nil {

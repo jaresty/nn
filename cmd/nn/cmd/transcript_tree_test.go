@@ -363,7 +363,7 @@ func writePiBackgroundSidechainFixture(t *testing.T, dir string) string {
 	// "Output file: <path>" line (no structured output-file field; fullOutputPath null).
 	bg := `{"type":"message","id":"m2","parentId":"m1","message":{` +
 		`"role":"toolResult","toolCallId":"call_1","toolName":"Agent","isError":false,` +
-		`"content":[{"type":"text","text":"Agent started in background.\nAgent ID: 79d3f783-b96d-4c7\nOutput file: ` + side + `"}],` +
+		`"content":[{"type":"text","text":"Agent started in background.\nAgent ID: 79d3f783-b96d-4c7\nOutput file: ` + side + `\n\nYou will be notified when this agent completes.\nUse get_subagent_result to retrieve full results."}],` +
 		`"details":{"status":"background","agentId":"79d3f783-b96d-4c7","description":"demo","subagentType":"general-purpose","fullOutputPath":null}}}`
 	writeTranscriptFile(t, session,
 		`{"type":"session","version":3,"id":"01b","cwd":"/x"}`+"\n"+
