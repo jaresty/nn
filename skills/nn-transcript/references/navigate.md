@@ -28,8 +28,16 @@ does not restate them.
 
 2. **`:enter` one thread — pay inference, scoped to this thread.**
    ```bash
-   nn transcript show <session> <agent-id>     # --raw for the lossless record
+   nn transcript show <session> <agent-id> --json             # page 1
+   nn transcript show <session> <agent-id> --json \
+     --page <next_page> --snapshot <snapshot>                 # every later page
+   # add --raw consistently to every call for the full per-agent record
    ```
+   Retrieve every page under the page-1 snapshot, concatenate `segments[].text` by global
+   `segment` ordinal, and verify all `segments` ordinals are present before interpreting events.
+   Never mix snapshots or make event-derived claims from a partial page set. The reconstruction is
+   exactly the legacy text `show` projection for the selected meaningful/raw mode.
+
    Answer one question: **what is worth attending to in THIS thread?** Read the events and
    propose **2–4** salient dimensions, drawing from this palette or naming a novel one the thread
    makes salient:
@@ -60,8 +68,9 @@ does not restate them.
 ## Opt-in Tier-2 whole-tree sweep
 
 To light an inferred dimension across the *entire* tree (e.g. "show every thread that drifted"),
-walk every agent from `tree --json`, `show` each, infer the **one** requested Tier-2 dimension
-per thread, and annotate the overview. **This is expensive and never the default — tell the human
+walk every agent from `tree --json`, retrieve and reconstruct every JSON `show` page as above,
+infer the **one** requested Tier-2 dimension per thread, and annotate the overview. **This is
+expensive and never the default — tell the human
 it costs one inference pass per agent before starting. Never trigger it implicitly.**
 
 ## Worked example

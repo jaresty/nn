@@ -156,8 +156,9 @@ explicit reinstall only when the checkout is known; never reinstall automaticall
 When `scan` reports `unknown`, the spine has no recipe — compose one with DuckDB (`nn transcript
 doctor` first), and **validate the join with the four assertions** before trusting output (see
 reference **patterns** for the assertions; they apply to any reconstructed relation). The `tree`
-relation is the overview *projection* (lossy by design); use `show <session> <agent-id>`
-(`--raw`) for exactly what happened.
+relation is the overview *projection* (lossy by design); use snapshot-bound paginated
+`nn transcript show <session> <agent-id> --json` (`--raw`), pass `--snapshot` on every later page,
+and reconstruct every segment for exactly what happened.
 
 ## Success criteria (a reviewer can check a transcript against these)
 

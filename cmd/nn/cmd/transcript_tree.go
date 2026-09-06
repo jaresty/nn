@@ -161,21 +161,41 @@ func newTranscriptTreeCmd() *cobra.Command {
 }
 
 func newTranscriptShowCmd() *cobra.Command {
-	var raw bool
+	var raw, asJSON bool
+	var page int
+	var snapshot string
 	cmd := &cobra.Command{
 		Use:   "show <session> <agent-id>",
 		Short: "Per-agent events (meaningful by default; --raw for the lossless full record)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !asJSON && (cmd.Flags().Changed("page") || cmd.Flags().Changed("snapshot")) {
+				return fmt.Errorf("transcript show: --page and --snapshot require --json")
+			}
 			text, err := showAgent(args[0], args[1], raw)
 			if err != nil {
 				return err
 			}
-			fmt.Fprint(cmd.OutOrStdout(), text)
-			return nil
+			if !asJSON {
+				fmt.Fprint(cmd.OutOrStdout(), text)
+				return nil
+			}
+			response, err := buildTranscriptShowPage(args[0], args[1], raw, text, page, snapshot)
+			if err != nil {
+				return err
+			}
+			encoded, err := json.Marshal(response)
+			if err != nil {
+				return fmt.Errorf("transcript show: encode page: %w", err)
+			}
+			_, err = cmd.OutOrStdout().Write(append(encoded, '\n'))
+			return err
 		},
 	}
 	cmd.Flags().BoolVar(&raw, "raw", false, "emit the lossless full per-agent record (all events, verbatim)")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "emit one bounded lossless JSON page")
+	cmd.Flags().IntVar(&page, "page", 1, "one-based page to return")
+	cmd.Flags().StringVar(&snapshot, "snapshot", "", "snapshot SHA-256 returned by page 1 (required for later pages)")
 	return cmd
 }
 
