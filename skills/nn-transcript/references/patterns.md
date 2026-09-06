@@ -29,17 +29,20 @@ tiers of each, rather than skimming a fragment of every session.
 
 1. **Aggregate only deterministic fields the cohort actually carries (cheap, no inference).**
    From the swept `ls --json` (the cohort is the front door's one page; page further back with
-   `ls --json --before <ts>` for a wider window), use session id, schema, `agent_count`,
+   `ls --json --cursor <last-row.cursor>` with the same directory/filter for a wider window),
+   use session id, schema, `agent_count`,
    `total_cost`, and `tree_preview`. Do not claim typed cost, exact depth, or agent-type frequency
-   from `ls`; those require `tree --json` for the selected sessions. Treat `total_cost` as a flat
-   discovery signal, not economic cost, and do not rank unavailable child costs as zero or partial
-   subtree costs as exact.
+   from `ls`; those require `tree --json` for the selected sessions. Costs are token counts:
+   treat `total_cost` as a provisional discovery signal, not economic cost or complete accounting.
+   Fetch tree authority before comparing costs; do not rank unavailable child costs as zero or
+   partial subtree costs as exact.
 
    Report the supported deterministic patterns first, with their field provenance.
 
-2. **Select a small sample that earns Tier-2** — the cost outliers (top effective-cost), a spread
-   across the time range (recent + older), and any structural outliers (unusually deep/wide/many
-   failures). **State the sample and why each session is in it.** If a `proposed pattern` was
+2. **Select a small sample that earns Tier-2** — observed-token candidates, a spread across the
+   time range (recent + older), and structural outliers established from `tree --json` (deep/wide).
+   Failure-based selection requires event evidence from `show`, not preview inference.
+   **State the sample and why each session is in it.** If a `proposed pattern` was
    carried in from the front door, its named session ids are automatically in the sample. Keep it
    a handful of *whole* sessions.
 
@@ -77,12 +80,13 @@ schema is cracked, capture the recipe as an `nn` note for reuse.
 
 ## Worked example
 
-Cohort of 8 sdk-cli sessions. Deterministic pass: 3 sessions are effective-cost outliers (all
-debrief chains); a `proposed pattern` `↻×3 re-derive daily-note boundary (b71c, a3f2, 9f2a)` was
+Cohort of 8 sdk-cli sessions. After fetching `tree --json` for each session, three have high
+output-plus-cache-creation token counts with complete accounting and debrief-chain topology;
+a `proposed pattern` `↻×3 re-derive daily-note boundary (b71c, a3f2, 9f2a)` was
 carried in from the front door.
 
 ```
-effective cost (output + cache-creation):
+token counts (output + cache-creation; complete accounting):
   b71c  ████████  ◈ outlier
   a3f2  ██████    ◈ outlier
   9f2a  █████     ◈ outlier

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,89 @@ func TestEmbeddedTranscriptSkillShowPaginationContractMatchesCLI(t *testing.T) {
 		for _, required := range []string{"transcript show", "--json", "--snapshot", "every"} {
 			if !strings.Contains(text, required) {
 				t.Fatalf("%s: %s does not contain %q", assertion, path, required)
+			}
+		}
+	}
+}
+
+// Validate actual command output rather than reflection on internal Go structs:
+// accidental JSON-tag changes and numeric-to-string changes must fail this guard.
+func TestEmbeddedTranscriptSkillJSONFieldContract(t *testing.T) {
+	_, execute := setupNotebook(t)
+	dir := t.TempDir()
+	session := writePiFixture(t, dir)
+	decode := func(args ...string) any {
+		t.Helper()
+		out, err := execute(append([]string{"transcript"}, args...)...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var value any
+		if err := json.Unmarshal([]byte(out), &value); err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+	fields := func(value any, stringFields, numberFields, boolFields string) {
+		t.Helper()
+		obj, ok := value.(map[string]any)
+		if !ok {
+			t.Fatalf("expected JSON object, got %T", value)
+		}
+		for _, name := range strings.Fields(stringFields) {
+			if _, ok := obj[name].(string); !ok {
+				t.Errorf("ASSERT_TRANSCRIPT_SKILL_JSON_FIELDS: %s must be a string, got %T", name, obj[name])
+			}
+		}
+		for _, name := range strings.Fields(numberFields) {
+			if _, ok := obj[name].(float64); !ok {
+				t.Errorf("ASSERT_TRANSCRIPT_SKILL_JSON_FIELDS: %s must be numeric, got %T", name, obj[name])
+			}
+		}
+		for _, name := range strings.Fields(boolFields) {
+			if _, ok := obj[name].(bool); !ok {
+				t.Errorf("ASSERT_TRANSCRIPT_SKILL_JSON_FIELDS: %s must be boolean, got %T", name, obj[name])
+			}
+		}
+	}
+	first := func(value any) any {
+		t.Helper()
+		rows, ok := value.([]any)
+		if !ok || len(rows) == 0 {
+			t.Fatalf("expected nonempty JSON array, got %T", value)
+		}
+		return rows[0]
+	}
+	fields(first(decode("ls", dir, "--json")), "session path modified schema tree_preview cursor", "agent_count total_cost", "")
+	fields(first(decode("tree", session, "--json")), "id parent_id type started ended status result cost_status subtree_cost_status",
+		"cost subtree_cost input_tokens output_tokens cache_read_tokens cache_creation_tokens", "")
+	page := decode("show", session, "ROOT", "--json")
+	fields(page, "snapshot mode", "page pages next_page", "")
+	fields(first(page.(map[string]any)["segments"]), "text", "segment segments", "")
+	search := decode("search", "Agent", "--session", session, "--json")
+	fields(search, "", "returned", "truncated")
+	fields(first(search.(map[string]any)["matches"]), "session agent_id event_id timestamp role excerpt source_path", "", "")
+}
+
+func TestEmbeddedTranscriptSkillEvidenceBoundary(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
+	for name, required := range map[string][]string{
+		"SKILL.md":               {"--cursor", "tree_preview", "total_cost", "cost_status", "subtree_cost_status", "token counts, not currency", "exact topology requires"},
+		"references/navigate.md": {"token counts", "cost_status", "subtree_cost_status", "parent_id", "started", "ended"},
+		"references/patterns.md": {"--cursor", "tree --json", "token counts"},
+	} {
+		body, err := os.ReadFile(filepath.Join(root, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, text := range required {
+			if !strings.Contains(string(body), text) {
+				t.Errorf("ASSERT_TRANSCRIPT_SKILL_EVIDENCE_BOUNDARY: %s lacks %q", name, text)
+			}
+		}
+		for _, forbidden := range []string{"$24.5k", "ls --before <oldest.modified>", "repeated agent-type, repeated depth"} {
+			if strings.Contains(string(body), forbidden) {
+				t.Errorf("ASSERT_TRANSCRIPT_SKILL_EVIDENCE_BOUNDARY: %s retains %q", name, forbidden)
 			}
 		}
 	}

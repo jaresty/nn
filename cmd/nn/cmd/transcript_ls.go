@@ -1,11 +1,15 @@
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,6 +18,7 @@ import (
 
 // sessionRow is one entry of the recent-sessions menu (the navigator front door).
 type sessionRow struct {
+	Cursor      string `json:"cursor"`
 	Session     string `json:"session"`
 	Path        string `json:"path"`
 	Modified    string `json:"modified"`
@@ -27,6 +32,7 @@ func newTranscriptLsCmd() *cobra.Command {
 	var (
 		limit  int
 		before string
+		cursor string
 		asJSON bool
 	)
 	cmd := &cobra.Command{
@@ -46,7 +52,10 @@ func newTranscriptLsCmd() *cobra.Command {
 				}
 				beforeTime = t
 			}
-			rows, err := listSessions(dir, limit, beforeTime)
+			if cmd.Flags().Changed("cursor") && cursor == "" {
+				return fmt.Errorf("invalid cursor: empty token")
+			}
+			rows, err := listSessionsPage(dir, limit, beforeTime, cursor)
 			if err != nil {
 				return err
 			}
@@ -68,7 +77,8 @@ func newTranscriptLsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&limit, "limit", 0, "list at most N sessions (0 = all)")
-	cmd.Flags().StringVar(&before, "before", "", "only sessions modified before this RFC3339 timestamp (page further back)")
+	cmd.Flags().StringVar(&before, "before", "", "only sessions modified strictly before this RFC3339 timestamp (repeat with --cursor)")
+	cmd.Flags().StringVar(&cursor, "cursor", "", "continue after a row cursor from the same inventory and --before filter")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit structured session rows as JSON")
 	return cmd
 }
@@ -76,12 +86,29 @@ func newTranscriptLsCmd() *cobra.Command {
 // listSessions discovers top-level session .jsonl files, classifies each, and
 // returns them most-recent-first (by mtime), applying --before and --limit.
 func listSessions(dir string, limit int, before time.Time) ([]sessionRow, error) {
+	return listSessionsPage(dir, limit, before, "")
+}
+
+// transcriptLsCursor binds a position to inventory metadata, not transcript
+// contents, sidechains, or derived metrics. Limit is intentionally not bound.
+type transcriptLsCursor struct {
+	Version  int    `json:"version"`
+	Snapshot string `json:"snapshot"`
+	After    *int   `json:"after"`
+}
+
+func listSessionsPage(dir string, limit int, before time.Time, cursor string) ([]sessionRow, error) {
+	absoluteDir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, err
+	}
 	type disc struct {
 		path string
 		mod  time.Time
+		size int64
 	}
 	var found []disc
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+	err = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -99,25 +126,80 @@ func listSessions(dir string, limit int, before time.Time) ([]sessionRow, error)
 		if err != nil {
 			return err
 		}
-		found = append(found, disc{path: path, mod: info.ModTime()})
+		found = append(found, disc{path: path, mod: info.ModTime(), size: info.Size()})
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	// most-recent-first
-	sort.Slice(found, func(i, j int) bool { return found[i].mod.After(found[j].mod) })
+	// Most recent first; exact timestamp ties have stable ascending path order.
+	sort.Slice(found, func(i, j int) bool {
+		if found[i].mod.Equal(found[j].mod) {
+			return found[i].path < found[j].path
+		}
+		return found[i].mod.After(found[j].mod)
+	})
+	h := sha256.New()
+	writeSnapshotPart(h, []byte(absoluteDir))
+	filter := ""
+	if !before.IsZero() {
+		filter = before.UTC().Format(time.RFC3339Nano)
+	}
+	writeSnapshotPart(h, []byte(filter))
+	for _, f := range found {
+		path, err := filepath.Abs(f.path)
+		if err != nil {
+			return nil, err
+		}
+		writeSnapshotPart(h, []byte(path))
+		writeSnapshotPart(h, []byte(f.mod.UTC().Format(time.RFC3339Nano)))
+		writeSnapshotPart(h, []byte(strconv.FormatInt(f.size, 10)))
+	}
+	snapshot := hex.EncodeToString(h.Sum(nil))
+	after := -1
+	if cursor != "" {
+		data, err := base64.RawURLEncoding.DecodeString(cursor)
+		if err != nil {
+			return nil, fmt.Errorf("invalid cursor encoding: %w", err)
+		}
+		var c transcriptLsCursor
+		if err := json.Unmarshal(data, &c); err != nil {
+			return nil, fmt.Errorf("invalid cursor JSON: %w", err)
+		}
+		if c.Version != 1 {
+			return nil, fmt.Errorf("unsupported cursor version: %d", c.Version)
+		}
+		if c.Snapshot != snapshot {
+			return nil, fmt.Errorf("stale or mismatched cursor: inventory, directory, or --before changed")
+		}
+		if c.After == nil || *c.After < 0 || *c.After >= len(found) {
+			return nil, fmt.Errorf("invalid cursor position")
+		}
+		after = *c.After
+		if !before.IsZero() && !found[after].mod.Before(before) {
+			return nil, fmt.Errorf("invalid cursor position: outside --before filter")
+		}
+	}
 
 	rows := make([]sessionRow, 0, len(found))
-	for _, f := range found {
+	for i, f := range found {
+		if i <= after {
+			continue
+		}
 		if !before.IsZero() && !f.mod.Before(before) {
 			continue
 		}
+		position := i
+		encoded, err := json.Marshal(transcriptLsCursor{Version: 1, Snapshot: snapshot, After: &position})
+		if err != nil {
+			return nil, err
+		}
 		row := sessionRow{
+			Cursor:   base64.RawURLEncoding.EncodeToString(encoded),
 			Session:  strings.TrimSuffix(filepath.Base(f.path), ".jsonl"),
 			Path:     f.path,
-			Modified: f.mod.UTC().Format(time.RFC3339),
+			Modified: f.mod.UTC().Format(time.RFC3339Nano),
 			Schema:   classifyTranscript(f.path),
 		}
 		// agent count, cost, and mini-tree from the spine (best-effort; a

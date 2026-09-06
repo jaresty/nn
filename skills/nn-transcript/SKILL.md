@@ -16,7 +16,7 @@ requires: nn CLI (nn transcript spine, ADR-0042); DuckDB only for the unknown-sc
 # nn-transcript
 
 The **discovery layer** over the `nn transcript` spine (ADR-0042). The spine
-(`ls`/`scan`/`tree`/`show`/`doctor`) is deterministic and dependency-free; this compact core
+(`ls`/`scan`/`tree`/`show`/`search`/`doctor`) is deterministic and dependency-free; this compact core
 owns the **front door**, the **visual grammar**, the **discovery contract**, the **dispatch
 map**, and the **loop invariant**, and drives the spine through a single entry into two
 branches — **navigate** one session, or **sweep patterns** across sessions. Detailed action
@@ -38,6 +38,11 @@ nn transcript ls <dir> --json --limit <N>   # bounded to ONE page — this page 
 Default `<dir>` is the harness transcript root (e.g. `~/.claude/projects/<project-slug>/`).
 Draw an **LLM-composed** standout view from the JSON (never a fixed template), then present the
 picker. The cohort is **replaced, not accumulated** on every re-sweep.
+For the next page, pass the last returned row's `cursor` as `--cursor <cursor>` with the same
+directory and any original `--before` filter. Stop on `[]`. Do not derive a cursor from `modified`:
+`--before` is a strict time filter and cannot continue exact timestamp ties. A stale or mismatched
+cursor requires restarting discovery; it binds the directory/filter and path/mtime/size inventory,
+not transcript contents or derived metrics.
 
 ## Visual grammar (stated once; both branches use it, references never restate it)
 
@@ -46,24 +51,34 @@ Color-relay markers survive markdown/relay. Reuse the `:enter` grammar, plus two
 | Channel | Encodes | Values | Source |
 |---|---|---|---|
 | color marker | emphasis / tension | 🔴 tension · 🟠 expensive · 🟡 caution · 🟢 healthy · 🔵 lateral · 🟦 structural | **discovered** |
-| width / box | cost magnitude | bar ∝ cost | **fixed** (`ls` cost) |
-| shape / label | node type | session · agent · type-name | **fixed** |
-| branch lines `├─ └─ │` | connection | spawn/tree edges | **fixed** |
+| width / box | observed token magnitude | provisional bar ∝ `total_cost`; exact comparison requires authority from `tree` | **fixed** |
+| shape / label | node type | session/schema from `ls`; agent/type-name from `tree` | **fixed** |
+| branch lines `├─ └─ │` | connection | spawn/tree edges only after `tree --json` | **fixed** |
 | `◈` | outlier-vs-cohort | departs from *this* swept cohort | **discovered** |
 | `↻×N` | recurring-across-N | a shape in N named sessions | **discovered, deterministic only** |
 
-**`↻×N` tightening:** at the front door, `↻×N` may assert **only `ls`-derivable deterministic
-shapes** (repeated cost shape, repeated agent-type, repeated depth) and must name the N session
-ids. Any **behavioral** recurrence (drift, re-derivation, groundedness) is a **proposal to
-sweep** (`◈ … sweep to check?`), never a stated claim — confirming it requires the patterns branch.
+**`↻×N` tightening:** at the front door, `↻×N` may assert only repeated schema or `agent_count`
+values and must name the N session ids. Agent-type frequency and depth require `tree --json` for
+each named session; exact topology requires that same relation. `tree_preview` is a lossy preview with shortened IDs and a
+node cap, never an edge relation. Any **behavioral** recurrence (drift, re-derivation, groundedness)
+is a **proposal to sweep** (`◈ … sweep to check?`), never a stated claim — confirming it requires
+the patterns branch.
+
+`total_cost`, `cost`, and `subtree_cost` are token counts, not currency. `ls` provides only observed
+`total_cost`, without completeness authority. Label it provisional; do not call a session cheaper
+or fully accounted from that number alone. For cost comparisons, fetch `tree --json` and honor
+`cost_status` / `subtree_cost_status`: unavailable is unknown, partial is a lower bound, complete
+is measured (including measured zero).
 
 ## Discovery contract
 
-- **Tier 1 — MUST copy through** from `ls --json`: session id, cost, agent count, tree shape.
-  Every drawn mark must attach to a real listed session.
+- **Tier 1 — MUST copy through** from `ls --json`: `session`, `schema`, observed `total_cost`,
+  `agent_count`, and optionally the literal `tree_preview`. `path` and `modified` identify the
+  source; `cursor` is transport state. Every drawn mark must attach to a real listed session.
+  Never expand the preview into inferred topology; retrieve `tree --json` for real edges.
 - **Tier 2 — MAY discover**: which standouts, emphasis/color, `◈` (relative to current cohort),
   `↻×N` (deterministic shapes only, with named ids).
-- **Tier 3 — MUST NOT**: invent a session/cost/edge absent from `ls`; assert any Tier-2
+- **Tier 3 — MUST NOT**: invent a session/cost or an edge absent from `tree`; assert any Tier-2
   behavioral interpretation (drift, groundedness, "failed") from the front door alone; move
   geography. Behavioral claims require escalating to a real read (`tree` → `show`).
 - **On violation**: a drawn id not in the sweep, or a width misrepresenting cost → void the
@@ -83,7 +98,7 @@ front door (sweep → draw → picker)
  │      patterns = NAVIGATE applied across the cohort:
  │      sample whole sessions → drive the navigate descent per sample →
  │      infer ONE Tier-2 dimension → synthesize the cross-session claim → harvest
- ├ [look further back] → re-sweep `ls --before <oldest.modified>` → new cohort → picker
+ ├ [look further back] → re-sweep `ls --json --cursor <last-row.cursor>` → new cohort → picker
  └ [End] → stop; summarize where it landed
 ```
 

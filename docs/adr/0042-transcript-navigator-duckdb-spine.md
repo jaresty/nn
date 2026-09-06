@@ -183,6 +183,22 @@ searches JSON syntax and attachment noise, and cannot reconstruct agent/session 
 does not replace `tree` topology, complete `show` reconstruction, or the whole-session sampling
 required for behavioral patterns.
 
+### Continue discovery without losing timestamp ties
+
+`ls --before` remains a strict time filter, not a pagination cursor. Return `modified` with
+RFC3339 nanosecond precision and sort discovery by descending mtime, then ascending path for ties.
+Each JSON row adds an opaque `cursor`; pass the last row's cursor to
+`nn transcript ls <same-dir> --json --limit N --cursor <cursor>` to continue. Repeat any original
+`--before` filter unchanged. The JSON result remains an array; an empty array ends continuation.
+Page size may change between calls.
+
+The versioned cursor binds the normalized directory, before filter, ordered discovery inventory
+(paths, full-precision mtimes, sizes), and the last returned position. Inventory/query changes
+reject it as stale or mismatched; malformed or unsupported cursors fail explicitly. This guarantees
+complete, nonduplicating traversal of an unchanged inventory, including exact timestamp ties.
+It is not a snapshot of transcript contents, sidechain contents, or derived metrics. Restart
+without a cursor to discover new/modified sessions. Paths are normalized lexically, not by inode.
+
 ### Bound complete thread retrieval to a snapshot
 
 Text-mode `nn transcript show <session> <agent-id> [--raw]` remains byte-compatible and unbounded.
@@ -228,6 +244,17 @@ empty output has one page and one explicit empty segment.
 A consumer retrieves every page under one snapshot and verifies complete ordered segments before
 making event-derived claims. This mirrors ADR-0035's lossless graph-body transport while retaining
 `show`'s existing source-selection and security semantics.
+
+#### Event modes
+
+For all Pi paths (ROOT, inline agent events, direct sidechains, and resolved sidechains), raw detail
+emits each selected event's complete message payload in order, retaining usage and tool results.
+It does not mean the outer JSONL wrapper or unrelated agents' records. Meaningful show and search
+share one content policy: omit attachment records and tool-result roles (`toolResult`,
+`tool_result`), as well as typed `tool_result` content blocks; retain text and tool-call previews.
+Use raw mode to inspect or search tool-result errors and payloads. These corrections supersede the
+old Pi early-return behavior that ignored raw mode and leaked text-form tool results in meaningful
+show. Pagination reconstructs the corrected selected projection exactly.
 
 #### Projection ownership and encoding boundary
 

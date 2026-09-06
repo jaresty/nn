@@ -167,7 +167,7 @@ func newTranscriptShowCmd() *cobra.Command {
 	var snapshot string
 	cmd := &cobra.Command{
 		Use:   "show <session> <agent-id>",
-		Short: "Per-agent events (meaningful by default; --raw for the lossless full record)",
+		Short: "Per-agent events (meaningful by default; --raw for schema-native detail)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !asJSON && (cmd.Flags().Changed("page") || cmd.Flags().Changed("snapshot")) {
@@ -193,7 +193,7 @@ func newTranscriptShowCmd() *cobra.Command {
 			return err
 		},
 	}
-	cmd.Flags().BoolVar(&raw, "raw", false, "emit the lossless full per-agent record (all events, verbatim)")
+	cmd.Flags().BoolVar(&raw, "raw", false, "emit schema-native per-agent detail (Pi: complete owned message payloads)")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit one bounded lossless JSON page")
 	cmd.Flags().IntVar(&page, "page", 1, "one-based page to return")
 	cmd.Flags().StringVar(&snapshot, "snapshot", "", "snapshot SHA-256 returned by page 1 (required for later pages)")
@@ -925,8 +925,19 @@ func renderOverview(agents []agent) string {
 	return b.String()
 }
 
+// renderPiEvents applies the selected mode consistently to already-owned events.
+func renderPiEvents(b *strings.Builder, recs []rawRecord, raw bool) {
+	if !raw {
+		renderMeaningfulEvents(b, recs)
+		return
+	}
+	for _, r := range recs {
+		fmt.Fprintf(b, "%s\n", string(r.Message))
+	}
+}
+
 // showAgent surfaces per-agent events for one agent id. By default it renders
-// only meaningful events; raw=true emits the lossless full record.
+// only meaningful events; raw=true emits schema-native per-agent detail.
 func showAgent(session, agentID string, raw bool) (string, error) {
 	schema := classifyTranscript(session)
 	var b strings.Builder
@@ -955,7 +966,7 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 				}
 			}
 			if len(owned) > 0 {
-				renderMeaningfulEvents(&b, owned)
+				renderPiEvents(&b, owned, raw)
 				return b.String(), nil
 			}
 		}
@@ -996,13 +1007,7 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 						if terminal != nil {
 							fmt.Fprintf(&b, "type: %s\nstatus: %s\n", terminal.Type, terminal.Status)
 						}
-						if raw {
-							for _, r := range owned {
-								fmt.Fprintf(&b, "%s\n", string(r.Message))
-							}
-						} else {
-							renderMeaningfulEvents(&b, owned)
-						}
+						renderPiEvents(&b, owned, raw)
 						return b.String(), nil
 					}
 				}
@@ -1089,6 +1094,15 @@ func textContent(raw json.RawMessage) string {
 	return strings.Join(parts, "\n")
 }
 
+// meaningfulContent is the shared search/show content policy. Tool-result
+// payloads require raw mode even when encoded as ordinary text blocks.
+func meaningfulContent(role string, content json.RawMessage) string {
+	if role == "toolResult" || role == "tool_result" {
+		return ""
+	}
+	return textContent(content)
+}
+
 // renderMeaningfulEvents writes prompt / assistant text / tool calls in order,
 // skipping attachment records and tool-result payloads.
 func renderMeaningfulEvents(b *strings.Builder, recs []rawRecord) {
@@ -1106,7 +1120,7 @@ func renderMeaningfulEvents(b *strings.Builder, recs []rawRecord) {
 			if json.Unmarshal(r.Message, &msg) != nil {
 				continue
 			}
-			text := textContent(msg.Content)
+			text := meaningfulContent(msg.Role, msg.Content)
 			if strings.TrimSpace(text) == "" {
 				continue
 			}

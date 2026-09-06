@@ -150,10 +150,7 @@ func searchTranscriptFiles(files []string, query, agentFilter, before string, ra
 			if raw {
 				text = string(r.Message)
 			} else {
-				if msg.Role == "toolResult" || msg.Role == "tool_result" {
-					continue
-				}
-				text = textContent(msg.Content)
+				text = meaningfulContent(msg.Role, msg.Content)
 			}
 			if !strings.Contains(strings.ToLower(text), needle) {
 				continue

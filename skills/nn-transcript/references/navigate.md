@@ -17,9 +17,10 @@ does not restate them.
    nn transcript tree <session> --json
    ```
    Read only Tier-0/1 signals — always present, no inference:
-   - `cost` / `subtree_cost` — which branch spent the tokens (*audit*).
+   - `cost` / `subtree_cost` — token counts, with `cost_status` / `subtree_cost_status` authority:
+     complete is measured, unavailable is unknown, partial is a lower bound (*audit*).
    - `status` — active vs completed.
-   - `hierarchy` + `lifespans` — who spawned what, when (*recover context*).
+   - `parent_id`, `started`, and `ended` — recorded parentage and times (*recover context*).
 
    Draw the spawn DAG with box-drawing branches, marking each node by type and cost per the core
    grammar; emphasize the costly subtree, collapse boring repetition. **Do not infer Tier-2
@@ -31,7 +32,7 @@ does not restate them.
    nn transcript show <session> <agent-id> --json             # page 1
    nn transcript show <session> <agent-id> --json \
      --page <next_page> --snapshot <snapshot>                 # every later page
-   # add --raw consistently to every call for the full per-agent record
+   # add --raw consistently to every call for schema-native per-agent detail
    ```
    Retrieve every page under the page-1 snapshot, concatenate `segments[].text` by global
    `segment` ordinal, and verify all `segments` ordinals are present before interpreting events.
@@ -42,6 +43,9 @@ does not restate them.
    Resolved Pi sidechain events require an explicit matching `agentId`, including in `--raw` mode;
    foreign or missing-owner records are not attributable detail. If none match, metadata fallback
    means event detail is unavailable, not that the agent did no work.
+   For Pi, raw detail contains complete owned message payloads, not outer JSONL wrappers.
+   Meaningful show and search omit tool-result roles and typed tool-result blocks; use `--raw`
+   when inspecting or locating tool-result errors or payloads.
 
    Answer one question: **what is worth attending to in THIS thread?** Read the events and
    propose **2–4** salient dimensions, drawing from this palette or naming a novel one the thread
@@ -89,7 +93,7 @@ Proposed dimensions, drawn:
    🟦   │  a7665a  ·  nn-capture       │
   spawn │  purpose: browser-demo shots │
    ↑    └─────────────────────────────┘
-        cost  ██▏ $24.5k
+        cost  ██▏ 24.5k tokens (complete)
         🟢 groundedness: high (real URLs, node snippet)
         🟢 instruction-drift: none (did the screenshot task)
         🟡 friction: one interrupted tool call
