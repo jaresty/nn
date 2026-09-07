@@ -47,13 +47,19 @@ func ledgerSelect(s string) ([]string, error) {
 }
 
 func newTranscriptEventsCmd() *cobra.Command {
-	var selection, snapshot, eventFilter, summary string
+	var selection, snapshot, eventFilter, summary, groupBy string
 	var payload, asJSON, all bool
-	var page, bucketSize int
+	var page, bucketSize, resultLimit int
 	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound normalized event ledger (JSON)", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, args []string) error {
 		summaryMode := c.Flags().Changed("summary")
+		if c.Flags().Changed("bucket-size") && summary != "usage" {
+			return fmt.Errorf("events: --bucket-size requires --summary usage")
+		}
+		if (c.Flags().Changed("limit") || c.Flags().Changed("group-by")) && summary != "tools" {
+			return fmt.Errorf("events: --limit/--group-by require --summary tools")
+		}
 		if summaryMode {
-			if summary != "usage" {
+			if summary != "usage" && summary != "tools" {
 				return fmt.Errorf("events: unknown summary %q", summary)
 			}
 			if bucketSize < 0 {
@@ -65,6 +71,12 @@ func newTranscriptEventsCmd() *cobra.Command {
 				}
 			}
 			selection = "identity,usage"
+			if summary == "tools" {
+				if resultLimit < 0 || resultLimit > 100 || (groupBy != "" && groupBy != "tool") {
+					return fmt.Errorf("events: tools summary requires --limit 0..100 and --group-by tool")
+				}
+				selection = "identity,tools"
+			}
 		} else if c.Flags().Changed("bucket-size") {
 			return fmt.Errorf("events: --bucket-size requires --summary usage")
 		}
@@ -91,12 +103,17 @@ func newTranscriptEventsCmd() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		events, err := projectLedger(records, args[1], selectFields, payload)
+		events, err := projectLedger(records, args[1], selectFields, payload || summary == "tools")
 		if err != nil {
 			return err
 		}
 		if summaryMode {
-			body, err := buildUsageSummary(args[0], args[1], schema, detail, events, bucketSize, snapshot)
+			var body []byte
+			if summary == "tools" {
+				body, err = buildToolSummary(args[0], args[1], schema, detail, events, resultLimit, groupBy, snapshot)
+			} else {
+				body, err = buildUsageSummary(args[0], args[1], schema, detail, events, bucketSize, snapshot)
+			}
 			if err != nil {
 				return err
 			}
@@ -114,7 +131,9 @@ func newTranscriptEventsCmd() *cobra.Command {
 		_, err = c.OutOrStdout().Write(append(b, '\n'))
 		return err
 	}}
-	c.Flags().StringVar(&summary, "summary", "", "complete deterministic summary: usage")
+	c.Flags().StringVar(&summary, "summary", "", "deterministic summary: usage or tools")
+	c.Flags().IntVar(&resultLimit, "limit", 5, "largest tool results to return, 0..100 (requires --summary tools)")
+	c.Flags().StringVar(&groupBy, "group-by", "", "group tool-volume statistics by tool (requires --summary tools)")
 	c.Flags().IntVar(&bucketSize, "bucket-size", 0, "usage records per summary bucket; 0 disables buckets (requires --summary usage)")
 	c.Flags().BoolVar(&all, "all", false, "export all complete events as UNBOUNDED JSON; incompatible with paging flags")
 	c.Flags().StringVar(&eventFilter, "event", "", "retrieve one exact event id, preserving its ledger ordinal")

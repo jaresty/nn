@@ -79,7 +79,12 @@ For token totals and context growth, use
 contract, rather than writing another aggregation. It covers the complete selected ledger in one
 bounded result and discloses missing and zero records; bucket boundaries are not inferred task phases.
 
-For custom per-record analysis, tool-call counts, tool-result sizes, or lifecycle accounting, use
+For tool counts, result sizes, or what enlarged the thread, use
+`nn transcript events <session> <agent-id> --summary tools --limit 8 --group-by tool` under the core
+tool-volume contract. Use returned joins and command previews instead of client-side ranking and lookup.
+Sizes are not token attribution; judging necessity still requires inspecting relevant evidence.
+
+For custom per-record analysis or lifecycle accounting, use
 `nn transcript events <session> <agent-id> --select identity,message,usage,tools,lifecycle --json`
 under the core ledger contract. Complete the page set before summing message usage; extracted tool
 events do not carry usage. Inspect a selected event with `--event <event-id> --payload` rather than

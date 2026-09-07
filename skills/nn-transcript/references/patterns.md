@@ -45,7 +45,11 @@ For token totals and context-growth comparisons within selected agents, use
 contract. Preserve missing-count authority and known-context denominators; do not equate usage records
 with independently verified API calls or assume buckets are task phases.
 
-For custom per-record usage or tool-volume comparisons within selected agents, use
+For tool-volume comparisons within selected agents, use
+`nn transcript events <session> <agent-id> --summary tools --limit 8 --group-by tool` under the core
+tool-volume contract; preserve unknown sizes, ambiguous joins, and explicit preview/result omissions.
+
+For custom per-record usage or tool-event comparisons within selected agents, use
 `nn transcript events <session> <agent-id> --select identity,message,usage,tools --json` under the
 core ledger contract. Complete every snapshot-bound page and reconstruct oversized events before
 aggregation. Count usage-bearing message events once, not extracted tool events. These are deterministic

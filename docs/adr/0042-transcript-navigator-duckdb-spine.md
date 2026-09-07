@@ -282,6 +282,31 @@ source-wide strict UTF-8 validation would be a separate ingestion-policy change,
 transport contract. These guarantees apply consistently to text and raw projections; `--raw` does
 not broaden event ownership.
 
+### Deterministic tool-volume summaries
+
+`events --summary tools [--limit N] [--group-by tool]` reuses authenticated ledger selection,
+normalized sizes and unique joins. The independently versioned `nn.transcript.tool-summary/v1`
+response includes counts, call/result join-status counts, per-size known sums and missing denominators,
+largest results, matched call command/argument previews, and optional exact-name groups (null for unknown).
+Only tool events contribute, never their enclosing message events. Result grouping uses its recorded
+name, falling back only to a uniquely matched call's name. Ambiguous/missing/unavailable joins never
+produce a guessed call. Inconsistent matched references reject.
+
+The default limit is 5; 0 through 100 are accepted. Results sort by known text-character size descending,
+unknown sizes last, then ledger ordinal and event ID. results_returned/results_omitted disclose the tail.
+Known-only size totals are lower bounds when unknown records exist; wholly unknown and empty sets have
+null totals, distinct from measured zero. Negative counts and sum overflow reject. Commands and argument
+JSON previews are at most 512 UTF-8 bytes each, with truncation flags, full argument-byte metadata and
+an argument JSON SHA-256 for displayed calls. Non-command tools retain argument previews and null commands.
+Sizes are not tokens, prices, context attribution, or evidence of necessity/waste.
+
+The response snapshot binds options, returned reductions and the identity/tools metadata ledger snapshot;
+displayed call argument digests additionally bind their argument JSON. Other payloads are not covered.
+--snapshot revalidates the summary. --limit/--group-by require tools mode; --bucket-size requires usage
+mode. Existing summary incompatibilities with --select/--payload/--event/--all/--page remain. Output is
+at most 48,000 bytes including newline; oversized responses fail with guidance to reduce the limit or
+omit groups, never silently omit groups. Existing ledger and usage-summary outputs remain unchanged.
+
 ### Deterministic usage summaries
 
 `events <session> <agent-id> --summary usage [--bucket-size N]` reduces the existing authenticated

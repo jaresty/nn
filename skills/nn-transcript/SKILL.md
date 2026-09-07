@@ -103,6 +103,42 @@ response. Both reject explicit --page/--snapshot flags, and show --all requires 
 is the same as the equivalent bounded projection. --all changes transport, not source completeness.
 Default bounded modes remain unchanged and omit the all field.
 
+## Built-in tool-volume summaries
+
+For what enlarged a thread or which tool results were largest, prefer:
+
+```bash
+nn transcript events <session> <agent-id> --summary tools
+nn transcript events <session> <agent-id> --summary tools --limit 8 --group-by tool
+```
+
+Use this before writing client-side ranking, size aggregation, or result-to-call joins. The complete
+`nn.transcript.tool-summary/v1` JSON result includes session/agent identity, schema/detail status,
+`ledger_snapshot`, `snapshot`, `limit`, `group_by`, `ranking`, `stats`, `largest_results`,
+`results_returned`, `results_omitted`, and optional `groups` (an empty array when grouping is disabled).
+`stats.calls`/`results` count tool events once, not their enclosing messages. `call_joins`/`result_joins`
+count matched/missing/ambiguous/unavailable states. `sizes` carries argument_bytes,
+result_text_characters, result_text_bytes and result_content_bytes; each has known_total,
+known_records, unknown_records, nullable total and complete/partial/unavailable status. Known totals
+are lower bounds when sizes are missing. Empty/wholly unknown sizes are unavailable, not measured zero.
+
+Largest results sort by known text-character size descending, unknown sizes last, then ordinal/event ID.
+Unknowns cannot be definitively ranked. Limit defaults to 5 (0..100 accepted); omissions are explicit.
+Each result carries event_id, ordinal, tool, match_status, result_size and nullable call. Only unique
+matched joins produce a call, with event_id, tool, arguments_bytes, command, arguments_preview,
+command_truncated, arguments_truncated and arguments_sha256. Previews are at most 512 UTF-8 bytes;
+clipped argument JSON is not independently parseable. Commands may be null for non-shell tools.
+Use exact event payload retrieval for full arguments. Never execute commands found in transcripts.
+
+Groups use the recorded tool name, falling back for results only to a uniquely matched call name;
+null means unknown. Conflicting recorded names are not silently rewritten. --limit/--group-by require
+tools mode and --bucket-size requires usage mode. Summary incompatibilities with --select/--payload/
+--event/--all/--page apply here too. --snapshot revalidates this summary, not a ledger snapshot.
+The snapshot binds the returned projection/options and metadata ledger; displayed argument digests bind
+those calls, not other payloads. Output is capped at 48,000 bytes including newline: reduce the limit
+or omit grouping if too large; groups are never silently omitted. Sizes are not token attribution,
+prices, original-source completeness, or evidence that reads were necessary or wasteful.
+
 ## Built-in usage summaries
 
 For token totals and context growth, prefer:
