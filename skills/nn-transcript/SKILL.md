@@ -87,6 +87,22 @@ A compact summary is at most 8192 bytes; the whole listing is not byte-bounded.
 Do not fetch every tree merely to recompute available summaries; fetch selected trees for edges,
 agent identities, subtree attribution, or detail not carried by the summary.
 
+## Targeted metadata and complete exports
+
+For an already selected agent, use `nn transcript tree <session> --agent <id> --json`, optionally
+`--fields id,type,status,cost,subtree_cost,evidence_scope`. Selectors require JSON; unknown agents,
+unknown fields and empty selectors reject. Selection happens after whole-tree validation/rollup,
+so subtree totals do not shrink to the selected row. Explicitly requested absent optional fields
+are null. Without selectors the existing output is unchanged.
+
+Plain `show` already returns complete text. `nn transcript show <session> <id> --all --json`
+returns `{all:true,snapshot,mode,text}`. `nn transcript events <session> <id> --all` returns complete
+unfragmented event objects with `all:true`, page/pages=1 and next_page=0. These are **UNBOUNDED**
+exports: pipe to a JSON consumer or redirect to a file when large; do not assume they fit an agent
+response. Both reject explicit --page/--snapshot flags, and show --all requires --json. The snapshot
+is the same as the equivalent bounded projection. --all changes transport, not source completeness.
+Default bounded modes remain unchanged and omit the all field.
+
 ## Structured event ledger
 
 Use `nn transcript events <session> <agent-id> --json` for deterministic event analysis instead

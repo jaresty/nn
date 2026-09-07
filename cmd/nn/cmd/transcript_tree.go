@@ -135,11 +135,19 @@ type piCustomData struct {
 func newTranscriptTreeCmd() *cobra.Command {
 	var asJSON bool
 	var strict bool
+	var agentID, fields string
 	cmd := &cobra.Command{
 		Use:   "tree <session>",
 		Short: "Reconstruct the spawn DAG into the normalized relation",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			projected := cmd.Flags().Changed("agent") || cmd.Flags().Changed("fields")
+			if projected && !asJSON {
+				return fmt.Errorf("tree: --agent and --fields require --json")
+			}
+			if (cmd.Flags().Changed("agent") && agentID == "") || (cmd.Flags().Changed("fields") && fields == "") {
+				return fmt.Errorf("tree: selectors must not be empty")
+			}
 			agents, err := buildTree(args[0])
 			if err != nil {
 				return err
@@ -162,6 +170,13 @@ func newTranscriptTreeCmd() *cobra.Command {
 			if asJSON {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
+				if projected {
+					rows, err := projectTranscriptTree(agents, agentID, fields)
+					if err != nil {
+						return err
+					}
+					return enc.Encode(rows)
+				}
 				return enc.Encode(agents)
 			}
 			fmt.Fprint(cmd.OutOrStdout(), renderOverview(agents))
@@ -169,12 +184,14 @@ func newTranscriptTreeCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit the normalized relation as JSON")
+	cmd.Flags().StringVar(&agentID, "agent", "", "select one agent after full-tree validation/rollup (requires --json)")
+	cmd.Flags().StringVar(&fields, "fields", "", "comma-separated top-level JSON field names (requires --json)")
 	cmd.Flags().BoolVar(&strict, "strict", false, "abort on validation failure instead of repairing orphans (use for untrusted/escape-hatch schemas)")
 	return cmd
 }
 
 func newTranscriptShowCmd() *cobra.Command {
-	var raw, asJSON bool
+	var raw, asJSON, all bool
 	var page int
 	var snapshot string
 	cmd := &cobra.Command{
@@ -182,6 +199,9 @@ func newTranscriptShowCmd() *cobra.Command {
 		Short: "Per-agent events (meaningful by default; --raw for schema-native detail)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if all && (!asJSON || cmd.Flags().Changed("page") || cmd.Flags().Changed("snapshot")) {
+				return fmt.Errorf("transcript show: --all requires --json and cannot be combined with paging flags")
+			}
 			if !asJSON && (cmd.Flags().Changed("page") || cmd.Flags().Changed("snapshot")) {
 				return fmt.Errorf("transcript show: --page and --snapshot require --json")
 			}
@@ -192,6 +212,13 @@ func newTranscriptShowCmd() *cobra.Command {
 			if !asJSON {
 				fmt.Fprint(cmd.OutOrStdout(), text)
 				return nil
+			}
+			if all {
+				response, err := completeTranscriptShow(args[0], args[1], raw, text)
+				if err != nil {
+					return err
+				}
+				return json.NewEncoder(cmd.OutOrStdout()).Encode(response)
 			}
 			response, err := buildTranscriptShowPage(args[0], args[1], raw, text, page, snapshot)
 			if err != nil {
@@ -205,6 +232,7 @@ func newTranscriptShowCmd() *cobra.Command {
 			return err
 		},
 	}
+	cmd.Flags().BoolVar(&all, "all", false, "export complete text as UNBOUNDED JSON; requires --json and no paging flags")
 	cmd.Flags().BoolVar(&raw, "raw", false, "emit schema-native per-agent detail (Pi: complete owned message payloads)")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit one bounded lossless JSON page")
 	cmd.Flags().IntVar(&page, "page", 1, "one-based page to return")

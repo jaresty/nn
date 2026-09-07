@@ -52,6 +52,8 @@ func ledgerAll(t *testing.T, execute func(...string) (string, error), session, i
 				if n < int(count) {
 					continue
 				}
+				// Decode into a fresh map: fragment transport keys are not event fields.
+				e = nil
 				if err := json.Unmarshal([]byte(partials[key]), &e); err != nil {
 					t.Fatal(err)
 				}

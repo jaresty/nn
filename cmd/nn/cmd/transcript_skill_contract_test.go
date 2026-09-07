@@ -137,6 +137,34 @@ func TestEmbeddedTranscriptSkillEvidenceBoundary(t *testing.T) {
 	}
 }
 
+func TestEmbeddedTranscriptSkillExportsContract(t *testing.T) {
+	for _, entry := range []struct {
+		cmd   string
+		flags []string
+	}{{"tree", []string{"agent", "fields"}}, {"show", []string{"all"}}, {"events", []string{"all"}}} {
+		root := newTranscriptCmd(nil)
+		cmd, _, err := root.Find([]string{entry.cmd})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, flag := range entry.flags {
+			if cmd.Flags().Lookup(flag) == nil {
+				t.Fatalf("ASSERT_EXPORT_SKILL: missing flag %s", flag)
+			}
+		}
+	}
+	body, err := os.ReadFile(filepath.Join("..", "..", "..", "skills", "nn-transcript", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"--agent", "--fields", "--all", "UNBOUNDED"} {
+		if !strings.Contains(string(body), required) {
+			t.Fatalf("ASSERT_EXPORT_SKILL: fail — missing %s", required)
+		}
+	}
+	t.Log("ASSERT_EXPORT_SKILL: pass")
+}
+
 func TestEmbeddedTranscriptSkillEventsContract(t *testing.T) {
 	cmd := newTranscriptEventsCmd()
 	for _, name := range []string{"select", "payload", "event", "json", "page", "snapshot"} {

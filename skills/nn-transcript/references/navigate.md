@@ -30,6 +30,9 @@ does not restate them.
    signals (drift, groundedness, pivots) across the whole tree here** — that is deferred to
    `:enter` or the opt-in sweep.
 
+For an already selected agent's metadata, use `nn transcript tree <session> --agent <id> --json`
+and optional `--fields` under the core projection contract; no client-side row extraction is needed.
+
 2. **`:enter` one thread — pay inference, scoped to this thread.**
    ```bash
    nn transcript show <session> <agent-id> --json             # page 1
@@ -37,6 +40,8 @@ does not restate them.
      --page <next_page> --snapshot <snapshot>                 # every later page
    # add --raw consistently to every call for schema-native per-agent detail
    ```
+   For an explicit unbounded JSON export, use `show --all --json` (complete text) or
+   `events --all` (complete event objects) under the core export contract. Otherwise:
    Retrieve every page under the page-1 snapshot, concatenate `segments[].text` by global
    `segment` ordinal, and verify all `segments` ordinals are present before interpreting events.
    Never mix snapshots or make event-derived claims from a partial page set. The reconstruction is

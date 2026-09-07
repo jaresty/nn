@@ -13,6 +13,7 @@ import (
 )
 
 type ledgerPage struct {
+	All          bool              `json:"all,omitempty"`
 	Version      string            `json:"version"`
 	EventFilter  string            `json:"event_filter"`
 	Snapshot     string            `json:"snapshot"`
@@ -47,9 +48,12 @@ func ledgerSelect(s string) ([]string, error) {
 
 func newTranscriptEventsCmd() *cobra.Command {
 	var selection, snapshot, eventFilter string
-	var payload, asJSON bool
+	var payload, asJSON, all bool
 	var page int
 	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound normalized event ledger (JSON)", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, args []string) error {
+		if all && (c.Flags().Changed("page") || c.Flags().Changed("snapshot")) {
+			return fmt.Errorf("events: --all cannot be combined with --page or --snapshot")
+		}
 		if args[1] == "" {
 			return fmt.Errorf("events: agent id must not be empty")
 		}
@@ -74,7 +78,7 @@ func newTranscriptEventsCmd() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		result, err := buildLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter)
+		result, err := buildLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all)
 		if err != nil {
 			return err
 		}
@@ -85,6 +89,7 @@ func newTranscriptEventsCmd() *cobra.Command {
 		_, err = c.OutOrStdout().Write(append(b, '\n'))
 		return err
 	}}
+	c.Flags().BoolVar(&all, "all", false, "export all complete events as UNBOUNDED JSON; incompatible with paging flags")
 	c.Flags().StringVar(&eventFilter, "event", "", "retrieve one exact event id, preserving its ledger ordinal")
 	c.Flags().StringVar(&selection, "select", "identity,message,usage,tools,lifecycle", "comma-separated facets; identity is always included")
 	c.Flags().BoolVar(&payload, "payload", false, "include native payloads (oversized events are fragmented)")
@@ -94,7 +99,7 @@ func newTranscriptEventsCmd() *cobra.Command {
 	return c
 }
 
-func buildLedgerPage(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string) (ledgerPage, error) {
+func buildLedgerPage(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string, all bool) (ledgerPage, error) {
 	if page < 1 || (page > 1 && supplied == "") {
 		return ledgerPage{}, fmt.Errorf("events: invalid page or missing snapshot")
 	}
@@ -133,6 +138,9 @@ func buildLedgerPage(session, id, schema, detail string, selection []string, pay
 	result.Snapshot = hex.EncodeToString(h.Sum(nil))
 	if supplied != "" && supplied != result.Snapshot {
 		return ledgerPage{}, fmt.Errorf("events: stale or mismatched --snapshot")
+	}
+	if all {
+		return completeLedgerExport(result, encoded), nil
 	}
 	fits := func(entries []json.RawMessage) bool {
 		p := result

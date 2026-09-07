@@ -282,6 +282,23 @@ source-wide strict UTF-8 validation would be a separate ingestion-policy change,
 transport contract. These guarantees apply consistently to text and raw projections; `--raw` does
 not broaden event ownership.
 
+### Targeted tree projection and complete exports
+
+`tree --agent <id> --fields <comma-separated top-level JSON fields> --json` filters only after
+whole-tree validation/repair and cost rollup. It returns the usual array shape, preserves values,
+rejects unknown agents/fields and empty selectors, and emits null for explicitly requested absent
+optional fields. Either selector requires JSON. With neither selector, output is unchanged.
+This avoids client-side row/field extraction; it does not promise cheaper tree construction.
+
+`show --all --json` returns `{all:true,snapshot,mode,text}` with complete reconstructed text.
+`events --all` returns the usual envelope with `all:true`, page/pages=1, next_page=0, and complete
+unfragmented event objects. These are explicitly UNBOUNDED exports, not 48,000-byte pages.
+Both reject explicitly supplied --page/--snapshot, even page 1; show --all requires --json.
+All selected content is computed once, with the same snapshot as the corresponding bounded
+projection. The all flag changes transport only, not selection, ownership, or source authority.
+Default bounded envelopes omit the all field and remain unchanged. Large exports should be piped
+to a JSON consumer or redirected to a file rather than assumed to fit an agent tool response.
+
 ### Normalized event ledger
 
 `nn transcript events <session> <agent-id> --json` provides a versioned evidence ledger,
