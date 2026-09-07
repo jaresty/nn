@@ -22,10 +22,10 @@ map**, and the **loop invariant**, and drives the spine through a single entry i
 branches — **navigate** one session, or **sweep patterns** across sessions. Detailed action
 semantics live in lazy references and are binding, not optional background reading.
 
-**Core principle (the `:enter` boundary, applied everywhere): geography is fixed and
-deterministic; the LLM discovers only appearance and emphasis.** Session identity, cost, agent
-count, and tree shape come from the spine unchanged. What the LLM discovers is which standouts
-to light, how to emphasize them, and which lens to view through — never the numbers or positions.
+**Core principle: authoritative topology and interpretive layout are separate.** Session identity,
+cost, agent count, and spawn relationships come from the spine unchanged. The LLM selects emphasis
+and, inside an entered thread, semantic coordinates for evidence-grounded findings under the visual
+contract below. Interpretive coordinates never redefine agent parentage or invent measured values.
 
 ## The front door (start here, always)
 
@@ -46,7 +46,8 @@ not transcript contents or derived metrics.
 
 ## Visual grammar (stated once; both branches use it, references never restate it)
 
-Color-relay markers survive markdown/relay. Reuse the `:enter` grammar, plus two cross-session marks:
+Color-relay markers survive markdown/relay. The following channels govern session/cohort topology
+views; the separate semantic thread-layout contract below governs findings inside an entered thread:
 
 | Channel | Encodes | Values | Source |
 |---|---|---|---|
@@ -56,6 +57,32 @@ Color-relay markers survive markdown/relay. Reuse the `:enter` grammar, plus two
 | branch lines `├─ └─ │` | connection | spawn/tree edges only after `tree --json` | **fixed** |
 | `◈` | outlier-vs-cohort | departs from *this* swept cohort | **discovered** |
 | `↻×N` | recurring-across-N | a shape in N named sessions | **discovered, deterministic only** |
+
+### Semantic thread layouts
+
+On `:enter`, show 2–4 salient findings in a meaningful spatial diagram, not a status list dressed
+with icons. Choose axes suited to the question and available evidence; no fixed axis pair is required.
+
+- **Declare both axes** and their direction, categories or units before the diagram. Position must
+  encode those meanings consistently, not arbitrary quadrants, padding, or decorative placement.
+- Give position, color, icons and labels a **distinct job**. Supply a compact legend. For example,
+  position might encode stage and evidence strength, color attention, and icons item kind. This is
+  **not a mandatory coordinate system** or a required palette: choose encodings appropriate to the thread.
+- Ground each placement in inspected evidence. Reading an agent's claim is not inspecting its test
+  result, and a reported independent review is not your independent verification. State the basis and
+  limits; if evidence strength is not an axis, encode that qualification explicitly in another channel.
+- Unknown coordinates stay explicitly unknown/unplaced. Do not invent precision or imply completion
+  merely by placing an item toward the right or top. Empty regions may usefully expose missing evidence;
+  never populate them just to balance the picture.
+- Keep encodings stable while applying a lens. If the question warrants new axes or a changed legend,
+  announce and explain the remapping rather than silently changing what positions or colors mean.
+- Keep labels readable without color; do not use color as the sole evidence of status. Icons denote
+  the declared item categories, not extra unannounced approval or certainty.
+- **Spawn topology remains authoritative**: semantic positions belong to findings, not reassigned agents.
+  Keep the thread's identity separate from its findings diagram. Coordinate axes and grid lines are
+  not spawn edges. Any actual agent relationship drawn still requires `tree` evidence.
+
+The owning navigate reference demonstrates application; its examples do not prescribe axes for other threads.
 
 **`↻×N` tightening:** at the front door, `↻×N` may assert repeated schema, `agent_count`,
 returned agent-type frequencies, or complete topology-summary metrics and must name the N session ids.
@@ -230,7 +257,8 @@ certify source completeness nor replace `cost_status` / `subtree_cost_status` au
   `↻×N` (deterministic shapes only, with named ids).
 - **Tier 3 — MUST NOT**: invent a session/cost or an edge absent from `tree`; assert any Tier-2
   behavioral interpretation (drift, groundedness, "failed") from the front door alone; move
-  geography. Behavioral claims require escalating to a real read (`tree` → `show`).
+  authoritative spawn geography. Semantic finding layouts are allowed only after entering a thread,
+  under the declared-axis contract. Behavioral claims require escalating to a real read (`tree` → `show`).
 - **On violation**: a drawn id not in the sweep, or a width misrepresenting cost → void the
   draw, re-render from `ls`. `↻×N` without N named ids → downgrade to a single observation. A
   front-door behavioral claim with no session read → restate as a proposal.

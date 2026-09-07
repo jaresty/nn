@@ -282,6 +282,16 @@ source-wide strict UTF-8 validation would be a separate ingestion-policy change,
 transport contract. These guarantees apply consistently to text and raw projections; `--raw` does
 not broaden event ownership.
 
+### Semantic thread layouts
+
+Thread-entry presentation separates immutable spawn topology from interpretive finding coordinates.
+The co-versioned skill requires meaningful declared axes, a distinct role for each visual channel,
+evidence-grounded placement and explicit uncertainty. Axis choices, palettes and icons are selected
+for the thread/question, not fixed to a particular implementation-stage/evidence-strength example.
+Changing a lens must not silently change encoding meanings. This changes presentation guidance only;
+no CLI topology, identity, cost, schema or evidence authority is changed. Wording regression tests guard
+the served instructions, not the semantic quality of an agent's rendered diagram.
+
 ### Deterministic tool-volume summaries
 
 `events --summary tools [--limit N] [--group-by tool]` reuses authenticated ledger selection,

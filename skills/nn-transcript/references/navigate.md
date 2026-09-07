@@ -64,15 +64,16 @@ and optional `--fields` under the core projection contract; no client-side row e
    - **pivots** — where did it change direction?
    - **friction** — retries, denials, backtracks.
 
-   **Respect the hard boundary:** you MAY propose *appearance* (state on the node) and *emphasis*
-   (which lens). You may NEVER touch *position* (geography) or *connection* (edge types) — those
-   belong to the spine. If a thread seems to need a new position dimension, that is a request to
-   change the base geography — surface it explicitly to the human, never apply it silently.
+   **Respect the hard boundary:** agent identity, measured values and spawn relationships remain
+   spine-owned. Findings within this thread may have interpretive positions under the core's
+   semantic thread-layout contract; they are not new agent positions or inferred spawn edges.
 
-3. **Draw the `:enter` dimension diagram** — the entered node with its 2–4 dimensions arranged
-   spatially and visually treated (core grammar: color = emphasis/tension, width = cost,
-   shape/label = type). Interpretation-bearing and different each time — draw *this* thread to
-   surface *what matters here*.
+3. **Draw the `:enter` dimension diagram** using the core's semantic thread-layout contract.
+   Select and declare meaningful axes and a compact channel legend before placing 2–4 salient
+   findings. Use evidence-grounded coordinates, not arbitrary quadrants or an icon-decorated list.
+   Keep the selected thread identity visible separately. Make the qualifications behind placement
+   legible, including missing evidence. No fixed axes are prescribed: the question determines the
+   useful spatial model. The worked example is illustrative, not a default layout.
 
 For token totals and context growth, use
 `nn transcript events <session> <agent-id> --summary usage --bucket-size 10` under the core summary
@@ -90,7 +91,8 @@ under the core ledger contract. Complete the page set before summing message usa
 events do not carry usage. Inspect a selected event with `--event <event-id> --payload` rather than
 fetching every native payload. Size measurements do not establish token attribution or wasted work.
 
-4. **Offer a lens** (emphasis only — a lens changes *what is emphasized*, never node position):
+4. **Offer a lens** (change emphasis within the declared layout; explain any warranted remapping
+   under the core contract, and never alter spawn topology):
    - **debug** — errors, friction, drift, pivots.
    - **audit** — subtree_cost, tools, re-derivation.
    - **harvest** — notes-touched, groundedness, pivots.
@@ -108,20 +110,33 @@ it costs one inference pass per agent before starting. Never trigger it implicit
 
 ## Worked example
 
-Human enters agent `a7665a` of session `sdk-2026-08-10`. `tree --json` shows it is a cheap leaf
-under a heavy main thread. `show` reveals real URLs and a node snippet, no prompt deviation.
-Proposed dimensions, drawn:
+Illustrative metrics thread: complete readable evidence contains reports of implementation,
+registry integration, and a real-server test pass, but no final closure. Supporting test results
+have not been inspected. For this question, choose delivery stage (X) and evidence inspected (Y).
+Another thread could warrant entirely different axes; do not force these categories onto it.
 
-```
-        ┌─────────────────────────────┐
-   🟦   │  a7665a  ·  nn-capture       │
-  spawn │  purpose: browser-demo shots │
-   ↑    └─────────────────────────────┘
-        cost  ██▏ 24.5k tokens (complete)
-        🟢 groundedness: high (real URLs, node snippet)
-        🟢 instruction-drift: none (did the screenshot task)
-        🟡 friction: one interrupted tool call
+Thread: ROOT · structural metrics
+X: implementation → integration → qualification → closure
+Y: evidence inspected, increasing upward
+Legend: ⚪ neutral · 🟡 needs attention; 🛠 implementation · 🧪 check · 📦 deliverable
+
+```text
+Independent   │
+verification  │
+              │
+Supporting    │
+results read  │
+              │
+Agent report  │ ⚪🛠 Metrics    🟡🛠 Registry   ⚪🧪 Real-server  🟡📦 Closure
+inspected     │ implemented    count adjusted pass reported    not yet shown
+              └─────────────────────────────────────────────────────────
+                Implementation → Integration → Qualification → Closure
 ```
 
-Offer the debug lens → nothing lights. Offer the harvest lens → capture "browser-demo screenshots
-are grounded in live URLs" with provenance `sdk-2026-08-10/a7665a`. **Return to the picker.**
+All findings remain at report level: they are not independently verified. Empty upper rows expose
+that limitation rather than suggesting an omission to fill. The closure marker identifies a gap in
+this snapshot, not proof the task failed or never finished. Color indicates attention, not truth.
+The plot contains no spawn relationships and its X axis is categorical, not elapsed time.
+
+Offer qualification evidence, integration friction, closure, a user-supplied direction, Back, or End.
+**Return to the picker.**
