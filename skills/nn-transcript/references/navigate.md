@@ -69,6 +69,12 @@ does not restate them.
    shape/label = type). Interpretation-bearing and different each time — draw *this* thread to
    surface *what matters here*.
 
+For token growth, call counts, tool-result sizes, or lifecycle accounting, use
+`nn transcript events <session> <agent-id> --select identity,message,usage,tools,lifecycle --json`
+under the core ledger contract. Complete the page set before summing message usage; extracted tool
+events do not carry usage. Inspect a selected event with `--event <event-id> --payload` rather than
+fetching every native payload. Size measurements do not establish token attribution or wasted work.
+
 4. **Offer a lens** (emphasis only — a lens changes *what is emphasized*, never node position):
    - **debug** — errors, friction, drift, pivots.
    - **audit** — subtree_cost, tools, re-derivation.

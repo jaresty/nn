@@ -40,6 +40,12 @@ tiers of each, rather than skimming a fragment of every session.
 
    Report the supported deterministic patterns first, with their field provenance.
 
+For per-response usage or tool-volume comparisons within selected agents, use
+`nn transcript events <session> <agent-id> --select identity,message,usage,tools --json` under the
+core ledger contract. Complete every snapshot-bound page and reconstruct oversized events before
+aggregation. Count usage-bearing message events once, not extracted tool events. These are deterministic
+measurements; repeated calls and large outputs are candidates for interpretation, not proof of waste.
+
 2. **Select a small sample that earns Tier-2** — observed-token candidates, a spread across the
    time range (recent + older), and structural outliers established from complete `summary.topology`
    metrics (deep/wide). Fetch `tree --json` when the proposed distinction requires actual edges.

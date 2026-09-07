@@ -87,6 +87,37 @@ A compact summary is at most 8192 bytes; the whole listing is not byte-bounded.
 Do not fetch every tree merely to recompute available summaries; fetch selected trees for edges,
 agent identities, subtree attribution, or detail not carried by the summary.
 
+## Structured event ledger
+
+Use `nn transcript events <session> <agent-id> --json` for deterministic event analysis instead
+of downloading raw show payloads and writing another parser. `--select identity,usage,tools`
+selects facets; available facets are identity/message/usage/tools/lifecycle (all by default,
+identity always included). `--payload` opts into native payloads; `--event <event-id>` retrieves
+one exact event while preserving its full-ledger ordinal. Unknown event IDs fail.
+
+Pages expose `version`, `snapshot`, `page`, `pages`, `next_page`, `select`, `payload`, `schema`,
+`detail_status`, `event_filter`, and `events`. Retrieve every page with the same options and the
+page-1 `--snapshot`. Normal entries are directly usable event objects. An oversized event instead
+has `event_id`, `ordinal`, `segment`, `segments`, and `text`: concatenate its ordered text fragments
+and JSON-decode before interpreting or counting it. Pages including newline are at most 48,000 bytes.
+
+Events retain `event_id`, `agent_id`, `ordinal`, `kind`, `timestamp`, `timestamp_source`, and `source`
+(path, decoded-record ordinal, native record ID). IDs identify source positions, not immutable content.
+Order is source-path/decoded-record/extraction order, not cross-source chronology. Missing timestamps
+are null; native message timestamps can be millisecond numbers rather than RFC3339 strings.
+Usage appears only on assistant message events, never extracted tool events: known component counts,
+`known_total_tokens`, complete/partial/unavailable status, and nullable `total_tokens`/`context_tokens`.
+Missing counters are null, not zero. Context is input plus cache-read counts when both are known.
+Tool joins report matched/missing/ambiguous/unavailable rather than guessing duplicate or missing IDs.
+Message/result text bytes and Unicode characters, and serialized argument/content bytes, are **not tokens**.
+
+Pi shares show's authenticated selection and also exposes matching producer terminal records.
+SDK file ownership is confined; Claude Code inline child execution remains unavailable. `detail_status`
+is unavailable when there are no usable selected messages, even if terminal records exist. Snapshots
+bind selected projection/options, not unselected payload or original-source completeness. Payload and
+arguments are omitted by default. Use event-specific payload retrieval to inspect a standout; behavioral
+claims still require complete relevant evidence, not usage magnitude, result size, or producer status.
+
 ## Pi lifecycle scope
 
 Pi `tree --json` nodes include `evidence_scope`; other schemas omit this Pi-specific object.

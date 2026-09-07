@@ -32,6 +32,7 @@ Start here:
 Navigate one session:
   tree      spawn DAG + cost/status for a session
   show      one agent's events (--raw for the full record)
+  events    normalized event ledger with selectable facets and bounded JSON pages
   search    bounded event matches with session/agent provenance
 
 Utility:
@@ -56,7 +57,7 @@ func newTranscriptCmd(_ *rootState) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.AddCommand(newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd(), newTranscriptSearchCmd())
+	cmd.AddCommand(newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd(), newTranscriptSearchCmd(), newTranscriptEventsCmd())
 	return cmd
 }
 

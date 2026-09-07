@@ -282,6 +282,47 @@ source-wide strict UTF-8 validation would be a separate ingestion-policy change,
 transport contract. These guarantees apply consistently to text and raw projections; `--raw` does
 not broaden event ownership.
 
+### Normalized event ledger
+
+`nn transcript events <session> <agent-id> --json` provides a versioned evidence ledger,
+not a behavioral analysis. `--select identity,message,usage,tools,lifecycle` selects facets
+(all by default; identity is mandatory and automatically included). `--payload` opts into
+native message, tool-block, or lifecycle-data payloads. No payload or arguments appear by default.
+`--event <event-id>` retrieves one exact event, retaining its ledger ordinal; unknown IDs fail.
+
+Each event has `event_id`, `agent_id`, `ordinal`, `kind`, `timestamp`, `timestamp_source`, and
+`source` (canonical absolute path, one-based decoded-record ordinal, optional native record ID).
+Decoded-record ordinals exclude blank/malformed lines under the existing reader recipe; they are
+not physical line numbers. Event IDs hash source path, decoded-record ordinal, owner and extraction
+slot, not mutable payload or selected facets. They identify a position, not immutable content.
+Ordering is source-path then decoded-record ordinal then extraction order, not cross-source chronology.
+Message events precede their extracted tool events. Native duplicate IDs never collapse records.
+
+Usage belongs only to assistant message events, never tool calls/results or lifecycle records.
+Known components are nonnegative integer counts; absent/null components remain null, with
+complete/partial/unavailable status and known total. Total and input-plus-cache context are null
+when their required components are unknown. Reported totals do not override component accounting.
+Text bytes/Unicode characters and serialized content/argument bytes are size measurements, not tokens.
+Tool joins use exact call IDs within this agent's selected ledger, reporting matched/missing/ambiguous/
+unavailable; missing IDs and duplicate IDs are never guessed into a one-to-one relation.
+Lifecycle values remain producer observations, not task outcomes.
+
+Pi message selection shares show's authenticated path and explicit sidechain-owner rules. The ledger
+also retains all matching parent terminal records, not just the terminal fallback chosen by show.
+SDK child paths are confined to the canonical subagents directory and exclude explicitly foreign owners.
+Claude Code ROOT messages are available; inline Task execution is unavailable (parent result text is
+not child execution). `detail_status` distinguishes available message evidence from unavailable detail;
+terminal-only fallback is not an empty successful execution. Unknown schemas fail closed.
+
+Pages carry `version`, `snapshot`, `page`, `pages`, `next_page`, normalized `select`, `payload`,
+`schema`, `detail_status`, `event_filter`, and `events`. Each encoded page including newline is at most 48,000 bytes.
+Ordinary entries are event objects. An oversized event becomes entries with `event_id`, `ordinal`,
+`segment`, `segments`, and `text`: concatenate all ordered fragments and JSON-decode to recover that
+one event. Never count fragments as events. Every later page requires the page-1 `--snapshot`.
+The digest binds the normalized request and complete selected projection; changing selected evidence,
+agent, facets or payload mode rejects continuation. It does not certify original source completeness,
+unselected payload immutability, or raw byte custody. Existing show/tree output remains unchanged.
+
 ### Pi lifecycle and usage scope disclosure
 
 Pi `tree --json` nodes add `evidence_scope` without changing legacy fields or text output.

@@ -60,16 +60,17 @@ func (a *agent) addUsage(u usage) {
 
 // rawRecord is the union of fields the recipes read across all schemas.
 type rawRecord struct {
-	Type       string          `json:"type"`
-	UUID       string          `json:"uuid"`
-	ParentUUID *string         `json:"parentUuid"`
-	ID         string          `json:"id"`
-	ParentID   string          `json:"parentId"`
-	AgentID    string          `json:"agentId"`
-	CustomType string          `json:"customType"`
-	Timestamp  string          `json:"timestamp"`
-	Message    json.RawMessage `json:"message"`
-	Data       json.RawMessage `json:"data"`
+	RecordOrdinal int             `json:"-"`
+	Type          string          `json:"type"`
+	UUID          string          `json:"uuid"`
+	ParentUUID    *string         `json:"parentUuid"`
+	ID            string          `json:"id"`
+	ParentID      string          `json:"parentId"`
+	AgentID       string          `json:"agentId"`
+	CustomType    string          `json:"customType"`
+	Timestamp     string          `json:"timestamp"`
+	Message       json.RawMessage `json:"message"`
+	Data          json.RawMessage `json:"data"`
 }
 
 type contentBlock struct {
@@ -253,6 +254,7 @@ func readRecords(path string) ([]rawRecord, error) {
 		}
 		var r rawRecord
 		if json.Unmarshal([]byte(line), &r) == nil {
+			r.RecordOrdinal = len(recs) + 1
 			recs = append(recs, r)
 		}
 	}
@@ -983,19 +985,7 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 		// ROOT (or a subagent) main-stream events: render the message records
 		// owned by that agent (agentId names a subagent; empty = ROOT stream).
 		if agentID == "ROOT" || anyRecordForAgent(recs, agentID) {
-			var owned []rawRecord
-			for _, r := range recs {
-				if !isPiEventRecord(r) {
-					continue
-				}
-				owner := "ROOT"
-				if r.AgentID != "" {
-					owner = r.AgentID
-				}
-				if owner == agentID {
-					owned = append(owned, r)
-				}
-			}
+			owned := ownedPiRecords(recs, agentID, false)
 			if len(owned) > 0 {
 				renderPiEvents(&b, owned, raw)
 				return b.String(), nil
@@ -1023,25 +1013,12 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 			// Authenticate the path against Pi's tasks/<agentID>.output layout before
 			// reading — accepts the real out-of-session pi-subagents-* location and
 			// rejects traversal/symlink-escape/mismatched-id/arbitrary files.
-			if safe := validatePiSidechainPath(loc.Path, agentID); safe != "" {
-				if side, err := readRecords(safe); err == nil {
-					// An authenticated filename does not establish event ownership.
-					// Match the same explicit owner used for sidechain usage attribution;
-					// never apply the main-stream empty-owner-to-ROOT convention here.
-					var owned []rawRecord
-					for _, r := range side {
-						if isPiEventRecord(r) && r.AgentID == agentID {
-							owned = append(owned, r)
-						}
-					}
-					if len(owned) > 0 {
-						if terminal != nil {
-							fmt.Fprintf(&b, "type: %s\nstatus: %s\n", terminal.Type, terminal.Status)
-						}
-						renderPiEvents(&b, owned, raw)
-						return b.String(), nil
-					}
+			if owned, _ := readOwnedPiSidechain(loc.Path, agentID); len(owned) > 0 {
+				if terminal != nil {
+					fmt.Fprintf(&b, "type: %s\nstatus: %s\n", terminal.Type, terminal.Status)
 				}
+				renderPiEvents(&b, owned, raw)
+				return b.String(), nil
 			}
 			if terminal == nil {
 				// File missing/expired/unauthenticated: provisional metadata, not an error.

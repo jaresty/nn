@@ -99,6 +99,15 @@ func TestEmbeddedTranscriptSkillJSONFieldContract(t *testing.T) {
 	page := decode("show", session, "ROOT", "--json")
 	fields(page, "snapshot mode", "page pages next_page", "")
 	fields(first(page.(map[string]any)["segments"]), "text", "segment segments", "")
+	ledger := decode("events", session, "ROOT", "--json").(map[string]any)
+	fields(ledger, "version snapshot schema detail_status event_filter", "page pages next_page", "payload")
+	event := first(ledger["events"]).(map[string]any)
+	fields(event, "event_id agent_id kind timestamp_source", "ordinal", "")
+	fields(event["source"], "path record_id", "record_ordinal", "")
+	fields(event["message"], "role model", "content_bytes text_bytes text_characters", "")
+	fields(event["usage"], "status scope", "input_tokens output_tokens known_total_tokens", "")
+	tool := ledger["events"].([]any)[1].(map[string]any)
+	fields(tool["tools"], "call_id name match_status", "arguments_bytes", "")
 	search := decode("search", "Agent", "--session", session, "--json")
 	fields(search, "", "returned", "truncated")
 	fields(first(search.(map[string]any)["matches"]), "session agent_id event_id timestamp role excerpt source_path", "", "")
@@ -126,6 +135,26 @@ func TestEmbeddedTranscriptSkillEvidenceBoundary(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestEmbeddedTranscriptSkillEventsContract(t *testing.T) {
+	cmd := newTranscriptEventsCmd()
+	for _, name := range []string{"select", "payload", "event", "json", "page", "snapshot"} {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Fatalf("ASSERT_LEDGER_SKILL: missing flag %s", name)
+		}
+	}
+	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
+	for _, path := range []string{"SKILL.md", "references/navigate.md", "references/patterns.md"} {
+		body, err := os.ReadFile(filepath.Join(root, path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(body), "nn transcript events") {
+			t.Fatalf("ASSERT_LEDGER_SKILL: fail — %s lacks serving command", path)
+		}
+	}
+	t.Log("ASSERT_LEDGER_SKILL: pass")
 }
 
 func TestEmbeddedTranscriptSkillSearchContractMatchesCLI(t *testing.T) {
