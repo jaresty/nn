@@ -47,10 +47,27 @@ func ledgerSelect(s string) ([]string, error) {
 }
 
 func newTranscriptEventsCmd() *cobra.Command {
-	var selection, snapshot, eventFilter string
+	var selection, snapshot, eventFilter, summary string
 	var payload, asJSON, all bool
-	var page int
+	var page, bucketSize int
 	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound normalized event ledger (JSON)", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, args []string) error {
+		summaryMode := c.Flags().Changed("summary")
+		if summaryMode {
+			if summary != "usage" {
+				return fmt.Errorf("events: unknown summary %q", summary)
+			}
+			if bucketSize < 0 {
+				return fmt.Errorf("events: --bucket-size must not be negative")
+			}
+			for _, flag := range []string{"select", "payload", "event", "all", "page"} {
+				if c.Flags().Changed(flag) {
+					return fmt.Errorf("events: --summary cannot be combined with --%s", flag)
+				}
+			}
+			selection = "identity,usage"
+		} else if c.Flags().Changed("bucket-size") {
+			return fmt.Errorf("events: --bucket-size requires --summary usage")
+		}
 		if all && (c.Flags().Changed("page") || c.Flags().Changed("snapshot")) {
 			return fmt.Errorf("events: --all cannot be combined with --page or --snapshot")
 		}
@@ -78,6 +95,14 @@ func newTranscriptEventsCmd() *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if summaryMode {
+			body, err := buildUsageSummary(args[0], args[1], schema, detail, events, bucketSize, snapshot)
+			if err != nil {
+				return err
+			}
+			_, err = c.OutOrStdout().Write(body)
+			return err
+		}
 		result, err := buildLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all)
 		if err != nil {
 			return err
@@ -89,6 +114,8 @@ func newTranscriptEventsCmd() *cobra.Command {
 		_, err = c.OutOrStdout().Write(append(b, '\n'))
 		return err
 	}}
+	c.Flags().StringVar(&summary, "summary", "", "complete deterministic summary: usage")
+	c.Flags().IntVar(&bucketSize, "bucket-size", 0, "usage records per summary bucket; 0 disables buckets (requires --summary usage)")
 	c.Flags().BoolVar(&all, "all", false, "export all complete events as UNBOUNDED JSON; incompatible with paging flags")
 	c.Flags().StringVar(&eventFilter, "event", "", "retrieve one exact event id, preserving its ledger ordinal")
 	c.Flags().StringVar(&selection, "select", "identity,message,usage,tools,lifecycle", "comma-separated facets; identity is always included")

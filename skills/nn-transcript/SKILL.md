@@ -103,6 +103,40 @@ response. Both reject explicit --page/--snapshot flags, and show --all requires 
 is the same as the equivalent bounded projection. --all changes transport, not source completeness.
 Default bounded modes remain unchanged and omit the all field.
 
+## Built-in usage summaries
+
+For token totals and context growth, prefer:
+
+```bash
+nn transcript events <session> <agent-id> --summary usage
+nn transcript events <session> <agent-id> --summary usage --bucket-size 10
+```
+
+Do not write client-side aggregations for these existing reductions. The complete bounded JSON result
+has version `nn.transcript.usage-summary/v1`, `session`, `agent_id`, `schema`, `detail_status`,
+`ledger_snapshot`, `snapshot`, `bucket_size`, `stats`, and `buckets`. It reduces the authenticated
+identity/usage ledger. The summary snapshot binds its result and options; `--snapshot` revalidates it.
+It is distinct from `ledger_snapshot`, which identifies the underlying identity/usage event projection.
+Summary mode rejects explicit --select/--payload/--event/--all/--page, even default values.
+--bucket-size requires summary mode; 0 disables buckets and negative values reject.
+
+`stats` carries `records`, `complete_records`, `partial_records`, `unavailable_records`,
+`zero_usage_records`, `status`, nullable component `totals`, per-component `missing_counts`,
+`known_total_tokens`, nullable `total_tokens`, and `context`. Records are assistant message records,
+including unavailable usage, not independently verified API calls. Only fully measured zero usage
+counts as zero_usage_records. Component sums are known-only lower bounds when missing_counts is nonzero;
+wholly unknown components are null. Total is exact only when all records in a nonempty set are complete.
+Empty and wholly unknown sets are unavailable, not measured zero.
+
+Context is input plus cache reads when both exist. `first`/`last` refer to the actual boundary records
+and may be null; `min`/`max`/`average_known` use known contexts, including zero. `known_records`,
+`unknown_records`, and `zero_records` expose the denominator. Buckets partition usage records in ledger
+order, not chronology: `first_record`/`last_record` are one-based usage-record positions;
+`first_event_id`/`last_event_id` identify exact boundary events. Each bucket has the same `stats` contract.
+Output including newline is at most 48,000 bytes; too many buckets fail with guidance to increase
+bucket size or omit buckets, never silently truncate. No phase, context-reset, waste, price, or
+original-source completeness conclusion follows from these aggregates.
+
 ## Structured event ledger
 
 Use `nn transcript events <session> <agent-id> --json` for deterministic event analysis instead

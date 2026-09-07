@@ -282,6 +282,33 @@ source-wide strict UTF-8 validation would be a separate ingestion-policy change,
 transport contract. These guarantees apply consistently to text and raw projections; `--raw` does
 not broaden event ownership.
 
+### Deterministic usage summaries
+
+`events <session> <agent-id> --summary usage [--bucket-size N]` reduces the existing authenticated
+identity/usage ledger, not another source parser. It emits one complete `nn.transcript.usage-summary/v1`
+JSON object with `ledger_snapshot`, summary `snapshot`, schema/detail status, `bucket_size`, `stats`,
+and `buckets`. --select/--payload/--event/--all/--page are incompatible, even if explicitly set to defaults.
+--bucket-size requires summary mode; zero disables buckets, negative values reject. Optional --snapshot
+pins the summary (not the underlying ledger snapshot) for fail-closed revalidation.
+
+Records are assistant message records including missing usage, not independently verified API calls.
+Derived tool events never contribute. Stats include records, complete/partial/unavailable record counts,
+fully measured zero-usage records, status, nullable component sums, per-component missing_counts,
+known_total_tokens, and nullable total_tokens. Component sums are known-only lower bounds when any
+contributing component is missing; wholly unknown components stay null. Total is exact only for a
+nonempty collection of complete records. Empty/wholly unknown collections are unavailable, not measured zero.
+Negative counters and integer overflow reject rather than wrap.
+
+Context is input plus cache-read counts when both exist. First/last refer to the actual boundary records
+(and can be null); min/max/average_known use only known contexts, including zero. Known/unknown and
+zero-context record counts disclose that denominator. Buckets partition usage records in ledger order,
+with one-based first_record/last_record and first_event_id/last_event_id; the final bucket may be shorter.
+No task-phase, reset, waste, price or source-completeness inference is introduced.
+
+The summary digest binds its entire normalized result, bucket size and source ledger snapshot. Output
+including newline is capped at 48,000 bytes. Too many buckets fail with guidance to increase bucket size
+or omit buckets; none are silently omitted. Existing event/export modes and their snapshots are unchanged.
+
 ### Targeted tree projection and complete exports
 
 `tree --agent <id> --fields <comma-separated top-level JSON fields> --json` filters only after

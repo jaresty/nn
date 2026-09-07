@@ -74,7 +74,12 @@ and optional `--fields` under the core projection contract; no client-side row e
    shape/label = type). Interpretation-bearing and different each time — draw *this* thread to
    surface *what matters here*.
 
-For token growth, call counts, tool-result sizes, or lifecycle accounting, use
+For token totals and context growth, use
+`nn transcript events <session> <agent-id> --summary usage --bucket-size 10` under the core summary
+contract, rather than writing another aggregation. It covers the complete selected ledger in one
+bounded result and discloses missing and zero records; bucket boundaries are not inferred task phases.
+
+For custom per-record analysis, tool-call counts, tool-result sizes, or lifecycle accounting, use
 `nn transcript events <session> <agent-id> --select identity,message,usage,tools,lifecycle --json`
 under the core ledger contract. Complete the page set before summing message usage; extracted tool
 events do not carry usage. Inspect a selected event with `--event <event-id> --payload` rather than
