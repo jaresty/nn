@@ -25,8 +25,12 @@ Use the binary, not raw-file scripts, for supported discovery, ownership, joins,
   the returned page as the cohort. Continue with its `--cursor`; never derive cursors from times.
 - **Already selected session/agent:** go directly to the relevant reference and command below.
   Do not rescan a whole cohort merely to inspect a known thread.
-- **Locate a phrase:** use `nn transcript search "<literal query>" <root> --json` (or --session
-  and --agent). Search locates evidence; it does not establish behavioral recurrence.
+- **Find an agent by launch name or description:** use `nn transcript ls` to select the parent
+  session, then inspect `nn transcript tree <session> --json` and match its recorded `description`.
+  This is metadata discovery: do not use `nn transcript search`, which searches event content and
+  can match prompts, results, or the current conversation instead of the authoritative tree label.
+- **Locate a phrase inside event content:** use `nn transcript search "<literal query>" <root> --json`
+  (or --session and --agent). Search locates evidence; it does not establish behavioral recurrence.
   Never use `nn grep` for transcript JSONL: it loses ownership and may skip oversized files.
 
 ## Binding lazy dispatch

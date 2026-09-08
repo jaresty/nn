@@ -5,6 +5,34 @@ import (
 	"testing"
 )
 
+func TestTranscriptSkillDescriptionLookupRouting(t *testing.T) {
+	const a = "ASSERT_TRANSCRIPT_DESCRIPTION_LOOKUP_ROUTING"
+	_, execute := setupNotebook(t)
+	core, err := execute("skills", "get", "nn-transcript")
+	if err != nil {
+		t.Fatal(err)
+	}
+	discovery, err := execute("skills", "get", "nn-transcript", "--reference", "discovery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	handoffs, err := execute("skills", "get", "nn-transcript", "--reference", "handoffs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, text := range map[string]string{"core": core, "discovery": discovery, "handoffs": handoffs} {
+		for _, phrase := range []string{"launch name", "tree --json", "description", "do not use `nn transcript search`"} {
+			if !strings.Contains(text, phrase) {
+				t.Fatalf("%s: %s lacks %q", a, name, phrase)
+			}
+		}
+	}
+	if !strings.Contains(core, "`nn transcript ls`") || !strings.Contains(discovery, "select the parent session") {
+		t.Fatalf("%s: ls to parent-selection route absent", a)
+	}
+	t.Log(a + ": PASS")
+}
+
 func TestTranscriptSkillLazyDispatch(t *testing.T) {
 	const a = "ASSERT_TRANSCRIPT_LAZY_DISPATCH"
 	_, execute := setupNotebook(t)

@@ -5,6 +5,16 @@ applies_when: "Before listing or interpreting discovery cohorts, cursors, cost/t
 
 # nn-transcript / discovery
 
+## Find an agent by launch name
+
+Use `nn transcript ls <root> --json` to select the parent session, then
+`nn transcript tree <session> --json` and match the recorded `description` field. Keep the selected
+agent ID for subsequent `show`, summary, or handoff commands. If the likely parent session is already
+known, go directly to its tree; do not rescan unrelated sessions. This is launch-metadata lookup:
+do not use `nn transcript search`, because content search can match assignments, tool results, or the
+current conversation rather than the authoritative launch name. Load **handoffs** before interpreting
+the description or retrieving launch/return records.
+
 ## The front door (start here, always)
 
 Sweep the recent cohort and draw what stands out:
