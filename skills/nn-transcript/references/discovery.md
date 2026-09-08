@@ -42,11 +42,13 @@ nn transcript ls <dir> --json --limit <N>   # bounded to ONE page — this page 
 
 Default `<dir>` is the harness transcript root (e.g. `~/.claude/projects/<project-slug>/`).
 Draw an **LLM-composed** standout view from the JSON (never a fixed template), then present the
-picker. Every row carries a readable `label` and exact `label_provenance`: `opening` for an unmodified
-first-line ROOT user opening, `interpreted` for a bounded shortening, or `untitled` when no usable
-opening exists (`recorded` remains reserved for future authenticated metadata). Display the label as
-primary identity and the exact session ID as secondary identity; never present interpreted text as
-recorded metadata.
+picker. Every row carries the original first-line ROOT user `opening_label` plus a readable primary
+`label` selected from the latest non-acknowledgement ROOT user message. Acknowledgement-only messages
+such as `yes`, `ok`, `continue`, and `let's do it` are skipped. Exact `label_provenance` is `recent`
+for an unmodified later message, `opening` when the opening remains selected, `interpreted` for a
+bounded shortening, or `untitled` when no usable user message exists (`recorded` remains reserved for
+future authenticated metadata). Display the label as primary identity and the exact session ID as
+secondary identity; never present interpreted text as recorded metadata.
 
 `conversation_kind` classifies each retained row as `conversation` or `sidechain`; Pi agent execution
 directories remain visible but are explicitly marked `sidechain`, while known nested `subagents`
@@ -56,7 +58,9 @@ path resemblance, or a label match. `open_window_status` is `unavailable`
 because retained transcripts do not establish which Pi windows are open. A host-authenticated source
 is required before that value may change.
 
-The cohort is **replaced, not accumulated** on every re-sweep.
+Labels are mutable transcript-derived presentation: retain the complete selected row across Back and
+other non-refresh navigation. Reacquire labels only on explicit discovery refresh. The cohort is
+**replaced, not accumulated** on every re-sweep.
 For the next page, pass the last returned row's `cursor` as `--cursor <cursor>` with the same
 directory and any original `--before` filter. Stop on `[]`. Do not derive a cursor from `modified`:
 `--before` is a strict time filter and cannot continue exact timestamp ties. A stale or mismatched

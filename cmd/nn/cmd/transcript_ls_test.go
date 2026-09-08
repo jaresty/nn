@@ -149,17 +149,21 @@ func TestTranscriptLsLimitAndBefore(t *testing.T) {
 // Assertion [17]: --json emits structured session rows.
 func TestTranscriptLsConversationMetadata(t *testing.T) {
 	const (
-		labelAssertion    = "ASSERT_TRANSCRIPT_LS_ROWS_HAVE_READABLE_QUALIFIED_LABELS"
-		kindAssertion     = "ASSERT_TRANSCRIPT_LS_CLASSIFIES_RETAINED_CONVERSATIONS_WITHOUT_GUESSED_OWNER"
-		identityAssertion = "ASSERT_TRANSCRIPT_LS_PRESERVES_SESSION_AND_CANONICAL_PATH"
-		windowAssertion   = "ASSERT_TRANSCRIPT_LS_OPEN_WINDOW_STATUS_IS_UNAVAILABLE"
-		compatAssertion   = "ASSERT_TRANSCRIPT_LS_ADDITIVE_FIELDS_PRESERVE_CURSOR_AND_SUMMARY"
+		labelAssertion      = "ASSERT_TRANSCRIPT_LS_USES_LATEST_SUBSTANTIAL_LABEL"
+		openingAssertion    = "ASSERT_TRANSCRIPT_LS_PRESERVES_OPENING_LABEL"
+		provenanceAssertion = "ASSERT_TRANSCRIPT_LS_QUALIFIES_RECENT_LABEL_PROVENANCE"
+		kindAssertion       = "ASSERT_TRANSCRIPT_LS_CLASSIFIES_RETAINED_CONVERSATIONS_WITHOUT_GUESSED_OWNER"
+		identityAssertion   = "ASSERT_TRANSCRIPT_LS_PRESERVES_SESSION_AND_CANONICAL_PATH"
+		windowAssertion     = "ASSERT_TRANSCRIPT_LS_OPEN_WINDOW_STATUS_IS_UNAVAILABLE"
+		compatAssertion     = "ASSERT_TRANSCRIPT_LS_ADDITIVE_FIELDS_PRESERVE_CURSOR_AND_SUMMARY"
 	)
 	dir := t.TempDir()
 	path := filepath.Join(dir, "conversation.jsonl")
 	writeTranscriptFile(t, path,
 		`{"type":"session","version":3,"id":"conversation","cwd":"/workspace"}`+"\n"+
-			`{"type":"message","id":"opening","message":{"role":"user","content":[{"type":"text","text":"Design readable transcript discovery"}]}}`+"\n")
+			`{"type":"message","id":"opening","message":{"role":"user","content":[{"type":"text","text":"Design readable transcript discovery"}]}}`+"\n"+
+			`{"type":"message","id":"recent","message":{"role":"user","content":[{"type":"text","text":"Show the latest meaningful conversation work"}]}}`+"\n"+
+			`{"type":"message","id":"ack","message":{"role":"user","content":[{"type":"text","text":"ok, let's try it"}]}}`+"\n")
 
 	_, execute := setupNotebook(t)
 	out, err := execute("transcript", "ls", dir, "--json")
@@ -171,6 +175,7 @@ func TestTranscriptLsConversationMetadata(t *testing.T) {
 		Session          string          `json:"session"`
 		Path             string          `json:"path"`
 		Label            string          `json:"label"`
+		OpeningLabel     string          `json:"opening_label"`
 		LabelProvenance  string          `json:"label_provenance"`
 		ConversationKind string          `json:"conversation_kind"`
 		OwnerSession     *string         `json:"owner_session"`
@@ -181,8 +186,14 @@ func TestTranscriptLsConversationMetadata(t *testing.T) {
 		t.Fatalf("decode rows: %v output=%s", err, out)
 	}
 	row := rows[0]
-	if row.Label != "Design readable transcript discovery" || row.LabelProvenance != "opening" {
-		t.Errorf("%s: label=%q provenance=%q", labelAssertion, row.Label, row.LabelProvenance)
+	if row.Label != "Show the latest meaningful conversation work" {
+		t.Errorf("%s: label=%q", labelAssertion, row.Label)
+	}
+	if row.OpeningLabel != "Design readable transcript discovery" {
+		t.Errorf("%s: opening=%q", openingAssertion, row.OpeningLabel)
+	}
+	if row.LabelProvenance != "recent" {
+		t.Errorf("%s: provenance=%q", provenanceAssertion, row.LabelProvenance)
 	}
 	if row.ConversationKind != "conversation" || row.OwnerSession != nil {
 		t.Errorf("%s: kind=%q owner=%v", kindAssertion, row.ConversationKind, row.OwnerSession)

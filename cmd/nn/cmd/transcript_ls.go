@@ -24,6 +24,7 @@ type sessionRow struct {
 	Modified         string          `json:"modified"`
 	Schema           string          `json:"schema"`
 	Label            string          `json:"label"`
+	OpeningLabel     string          `json:"opening_label"`
 	LabelProvenance  string          `json:"label_provenance"`
 	ConversationKind string          `json:"conversation_kind"`
 	OwnerSession     *string         `json:"owner_session"`
@@ -201,7 +202,7 @@ func listSessionsPage(dir string, limit int, before time.Time, cursor string) ([
 		if err != nil {
 			return nil, err
 		}
-		label, provenance := transcriptOpeningLabel(f.path)
+		label, openingLabel, provenance := transcriptLabels(f.path)
 		row := sessionRow{
 			Cursor:           base64.RawURLEncoding.EncodeToString(encoded),
 			Session:          strings.TrimSuffix(filepath.Base(f.path), ".jsonl"),
@@ -209,6 +210,7 @@ func listSessionsPage(dir string, limit int, before time.Time, cursor string) ([
 			Modified:         f.mod.UTC().Format(time.RFC3339Nano),
 			Schema:           classifyTranscript(f.path),
 			Label:            label,
+			OpeningLabel:     openingLabel,
 			LabelProvenance:  provenance,
 			ConversationKind: transcriptConversationKind(f.path),
 			OpenWindowStatus: "unavailable",
@@ -246,30 +248,66 @@ func transcriptConversationKind(path string) string {
 	return "conversation"
 }
 
-func transcriptOpeningLabel(path string) (string, string) {
+func transcriptLabels(path string) (label, opening, provenance string) {
 	records, _, _, err := ledgerRecords(path, "ROOT")
-	if err == nil {
-		for _, src := range records {
-			if src.Lifecycle {
-				continue
-			}
-			var msg map[string]json.RawMessage
-			if json.Unmarshal(src.Record.Message, &msg) != nil || ledgerString(msg, "role") != "user" {
-				continue
-			}
-			text := strings.TrimSpace(ledgerText(msg["content"]))
-			if text == "" {
-				continue
-			}
-			line := strings.TrimSpace(strings.SplitN(text, "\n", 2)[0])
-			runes := []rune(line)
-			if len(runes) <= 120 {
-				return line, "opening"
-			}
-			return strings.TrimSpace(string(runes[:117])) + "…", "interpreted"
+	if err != nil {
+		return "Untitled session", "Untitled session", "untitled"
+	}
+	var messages []string
+	for _, src := range records {
+		if src.Lifecycle {
+			continue
+		}
+		var msg map[string]json.RawMessage
+		if json.Unmarshal(src.Record.Message, &msg) != nil || ledgerString(msg, "role") != "user" {
+			continue
+		}
+		text := strings.TrimSpace(ledgerText(msg["content"]))
+		if text != "" {
+			messages = append(messages, text)
 		}
 	}
-	return "Untitled session", "untitled"
+	if len(messages) == 0 {
+		return "Untitled session", "Untitled session", "untitled"
+	}
+	opening, _ = transcriptDisplayLabel(messages[0])
+	selected := 0
+	for i := len(messages) - 1; i >= 0; i-- {
+		if !transcriptAcknowledgementOnly(messages[i]) {
+			selected = i
+			break
+		}
+	}
+	label, shortened := transcriptDisplayLabel(messages[selected])
+	if shortened {
+		return label, opening, "interpreted"
+	}
+	if selected == 0 {
+		return label, opening, "opening"
+	}
+	return label, opening, "recent"
+}
+
+func transcriptDisplayLabel(text string) (string, bool) {
+	line := strings.TrimSpace(strings.SplitN(text, "\n", 2)[0])
+	runes := []rune(line)
+	if len(runes) <= 120 {
+		return line, false
+	}
+	return strings.TrimSpace(string(runes[:117])) + "…", true
+}
+
+func transcriptAcknowledgementOnly(text string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(text))
+	normalized = strings.TrimRight(normalized, ".!?,;:")
+	switch strings.TrimSpace(normalized) {
+	case "yes", "ok", "okay", "continue", "sounds good", "let's do it", "lets do it",
+		"ok, let's do it", "ok, lets do it", "ok, let's try it", "ok, lets try it",
+		"okay, let's do it", "okay, lets do it", "okay, let's try it", "okay, lets try it":
+		return true
+	default:
+		return false
+	}
 }
 
 // miniTree renders a compact one-line preview of the spawn structure, e.g.

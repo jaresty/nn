@@ -113,9 +113,10 @@ func TestTranscriptOfficeReadableLobbyLabels(t *testing.T) {
 	const a = "ASSERT_TRANSCRIPT_OFFICE_READABLE_LOBBY_LABELS"
 	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
 	for file, required := range map[string][]string{
-		"SKILL.md": {"readable `label`", "label_provenance", "session ID", "recorded", "opening", "interpreted", "untitled", "conversation_kind", "owner_session", "open_window_status"},
+		"SKILL.md": {"readable `label`", "opening_label", "label_provenance", "session ID", "recorded", "recent", "opening", "interpreted", "untitled", "conversation_kind", "owner_session", "open_window_status"},
 		filepath.Join("references", "discovery.md"): {
-			"label_provenance", "opening", "interpreted", "untitled", "recorded", "exact session ID",
+			"opening_label", "latest non-acknowledgement ROOT user message", "label_provenance", "recent", "opening", "interpreted", "untitled", "recorded", "exact session ID",
+			"retain the complete selected row across Back", "Reacquire labels only on explicit discovery refresh",
 			"conversation_kind", "owner_session", "cross-session ownership is authenticated",
 			"open_window_status", "retained transcripts do not establish which Pi windows are open",
 		},
