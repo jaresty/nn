@@ -86,6 +86,29 @@ func TestTranscriptOfficeDefaultAndLensDispatch(t *testing.T) {
 		"--reference rooms", "--reference lenses")
 }
 
+func TestTranscriptOfficeParentageAndLifecycleAuthority(t *testing.T) {
+	const a = "ASSERT_TRANSCRIPT_OFFICE_PARENTAGE_LIFECYCLE_AUTHORITY"
+	skillDir := filepath.Join("..", "..", "..", "skills", "nn-transcript")
+	data, err := os.ReadFile(filepath.Join(skillDir, "references", "navigate.md"))
+	if err != nil {
+		t.Fatalf("%s: read navigate: %v", a, err)
+	}
+	text := string(data)
+	for _, phrase := range []string{
+		"parentage_status", "`recorded`", "`conservative_root`", "`repaired`",
+		"Only recorded edges may be called authenticated",
+		"No nested parent edges were recovered in this selected transcript",
+		"RETURN OBSERVED", "TERMINAL OBSERVED", "PROVISIONAL", "INTERRUPTED", "UNAVAILABLE",
+		"These are evidence lanes, never alive/dead labels",
+		"A background launch is launch mode rather than current activity",
+		"task success",
+	} {
+		if !strings.Contains(text, phrase) {
+			t.Errorf("%s: missing %q", a, phrase)
+		}
+	}
+}
+
 func TestTranscriptOfficeReadableLobbyLabels(t *testing.T) {
 	const a = "ASSERT_TRANSCRIPT_OFFICE_READABLE_LOBBY_LABELS"
 	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")

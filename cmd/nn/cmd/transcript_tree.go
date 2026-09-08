@@ -19,6 +19,7 @@ type agent struct {
 	EvidenceScope     *agentEvidenceScope `json:"evidence_scope,omitempty"`
 	ID                string              `json:"id"`
 	ParentID          string              `json:"parent_id"`
+	ParentageStatus   string              `json:"parentage_status,omitempty"`
 	Type              string              `json:"type"`
 	Description       string              `json:"description,omitempty"`
 	Started           string              `json:"started"`
@@ -514,6 +515,11 @@ func buildSDKCLITree(session string) ([]agent, error) {
 	for agentID, toolID := range childMeta {
 		if a := agents[agentID]; a != nil {
 			a.ParentID = toolOwner[toolID]
+			if a.ParentID != "" {
+				a.ParentageStatus = "recorded"
+			} else {
+				a.ParentageStatus = "unavailable"
+			}
 		}
 	}
 	return mapToSlice(agents), nil
@@ -590,13 +596,16 @@ func buildPiTree(session string) ([]agent, error) {
 			var d piCustomData
 			_ = json.Unmarshal(r.Data, &d)
 			parent, ok := spawnParentByAgentID[d.ID]
+			parentageStatus := "recorded"
 			if !ok {
 				// Older inline records may point directly at the spawning Agent call.
 				// With no authenticated spawn evidence, attach conservatively to ROOT
 				// rather than exposing a transcript event id as an agent parent.
 				parent = "ROOT"
+				parentageStatus = "conservative_root"
 				if owner, found := recordOwner[r.ParentID]; found {
 					parent = owner
+					parentageStatus = "recorded"
 				}
 			}
 			terminalCounts[d.ID]++
@@ -606,11 +615,12 @@ func buildPiTree(session string) ([]agent, error) {
 					Cost: "unavailable", SubtreeCost: "subtree_aggregate",
 					TerminalRecordCount: terminalCounts[d.ID],
 				},
-				ID:       d.ID,
-				Type:     d.Type,
-				Status:   d.Status,
-				Result:   d.Result,
-				ParentID: parent,
+				ID:              d.ID,
+				Type:            d.Type,
+				Status:          d.Status,
+				Result:          d.Result,
+				ParentID:        parent,
+				ParentageStatus: parentageStatus,
 			}
 			if d.Type == "" {
 				a.Type = "agent"
@@ -643,8 +653,10 @@ func buildPiTree(session string) ([]agent, error) {
 			continue // terminal record supersedes provisional spawn state
 		}
 		parent := "ROOT"
+		parentageStatus := "conservative_root"
 		if owner, ok := recordOwner[r.ParentID]; ok {
 			parent = owner
+			parentageStatus = "recorded"
 		}
 		typ := msg.Details.SubagentType
 		if typ == "" {
@@ -655,10 +667,11 @@ func buildPiTree(session string) ([]agent, error) {
 				Status: "background_spawn_record", Timestamps: "unavailable",
 				Cost: "unavailable", SubtreeCost: "subtree_aggregate",
 			},
-			ID:       msg.Details.AgentID,
-			Type:     typ,
-			Status:   "background",
-			ParentID: parent,
+			ID:              msg.Details.AgentID,
+			Type:            typ,
+			Status:          "background",
+			ParentID:        parent,
+			ParentageStatus: parentageStatus,
 		}
 	}
 
@@ -733,7 +746,7 @@ func buildClaudeCodeTree(session string) ([]agent, error) {
 			// tool_use id and its parent is ROOT (the turn issuing it).
 			for _, b := range toolUseBlocks(r.Message) {
 				if b.Name == "Task" {
-					agents[b.ID] = &agent{ID: b.ID, Type: "agent", ParentID: "ROOT", Started: r.Timestamp}
+					agents[b.ID] = &agent{ID: b.ID, Type: "agent", ParentID: "ROOT", ParentageStatus: "recorded", Started: r.Timestamp}
 				}
 			}
 		}
@@ -844,6 +857,7 @@ func repairTree(agentsPtr *[]agent) []string {
 		}
 		warnings = append(warnings, fmt.Sprintf("agent %q had unresolved parent %q; re-parented to %s", agents[i].ID, p, rootID))
 		agents[i].ParentID = rootID
+		agents[i].ParentageStatus = "repaired"
 	}
 	// break any remaining cycle by detaching the offending edge to ROOT.
 	if cyc := findCycleNode(agents); cyc != "" {
@@ -851,6 +865,7 @@ func repairTree(agentsPtr *[]agent) []string {
 			if agents[i].ID == cyc {
 				warnings = append(warnings, fmt.Sprintf("agent %q was in a cycle; detached to %s", cyc, rootID))
 				agents[i].ParentID = ""
+				agents[i].ParentageStatus = "repaired"
 			}
 		}
 	}

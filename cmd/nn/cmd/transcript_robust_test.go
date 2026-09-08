@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -26,6 +27,43 @@ func TestTranscriptTreeOrphanDoesNotAbort(t *testing.T) {
 	}
 	if !strings.Contains(out, "good") || !strings.Contains(out, "orphan") {
 		t.Errorf("expected both good and orphan agents rendered:\n%s", out)
+	}
+
+	jsonOut, err := execute("transcript", "tree", session, "--json")
+	if err != nil {
+		t.Fatalf("json tree: %v", err)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(jsonOut), &rows); err != nil {
+		t.Fatalf("decode json tree: %v", err)
+	}
+	statuses := map[string]string{}
+	for _, row := range rows {
+		statuses[row["id"].(string)], _ = row["parentage_status"].(string)
+	}
+	if statuses["good"] != "recorded" {
+		t.Errorf("ASSERT_PARENTAGE_RECORDED_ROOT: got %q", statuses["good"])
+	}
+	if statuses["orphan"] != "conservative_root" {
+		t.Errorf("ASSERT_PARENTAGE_CONSERVATIVE_ROOT: got %q", statuses["orphan"])
+	}
+}
+
+func TestTranscriptTreeRepairMarksParentage(t *testing.T) {
+	const assertion = "ASSERT_PARENTAGE_REPAIRED"
+	rows := []agent{{ID: "ROOT"}, {ID: "orphan", ParentID: "missing", ParentageStatus: "recorded"}}
+	warnings := repairTree(&rows)
+	if len(warnings) != 1 {
+		t.Fatalf("%s: warnings=%v", assertion, warnings)
+	}
+	var orphan agent
+	for _, row := range rows {
+		if row.ID == "orphan" {
+			orphan = row
+		}
+	}
+	if orphan.ID == "" || orphan.ParentID != "ROOT" || orphan.ParentageStatus != "repaired" {
+		t.Fatalf("%s: %+v", assertion, orphan)
 	}
 }
 
@@ -82,5 +120,14 @@ func TestTranscriptPiNestedSpawnResolves(t *testing.T) {
 	// B's spawning record mA is owned by agent A → B.parent should be A, not dangling.
 	if b.ParentID != "A" {
 		t.Errorf("nested spawn: B parent should resolve to A, got %q", b.ParentID)
+	}
+	var rawRows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rawRows); err != nil {
+		t.Fatalf("decode nested tree: %v", err)
+	}
+	for _, row := range rawRows {
+		if row["id"] == "B" && row["parentage_status"] != "recorded" {
+			t.Errorf("ASSERT_PARENTAGE_RECORDED_NESTED: got %q", row["parentage_status"])
+		}
 	}
 }

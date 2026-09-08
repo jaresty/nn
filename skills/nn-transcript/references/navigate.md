@@ -46,13 +46,30 @@ For an already selected agent's metadata, use `nn transcript tree <session> --ag
 and optional `--fields` under the **events** projection contract; no client-side row extraction is needed.
 
 Treat the selected session as an LLM-mediated Office, not an interactive CLI or terminal picker.
-The current manager's hallway contains only its authenticated topology **direct children**. A direct
-child with descendants is a **nested manager** door; entering it opens a sub-office and shows the
-manager path. Never flatten descendants into siblings or infer teams from descriptions, timing, or
-semantic similarity. For dense hallways, page a complete cached direct-child list in canonical tree
-order, state displayed and omitted counts, and never characterize uninspected rooms as inactive.
+The current manager's hallway contains only its topology **direct children**. Qualify every displayed
+parent edge from `parentage_status`: `recorded` is authenticated ownership; `conservative_root` is a
+navigable fallback, not proof that ROOT launched the child; `repaired` is structural repair, not
+recorded ownership; `unavailable` exposes missing parent authority. Recorded edges form the authenticated topology. Only recorded edges may be called authenticated.
+A direct child with recorded descendants is a **nested manager** door; entering it opens
+a sub-office and shows the manager path. Never flatten descendants into siblings or infer teams from
+descriptions, timing, or semantic similarity. When no nested edge appears, say exactly **“No nested parent edges were recovered in this selected transcript”** rather than “no nested managers”; this is
+a session-local evidence statement, not a global absence claim. For dense hallways, page a complete
+cached direct-child list in canonical tree order, state displayed and omitted counts, and never
+characterize uninspected rooms as inactive.
 
-An optional **Office Scan** applies a lens from **lenses** to this bounded authenticated population.
+Separate rooms by observed lifecycle evidence when that distinction aids navigation:
+
+- **RETURN OBSERVED** — an exact parent-side return exists;
+- **TERMINAL OBSERVED** — a producer terminal record exists, without implying task success;
+- **PROVISIONAL** — a launch exists but no terminal or return was observed;
+- **INTERRUPTED** — retained evidence records an error or interruption;
+- **UNAVAILABLE** — lifecycle evidence cannot classify the room.
+
+These are evidence lanes, never alive/dead labels. A background launch is launch mode rather than current activity;
+`completed` is producer lifecycle evidence rather than task success. Return and
+terminal occurrences remain independent and must not be inferred from each other.
+
+An optional **Office Scan** applies a lens from **lenses** to this bounded evidence-qualified population.
 Question-first scans are allowed. State inspected, uninspected, omitted, and unknown counts. Entering
 a room from a scan preserves its question and valid filters; Back restores the same scan snapshot.
 
