@@ -23,6 +23,17 @@ func ledgerString(m map[string]json.RawMessage, key string) string {
 	return s
 }
 
+// First well-typed, non-null native field wins, including an explicit empty string.
+func ledgerNativeString(fields map[string]json.RawMessage, keys ...string) any {
+	for _, key := range keys {
+		var value *string
+		if json.Unmarshal(fields[key], &value) == nil && value != nil {
+			return *value
+		}
+	}
+	return nil
+}
+
 func ledgerSize(raw json.RawMessage) map[string]any {
 	if len(raw) == 0 || string(raw) == "null" {
 		return map[string]any{"content_bytes": nil, "text_bytes": nil, "text_characters": nil}
@@ -160,6 +171,16 @@ func projectLedger(records []ledgerRecord, owner string, selects []string, paylo
 		size := ledgerSize(msg["content"])
 		size["role"] = role
 		size["model"] = ledgerString(msg, "model")
+		size["record_timestamp"] = nil
+		if r.Timestamp != "" {
+			size["record_timestamp"] = r.Timestamp
+		}
+		size["message_timestamp"] = nil
+		if raw := msg["timestamp"]; len(raw) > 0 {
+			size["message_timestamp"] = raw
+		}
+		size["stop_reason"] = ledgerNativeString(msg, "stopReason", "stop_reason")
+		size["error_message"] = ledgerNativeString(msg, "errorMessage", "error_message")
 		e["message"] = size
 		if role == "assistant" && r.Type != "toolResult" {
 			u, err := ledgerUsage(msg["usage"])

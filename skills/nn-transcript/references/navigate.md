@@ -10,6 +10,17 @@ Owning reference for `[enter a session]`. Fetch before descending into a session
 grammar and discovery contract live in the core (`nn skills get nn-transcript`) — this reference
 does not restate them.
 
+## Timing and failure inspection
+
+For delay questions, prefer `nn transcript events <session> <agent-id> --summary timing` before
+custom arithmetic. It reports observed message gaps and uniquely matched tool intervals, **not execution time**
+or inferred retries. Keep missing/invalid and negative clocks visible; native message and record clocks differ.
+Use `events ... --errors-only` for recorded failures (independent of payload visibility), then an inclusive
+`events ... --since <RFC3339> --until <RFC3339> --payload` window around the event. Preserve original IDs and
+ordinals; retrieve every page/segment with identical filters and the page-1 snapshot. The query receipt
+reports excluded unknown timestamps and binds out-of-window evidence too. Complete window transport is
+not complete historical source evidence. See the core for exact fields, limits, and incompatibilities.
+
 ## Steps
 
 1. **Tree overview (deterministic, trustworthy).**

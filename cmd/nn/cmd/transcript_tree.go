@@ -1157,6 +1157,18 @@ func renderMeaningfulEvents(b *strings.Builder, recs []rawRecord) {
 				continue
 			}
 			text := meaningfulContent(msg.Role, msg.Content)
+			if msg.Role == "assistant" || (msg.Role == "" && r.Type == "assistant") {
+				var fields map[string]json.RawMessage
+				_ = json.Unmarshal(r.Message, &fields)
+				stop, _ := ledgerNativeString(fields, "stopReason", "stop_reason").(string)
+				failure, _ := ledgerNativeString(fields, "errorMessage", "error_message").(string)
+				if stop == "error" || stop == "aborted" || failure != "" {
+					if text != "" {
+						text += "\n"
+					}
+					text += fmt.Sprintf("[failure stop_reason=%q error_message=%q]", stop, failure)
+				}
+			}
 			if strings.TrimSpace(text) == "" {
 				continue
 			}

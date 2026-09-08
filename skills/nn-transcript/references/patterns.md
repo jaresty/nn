@@ -11,6 +11,16 @@ cohort** — it is the inverse of targeted navigation, statistical coverage over
 closer in spirit to `nn shuf` than to `nn grep`. The visual grammar and discovery contract live
 in the core (`nn skills get nn-transcript`) — this reference does not restate them.
 
+## Timing reductions are not causal patterns
+
+Use `events <session> <agent-id> --summary timing` for each selected thread rather than recomputing
+role-transition totals or largest gaps externally. These are recorded intervals, **not execution time**,
+provider-latency attribution, or retry counts. `--errors-only` selects explicit recorded failures;
+`--since <RFC3339> --until <RFC3339> --payload` retrieves an inclusive diagnostic window. Retrieve every
+page/segment with unchanged filters and snapshot before interpreting that window, and disclose unknown
+clock exclusions. A failure marker or synchronized gap is a locator, not a causal explanation or proof
+of recurrence; retain the whole-session sampling discipline below. The core owns the exact contracts.
+
 ## Targeted matches select sessions; they do not prove patterns
 
 Use `nn transcript search <query> <root> --json` to locate attributable occurrences without the
