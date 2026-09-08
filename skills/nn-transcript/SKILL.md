@@ -25,12 +25,15 @@ The default entry experience is the **Transcript Office**: an LLM-mediated navig
 surface, not an interactive CLI, terminal picker, or persistent TUI. Keep CLI details behind the
 conversation unless requested.
 
-- **Browse / orient:** load discovery, run `nn transcript ls <dir> --json --limit <N>`, identify this
-  conversation, and present the returned page as candidate offices. Every row needs a readable label
+- **Browse / orient:** when the human names an explicit project, workspace, or office, resolve that
+  target before generic recent-session discovery. Otherwise load discovery and run
+  `nn transcript ls <dir> --json --limit <N>`. Identify this conversation and present the returned
+  page as candidate offices. Every row needs a readable label
   plus its exact session ID as secondary identity; qualify the label as recorded, opening, interpreted,
   or untitled. Load discovery for the bounded fallback and never present interpreted text as recorded
-  metadata. Continue with its `--cursor`; never derive cursors from times. After selection, load
-  navigate and render the authenticated tree
+  metadata. Retain the selected row's exact `path` and use it unchanged for downstream commands;
+  never reconstruct a path from session ID, current project, or cwd. Continue with its `--cursor`;
+  never derive cursors from times. After selection, load navigate and render the authenticated tree
   as a manager hallway whose rooms are direct children and whose nested managers open sub-offices.
 - **Already selected session/agent:** go directly to the relevant reference and command below.
   Do not rescan a whole cohort merely to inspect a known thread.

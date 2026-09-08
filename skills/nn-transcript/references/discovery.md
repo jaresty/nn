@@ -21,7 +21,20 @@ launch/return records.
 
 ## The front door (start here, always)
 
-Sweep the recent cohort and draw what stands out:
+### Target-first routing
+
+When the human supplies a **target hint** naming a project, workspace, or office, resolve its Pi
+session-directory scope and list that targeted scope first. Do not replace it with a generic recent
+cohort merely because another project is current. If zero scopes match, report that; if multiple
+scopes are plausible, present the ambiguous candidates rather than guessing. Generic recent-session
+discovery is the fallback only when no target was supplied or the human explicitly requests recency.
+
+Retain the complete selected `ls` row as conversational state, especially `path`, `session`, `schema`,
+and cursor/scope provenance. The exact `path` is the downstream command argument. Pass it
+byte-for-byte to `tree`, `events`, and `show`; never rebuild it from `session`, cwd, current project,
+or a guessed directory slug.
+
+Sweep the selected cohort and draw what stands out:
 
 ```bash
 nn transcript ls <dir> --json --limit <N>   # bounded to ONE page — this page IS the cohort

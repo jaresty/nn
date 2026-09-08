@@ -6,8 +6,9 @@ applies_when: "When entering a session to descend one run — tree overview, :en
 # nn-transcript / navigate — one session
 
 Owning reference for `[enter a session]`. Fetch before descending into a session. Entered with a
-`session id` in carried state. Render the **Transcript Office** hallway, scan it through optional
-lenses, and enter room Situation Boards. **Discovery** owns listing metadata; **rooms** owns the
+selected `ls` row in carried state. Its **canonical path**, not a reconstructed session basename,
+is the argument to every transcript command. Render the **Transcript Office** hallway, scan it through
+optional lenses, and enter room Situation Boards. **Discovery** owns listing metadata; **rooms** owns the
 single-agent destination; **lenses** owns the shared open projection language.
 
 ## Command owners
@@ -16,6 +17,10 @@ Before the relevant command, load **handoffs** for descriptions, launch/return a
 **summaries** for usage/tool/timing reductions; **events** for payloads, exports and time/error filters.
 Use `nn skills get nn-transcript --reference <name>`; the core's dispatch rule remains binding.
 These references own fields and limits. This reference owns the navigation workflow, not those schemas.
+If a command against the carried canonical path fails, report its actual error. Do not relabel a
+missing, moved, or wrongly reconstructed path as unknown schema; use escape-hatch guidance only when
+the exact carried file genuinely receives that diagnosis. Back restores the same scoped cohort and
+its retained rows, not a newly inferred current-project lobby.
 
 ## Steps
 

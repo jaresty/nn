@@ -109,6 +109,45 @@ func TestTranscriptOfficeReadableLobbyLabels(t *testing.T) {
 	}
 }
 
+func TestTranscriptOfficeTargetFirstDiscovery(t *testing.T) {
+	const a = "ASSERT_TRANSCRIPT_OFFICE_TARGET_FIRST_DISCOVERY"
+	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
+	for file, required := range map[string][]string{
+		"SKILL.md": {"explicit project", "before generic recent-session discovery"},
+		filepath.Join("references", "discovery.md"): {"target hint", "project, workspace, or office", "targeted scope first", "ambiguous"},
+	} {
+		body, err := os.ReadFile(filepath.Join(root, file))
+		if err != nil {
+			t.Fatalf("%s: %v", a, err)
+		}
+		for _, phrase := range required {
+			if !strings.Contains(string(body), phrase) {
+				t.Errorf("%s: %s missing %q", a, file, phrase)
+			}
+		}
+	}
+}
+
+func TestTranscriptOfficeCanonicalPathCustody(t *testing.T) {
+	const a = "ASSERT_TRANSCRIPT_OFFICE_CANONICAL_PATH_CUSTODY"
+	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
+	for file, required := range map[string][]string{
+		"SKILL.md": {"exact `path`", "never reconstruct"},
+		filepath.Join("references", "discovery.md"): {"selected `ls` row", "byte-for-byte", "tree", "events", "show"},
+		filepath.Join("references", "navigate.md"):  {"canonical path", "actual error", "scoped cohort"},
+	} {
+		body, err := os.ReadFile(filepath.Join(root, file))
+		if err != nil {
+			t.Fatalf("%s: %v", a, err)
+		}
+		for _, phrase := range required {
+			if !strings.Contains(string(body), phrase) {
+				t.Errorf("%s: %s missing %q", a, file, phrase)
+			}
+		}
+	}
+}
+
 func TestTranscriptSkillLazyDispatch(t *testing.T) {
 	const a = "ASSERT_TRANSCRIPT_LAZY_DISPATCH"
 	_, execute := setupNotebook(t)
