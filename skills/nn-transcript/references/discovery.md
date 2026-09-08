@@ -37,12 +37,17 @@ or a guessed directory slug.
 Sweep the selected cohort and draw what stands out:
 
 ```bash
-nn transcript ls <dir> --json --limit <N>   # bounded to ONE page — this page IS the cohort
+nn transcript ls <dir> --json --conversation-kind conversation --limit <N>   # bounded to ONE page — this page IS the cohort
 ```
 
 Default `<dir>` is the harness transcript root (e.g. `~/.claude/projects/<project-slug>/`).
-Draw an **LLM-composed** standout view from the JSON (never a fixed template), then present the
-picker. Every row carries the original first-line ROOT user `opening_label` plus a readable primary
+Use native `--conversation-kind conversation` for a conversation lobby or
+`--conversation-kind sidechain` for a sidechain-only cohort; do not pipe through `jq` merely to remove
+the other kind. The filter is applied before pagination, and its value is bound into the cursor
+snapshot. Draw an **LLM-composed** standout view from the JSON (never a fixed template), then present
+the picker. Each picker option label must exactly equal the corresponding displayed lobby `label`;
+put provenance and exact session ID in secondary text rather than replacing the label with generic
+`Enter …` wording. Every row carries the original first-line ROOT user `opening_label` plus a readable primary
 `label` selected from the latest non-acknowledgement ROOT user message. Acknowledgement-only messages
 such as `yes`, `ok`, `continue`, and `let's do it` are skipped. Exact `label_provenance` is `recent`
 for an unmodified later message, `opening` when the opening remains selected, `interpreted` for a

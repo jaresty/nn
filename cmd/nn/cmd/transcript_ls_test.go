@@ -163,7 +163,7 @@ func TestTranscriptLsConversationMetadata(t *testing.T) {
 		`{"type":"session","version":3,"id":"conversation","cwd":"/workspace"}`+"\n"+
 			`{"type":"message","id":"opening","message":{"role":"user","content":[{"type":"text","text":"Design readable transcript discovery"}]}}`+"\n"+
 			`{"type":"message","id":"recent","message":{"role":"user","content":[{"type":"text","text":"Show the latest meaningful conversation work"}]}}`+"\n"+
-			`{"type":"message","id":"ack","message":{"role":"user","content":[{"type":"text","text":"ok, let's try it"}]}}`+"\n")
+			`{"type":"message","id":"ack","message":{"role":"user","content":[{"type":"text","text":"let's try it"}]}}`+"\n")
 
 	_, execute := setupNotebook(t)
 	out, err := execute("transcript", "ls", dir, "--json")
@@ -207,6 +207,46 @@ func TestTranscriptLsConversationMetadata(t *testing.T) {
 	}
 	if row.Cursor == "" || row.Summary == nil {
 		t.Errorf("%s: cursor=%q summary=%v", compatAssertion, row.Cursor, row.Summary)
+	}
+}
+
+func TestTranscriptLsConversationKindFilterPrecedesPagination(t *testing.T) {
+	const (
+		filterAssertion = "ASSERT_TRANSCRIPT_LS_CONVERSATION_KIND_FILTER_PRECEDES_PAGINATION"
+		cursorAssertion = "ASSERT_TRANSCRIPT_LS_FILTER_BINDS_CURSOR_SNAPSHOT"
+		valueAssertion  = "ASSERT_TRANSCRIPT_LS_REJECTS_INVALID_CONVERSATION_KIND"
+	)
+	dir := t.TempDir()
+	writeTranscriptFile(t, filepath.Join(dir, "old-conversation.jsonl"), `{"type":"session","version":3,"id":"old-conversation"}`+"\n")
+	writeTranscriptFile(t, filepath.Join(dir, "new-conversation.jsonl"), `{"type":"session","version":3,"id":"new-conversation"}`+"\n")
+	writeTranscriptFile(t, filepath.Join(dir, "pi-agent-child", "newest-sidechain.jsonl"), `{"type":"session","version":3,"id":"newest-sidechain"}`+"\n")
+	base := time.Now().Add(-time.Hour)
+	for i, path := range []string{
+		filepath.Join(dir, "old-conversation.jsonl"),
+		filepath.Join(dir, "new-conversation.jsonl"),
+		filepath.Join(dir, "pi-agent-child", "newest-sidechain.jsonl"),
+	} {
+		when := base.Add(time.Duration(i) * time.Minute)
+		if err := os.Chtimes(path, when, when); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, execute := setupNotebook(t)
+	out, err := execute("transcript", "ls", dir, "--json", "--conversation-kind", "conversation", "--limit", "1")
+	var rows []sessionRow
+	if err != nil || json.Unmarshal([]byte(out), &rows) != nil || len(rows) != 1 || rows[0].Session != "new-conversation" || rows[0].ConversationKind != "conversation" {
+		t.Fatalf("%s: rows=%v output=%q error=%v", filterAssertion, rows, out, err)
+	}
+	next, err := execute("transcript", "ls", dir, "--json", "--conversation-kind", "conversation", "--limit", "1", "--cursor", rows[0].Cursor)
+	rows = nil
+	if err != nil || json.Unmarshal([]byte(next), &rows) != nil || len(rows) != 1 || rows[0].Session != "old-conversation" {
+		t.Fatalf("%s: rows=%v output=%q error=%v", cursorAssertion, rows, next, err)
+	}
+	if _, err := execute("transcript", "ls", dir, "--json", "--conversation-kind", "sidechain", "--cursor", rows[0].Cursor); err == nil || !strings.Contains(err.Error(), "stale or mismatched cursor") {
+		t.Fatalf("%s: cursor from conversation filter error=%v", cursorAssertion, err)
+	}
+	if _, err := execute("transcript", "ls", dir, "--conversation-kind", "worker"); err == nil || !strings.Contains(err.Error(), "--conversation-kind") {
+		t.Fatalf("%s: error=%v", valueAssertion, err)
 	}
 }
 
