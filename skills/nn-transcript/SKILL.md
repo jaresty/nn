@@ -19,10 +19,16 @@ Explore agent transcripts using the co-versioned `nn transcript` CLI. The core o
 shared authority rules, and visual grammar; lazy references own detailed command contracts.
 Use the binary, not raw-file scripts, for supported discovery, ownership, joins, and reductions.
 
-## Start with the question
+## Transcript Office — default entry experience
 
-- **Browse / orient:** load discovery, run `nn transcript ls <dir> --json --limit <N>`, and draw
-  the returned page as the cohort. Continue with its `--cursor`; never derive cursors from times.
+The default entry experience is the **Transcript Office**: an LLM-mediated navigation and analysis
+surface, not an interactive CLI, terminal picker, or persistent TUI. Keep CLI details behind the
+conversation unless requested.
+
+- **Browse / orient:** load discovery, run `nn transcript ls <dir> --json --limit <N>`, identify this
+  conversation, and present the returned page as candidate offices. Continue with its `--cursor`;
+  never derive cursors from times. After selection, load navigate and render the authenticated tree
+  as a manager hallway whose rooms are direct children and whose nested managers open sub-offices.
 - **Already selected session/agent:** go directly to the relevant reference and command below.
   Do not rescan a whole cohort merely to inspect a known thread.
 - **Find an agent by launch name or description:** use `nn transcript ls` to select the parent
@@ -43,7 +49,9 @@ branch references may dispatch to a command owner. Discover applicability with
 | Need | Load | Then use |
 |---|---|---|
 | Cohort / listing metadata | `nn skills get nn-transcript --reference discovery` | `nn transcript ls` |
-| Enter a session / visual lenses | `nn skills get nn-transcript --reference navigate` | `nn transcript tree` → `show` |
+| Enter an office / hallway | `nn skills get nn-transcript --reference navigate` | `nn transcript tree` → Office / nested teams |
+| Enter one room | `nn skills get nn-transcript --reference rooms` | Bounded `events --last 5` Situation Board |
+| Scan or rearrange any view | `nn skills get nn-transcript --reference lenses` | Preset, blank, inferred, or user-defined lens |
 | Cross-session patterns | `nn skills get nn-transcript --reference patterns` | Whole-session sampling and navigation |
 | Tree fields, text, events, windows | `nn skills get nn-transcript --reference events` | `tree --agent --fields`, `nn transcript show --json`, `nn transcript events` |
 | Usage / tool volume / timing | `nn skills get nn-transcript --reference summaries` | `events --summary usage`, `--summary tools`, `--summary timing` |
@@ -62,7 +70,7 @@ of original-source completeness. Detailed flags, fields, limits, and exclusions 
   `subtree_cost_status`, and `summary.cost.status`: unknown is not zero; partial is not exact.
 - `tree_preview` is lossy; exact topology requires `tree --json`. Discovery omissions and null
   summaries are not evidence of absence. Load discovery for the full authority/omission contract.
-- Producer status is not task success or proof of current activity. Cumulative usage is not latest
+- Producer status is not task success and is not proof of current activity. Cumulative usage is not latest
   attempt usage. Load handoffs for `evidence_scope` before combining lifecycle and usage.
 - Timestamps give observed intervals, not execution time, inferred retries, or provider causality.
   Launch/return occurrences are not inferred attempt pairs. Missing return does not prove running.
@@ -120,9 +128,12 @@ If a view invents identity, topology, or measurement, discard it and redraw from
 ## Navigation loop and capture
 
 For human-driven navigation, re-present discovered moves, a steer-in-your-own-words affordance,
-and **End** after each step. Do not silently terminate because the goal seems reached. Entering a
-thread shows 2–4 evidence-grounded findings under the visual contract; cross-session interpretation
-samples whole sessions, not scattered messages. One-shot command questions need not enter this loop.
+and **End** after each step. Do not silently terminate because the goal seems reached. Office views
+may apply higher-level scans over a bounded authenticated population. Entering a room switches from
+the office metaphor to a rearrangeable Situation Board; named lenses are presets and user-defined
+questions, axes, groups, filters, comparisons, and metaphors are first-class. Drill-down preserves the
+question; Back restores the same Office Scan or hallway. A refresh preserves human selection and lens
+but reacquires mutable evidence. One-shot command questions need not enter this loop.
 
 Capture only durable, non-derivable findings, with session/thread provenance. A file location,
 current status, or reproducible lookup is not a durable finding. Use the normal nn capture discipline.

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -36,6 +38,54 @@ func TestTranscriptSkillDescriptionLookupRouting(t *testing.T) {
 	t.Log(a + ": PASS")
 }
 
+func TestTranscriptOfficeDefaultAndLensDispatch(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
+	read := func(name string) string {
+		t.Helper()
+		body, err := os.ReadFile(filepath.Join(root, name))
+		if err != nil {
+			return ""
+		}
+		return string(body)
+	}
+	assertContains := func(assertion, text string, required ...string) {
+		t.Helper()
+		for _, phrase := range required {
+			if !strings.Contains(text, phrase) {
+				t.Errorf("%s: missing %q", assertion, phrase)
+			}
+		}
+	}
+
+	core := read("SKILL.md")
+	navigate := read(filepath.Join("references", "navigate.md"))
+	rooms := read(filepath.Join("references", "rooms.md"))
+	lenses := read(filepath.Join("references", "lenses.md"))
+
+	assertContains("ASSERT_TRANSCRIPT_OFFICE_DEFAULT_ENTRY", core,
+		"default entry experience", "Transcript Office", "--reference navigate")
+	assertContains("ASSERT_TRANSCRIPT_OFFICE_LLM_MEDIATED_NO_CLI_PICKER", core,
+		"LLM-mediated", "not an interactive CLI")
+	assertContains("ASSERT_TRANSCRIPT_OFFICE_AUTHENTICATED_TOPOLOGY", navigate,
+		"authenticated topology", "direct children", "nested manager")
+	assertContains("ASSERT_TRANSCRIPT_ROOM_OPEN_LENS", rooms,
+		"Situation Board", "user-defined", "named lenses are presets")
+	assertContains("ASSERT_TRANSCRIPT_OFFICE_LENS_SCAN", lenses,
+		"Office Scan", "authenticated population", "uninspected")
+	assertContains("ASSERT_TRANSCRIPT_LENS_DRILLDOWN_PRESERVES_QUESTION", lenses,
+		"preserves the question", "Back", "same Office Scan")
+	assertContains("ASSERT_TRANSCRIPT_EVIDENCE_QUALIFICATION", lenses,
+		"agent report", "inspected retained result", "independent verification")
+	assertContains("ASSERT_TRANSCRIPT_NO_INFERRED_LIVE_STATUS", core,
+		"not proof of current activity", "Missing return does not prove running")
+	assertContains("ASSERT_TRANSCRIPT_REFRESH_STATE", rooms,
+		"retains the lens", "reacquires", "retained snapshot")
+	assertContains("ASSERT_TRANSCRIPT_ROOM_BOUNDED_EXPANSION", rooms,
+		"--last 5", "--last 20", "replacement snapshot", "not stable backward continuation")
+	assertContains("ASSERT_TRANSCRIPT_OFFICE_LAZY_REFERENCES", core,
+		"--reference rooms", "--reference lenses")
+}
+
 func TestTranscriptSkillLazyDispatch(t *testing.T) {
 	const a = "ASSERT_TRANSCRIPT_LAZY_DISPATCH"
 	_, execute := setupNotebook(t)
@@ -55,7 +105,9 @@ func TestTranscriptSkillLazyDispatch(t *testing.T) {
 		"events":    {"--payload", "--snapshot", "--errors-only", "--since", "--until", "UNBOUNDED"},
 		"summaries": {"--summary usage", "--summary tools", "--summary timing", "not execution time"},
 		"handoffs":  {"--at launch", "--at return", "description", "occurrence", "last_terminal_record"},
-		"navigate":  {"semantic thread-layout contract", "not independently verified"},
+		"navigate":  {"Transcript Office", "authenticated topology", "Situation Board"},
+		"rooms":     {"Situation Board", "--last 5", "replacement snapshot"},
+		"lenses":    {"Office Scan", "user-defined", "independent verification"},
 		"patterns":  {"whole sessions", "four assertions"},
 	} {
 		if !strings.Contains(core, "--reference "+name) || !strings.Contains(listing, name) {
