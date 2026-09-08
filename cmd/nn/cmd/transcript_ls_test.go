@@ -147,6 +147,74 @@ func TestTranscriptLsLimitAndBefore(t *testing.T) {
 }
 
 // Assertion [17]: --json emits structured session rows.
+func TestTranscriptLsConversationMetadata(t *testing.T) {
+	const (
+		labelAssertion    = "ASSERT_TRANSCRIPT_LS_ROWS_HAVE_READABLE_QUALIFIED_LABELS"
+		kindAssertion     = "ASSERT_TRANSCRIPT_LS_CLASSIFIES_RETAINED_CONVERSATIONS_WITHOUT_GUESSED_OWNER"
+		identityAssertion = "ASSERT_TRANSCRIPT_LS_PRESERVES_SESSION_AND_CANONICAL_PATH"
+		windowAssertion   = "ASSERT_TRANSCRIPT_LS_OPEN_WINDOW_STATUS_IS_UNAVAILABLE"
+		compatAssertion   = "ASSERT_TRANSCRIPT_LS_ADDITIVE_FIELDS_PRESERVE_CURSOR_AND_SUMMARY"
+	)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "conversation.jsonl")
+	writeTranscriptFile(t, path,
+		`{"type":"session","version":3,"id":"conversation","cwd":"/workspace"}`+"\n"+
+			`{"type":"message","id":"opening","message":{"role":"user","content":[{"type":"text","text":"Design readable transcript discovery"}]}}`+"\n")
+
+	_, execute := setupNotebook(t)
+	out, err := execute("transcript", "ls", dir, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rows []struct {
+		Cursor           string          `json:"cursor"`
+		Session          string          `json:"session"`
+		Path             string          `json:"path"`
+		Label            string          `json:"label"`
+		LabelProvenance  string          `json:"label_provenance"`
+		ConversationKind string          `json:"conversation_kind"`
+		OwnerSession     *string         `json:"owner_session"`
+		OpenWindowStatus string          `json:"open_window_status"`
+		Summary          *sessionSummary `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(out), &rows); err != nil || len(rows) != 1 {
+		t.Fatalf("decode rows: %v output=%s", err, out)
+	}
+	row := rows[0]
+	if row.Label != "Design readable transcript discovery" || row.LabelProvenance != "opening" {
+		t.Errorf("%s: label=%q provenance=%q", labelAssertion, row.Label, row.LabelProvenance)
+	}
+	if row.ConversationKind != "conversation" || row.OwnerSession != nil {
+		t.Errorf("%s: kind=%q owner=%v", kindAssertion, row.ConversationKind, row.OwnerSession)
+	}
+	absolute, _ := filepath.Abs(path)
+	if row.Session != "conversation" || row.Path != absolute {
+		t.Errorf("%s: session=%q path=%q want=%q", identityAssertion, row.Session, row.Path, absolute)
+	}
+	if row.OpenWindowStatus != "unavailable" {
+		t.Errorf("%s: status=%q", windowAssertion, row.OpenWindowStatus)
+	}
+	if row.Cursor == "" || row.Summary == nil {
+		t.Errorf("%s: cursor=%q summary=%v", compatAssertion, row.Cursor, row.Summary)
+	}
+}
+
+func TestTranscriptLsClassifiesPiAgentExecutionAsSidechain(t *testing.T) {
+	const assertion = "ASSERT_TRANSCRIPT_LS_PI_AGENT_EXECUTION_IS_QUALIFIED_SIDECHAIN"
+	dir := filepath.Join(t.TempDir(), "pi-agent-child-id")
+	path := filepath.Join(dir, "child.jsonl")
+	writeTranscriptFile(t, path,
+		`{"type":"session","version":3,"id":"child","cwd":"`+dir+`"}`+"\n"+
+			`{"type":"message","id":"opening","message":{"role":"user","content":[{"type":"text","text":"Child assignment"}]}}`+"\n")
+	rows, err := listSessions(filepath.Dir(dir), 0, time.Time{})
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("%s: rows=%v error=%v", assertion, rows, err)
+	}
+	if rows[0].ConversationKind != "sidechain" || rows[0].OwnerSession != nil {
+		t.Fatalf("%s: kind=%q owner=%v", assertion, rows[0].ConversationKind, rows[0].OwnerSession)
+	}
+}
+
 func TestTranscriptLsJSON(t *testing.T) {
 	dir := twoSessionDir(t)
 	_, execute := setupNotebook(t)

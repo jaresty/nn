@@ -28,10 +28,12 @@ conversation unless requested.
 - **Browse / orient:** when the human names an explicit project, workspace, or office, resolve that
   target before generic recent-session discovery. Otherwise load discovery and run
   `nn transcript ls <dir> --json --limit <N>`. Identify this conversation and present the returned
-  page as candidate offices. Every row needs a readable label
-  plus its exact session ID as secondary identity; qualify the label as recorded, opening, interpreted,
-  or untitled. Load discovery for the bounded fallback and never present interpreted text as recorded
-  metadata. Retain the selected row's exact `path` and use it unchanged for downstream commands;
+  page as candidate retained conversations. Every row carries a readable `label` and
+  `label_provenance` (`recorded`, `opening`, `interpreted`, or `untitled`) plus its exact session ID as
+  secondary identity. `conversation_kind` classifies the listed top-level row, `owner_session` is null
+  unless ownership is authenticated, and `open_window_status` remains `unavailable` without host
+  evidence. Never present interpreted text as recorded metadata. Retain the selected row's exact `path`
+  and use it unchanged for downstream commands;
   never reconstruct a path from session ID, current project, or cwd. Continue with its `--cursor`;
   never derive cursors from times. After selection, load navigate and render the authenticated tree
   as a manager hallway whose rooms are direct children and whose nested managers open sub-offices.

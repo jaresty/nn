@@ -113,10 +113,11 @@ func TestTranscriptOfficeReadableLobbyLabels(t *testing.T) {
 	const a = "ASSERT_TRANSCRIPT_OFFICE_READABLE_LOBBY_LABELS"
 	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
 	for file, required := range map[string][]string{
-		"SKILL.md": {"readable label", "session ID", "recorded", "opening", "interpreted", "untitled"},
+		"SKILL.md": {"readable `label`", "label_provenance", "session ID", "recorded", "opening", "interpreted", "untitled", "conversation_kind", "owner_session", "open_window_status"},
 		filepath.Join("references", "discovery.md"): {
-			"page 1", "first root user event", "--event <event-id> --payload", "bounded fallback",
-			"never present an interpreted label as recorded metadata", "Untitled session",
+			"label_provenance", "opening", "interpreted", "untitled", "recorded", "exact session ID",
+			"conversation_kind", "owner_session", "cross-session ownership is authenticated",
+			"open_window_status", "retained transcripts do not establish which Pi windows are open",
 		},
 	} {
 		body, err := os.ReadFile(filepath.Join(root, file))

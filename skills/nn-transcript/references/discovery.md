@@ -42,24 +42,19 @@ nn transcript ls <dir> --json --limit <N>   # bounded to ONE page — this page 
 
 Default `<dir>` is the harness transcript root (e.g. `~/.claude/projects/<project-slug>/`).
 Draw an **LLM-composed** standout view from the JSON (never a fixed template), then present the
-picker. Every displayed office has a readable primary label and its exact session ID as secondary
-identity. Qualify the label source as `recorded`, `opening`, `interpreted`, or `untitled`.
+picker. Every row carries a readable `label` and exact `label_provenance`: `opening` for an unmodified
+first-line ROOT user opening, `interpreted` for a bounded shortening, or `untitled` when no usable
+opening exists (`recorded` remains reserved for future authenticated metadata). Display the label as
+primary identity and the exact session ID as secondary identity; never present interpreted text as
+recorded metadata.
 
-When listing metadata has no readable description, use this **bounded fallback** for each displayed
-session that needs a label:
-
-1. Request `nn transcript events <session> ROOT --select identity,message --json` **page 1** only.
-2. Select the **first root user event** from canonical ledger order on that page.
-3. Retrieve only that event with
-   `nn transcript events <session> ROOT --event <event-id> --payload --json`.
-4. Use its text as an `opening` label, or derive a short `interpreted` label while retaining the
-   opening text as its basis. Always say which one was used.
-5. If no usable event or text is available, display `Untitled session` with `untitled` provenance.
-
-This lookup does not establish complete session content. Do not retrieve later pages merely to find a
-better title, and never present an interpreted label as recorded metadata. A generic opening such as
-`nn transcript` may support an interpreted “Transcript exploration” label, but not a more specific
-session-purpose claim.
+`conversation_kind` classifies each retained row as `conversation` or `sidechain`; Pi agent execution
+directories remain visible but are explicitly marked `sidechain`, while known nested `subagents`
+transcript files remain excluded and are reached through the selected conversation's tree.
+`owner_session` is null unless cross-session ownership is authenticated; never fill it from recency,
+path resemblance, or a label match. `open_window_status` is `unavailable`
+because retained transcripts do not establish which Pi windows are open. A host-authenticated source
+is required before that value may change.
 
 The cohort is **replaced, not accumulated** on every re-sweep.
 For the next page, pass the last returned row's `cursor` as `--cursor <cursor>` with the same

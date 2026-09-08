@@ -18,15 +18,20 @@ import (
 
 // sessionRow is one entry of the recent-sessions menu (the navigator front door).
 type sessionRow struct {
-	Cursor      string          `json:"cursor"`
-	Session     string          `json:"session"`
-	Path        string          `json:"path"`
-	Modified    string          `json:"modified"`
-	Schema      string          `json:"schema"`
-	AgentCount  int             `json:"agent_count"`
-	TotalCost   int             `json:"total_cost"`
-	TreePreview string          `json:"tree_preview"`
-	Summary     *sessionSummary `json:"summary"`
+	Cursor           string          `json:"cursor"`
+	Session          string          `json:"session"`
+	Path             string          `json:"path"`
+	Modified         string          `json:"modified"`
+	Schema           string          `json:"schema"`
+	Label            string          `json:"label"`
+	LabelProvenance  string          `json:"label_provenance"`
+	ConversationKind string          `json:"conversation_kind"`
+	OwnerSession     *string         `json:"owner_session"`
+	OpenWindowStatus string          `json:"open_window_status"`
+	AgentCount       int             `json:"agent_count"`
+	TotalCost        int             `json:"total_cost"`
+	TreePreview      string          `json:"tree_preview"`
+	Summary          *sessionSummary `json:"summary"`
 }
 
 func newTranscriptLsCmd() *cobra.Command {
@@ -196,12 +201,17 @@ func listSessionsPage(dir string, limit int, before time.Time, cursor string) ([
 		if err != nil {
 			return nil, err
 		}
+		label, provenance := transcriptOpeningLabel(f.path)
 		row := sessionRow{
-			Cursor:   base64.RawURLEncoding.EncodeToString(encoded),
-			Session:  strings.TrimSuffix(filepath.Base(f.path), ".jsonl"),
-			Path:     f.path,
-			Modified: f.mod.UTC().Format(time.RFC3339Nano),
-			Schema:   classifyTranscript(f.path),
+			Cursor:           base64.RawURLEncoding.EncodeToString(encoded),
+			Session:          strings.TrimSuffix(filepath.Base(f.path), ".jsonl"),
+			Path:             f.path,
+			Modified:         f.mod.UTC().Format(time.RFC3339Nano),
+			Schema:           classifyTranscript(f.path),
+			Label:            label,
+			LabelProvenance:  provenance,
+			ConversationKind: transcriptConversationKind(f.path),
+			OpenWindowStatus: "unavailable",
 		}
 		// agent count, cost, and mini-tree from the spine (best-effort; a
 		// malformed session still lists with a note rather than aborting ls).
@@ -221,6 +231,45 @@ func listSessionsPage(dir string, limit int, before time.Time, cursor string) ([
 		}
 	}
 	return rows, nil
+}
+
+func transcriptConversationKind(path string) string {
+	for dir := filepath.Dir(path); dir != "." && dir != string(filepath.Separator); dir = filepath.Dir(dir) {
+		if strings.Contains(filepath.Base(dir), "pi-agent-") {
+			return "sidechain"
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+	}
+	return "conversation"
+}
+
+func transcriptOpeningLabel(path string) (string, string) {
+	records, _, _, err := ledgerRecords(path, "ROOT")
+	if err == nil {
+		for _, src := range records {
+			if src.Lifecycle {
+				continue
+			}
+			var msg map[string]json.RawMessage
+			if json.Unmarshal(src.Record.Message, &msg) != nil || ledgerString(msg, "role") != "user" {
+				continue
+			}
+			text := strings.TrimSpace(ledgerText(msg["content"]))
+			if text == "" {
+				continue
+			}
+			line := strings.TrimSpace(strings.SplitN(text, "\n", 2)[0])
+			runes := []rune(line)
+			if len(runes) <= 120 {
+				return line, "opening"
+			}
+			return strings.TrimSpace(string(runes[:117])) + "…", "interpreted"
+		}
+	}
+	return "Untitled session", "untitled"
 }
 
 // miniTree renders a compact one-line preview of the spawn structure, e.g.
