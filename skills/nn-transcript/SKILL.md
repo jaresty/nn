@@ -26,8 +26,11 @@ surface, not an interactive CLI, terminal picker, or persistent TUI. Keep CLI de
 conversation unless requested.
 
 - **Browse / orient:** load discovery, run `nn transcript ls <dir> --json --limit <N>`, identify this
-  conversation, and present the returned page as candidate offices. Continue with its `--cursor`;
-  never derive cursors from times. After selection, load navigate and render the authenticated tree
+  conversation, and present the returned page as candidate offices. Every row needs a readable label
+  plus its exact session ID as secondary identity; qualify the label as recorded, opening, interpreted,
+  or untitled. Load discovery for the bounded fallback and never present interpreted text as recorded
+  metadata. Continue with its `--cursor`; never derive cursors from times. After selection, load
+  navigate and render the authenticated tree
   as a manager hallway whose rooms are direct children and whose nested managers open sub-offices.
 - **Already selected session/agent:** go directly to the relevant reference and command below.
   Do not rescan a whole cohort merely to inspect a known thread.

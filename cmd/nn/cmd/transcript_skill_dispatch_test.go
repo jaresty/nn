@@ -86,6 +86,29 @@ func TestTranscriptOfficeDefaultAndLensDispatch(t *testing.T) {
 		"--reference rooms", "--reference lenses")
 }
 
+func TestTranscriptOfficeReadableLobbyLabels(t *testing.T) {
+	const a = "ASSERT_TRANSCRIPT_OFFICE_READABLE_LOBBY_LABELS"
+	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
+	for file, required := range map[string][]string{
+		"SKILL.md": {"readable label", "session ID", "recorded", "opening", "interpreted", "untitled"},
+		filepath.Join("references", "discovery.md"): {
+			"page 1", "first root user event", "--event <event-id> --payload", "bounded fallback",
+			"never present an interpreted label as recorded metadata", "Untitled session",
+		},
+	} {
+		body, err := os.ReadFile(filepath.Join(root, file))
+		if err != nil {
+			t.Errorf("%s: cannot read %s: %v", a, file, err)
+			continue
+		}
+		for _, phrase := range required {
+			if !strings.Contains(string(body), phrase) {
+				t.Errorf("%s: %s missing %q", a, file, phrase)
+			}
+		}
+	}
+}
+
 func TestTranscriptSkillLazyDispatch(t *testing.T) {
 	const a = "ASSERT_TRANSCRIPT_LAZY_DISPATCH"
 	_, execute := setupNotebook(t)
