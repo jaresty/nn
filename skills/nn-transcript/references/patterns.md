@@ -8,18 +8,15 @@ applies_when: "When sweeping a pattern across many sessions — aggregate the co
 Owning reference for `[sweep a pattern]`. Fetch before sweeping. Entered with the `cohort` (and
 optionally a `proposed pattern`) in carried state. **Patterns = navigate applied across the
 cohort** — it is the inverse of targeted navigation, statistical coverage over a corpus of runs,
-closer in spirit to `nn shuf` than to `nn grep`. The visual grammar and discovery contract live
-in the core (`nn skills get nn-transcript`) — this reference does not restate them.
+closer in spirit to `nn shuf` than to `nn grep`. The visual grammar lives
+in the core (`nn skills get nn-transcript`); **discovery** owns listing metadata.
 
-## Timing reductions are not causal patterns
+## Command owners
 
-Use `events <session> <agent-id> --summary timing` for each selected thread rather than recomputing
-role-transition totals or largest gaps externally. These are recorded intervals, **not execution time**,
-provider-latency attribution, or retry counts. `--errors-only` selects explicit recorded failures;
-`--since <RFC3339> --until <RFC3339> --payload` retrieves an inclusive diagnostic window. Retrieve every
-page/segment with unchanged filters and snapshot before interpreting that window, and disclose unknown
-clock exclusions. A failure marker or synchronized gap is a locator, not a causal explanation or proof
-of recurrence; retain the whole-session sampling discipline below. The core owns the exact contracts.
+Before measurement commands, load **discovery** for cohort metadata, **summaries** for usage/tool/timing
+reductions, and **events** for payloads or time/error windows. Use the core's binding lazy dispatch.
+Recorded intervals are not execution time or inferred retries; a synchronized gap is a locator,
+not a causal explanation. Keep the whole-session sampling discipline below.
 
 ## Targeted matches select sessions; they do not prove patterns
 
@@ -40,7 +37,7 @@ tiers of each, rather than skimming a fragment of every session.
 1. **Aggregate only deterministic fields the cohort actually carries (cheap, no inference).**
    From the swept `ls --json` (the cohort is the front door's one page; page further back with
    `ls --json --cursor <last-row.cursor>` with the same directory/filter for a wider window),
-   use session id, schema, `agent_count`, and the bounded summaries described in the core.
+   use session id, schema, `agent_count`, and the bounded summaries described in **discovery**.
    `summary.cost` provides typed token counts and authority; `summary.topology` provides complete
    depth/width aggregates when its status allows them. Returned type frequencies are exact, but
    `types_truncated` and omission counts prohibit treating missing entries as absent.
@@ -51,17 +48,15 @@ tiers of each, rather than skimming a fragment of every session.
    Report the supported deterministic patterns first, with their field provenance.
 
 For token totals and context-growth comparisons within selected agents, use
-`nn transcript events <session> <agent-id> --summary usage --bucket-size 10` under the core summary
-contract. Preserve missing-count authority and known-context denominators; do not equate usage records
+`nn transcript events <session> <agent-id> --summary usage --bucket-size 10` after loading **summaries**. Preserve missing-count authority and known-context denominators; do not equate usage records
 with independently verified API calls or assume buckets are task phases.
 
 For tool-volume comparisons within selected agents, use
-`nn transcript events <session> <agent-id> --summary tools --limit 8 --group-by tool` under the core
-tool-volume contract; preserve unknown sizes, ambiguous joins, and explicit preview/result omissions.
+`nn transcript events <session> <agent-id> --summary tools --limit 8 --group-by tool` after loading **summaries**; preserve unknown sizes, ambiguous joins, and explicit preview/result omissions.
 
 For custom per-record usage or tool-event comparisons within selected agents, use
-`nn transcript events <session> <agent-id> --select identity,message,usage,tools --json` under the
-core ledger contract. Complete every snapshot-bound page and reconstruct oversized events before
+`nn transcript events <session> <agent-id> --select identity,message,usage,tools --json` after
+loading **events**. Complete every snapshot-bound page and reconstruct oversized events before
 aggregation. Count usage-bearing message events once, not extracted tool events. These are deterministic
 measurements; repeated calls and large outputs are candidates for interpretation, not proof of waste.
 

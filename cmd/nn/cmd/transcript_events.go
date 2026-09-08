@@ -15,6 +15,7 @@ import (
 type ledgerPage struct {
 	All          bool                `json:"all,omitempty"`
 	Query        *ledgerQueryReceipt `json:"query,omitempty"`
+	Handoff      *handoffReceipt     `json:"handoff,omitempty"`
 	Version      string              `json:"version"`
 	EventFilter  string              `json:"event_filter"`
 	Snapshot     string              `json:"snapshot"`
@@ -48,11 +49,21 @@ func ledgerSelect(s string) ([]string, error) {
 }
 
 func newTranscriptEventsCmd() *cobra.Command {
-	var selection, snapshot, eventFilter, summary, groupBy, since, until string
+	var selection, snapshot, eventFilter, summary, groupBy, since, until, at string
 	var payload, asJSON, all, errorsOnly bool
 	var page, bucketSize, resultLimit int
 	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound normalized event ledger (JSON)", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, args []string) error {
 		summaryMode := c.Flags().Changed("summary")
+		if c.Flags().Changed("at") {
+			if at != "launch" && at != "return" {
+				return fmt.Errorf("events: --at must be launch or return")
+			}
+			for _, flag := range []string{"summary", "since", "until", "errors-only"} {
+				if c.Flags().Changed(flag) {
+					return fmt.Errorf("events: --at cannot be combined with --%s", flag)
+				}
+			}
+		}
 		query := ledgerQuery{ErrorsOnly: errorsOnly}
 		for _, flag := range []string{"since", "until", "errors-only"} {
 			if c.Flags().Changed(flag) && (summaryMode || c.Flags().Changed("event")) {
@@ -131,6 +142,18 @@ func newTranscriptEventsCmd() *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if at != "" {
+			result, err := buildHandoffPage(args[0], args[1], at, selectFields, payload, page, snapshot, eventFilter, all)
+			if err != nil {
+				return err
+			}
+			b, err := json.Marshal(result)
+			if err != nil {
+				return err
+			}
+			_, err = c.OutOrStdout().Write(append(b, '\n'))
+			return err
+		}
 		records, schema, detail, err := ledgerRecords(args[0], args[1])
 		if err != nil {
 			return err
@@ -169,6 +192,7 @@ func newTranscriptEventsCmd() *cobra.Command {
 		_, err = c.OutOrStdout().Write(append(b, '\n'))
 		return err
 	}}
+	c.Flags().StringVar(&at, "at", "", "parent-side handoff occurrences: launch or return (Pi)")
 	c.Flags().StringVar(&since, "since", "", "inclusive RFC3339 lower event timestamp bound")
 	c.Flags().StringVar(&until, "until", "", "inclusive RFC3339 upper event timestamp bound")
 	c.Flags().BoolVar(&errorsOnly, "errors-only", false, "select recorded assistant failures and explicitly erroneous tool results")
@@ -187,6 +211,10 @@ func newTranscriptEventsCmd() *cobra.Command {
 }
 
 func buildLedgerPage(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string, all bool, queries ...*ledgerQueryReceipt) (ledgerPage, error) {
+	return buildLedgerPageWithHandoff(session, id, schema, detail, selection, payload, events, page, supplied, eventFilter, all, nil, queries...)
+}
+
+func buildLedgerPageWithHandoff(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string, all bool, handoff *handoffReceipt, queries ...*ledgerQueryReceipt) (ledgerPage, error) {
 	if page < 1 || (page > 1 && supplied == "") {
 		return ledgerPage{}, fmt.Errorf("events: invalid page or missing snapshot")
 	}
@@ -211,6 +239,7 @@ func buildLedgerPage(session, id, schema, detail string, selection []string, pay
 	if len(queries) > 0 {
 		result.Query = queries[0]
 	}
+	result.Handoff = handoff
 	header, _ := json.Marshal(result)
 	h := sha256.New()
 	writeSnapshotPart(h, []byte("nn transcript events snapshot v1"))

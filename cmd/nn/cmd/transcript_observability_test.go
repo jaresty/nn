@@ -253,12 +253,15 @@ func TestTranscriptObservabilityTimingEdges(t *testing.T) {
 
 func TestTranscriptObservabilitySkill(t *testing.T) {
 	const a = "ASSERT_OBSERVABILITY_SKILL"
-	for _, path := range []string{"SKILL.md", "references/navigate.md", "references/patterns.md"} {
+	for path, phrases := range map[string][]string{
+		"references/summaries.md": {"--summary timing", "not execution time"},
+		"references/events.md":    {"--errors-only", "--since", "--until"},
+	} {
 		body, err := os.ReadFile(filepath.Join("..", "..", "..", "skills", "nn-transcript", path))
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, phrase := range []string{"--summary timing", "--errors-only", "--since", "--until", "not execution time"} {
+		for _, phrase := range phrases {
 			if !strings.Contains(string(body), phrase) {
 				t.Fatalf("%s: %s lacks %s", a, path, phrase)
 			}

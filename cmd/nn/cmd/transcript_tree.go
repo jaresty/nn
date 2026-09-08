@@ -20,6 +20,7 @@ type agent struct {
 	ID                string              `json:"id"`
 	ParentID          string              `json:"parent_id"`
 	Type              string              `json:"type"`
+	Description       string              `json:"description,omitempty"`
 	Started           string              `json:"started"`
 	Ended             string              `json:"ended"`
 	Cost              int                 `json:"cost"`
@@ -648,6 +649,14 @@ func buildPiTree(session string) ([]agent, error) {
 		}
 	}
 
+	// Launch descriptions survive terminal-state replacement. A resumed launch
+	// may supply a newer label, but never changes the established topology.
+	for _, h := range piHandoffs(recs) {
+		if a := agents[h.Child]; a != nil && h.Kind == "launch" && h.Description != "" {
+			a.Description = h.Description
+		}
+	}
+
 	// Attribute usage from each readable authenticated sidechain exactly once.
 	// Both the path identity and each record's agentId must match, so nested agent
 	// events cannot leak into their parent's own cost.
@@ -971,8 +980,12 @@ func renderOverview(agents []agent) string {
 		if a.SubtreeCostStatus != "complete" {
 			subtree = "≥" + subtree
 		}
-		fmt.Fprintf(&b, "%s%s  [%s]  cost=%s subtree=%s  %s\n",
-			indent, a.ID, a.Type, cost, subtree, status)
+		label := ""
+		if a.Description != "" {
+			label = fmt.Sprintf(" %q", a.Description)
+		}
+		fmt.Fprintf(&b, "%s%s%s  [%s]  cost=%s subtree=%s  %s\n",
+			indent, a.ID, label, a.Type, cost, subtree, status)
 		for _, c := range children[id] {
 			walk(c.ID, depth+1)
 		}

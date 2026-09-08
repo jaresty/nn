@@ -1,0 +1,104 @@
+---
+name: events
+applies_when: "Before targeted tree projection, readable/JSON show, event facets or payloads, exact-event retrieval, exports, failure filters, or timestamp windows."
+---
+
+# nn-transcript / events
+
+## Targeted metadata and complete exports
+
+For an already selected agent, use `nn transcript tree <session> --agent <id> --json`, optionally
+`--fields id,type,status,cost,subtree_cost,evidence_scope`. Selectors require JSON; unknown agents,
+unknown fields and empty selectors reject. Selection happens after whole-tree validation/rollup,
+so subtree totals do not shrink to the selected row. Explicitly requested absent optional fields
+are null. Without selectors the existing output is unchanged.
+
+Plain `show` already returns complete text. `nn transcript show <session> <id> --all --json`
+returns `{all:true,snapshot,mode,text}`. `nn transcript events <session> <id> --all` returns complete
+unfragmented event objects with `all:true`, page/pages=1 and next_page=0. These are **UNBOUNDED**
+exports: pipe to a JSON consumer or redirect to a file when large; do not assume they fit an agent
+response. Both reject explicit --page/--snapshot flags, and show --all requires --json. The snapshot
+is the same as the equivalent bounded projection. --all changes transport, not source completeness.
+Default bounded modes remain unchanged and omit the all field.
+
+## Structured event ledger
+
+Use `nn transcript events <session> <agent-id> --json` for deterministic event analysis instead
+of downloading raw show payloads and writing another parser. `--select identity,usage,tools`
+selects facets; available facets are identity/message/usage/tools/lifecycle (all by default,
+identity always included). `--payload` opts into native payloads; `--event <event-id>` retrieves
+one exact event while preserving its full-ledger ordinal. Unknown event IDs fail.
+
+Pages expose `version`, `snapshot`, `page`, `pages`, `next_page`, `select`, `payload`, `schema`,
+`detail_status`, `event_filter`, and `events`. Retrieve every page with the same options and the
+page-1 `--snapshot`. Normal entries are directly usable event objects. An oversized event instead
+has `event_id`, `ordinal`, `segment`, `segments`, and `text`: concatenate its ordered text fragments
+and JSON-decode before interpreting or counting it. Pages including newline are at most 48,000 bytes.
+
+Events retain `event_id`, `agent_id`, `ordinal`, `kind`, `timestamp`, `timestamp_source`, and `source`
+(path, decoded-record ordinal, native record ID). IDs identify source positions, not immutable content.
+Order is source-path/decoded-record/extraction order, not cross-source chronology. Missing timestamps
+are null; native message timestamps can be millisecond numbers rather than RFC3339 strings.
+Usage appears only on assistant message events, never extracted tool events: known component counts,
+`known_total_tokens`, complete/partial/unavailable status, and nullable `total_tokens`/`context_tokens`.
+Missing counters are null, not zero. Context is input plus cache-read counts when both are known.
+Tool joins report matched/missing/ambiguous/unavailable rather than guessing duplicate or missing IDs.
+Message/result text bytes and Unicode characters, and serialized argument/content bytes, are **not tokens**.
+
+Pi shares show's authenticated selection and also exposes matching producer terminal records.
+SDK file ownership is confined; Claude Code inline child execution remains unavailable. `detail_status`
+is unavailable when there are no usable selected messages, even if terminal records exist. Snapshots
+bind selected projection/options, not unselected payload or original-source completeness. Payload and
+arguments are omitted by default. Use event-specific payload retrieval to inspect a standout; behavioral
+claims still require complete relevant evidence, not usage magnitude, result size, or producer status.
+
+## Recorded failures and timestamp windows
+
+The message facet exposes nullable `record_timestamp`, `message_timestamp`, `stop_reason`, and
+`error_message`, retaining native clock values and Pi camelCase / snake_case failure fields.
+For failure-field aliases, the first well-typed non-null value wins (camelCase first), including an
+explicit empty string; meaningful display and error selection use the same precedence.
+Meaningful `show` includes an escaped `[failure stop_reason="..." error_message="..."]` marker
+for assistant errors, aborts, or nonempty error messages—even for thinking-only/empty responses.
+It still omits thinking and tool-result bodies. Ordinary meaningful text search is not an error
+index: use `events --errors-only` to select failure records without searching payload text.
+This selects assistant failure **message events** and explicitly erroneous **tool_result events**,
+not the duplicate enclosing tool-result message, unknown flags, or messages merely mentioning errors.
+Selection is independent of requested facets; joins retain their full-ledger meaning even if their
+other endpoint is outside the window. An outside-window endpoint requires a separate unfiltered
+`--event` request; absence from a window does not mean a missing join.
+
+`--since` and `--until` are inclusive RFC3339 bounds; either can be used alone, and errors-only
+can be combined with them. Reversed/empty/invalid bounds reject. Window/error flags reject with
+--event or any --summary. Filters preserve original event IDs/ordinals and ledger order; never
+re-sort or renumber the selected result. Events with unknown/invalid clocks are excluded only when
+a time bound is active. The `query` receipt reports normalized bounds, `errors_only`, clock/boundary,
+full `ledger_snapshot`, total/selected event counts, `excluded_before`, `excluded_after`,
+`excluded_unknown_timestamp`, `excluded_non_errors`, first/last selected event, and completeness
+qualification. Exclusion counts form a partition: clock/window exclusion happens before error filtering.
+
+Retrieve **every** page and ordered segment using unchanged filters and the page-1 `--snapshot`.
+The snapshot binds the full evidence projection, query, and selected output; even an out-of-window
+projected change rejects continuation. This establishes complete selected transport, not historical
+source completeness. Empty windows remain valid receipts with zero selected events and null boundaries.
+`--all` is an explicit unbounded complete filtered export with the same snapshot; normal pages remain
+at most 48,000 bytes. Use exact event payload retrieval after locating an interval/error standout.
+
+## Complete show retrieval
+
+For an explicit unbounded JSON export, use `show --all --json` (complete text) or
+`events --all` (complete event objects) under the export contract above. Otherwise:
+Retrieve every page under the page-1 snapshot, concatenate `segments[].text` by global
+`segment` ordinal, and verify all `segments` ordinals are present before interpreting events.
+Never mix snapshots or make event-derived claims from a partial page set. The reconstruction is
+exactly the legacy text `show` projection for the selected meaningful/raw mode.
+The snapshot binds the request and projected output, not original source bytes. JSON decoding
+may replace malformed source UTF-8 with U+FFFD; JSON pagination rejects invalid projected UTF-8.
+Resolved Pi sidechain events require an explicit matching `agentId`, including in `--raw` mode;
+foreign or missing-owner records are not attributable detail. If none match, metadata fallback
+means event detail is unavailable, not that the agent did no work.
+For Pi, raw detail contains complete owned message payloads, not outer JSONL wrappers.
+Meaningful show and search omit tool-result roles and typed tool-result blocks; use `--raw`
+when inspecting or locating tool-result errors or payloads.
+
+

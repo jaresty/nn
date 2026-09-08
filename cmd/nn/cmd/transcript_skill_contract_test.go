@@ -116,9 +116,11 @@ func TestEmbeddedTranscriptSkillJSONFieldContract(t *testing.T) {
 func TestEmbeddedTranscriptSkillEvidenceBoundary(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
 	for name, required := range map[string][]string{
-		"SKILL.md":               {"--cursor", "tree_preview", "total_cost", "cost_status", "subtree_cost_status", "token counts, not currency", "exact topology requires", "summary.cost.status", "topology_status", "omitted_agent_count", "summary: null", "evidence_scope", "last_terminal_record", "retained_sidechain_history"},
-		"references/navigate.md": {"token counts", "cost_status", "subtree_cost_status", "parent_id", "started", "ended", "evidence_scope", "terminal_record_count", "not task success"},
-		"references/patterns.md": {"--cursor", "tree --json", "token counts", "summary.cost", "summary.topology", "types_truncated"},
+		"SKILL.md":                {"--cursor", "tree_preview", "total_cost", "cost_status", "subtree_cost_status", "token counts, not currency", "exact topology requires", "summary.cost.status", "evidence_scope"},
+		"references/discovery.md": {"topology_status", "omitted_agent_count", "summary: null"},
+		"references/handoffs.md":  {"last_terminal_record", "retained_sidechain_history"},
+		"references/navigate.md":  {"token counts", "cost_status", "subtree_cost_status", "parent_id", "started", "ended", "evidence_scope", "terminal_record_count", "not task success"},
+		"references/patterns.md":  {"--cursor", "tree --json", "token counts", "summary.cost", "summary.topology", "types_truncated"},
 	} {
 		body, err := os.ReadFile(filepath.Join(root, name))
 		if err != nil {
@@ -153,7 +155,7 @@ func TestEmbeddedTranscriptSkillExportsContract(t *testing.T) {
 			}
 		}
 	}
-	body, err := os.ReadFile(filepath.Join("..", "..", "..", "skills", "nn-transcript", "SKILL.md"))
+	body, err := os.ReadFile(filepath.Join("..", "..", "..", "skills", "nn-transcript", "references", "events.md"))
 	if err != nil {
 		t.Fatal(err)
 	}

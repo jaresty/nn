@@ -42,7 +42,7 @@ func TestTranscriptUsageSummaryCLI(t *testing.T) {
 	t.Log("ASSERT_USAGE_CLI: pass")
 }
 func TestTranscriptUsageSummarySkill(t *testing.T) {
-	for _, path := range []string{"SKILL.md", "references/navigate.md", "references/patterns.md"} {
+	for _, path := range []string{"references/summaries.md"} {
 		b, err := os.ReadFile(filepath.Join("..", "..", "..", "skills", "nn-transcript", path))
 		if err != nil {
 			t.Fatal(err)
