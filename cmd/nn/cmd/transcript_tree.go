@@ -136,18 +136,21 @@ type piCustomData struct {
 func newTranscriptTreeCmd() *cobra.Command {
 	var asJSON bool
 	var strict bool
-	var agentID, fields string
+	var agentID, description, fields string
 	cmd := &cobra.Command{
 		Use:   "tree <session>",
 		Short: "Reconstruct the spawn DAG into the normalized relation",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			projected := cmd.Flags().Changed("agent") || cmd.Flags().Changed("fields")
+			projected := cmd.Flags().Changed("agent") || cmd.Flags().Changed("description") || cmd.Flags().Changed("fields")
 			if projected && !asJSON {
-				return fmt.Errorf("tree: --agent and --fields require --json")
+				return fmt.Errorf("tree: --agent, --description, and --fields require --json")
 			}
-			if (cmd.Flags().Changed("agent") && agentID == "") || (cmd.Flags().Changed("fields") && fields == "") {
+			if (cmd.Flags().Changed("agent") && agentID == "") || (cmd.Flags().Changed("description") && description == "") || (cmd.Flags().Changed("fields") && fields == "") {
 				return fmt.Errorf("tree: selectors must not be empty")
+			}
+			if cmd.Flags().Changed("agent") && cmd.Flags().Changed("description") {
+				return fmt.Errorf("tree: --agent cannot be combined with --description")
 			}
 			agents, err := buildTree(args[0])
 			if err != nil {
@@ -172,7 +175,16 @@ func newTranscriptTreeCmd() *cobra.Command {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				if projected {
-					rows, err := projectTranscriptTree(agents, agentID, fields)
+					selected := agents
+					if cmd.Flags().Changed("description") {
+						selected = []agent{}
+						for _, a := range agents {
+							if a.Description == description {
+								selected = append(selected, a)
+							}
+						}
+					}
+					rows, err := projectTranscriptTree(selected, agentID, fields)
 					if err != nil {
 						return err
 					}
@@ -186,6 +198,7 @@ func newTranscriptTreeCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit the normalized relation as JSON")
 	cmd.Flags().StringVar(&agentID, "agent", "", "select one agent after full-tree validation/rollup (requires --json)")
+	cmd.Flags().StringVar(&description, "description", "", "select every exact launch-description match after full-tree validation/rollup (requires --json)")
 	cmd.Flags().StringVar(&fields, "fields", "", "comma-separated top-level JSON field names (requires --json)")
 	cmd.Flags().BoolVar(&strict, "strict", false, "abort on validation failure instead of repairing orphans (use for untrusted/escape-hatch schemas)")
 	return cmd

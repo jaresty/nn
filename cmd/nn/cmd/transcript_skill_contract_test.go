@@ -143,7 +143,7 @@ func TestEmbeddedTranscriptSkillExportsContract(t *testing.T) {
 	for _, entry := range []struct {
 		cmd   string
 		flags []string
-	}{{"tree", []string{"agent", "fields"}}, {"show", []string{"all"}}, {"events", []string{"all"}}} {
+	}{{"tree", []string{"agent", "description", "fields"}}, {"show", []string{"all"}}, {"events", []string{"all", "last"}}} {
 		root := newTranscriptCmd(nil)
 		cmd, _, err := root.Find([]string{entry.cmd})
 		if err != nil {
@@ -155,13 +155,19 @@ func TestEmbeddedTranscriptSkillExportsContract(t *testing.T) {
 			}
 		}
 	}
-	body, err := os.ReadFile(filepath.Join("..", "..", "..", "skills", "nn-transcript", "references", "events.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, required := range []string{"--agent", "--fields", "--all", "UNBOUNDED"} {
-		if !strings.Contains(string(body), required) {
-			t.Fatalf("ASSERT_EXPORT_SKILL: fail — missing %s", required)
+	root := filepath.Join("..", "..", "..", "skills", "nn-transcript", "references")
+	for file, required := range map[string][]string{
+		"events.md":    {"--agent", "--fields", "--all", "--last", "UNBOUNDED"},
+		"discovery.md": {"--description", "every exact case-sensitive match"},
+	} {
+		body, err := os.ReadFile(filepath.Join(root, file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, text := range required {
+			if !strings.Contains(string(body), text) {
+				t.Fatalf("ASSERT_EXPORT_SKILL: fail — %s missing %s", file, text)
+			}
 		}
 	}
 	t.Log("ASSERT_EXPORT_SKILL: pass")
@@ -169,7 +175,7 @@ func TestEmbeddedTranscriptSkillExportsContract(t *testing.T) {
 
 func TestEmbeddedTranscriptSkillEventsContract(t *testing.T) {
 	cmd := newTranscriptEventsCmd()
-	for _, name := range []string{"select", "payload", "event", "json", "page", "snapshot"} {
+	for _, name := range []string{"select", "payload", "event", "last", "json", "page", "snapshot"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Fatalf("ASSERT_LEDGER_SKILL: missing flag %s", name)
 		}

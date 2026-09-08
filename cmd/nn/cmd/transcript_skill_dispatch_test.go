@@ -21,11 +21,14 @@ func TestTranscriptSkillDescriptionLookupRouting(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, text := range map[string]string{"core": core, "discovery": discovery, "handoffs": handoffs} {
-		for _, phrase := range []string{"launch name", "tree --json", "description", "do not use `nn transcript search`"} {
+		for _, phrase := range []string{"launch name", "description", "do not use `nn transcript search`"} {
 			if !strings.Contains(text, phrase) {
 				t.Fatalf("%s: %s lacks %q", a, name, phrase)
 			}
 		}
+	}
+	if !strings.Contains(discovery, "tree <session> --description") || !strings.Contains(discovery, "every exact case-sensitive match") {
+		t.Fatalf("%s: discovery lacks native exact description selector contract", a)
 	}
 	if !strings.Contains(core, "`nn transcript ls`") || !strings.Contains(discovery, "select the parent session") {
 		t.Fatalf("%s: ls to parent-selection route absent", a)

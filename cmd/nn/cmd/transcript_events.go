@@ -51,9 +51,19 @@ func ledgerSelect(s string) ([]string, error) {
 func newTranscriptEventsCmd() *cobra.Command {
 	var selection, snapshot, eventFilter, summary, groupBy, since, until, at string
 	var payload, asJSON, all, errorsOnly bool
-	var page, bucketSize, resultLimit int
+	var page, bucketSize, resultLimit, last int
 	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound normalized event ledger (JSON)", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, args []string) error {
 		summaryMode := c.Flags().Changed("summary")
+		if c.Flags().Changed("last") {
+			if last <= 0 {
+				return fmt.Errorf("events: --last must be greater than zero")
+			}
+			for _, flag := range []string{"all", "event", "summary", "at"} {
+				if c.Flags().Changed(flag) {
+					return fmt.Errorf("events: --last cannot be combined with --%s", flag)
+				}
+			}
+		}
 		if c.Flags().Changed("at") {
 			if at != "launch" && at != "return" {
 				return fmt.Errorf("events: --at must be launch or return")
@@ -64,7 +74,7 @@ func newTranscriptEventsCmd() *cobra.Command {
 				}
 			}
 		}
-		query := ledgerQuery{ErrorsOnly: errorsOnly}
+		query := ledgerQuery{ErrorsOnly: errorsOnly, Last: last}
 		for _, flag := range []string{"since", "until", "errors-only"} {
 			if c.Flags().Changed(flag) && (summaryMode || c.Flags().Changed("event")) {
 				return fmt.Errorf("events: --%s cannot be combined with --summary or --event", flag)
@@ -196,6 +206,7 @@ func newTranscriptEventsCmd() *cobra.Command {
 	c.Flags().StringVar(&since, "since", "", "inclusive RFC3339 lower event timestamp bound")
 	c.Flags().StringVar(&until, "until", "", "inclusive RFC3339 upper event timestamp bound")
 	c.Flags().BoolVar(&errorsOnly, "errors-only", false, "select recorded assistant failures and explicitly erroneous tool results")
+	c.Flags().IntVar(&last, "last", 0, "return the latest N matching events in canonical ledger order")
 	c.Flags().StringVar(&summary, "summary", "", "deterministic summary: usage, tools, or timing")
 	c.Flags().IntVar(&resultLimit, "limit", 5, "largest tool results or timing intervals to return, 0..100 (requires --summary tools or timing)")
 	c.Flags().StringVar(&groupBy, "group-by", "", "group tool-volume statistics by tool (requires --summary tools)")

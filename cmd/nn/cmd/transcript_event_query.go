@@ -10,9 +10,12 @@ type ledgerQuery struct {
 	Since      *time.Time
 	Until      *time.Time
 	ErrorsOnly bool
+	Last       int
 }
 
-func (q ledgerQuery) active() bool { return q.Since != nil || q.Until != nil || q.ErrorsOnly }
+func (q ledgerQuery) active() bool {
+	return q.Since != nil || q.Until != nil || q.ErrorsOnly || q.Last > 0
+}
 
 type ledgerQueryReceipt struct {
 	Since          *string `json:"since"`
@@ -30,6 +33,10 @@ type ledgerQueryReceipt struct {
 	First          any     `json:"first_event"`
 	Last           any     `json:"last_event"`
 	Completeness   string  `json:"completeness"`
+	RequestedLast  *int    `json:"requested_last,omitempty"`
+	MatchingEvents *int    `json:"matching_events,omitempty"`
+	ReturnedEvents *int    `json:"returned_events,omitempty"`
+	OlderMatching  *bool   `json:"older_matching_events,omitempty"`
 }
 
 func parseLedgerBound(value string) (*time.Time, error) {
@@ -110,6 +117,20 @@ func buildQueriedLedgerPage(session, id, schema, detail string, selection []stri
 			}
 		}
 		selected = append(selected, out)
+	}
+	if q.Last > 0 {
+		matching := len(selected)
+		start := matching - q.Last
+		if start < 0 {
+			start = 0
+		}
+		selected = selected[start:]
+		returned := len(selected)
+		older := matching > returned
+		receipt.RequestedLast = &q.Last
+		receipt.MatchingEvents = &matching
+		receipt.ReturnedEvents = &returned
+		receipt.OlderMatching = &older
 	}
 	receipt.Selected = len(selected)
 	endpoint := func(e ledgerEvent) any {

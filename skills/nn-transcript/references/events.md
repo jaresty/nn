@@ -69,9 +69,13 @@ other endpoint is outside the window. An outside-window endpoint requires a sepa
 `--event` request; absence from a window does not mean a missing join.
 
 `--since` and `--until` are inclusive RFC3339 bounds; either can be used alone, and errors-only
-can be combined with them. Reversed/empty/invalid bounds reject. Window/error flags reject with
---event or any --summary. Filters preserve original event IDs/ordinals and ledger order; never
-re-sort or renumber the selected result. Events with unknown/invalid clocks are excluded only when
+can be combined with them. `--last N` returns the final N events *after* those filters in canonical
+ascending ledger order; use it for a bounded “what just happened?” read without `--all` or external
+JSON trimming. Its query receipt reports `requested_last`, matching and returned counts, and whether
+older matching events exist. `--last` requires N > 0 and rejects with `--all`, `--event`, `--summary`,
+or `--at`; normal facet selection and `--payload` remain available. Reversed/empty/invalid bounds
+reject. Window/error flags reject with --event or any --summary. Filters preserve original event
+IDs/ordinals and ledger order; never re-sort or renumber the selected result. Events with unknown/invalid clocks are excluded only when
 a time bound is active. The `query` receipt reports normalized bounds, `errors_only`, clock/boundary,
 full `ledger_snapshot`, total/selected event counts, `excluded_before`, `excluded_after`,
 `excluded_unknown_timestamp`, `excluded_non_errors`, first/last selected event, and completeness
