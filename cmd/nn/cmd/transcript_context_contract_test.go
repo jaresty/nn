@@ -66,8 +66,14 @@ func TestReviewBundleScope(t *testing.T) {
 	}
 	_, _ = f.WriteString("{\"type\":\"message\",\"agentId\":\"B\",\"message\":{\"role\":\"assistant\",\"content\":\"new\"}}\n")
 	_ = f.Close()
-	if _, e := buildReviewTails(path, "open-handoff", "canonical", "", 1, "", 2, true, 1, p.Snapshot); e == nil {
-		t.Fatal("changed evidence must reject bundle snapshot")
+	retained, e := buildReviewTails(path, "open-handoff", "canonical", "", 1, "", 2, true, 1, p.Snapshot)
+	if e != nil {
+		t.Fatalf("bundle must retain captured evidence after append: %v", e)
+	}
+	beforeJSON, _ := json.Marshal(p)
+	afterJSON, _ := json.Marshal(retained)
+	if !bytes.Equal(beforeJSON, afterJSON) {
+		t.Fatal("retained bundle must be byte-identical after append")
 	}
 }
 

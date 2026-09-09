@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -47,6 +45,7 @@ type reviewRow struct {
 type reviewPage struct {
 	Path       string      `json:"path"`
 	Snapshot   string      `json:"snapshot"`
+	CaptureID  string      `json:"capture_id"`
 	Queue      string      `json:"queue"`
 	Order      string      `json:"order"`
 	Pattern    string      `json:"pattern"`
@@ -65,6 +64,7 @@ type reviewCursor struct {
 	Version  int
 	Snapshot string
 	Offset   int
+	Capture  string
 }
 
 var reviewAlgorithms = map[string]string{
@@ -175,6 +175,37 @@ func reviewLabel(s string) string {
 }
 
 func buildReviewPage(session, queue, order, pattern string, limit int, cursor string) (reviewPage, error) {
+	c, e := reviewCapture(session, cursor)
+	if e != nil {
+		return reviewPage{}, e
+	}
+	return buildReviewPageCaptured(c, queue, order, pattern, limit, cursor)
+}
+
+func reviewCapture(session, cursor string) (*transcriptCapture, error) {
+	if cursor == "" {
+		return newTranscriptCapture(session)
+	}
+	b, e := base64.RawURLEncoding.DecodeString(cursor)
+	var token reviewCursor
+	if e != nil || json.Unmarshal(b, &token) != nil || token.Version != 1 {
+		return nil, fmt.Errorf("review: invalid cursor")
+	}
+	c, e := loadTranscriptCapture(token.Capture)
+	if e != nil {
+		return nil, e
+	}
+	path, e := filepath.Abs(session)
+	if e != nil {
+		return nil, e
+	}
+	if path != c.Path && path != c.InputPath {
+		return nil, fmt.Errorf("review: capture path mismatch")
+	}
+	return c, nil
+}
+
+func buildReviewPageCaptured(c *transcriptCapture, queue, order, pattern string, limit int, cursor string) (reviewPage, error) {
 	var empty reviewPage
 	if queue != "open-handoff" && queue != "ambiguous-handoff" && queue != "archive" {
 		return empty, fmt.Errorf("review: invalid queue %q", queue)
@@ -189,31 +220,16 @@ func buildReviewPage(session, queue, order, pattern string, limit int, cursor st
 	if limit < 1 || limit > 200 {
 		return empty, fmt.Errorf("review: limit must be between 1 and 200")
 	}
-	path, err := filepath.Abs(session)
+	path := c.Path
+	records, err := c.read(path)
 	if err != nil {
 		return empty, err
 	}
-	path, err = filepath.EvalSymlinks(path)
+	agents, err := buildPiTreeUsing(path, c.read, c.resolve)
 	if err != nil {
 		return empty, err
 	}
-	sources := map[string]string{}
-	rootDigest, err := reviewFileDigest(path)
-	if err != nil {
-		return empty, err
-	}
-	sources[path] = rootDigest
-	if classifyTranscript(path) != schemaPi {
-		return empty, fmt.Errorf("review: authenticated handoff review currently requires a Pi transcript")
-	}
-	records, err := readRecords(path)
-	if err != nil {
-		return empty, err
-	}
-	agents, err := buildTree(path)
-	if err != nil {
-		return empty, err
-	}
+	sort.Slice(agents, func(i, j int) bool { return agents[i].ID < agents[j].ID })
 	h := sha256.New()
 	enc := json.NewEncoder(h)
 	_ = enc.Encode(struct {
@@ -221,6 +237,7 @@ func buildReviewPage(session, queue, order, pattern string, limit int, cursor st
 		Path, Queue, Order, Pattern string
 		Limit                       int
 	}{1, path, queue, order, pattern, limit})
+	_ = enc.Encode(c.ID)
 	_ = enc.Encode(records)
 	_ = enc.Encode(agents)
 	byID := map[string]*reviewRow{}
@@ -267,36 +284,9 @@ func buildReviewPage(session, queue, order, pattern string, limit int, cursor st
 	sort.Strings(ids)
 	rows := []reviewRow{}
 	unknown := 0
-	locators := piBackgroundLocators(records)
-	owned := map[string][]ledgerRecord{}
-	for _, record := range records {
-		if isPiEventRecord(record) && record.AgentID != "" {
-			owned[record.AgentID] = append(owned[record.AgentID], ledgerRecord{Record: record, Path: path})
-		}
-	}
 	for _, id := range ids {
 		r := byID[id]
-		recs := owned[id]
-		if len(recs) == 0 {
-			for _, loc := range locators {
-				if loc.AgentID != id {
-					continue
-				}
-				safe := validatePiSidechainPath(loc.Path, id)
-				if safe != "" {
-					digest, e := reviewFileDigest(safe)
-					if e != nil {
-						return empty, e
-					}
-					sources[safe] = digest
-				}
-				selected, source := readOwnedPiSidechain(loc.Path, id)
-				for _, record := range selected {
-					recs = append(recs, ledgerRecord{Record: record, Path: source})
-				}
-				break
-			}
-		}
+		recs, _ := c.ledger(id)
 		_ = enc.Encode(recs)
 		tools, commands := map[string]int{}, map[string]int{}
 		stamps := []time.Time{}
@@ -422,21 +412,6 @@ func buildReviewPage(session, queue, order, pattern string, limit int, cursor st
 		}
 		return rows[i].ID < rows[j].ID
 	})
-	sourcePaths := make([]string, 0, len(sources))
-	for source := range sources {
-		sourcePaths = append(sourcePaths, source)
-	}
-	sort.Strings(sourcePaths)
-	for _, source := range sourcePaths {
-		digest, e := reviewFileDigest(source)
-		if e != nil {
-			return empty, e
-		}
-		if digest != sources[source] {
-			return empty, fmt.Errorf("review: source changed during projection; retry")
-		}
-		_ = enc.Encode([]string{source, digest})
-	}
 	_ = enc.Encode(rows)
 	snapshot := hex.EncodeToString(h.Sum(nil))
 	offset := 0
@@ -452,9 +427,9 @@ func buildReviewPage(session, queue, order, pattern string, limit int, cursor st
 	if end > len(rows) {
 		end = len(rows)
 	}
-	p := reviewPage{Path: path, Snapshot: snapshot, Queue: queue, Order: order, Pattern: pattern, Algorithm: algorithm, Population: len(ids), Eligible: len(rows), Offset: offset, Returned: end - offset, Omitted: len(rows) - end, Unknown: unknown, Rows: rows[offset:end]}
+	p := reviewPage{Path: path, Snapshot: snapshot, CaptureID: c.ID, Queue: queue, Order: order, Pattern: pattern, Algorithm: algorithm, Population: len(ids), Eligible: len(rows), Offset: offset, Returned: end - offset, Omitted: len(rows) - end, Unknown: unknown, Rows: rows[offset:end]}
 	if end < len(rows) {
-		b, _ := json.Marshal(reviewCursor{1, snapshot, end})
+		b, _ := json.Marshal(reviewCursor{1, snapshot, end, c.ID})
 		p.NextCursor = base64.RawURLEncoding.EncodeToString(b)
 	}
 	return p, nil
@@ -466,17 +441,4 @@ func reviewShortID(id string) string {
 		return string(r[:12])
 	}
 	return id
-}
-
-func reviewFileDigest(path string) (string, error) {
-	f, e := os.Open(path)
-	if e != nil {
-		return "", e
-	}
-	defer f.Close()
-	h := sha256.New()
-	if _, e = io.Copy(h, f); e != nil {
-		return "", e
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
 }

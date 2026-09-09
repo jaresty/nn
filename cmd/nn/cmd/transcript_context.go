@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -56,18 +55,19 @@ func buildTranscriptContext(session, id string, last, page int, snapshot string)
 	if e := contextBounds(last, page, snapshot); e != nil {
 		return empty, e
 	}
-	path, e := contextPath(session)
+	request, e := captureRequest(session, "context", id, last)
 	if e != nil {
 		return empty, e
 	}
-	if classifyTranscript(path) != schemaPi {
-		return empty, fmt.Errorf("context: recorded assignment context currently requires Pi")
+	if snapshot != "" {
+		return loadCapturedPage(snapshot, request, page)
 	}
-	before, e := reviewFileDigest(path)
+	capture, e := newTranscriptCapture(session)
 	if e != nil {
 		return empty, e
 	}
-	agents, e := buildTree(path)
+	path := capture.Path
+	agents, e := buildPiTreeUsing(path, capture.read, capture.resolve)
 	if e != nil {
 		return empty, e
 	}
@@ -83,17 +83,17 @@ func buildTranscriptContext(session, id string, last, page int, snapshot string)
 	}
 	events := []ledgerEvent{}
 	fields, _ := ledgerSelect("identity,message,usage,tools,lifecycle")
-	launches, e := buildHandoffPage(path, id, "launch", fields, true, 1, "", "", true)
+	launches, e := buildHandoffPage(path, id, "launch", fields, true, 1, "", "", true, capture)
 	if e != nil {
 		return empty, e
 	}
-	tail, sources, e := contextTail(path, id, last, true)
+	tail, sources, e := contextTail(capture, id, last, true)
 	if e != nil {
 		return empty, e
 	}
 	// A source fingerprint is included even when a changed source produces the same tail.
-	sources[path] = before
-	receipt := ledgerEvent{"event_id": ledgerID(path, 0, id, "context:receipt"), "kind": "context_receipt", "ordinal": 0, "agent_id": id, "bundle": "assignment_context", "path": path, "last": last, "launches": launches.Handoff, "recent": tail.Query, "steering_status": "unavailable", "governing_attempt": "not_inferred", "detail_status": tail.DetailStatus, "source_digests": sources}
+
+	receipt := ledgerEvent{"event_id": ledgerID(path, 0, id, "context:receipt"), "kind": "context_receipt", "ordinal": 0, "agent_id": id, "bundle": "assignment_context", "path": path, "last": last, "launches": launches.Handoff, "recent": tail.Query, "steering_status": "unavailable", "governing_attempt": "not_inferred", "detail_status": tail.DetailStatus, "capture_sources": len(sources), "capture_id": capture.ID, "capture_boundary": "sequential_complete_record_prefixes"}
 	events = append(events, receipt)
 	events, e = appendContextEvents(events, launches.Events, "launch")
 	if e != nil {
@@ -103,10 +103,16 @@ func buildTranscriptContext(session, id string, last, page int, snapshot string)
 	if e != nil {
 		return empty, e
 	}
-	if e = checkContextSources(sources); e != nil {
+	result, e := buildLedgerPage(path, id, schemaPi, tail.DetailStatus, fields, true, events, page, snapshot, "", false)
+	if e != nil {
 		return empty, e
 	}
-	return buildLedgerPage(path, id, schemaPi, tail.DetailStatus, fields, true, events, page, snapshot, "", false)
+	if e = saveCapturedPages(result, request, capture, func(n int) (ledgerPage, error) {
+		return buildLedgerPage(path, id, schemaPi, tail.DetailStatus, fields, true, events, n, result.Snapshot, "", false)
+	}); e != nil {
+		return empty, e
+	}
+	return result, nil
 }
 
 func buildReviewTails(session, queue, order, pattern string, limit int, cursor string, last int, payload bool, page int, snapshot string) (ledgerPage, error) {
@@ -114,24 +120,28 @@ func buildReviewTails(session, queue, order, pattern string, limit int, cursor s
 	if e := contextBounds(last, page, snapshot); e != nil {
 		return empty, e
 	}
-	path, e := contextPath(session)
+	request, e := captureRequest(session, "review", queue, order, pattern, limit, cursor, last, payload)
 	if e != nil {
 		return empty, e
 	}
-	before, e := reviewFileDigest(path)
+	if snapshot != "" {
+		return loadCapturedPage(snapshot, request, page)
+	}
+	capture, e := reviewCapture(session, cursor)
 	if e != nil {
 		return empty, e
 	}
-	rooms, e := buildReviewPage(path, queue, order, pattern, limit, cursor)
+	path := capture.Path
+	rooms, e := buildReviewPageCaptured(capture, queue, order, pattern, limit, cursor)
 	if e != nil {
 		return empty, e
 	}
 	fields, _ := ledgerSelect("identity,message,usage,tools,lifecycle")
 	events := []ledgerEvent{}
-	sources := map[string]string{path: before}
+	sources := capture.digests()
 	retrieved, unavailable, omittedEvents := 0, 0, 0
 	for i, row := range rooms.Rows {
-		tail, digests, e := contextTail(path, row.ID, last, payload)
+		tail, digests, e := contextTail(capture, row.ID, last, payload)
 		if e != nil {
 			return empty, e
 		}
@@ -152,20 +162,18 @@ func buildReviewTails(session, queue, order, pattern string, limit int, cursor s
 			return empty, e
 		}
 	}
-	// Re-evaluate the deterministic cohort: tails and membership must agree on retained evidence.
-	after, e := buildReviewPage(path, queue, order, pattern, limit, cursor)
+	receipt := ledgerEvent{"event_id": ledgerID(path, 0, "ROOT", "review:receipt"), "ordinal": 0, "kind": "review_receipt", "bundle": "review_tails", "path": path, "queue": queue, "order": order, "pattern": pattern, "last": last, "limit": limit, "review_snapshot": rooms.Snapshot, "population": rooms.Population, "eligible": rooms.Eligible, "offset": rooms.Offset, "retrieved_rooms": rooms.Returned, "omitted_rooms": rooms.Omitted, "unknown_population": rooms.Unknown, "unavailable_rooms": unavailable, "selected_events": retrieved, "omitted_earlier_events": omittedEvents, "next_room_cursor": rooms.NextCursor, "inspection_status": "not_inferred", "capture_sources": len(sources), "capture_id": capture.ID, "capture_boundary": "sequential_complete_record_prefixes"}
+	events = append([]ledgerEvent{receipt}, events...)
+	result, e := buildLedgerPage(path, "review_tails", schemaPi, "per_room", fields, payload, events, page, snapshot, "", false)
 	if e != nil {
 		return empty, e
 	}
-	if after.Snapshot != rooms.Snapshot {
-		return empty, fmt.Errorf("review: evidence changed during bundle collection; retry")
-	}
-	if e = checkContextSources(sources); e != nil {
+	if e = saveCapturedPages(result, request, capture, func(n int) (ledgerPage, error) {
+		return buildLedgerPage(path, "review_tails", schemaPi, "per_room", fields, payload, events, n, result.Snapshot, "", false)
+	}); e != nil {
 		return empty, e
 	}
-	receipt := ledgerEvent{"event_id": ledgerID(path, 0, "ROOT", "review:receipt"), "ordinal": 0, "kind": "review_receipt", "bundle": "review_tails", "path": path, "queue": queue, "order": order, "pattern": pattern, "last": last, "limit": limit, "review_snapshot": rooms.Snapshot, "population": rooms.Population, "eligible": rooms.Eligible, "offset": rooms.Offset, "retrieved_rooms": rooms.Returned, "omitted_rooms": rooms.Omitted, "unknown_population": rooms.Unknown, "unavailable_rooms": unavailable, "selected_events": retrieved, "omitted_earlier_events": omittedEvents, "next_room_cursor": rooms.NextCursor, "inspection_status": "not_inferred", "source_digests": sources}
-	events = append([]ledgerEvent{receipt}, events...)
-	return buildLedgerPage(path, "review_tails", schemaPi, "per_room", fields, payload, events, page, snapshot, "", false)
+	return result, nil
 }
 
 func appendContextEvents(events []ledgerEvent, raws []json.RawMessage, section string) ([]ledgerEvent, error) {
@@ -180,49 +188,13 @@ func appendContextEvents(events []ledgerEvent, raws []json.RawMessage, section s
 	return events, nil
 }
 
-func contextTail(path, id string, last int, payload bool) (ledgerPage, map[string]string, error) {
-	var empty ledgerPage
-	records, schema, detail, e := ledgerRecords(path, id)
-	if e != nil {
-		return empty, nil, e
-	}
-	sources := map[string]string{}
-	for _, r := range records {
-		if _, ok := sources[r.Path]; !ok {
-			digest, e := reviewFileDigest(r.Path)
-			if e != nil {
-				return empty, nil, e
-			}
-			sources[r.Path] = digest
-		}
-	}
-	again, _, _, e := ledgerRecords(path, id)
-	if e != nil {
-		return empty, nil, e
-	}
-	a, _ := json.Marshal(records)
-	b, _ := json.Marshal(again)
-	if !bytes.Equal(a, b) {
-		return empty, nil, fmt.Errorf("context: source changed during collection; retry")
-	}
+func contextTail(capture *transcriptCapture, id string, last int, payload bool) (ledgerPage, map[string]string, error) {
+	records, detail := capture.ledger(id)
 	fields, _ := ledgerSelect("identity,message,usage,tools,lifecycle")
 	events, e := projectLedger(records, id, fields, payload)
 	if e != nil {
-		return empty, nil, e
+		return ledgerPage{}, nil, e
 	}
-	result, e := buildQueriedLedgerPage(path, id, schema, detail, fields, payload, events, 1, "", "", true, ledgerQuery{Last: last})
-	return result, sources, e
-}
-
-func checkContextSources(sources map[string]string) error {
-	for source, before := range sources {
-		after, e := reviewFileDigest(source)
-		if e != nil {
-			return e
-		}
-		if after != before {
-			return fmt.Errorf("context: source changed during collection; retry")
-		}
-	}
-	return nil
+	result, e := buildQueriedLedgerPage(capture.Path, id, schemaPi, detail, fields, payload, events, 1, "", "", true, ledgerQuery{Last: last})
+	return result, capture.digests(), e
 }

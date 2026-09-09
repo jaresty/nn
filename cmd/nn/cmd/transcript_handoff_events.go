@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-func buildHandoffPage(session, id, at string, selection []string, payload bool, page int, snapshot, eventFilter string, all bool) (ledgerPage, error) {
+func buildHandoffPage(session, id, at string, selection []string, payload bool, page int, snapshot, eventFilter string, all bool, captures ...*transcriptCapture) (ledgerPage, error) {
 	if at != "launch" && at != "return" {
 		return ledgerPage{}, fmt.Errorf("events: --at must be launch or return")
 	}
@@ -14,18 +14,32 @@ func buildHandoffPage(session, id, at string, selection []string, payload bool, 
 	if err != nil {
 		return ledgerPage{}, err
 	}
-	path, err = filepath.EvalSymlinks(path)
-	if err != nil {
-		return ledgerPage{}, err
+	var capture *transcriptCapture
+	if len(captures) > 0 {
+		capture = captures[0]
 	}
-	schema := classifyTranscript(path)
+	schema := schemaPi
+	if capture != nil {
+		path = capture.Path
+	} else {
+		path, err = filepath.EvalSymlinks(path)
+		if err != nil {
+			return ledgerPage{}, err
+		}
+		schema = classifyTranscript(path)
+	}
 	receipt := &handoffReceipt{At: at, Status: "unavailable", Pairing: "not_inferred: occurrence numbers are independent per kind, not attempt pairs"}
 	events := []ledgerEvent{}
 	if schema != schemaPi {
 		receipt.Status = "unsupported_schema"
 		return buildLedgerPageWithHandoff(session, id, schema, "unavailable", selection, payload, events, page, snapshot, eventFilter, all, receipt)
 	}
-	recs, err := readRecords(path)
+	var recs []rawRecord
+	if capture != nil {
+		recs, err = capture.read(path)
+	} else {
+		recs, err = readRecords(path)
+	}
 	if err != nil {
 		return ledgerPage{}, err
 	}

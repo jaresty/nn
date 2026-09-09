@@ -16,8 +16,14 @@ nn transcript review <session> --queue archive --limit 20 --json
 Initial support is Pi only; other schemas fail explicitly, never return a misleading empty queue.
 `archive` means all retained non-ROOT rooms, not completed work. `--json` is required.
 `--limit` is 1–200, default 20. Continue with `--cursor <next_cursor>` and identical options,
-including limit. Changed sources or selection reject the cursor; refresh deliberately, not silently.
-Projection detects source changes during collection and asks for a retry.
+including limit. Changed selection rejects the cursor. Live source appends do not: continuation uses
+the retained capture without rereading live files. Refresh deliberately by omitting cursor/snapshot.
+Each source is captured once at its observed byte length, excluding an unfinished final record.
+Files are captured sequentially, not at a globally simultaneous instant. Captures are private local
+cache artifacts (24-hour retention); missing, expired, or corrupt required cache artifacts require explicit refresh.
+Bundle transport pages are retained separately and replay without reloading raw captures or recomputing
+selection. Advancing a room cursor still requires its raw capture.
+`capture_id` identifies the retained inputs. Canonical path and authenticated ownership remain unchanged.
 
 ## Authority and counts
 
@@ -93,8 +99,12 @@ Preserve stream order; original ordinals are room-local, not a cross-room sort k
 
 `--limit` bounds the room selection; `--last` bounds events per room (1–200). `--page` advances transport,
 not rooms. Only after all transport pages are complete may `next_room_cursor` advance room selection.
-Keep all options identical, including payload, last, limit, queue, order, and pattern. Changes to evidence
-reject continuation. A fresh bundle reacquires the selected queue: compare its IDs with the approved
+Keep all options identical, including payload, last, limit, queue, order, and pattern. Continuation reads
+the retained capture, even after live source deletion. Receipts disclose `capture_id`,
+`capture_boundary: sequential_complete_record_prefixes`, and `capture_sources` (source count).
+Detailed source prefix bytes/digests reside in the private capture manifest under the OS user-cache
+`nn/transcript-captures-v1/<capture_id>.json`; they are not repeated in the default receipt.
+A fresh bundle reacquires the selected queue: compare its IDs with the approved
 room set before interpreting; disclose changes and reconfirm rather than silently extending scope.
 
 Report eligible, inspected, uninspected, omitted, and unknown coverage. CLI counts describe retrieval,

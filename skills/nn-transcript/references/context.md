@@ -15,7 +15,7 @@ recorded parent launch assignments and bounded owned recent events. JSON is requ
 included. Last defaults to 5 and accepts 1–200. Unknown agents and unsupported schemas fail explicitly.
 
 The first record has `kind: context_receipt`, with path, last, launch receipt, recent query receipt,
-source digests, detail status, `steering_status: unavailable`, and `governing_attempt: not_inferred`.
+capture source count, detail status, `steering_status: unavailable`, and `governing_attempt: not_inferred`.
 Launch events have `section: launch`; recent events have `section: recent`. Source event IDs and
 independently numbered launch occurrences remain unchanged. Exactly joined invocation payloads retain
 the original assignment; ambiguous/missing invocation joins remain qualified, not guessed. A room
@@ -24,8 +24,14 @@ with no recorded launch is valid unavailable assignment evidence, not permission
 Use the existing **events** lossless transport: every page is at most 48,000 bytes, and oversized records
 carry ordered segments. Fetch every page with unchanged options and the first snapshot; reconstruct
 before interpretation. Metadata itself can segment. Preserve stream order rather than globally sorting
-room-local ordinals. Source changes during collection or between pages reject the bundle. Snapshot
-custody concerns retained evidence, not source completeness, current process liveness, or task success.
+room-local ordinals. Each file is captured once at its observed byte length, excluding unfinished final
+records; the files are captured sequentially, not simultaneously. The compact receipt exposes capture
+ID, boundary, and source count. Detailed prefix bytes/digests live in the private OS user-cache manifest
+`nn/transcript-captures-v1/<capture_id>.json`. Encoded pages are retained separately: continuation
+verifies and serves its page directly, without loading raw sources or recomputing the projection.
+Appends or source deletion do not invalidate continuation. Missing, expired (24 hours), or corrupt
+required cache artifacts fail explicitly; omit snapshot to refresh. Snapshot custody concerns retained evidence,
+not source completeness, current process liveness, or task success.
 
 No launch is selected as governing an inferred attempt. All retained launch assignments are paginated;
 only recent events are last-N bounded. Initial steering authority is explicitly unavailable; a user message

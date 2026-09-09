@@ -78,8 +78,8 @@ func TestReviewPaging(t *testing.T) {
 	f, _ := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
 	_, _ = f.WriteString("{\"type\":\"message\",\"agentId\":\"B\",\"message\":{\"role\":\"assistant\",\"content\":\"changed\"}}\n")
 	_ = f.Close()
-	if _, e := buildReviewPage(path, "open-handoff", "canonical", "", 1, p.NextCursor); e == nil {
-		t.Fatal("cursor must reject changed evidence")
+	if retained, e := buildReviewPage(path, "open-handoff", "canonical", "", 1, p.NextCursor); e != nil || retained.Snapshot != p.Snapshot {
+		t.Fatalf("cursor must retain captured evidence after append: %v", e)
 	}
 }
 

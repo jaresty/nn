@@ -179,14 +179,35 @@ newest first and unknown last, with ID tie-breaking; canonical ID ordering is al
 
 Pages default to 20 rows with a 1–200 limit. Cursor identity also binds page size. Accounting is
 `eligible = offset + returned + omitted`; `unknown` is an overlapping count across the full non-ROOT
-population, not an additional eligibility bucket. Source digests detect changes during collection and
-bind continuation. Labels preserve recorded/opening source provenance through deterministic shortening.
+population, not an additional eligibility bucket. Captured source-prefix digests bind continuation;
+live appends do not invalidate a retained capture. Labels preserve recorded/opening source provenance through deterministic shortening.
 Detailed launch/return occurrences remain in `events --at`, not unbounded review-card payloads.
 
 Quick pattern filters expose their algorithms: exact repeated tools and command strings (without shell
 normalization), explicit errors/interruptions, a 300-second observed-gap threshold, and missing evidence.
 The skill owns semantic interpretation and proposal-only course corrections. Changing a pattern acquires
 a new selection snapshot; Back restores retained state, and Refresh explicitly reacquires evidence.
+
+### Retain captures for changing transcripts
+
+Review and context capture each source once at its observed byte length, retaining complete newline-
+terminated records only. Later appends do not invalidate that capture. Parent-derived locator discovery,
+path authentication, owned-record selection, topology, queue membership, and tails all use the same
+captured inputs. Files are captured sequentially, not at a globally simultaneous instant; source prefix
+lengths and digests disclose that boundary. Missing sidechains remain unavailable within the capture.
+
+Captures are private local cache artifacts, not notebook truth. Exact source bytes are retained so
+native JSON whitespace and byte-size metadata survive replay. Ownership and locator indexes are built
+once per capture, rather than rescanning the parent per room. Opaque room cursors and bundle snapshots
+bind their capture and exact request options. Encoded bundle pages are retained separately: transport
+continuation reads and verifies just its requested page, without loading raw captures or recomputing
+the queue. Room-cursor advancement still requires the raw capture. Live source deletion affects neither.
+Explicit refresh (no cursor/snapshot) captures anew. Missing or damaged required cache artifacts fail
+explicitly rather than silently refreshing. Cache files use owner-only permissions, atomic publication,
+and content digests; expiration after 24 hours requires an explicit refresh. Expired artifacts are
+reclaimed on fresh capture. Default receipts expose capture ID, boundary, and source count; the detailed
+source-prefix inventory lives in the private capture manifest, not in every response. This supersedes live-source reread/reject checks below. Active append tests must prove
+initial retrieval terminates and continuation remains unchanged while the source grows.
 
 ### Bundle review tails and assignment context
 
@@ -204,7 +225,8 @@ explicitly unavailable in the initial adapter. Unsupported schemas and unknown r
 
 Both commands use the existing 48,000-byte lossless ledger transport. Room metadata and evidence
 sections are themselves paginated records, avoiding an unbounded metadata envelope. Bundle snapshots
-bind the selection and evidence; changes during collection or between pages fail closed. Original
+bind the selection and retained capture; option mismatches or missing/corrupt captures fail closed,
+while live appends do not invalidate continuation. Original
 event IDs remain intact and a section label distinguishes assignment from recent evidence. The skill
 owns pattern interpretation, full page/segment consumption, and correction proposals.
 

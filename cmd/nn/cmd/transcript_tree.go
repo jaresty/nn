@@ -559,7 +559,11 @@ func buildSDKCLITree(session string) ([]agent, error) {
 // --- pi recipe: Agent background tool-result -> spawn owner; terminal records -> state
 
 func buildPiTree(session string) ([]agent, error) {
-	recs, err := readRecords(session)
+	return buildPiTreeUsing(session, readRecords, validatePiSidechainPath)
+}
+
+func buildPiTreeUsing(session string, read func(string) ([]rawRecord, error), resolve func(string, string) string) ([]agent, error) {
+	recs, err := read(session)
 	if err != nil {
 		return nil, err
 	}
@@ -726,11 +730,11 @@ func buildPiTree(session string) ([]agent, error) {
 		if a == nil {
 			continue
 		}
-		safe := validatePiSidechainPath(loc.Path, loc.AgentID)
+		safe := resolve(loc.Path, loc.AgentID)
 		if safe == "" {
 			continue
 		}
-		side, err := readRecords(safe)
+		side, err := read(safe)
 		if err != nil {
 			continue
 		}
