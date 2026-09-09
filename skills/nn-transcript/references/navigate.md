@@ -72,6 +72,8 @@ These are evidence lanes, never alive/dead labels. A background launch is launch
 `completed` is producer lifecycle evidence rather than task success. Return and
 terminal occurrences remain independent and must not be inferred from each other.
 
+At office and nested-team scope expose `Attention`, `Scan…`, `Open room…`, and `More…` directly,
+with `Back` and `End` visible. `More…` owns uncommon hierarchy, refresh, and advanced-lens controls.
 An optional **Office Scan** applies a lens from **lenses** to this bounded evidence-qualified population.
 Question-first scans are allowed. State inspected, uninspected, omitted, and unknown counts. Entering
 a room from a scan preserves its **question, filters, mappings, population, and snapshot**; **Back**

@@ -38,7 +38,9 @@ cost`, `group by manager`, or `compare report with result` applies the named ope
 
 **Attention questions** such as “what stands out?” or “what needs attention?” delegate selection of a
 cheap metadata-safe lens and may render immediately. **Suggestions require approval**: `suggest a
-scan` proposes one lens and waits rather than rendering it. **Delegated choice** such as “choose for
+scan` presents candidate scans in the chooser rather than creating a separate proposal screen.
+**Selecting a suggested scan** is the human's **approval** and **applies it directly**, so suggestion
+never adds a second confirmation menu. **Delegated choice** such as “choose for
 me” or “orient me” authorizes selecting and rendering a supported lens. Navigation requests such as
 “show background workers” select only the population; they do not silently choose a lens.
 
@@ -54,9 +56,10 @@ Do not require the human to know the term Office Scan. Use only already retrieve
 identity, topology, parentage, lifecycle, measured-cost, and missing-value fields; do not infer drift,
 failure, groundedness, waste, or current activity.
 
-Make the operation visible even when it was not automatically activated: lobby = **Scan conversations**;
-office or team = **Scan this level**; room or selected-event view = **Scan this level** or **Change lens**.
-The same open projection language applies at office, team, room, and selected-event scope.
+Make scanning reachable in one step: each level's direct `Scan…` or `Choose lens…` shortcut opens its
+chooser immediately; where scanning is uncommon, `More…` may expose **Scan this level…** without an
+additional submenu. The same open projection language applies at office, team, room, and selected-event
+scope.
 
 ## Office Scan
 

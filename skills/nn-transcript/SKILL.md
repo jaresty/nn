@@ -135,13 +135,22 @@ If a view invents identity, topology, or measurement, discard it and redraw from
 
 ## Navigation loop and capture
 
-For human-driven navigation, **every navigable surface** uses a visible action rail:
-**Views…**, **Back**, and **End**. `Views…` opens context-appropriate **Scan this level…**,
-**Change lens…**, `Show hierarchy`, and `Back` choices. An **ellipsis** means the operation needs more
-input and opens a chooser; a label without one executes immediately. Keep **entity picker labels**
-exact and separate from this view-control rail. Also preserve a steer-in-your-own-words affordance.
+For human-driven navigation, **every navigable surface** uses a visible action rail with two or three high-value actions exposed **directly**, followed by **More…** for **uncommon** controls; **Back**
+and **End** remain visible outside the overflow. An ordinary action requires at most one intermediate chooser. `More…` may expose context-appropriate **Scan this level…**, **Change lens…**, hierarchy,
+refresh, and advanced operations that are not already direct shortcuts. An **ellipsis** means the
+operation needs more input and opens a chooser; a label without one executes immediately. Keep
+**entity picker labels** exact and separate from view controls.
+
+Use these level-specific defaults, adapting only when an action is structurally unsupported:
+
+- **Conversation lobby** — `What stands out?`, `Scan…`, `Open conversation…`, `More…`.
+- **Office or team** — `Attention`, `Scan…`, `Open room…`, `More…`.
+- **Room** — `Orient me`, `Choose lens…`, `Inspect event…`, `More…`.
+- **Selected event** — `Explain`, `Compare…`, `Inspect payload`, `More…`.
+
+Compact default surfaces show **at most three standout** entities and an **explicit omitted count**;
+full retained population counts remain visible. Also preserve a steer-in-your-own-words affordance.
 Do not bury scans as optional documentation or silently terminate because the goal seems reached.
-Hide a control only when structurally impossible at that surface, and keep remaining labels stable.
 Office views
 may apply higher-level scans over a bounded authenticated population. Entering a room switches from
 the office metaphor to a rearrangeable Situation Board; named lenses are presets and user-defined

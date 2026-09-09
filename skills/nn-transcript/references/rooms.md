@@ -51,11 +51,13 @@ uninspected findings remain visible. A recorded interruption does not establish 
 
 ## Discoverable controls
 
-Every Situation Board and selected-event detail view visibly offers **Scan this level**, **Change lens**,
-**Back**, and **End** alongside context-specific actions such as inspect event or expand recent window.
-At room scope, Scan this level rearranges the retained event population; at **selected-event** scope,
-it scans or compares the selected evidence without silently widening to the whole room. Controls are
-plain-language affordances, not hidden colon commands.
+Every Situation Board uses direct `Orient me`, `Choose lens…`, `Inspect event…`, and `More…` shortcuts.
+Every **selected-event** detail uses direct `Explain`, `Compare…`, `Inspect payload`, and `More…`
+shortcuts. `Back` and `End` remain visible at both levels. `More…` exposes uncommon operations such as
+**Scan this level…**, **Change lens…**, expand recent window, or advanced comparison without inserting
+another intermediate menu. At room scope a scan rearranges the retained event population; at selected-
+event scope it scans or compares selected evidence without silently widening to the whole room.
+Controls are plain-language affordances, not hidden colon commands.
 
 ## Conversational rearrangement
 
@@ -104,5 +106,5 @@ Window: last 5 matching events; older matching events exist
 Established: interruption record exists.
 Not established: retry cause, provider latency, task failure, or current activity.
 
-[Inspect event 216] [Expand recent window] [Scan this level] [Change lens] [Back] [End]
+[Orient me] [Choose lens…] [Inspect event…] [More…] [Back] [End]
 ```

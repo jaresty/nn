@@ -53,7 +53,9 @@ such as `yes`, `ok`, `continue`, and `let's do it` are skipped. Exact `label_pro
 for an unmodified later message, `opening` when the opening remains selected, `interpreted` for a
 bounded shortening, or `untitled` when no usable user message exists (`recorded` remains reserved for
 future authenticated metadata). Display the label as primary identity and the exact session ID as
-secondary identity; never present interpreted text as recorded metadata.
+secondary identity; never present interpreted text as recorded metadata. Keep the lobby compact: show
+at most three standout conversations plus the explicit omitted count, then the direct shortcuts
+`What stands out?`, `Scan…`, `Open conversation…`, and `More…`; keep `Back` and `End` visible.
 
 `conversation_kind` classifies each retained row as `conversation` or `sidechain`; Pi agent execution
 directories remain visible but are explicitly marked `sidechain`, while known nested `subagents`
