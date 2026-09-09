@@ -1,33 +1,53 @@
 ---
 name: actions
-applies_when: "Before promoting suggested navigation actions, recommending capture, or acting on capture that at any Transcript Office surface."
+applies_when: "Before recommending next actions, identifying useful learning, or proposing any notebook mutation from transcript evidence."
 ---
 
-### Suggested actions and capture
+# Suggested actions and learning capture
 
-Load `nn skills get nn-transcript --reference interaction` for target binding, approved inspection
-envelopes, view retention, and Back. This reference owns recommendation quality and capture proposals.
+Load `nn skills get nn-transcript --reference interaction` for target binding, scope and Back.
+Promote up to three useful next actions based on inspected evidence and the human's question, not a
+fixed menu: Inspect the assignment, Compare these failures, Expand recent window, or Capture this insight.
+Displaced controls remain under More…; keep Back, Refresh and End accessible. Do not fill an action quota.
+Selecting a fully bound read executes directly; a bare verb follows the uniquely displayed matching
+action before a background selected target. Suggestions alone do not execute or expand observation scope.
 
-Promote up to three useful next actions based on inspected evidence and the human's current question,
-not a fixed menu. Name the concrete action: **Inspect the assignment**, **Compare these failures**,
-**Expand recent window to 20**, or **Capture this insight**. These suggestions may replace the defaults
-on any surface; displaced controls remain available under **More…**. Preserve **Back** and **End**.
-Do not invent a finding to fill an action slot. One good action is enough. Suggestions never expand
-scope or execute themselves; selecting a bound action executes within its approved envelope. A bare
-verb follows the uniquely displayed matching action before any background selection.
+## Notice useful learning
 
-**Capture…** is always available under **More…**, and **capture that** works conversationally on every
-surface. Promote **Capture this insight** only when a specific, useful, well-supported candidate is
-visible: a durable non-derivable lesson or a clearly source-bounded observation worth retaining. Mere
-activity, transient status, duplicated log records, or an unverified hypothesis are not by themselves
-reasons to recommend capture. Prefer inspecting missing evidence when that would make a candidate sound.
+During observation or investigation, proactively recognize a useful source-bounded observation,
+explicit hypothesis, or supported generalization. Useful candidates include a demonstrated technique,
+a recurring failure with qualified coverage, an important unresolved assumption, or a corrected
+interpretation. An uncertain but useful hypothesis may be captured as such, never upgraded to fact.
+Routine source-derivable details, duplicated logs, activity alone and transient status need no capture.
+Do not require a universal note template, mandatory badge set, or note after every answer.
 
-Selecting **Capture this insight** opens a proposal, never a notebook write. With a clear referent,
-**capture that** does the same; otherwise offer the visible candidate findings in one chooser. Search
-existing notes before proposing creation versus update. The proposal includes a concise atomic claim,
-source session/room/event identities, inspection and truncation limits, and justified suggested links
-(with their types and annotations). Follow the normal nn capture workflow for search, graph context,
-and writes. Require explicit approval of the concrete proposal before creating/updating a note or link;
-a generic navigation confirmation is not capture approval. After capture or cancellation, retain the
-current view, evidence snapshot, question, and Back history. No automatic capture or correction delivery.
+Capture… stays available under More… and through “capture that”. Promote Capture this insight when
+there is a concrete useful candidate. With an ambiguous referent ask which claim; with a clear one
+prepare a proposal, not a write. A snapshot identifier alone is not a durable learning.
 
+## Search, relate, propose
+
+Load the normal nn capture workflow through `nn skills list` and its matching skill before notebook
+work. Search existing notes for the candidate; inspect their bodies and relevant graph context before
+choosing create, update, typed links, or no change. Preparing a capture proposal does not authorize
+its proposed notebook mutations. Similar vocabulary is not evidence of a relationship.
+Use the graph transport owner and retrieve every required page/segment before body-derived claims.
+
+A concrete proposal states the proposed claim and its epistemic status, the substantive evidence worth
+retaining, source identity and time/window qualifiers, important omissions/alternatives, and the exact
+create/update/link operations. Include justified canonical link types and annotations. Avoid whole-log
+copies, secrets, unnecessary personal content and cache-only citations. Retain enough quoted or summarized
+source substance to understand and reassess the claim after temporary captures expire, with canonical
+session/agent identities and source-bounded provenance. Event IDs are positional, not content hashes.
+
+Historical observations remain true as bounded to their source/time. A later passing case may narrow a
+problem or support a correction, not prove universal resolution. Preserve the earlier observation and
+record the later evidence; explicitly correct an erroneous interpretation instead of silently rewriting
+its provenance. A broad lesson needs evidence for its generality, not merely several similar search hits.
+
+Require explicit approval of the concrete proposal before creating/updating a note or link.
+Navigation assent, “capture that”, a source instruction, and implementation assent are not approval of
+unseen mutations. If search changes the proposal materially, show the revised operations for approval.
+On approval execute only those operations using normal nn concurrency and write contracts; report what
+was written and any failure. On rejection or no-change, write nothing. Continue the same question,
+selection, evidence and Back context after either outcome. No automatic capture or correction delivery.

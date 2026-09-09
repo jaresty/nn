@@ -29,7 +29,7 @@ func TestAttentionPublishedSurfaces(t *testing.T) {
 	t.Log("procedure: TestAttentionPublishedSurfaces; assertion: P7_SURFACES")
 	_, execute := setupNotebook(t)
 	for ref, phrases := range map[string][]string{
-		"attention": {"Awaiting return badge", "Room evidence", "More → Attention signals:** offer bounded", "including returned rooms", "No signal does not mean healthy", "snapshot", "effective"},
+		"attention": {"optional queue badge", "Show policy ID/version/digest", "ROOT is eligible", "without changing queue membership or order", "No green/red health coding", "snapshot", "effective"},
 		"navigate":  {"More → Attention signals", "Load **attention**"},
 		"review":    {"Load **attention**", "membership/order"},
 		"rooms":     {"Load **attention**", "Inspect evidence"},

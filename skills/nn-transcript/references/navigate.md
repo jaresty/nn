@@ -7,12 +7,12 @@ applies_when: "When entering a session to descend one run — tree overview, :en
 
 Owning reference for `[enter a session]`. Fetch before descending into a session. Entered with a
 selected `ls` row in carried state. Its **canonical path**, not a reconstructed session basename,
-is the argument to every transcript command. Render the **Transcript Office** hallway, scan it through
-optional lenses, and enter room Situation Boards. **Discovery** owns listing metadata; **rooms** owns the
+is the argument to every transcript command. The **Transcript Office** hallway, scans and Situation
+Boards are optional views, not the default observation route. **Discovery** owns listing metadata; **rooms** owns the
 single-agent destination; **lenses** owns the shared open projection language.
 
 Load `nn skills get nn-transcript --reference interaction` for shared action targeting, retained view
-records, inspection authorization, and exact Back. This reference owns office topology/navigation.
+records, scope restrictions, and exact Back. This reference owns office topology/navigation.
 
 ## Command owners
 
@@ -29,9 +29,9 @@ or a newly inferred current-project lobby. **Refresh** reacquires mutable eviden
 the selected scope and lens **without changing the lens** unless its required dimension becomes
 unsupported, which must be reported rather than silently substituted.
 
-## Awaiting return — default Pi Office view
+## Awaiting return — optional Pi queue
 
-On ordinary Pi Office entry, load **review** and request
+When Awaiting return is requested, load **review** and request
 `nn transcript review <session> --queue awaiting-return --order observed-recent --limit 20 --json`.
 Show every returned row, not three standout rooms. Preserve the full matching population across
 pages, display eligible total and current range, and expose Next whenever `next_cursor` exists.
@@ -44,11 +44,9 @@ explicitly limited to the hallway; do not substitute an empty awaiting-return vi
 
 Load **attention** with `nn skills get nn-transcript --reference attention` before evaluating or
 displaying signals. Bare attention discovers within the current office and active queue/filter, not
-an older selected room. The owner supplies one bounded proposal and resolves native room IDs before
-acquisition. Keep **More → Attention signals** available; including returned rooms from Awaiting return
-is an explicit scope change, not a silent archive substitution. On Open or explicit Refresh, apply
-standing attention through that owner when enabled and in scope. Without it, offer opt-in rather
-than scanning. A single navigation action produces at most one pass across loaded owners.
+an older selected room. The owner resolves a bounded native selection before direct acquisition. Keep **More → Attention signals** available; including returned rooms from Awaiting return
+is an explicit scope change, not a silent archive substitution. There is no standing-approval prompt;
+ordinary bounded read requests execute directly.
 
 ## Unclosed Work Desk
 
@@ -188,18 +186,16 @@ fetching every native payload. Size measurements do not establish token attribut
    recover are useful presets, not a closed vocabulary. Accept user-defined axes, grouping, filters,
    comparisons, questions, or metaphors. Name each mapping and its authoritative or interpreted basis.
 
-5. **Return to the prior conversational surface** (loop invariant — never terminate the branch on
-   its own): evidence detail → same Situation Board; room → source Office Scan or hallway; nested
-   office → parent hallway; root hallway → office selection.
+5. **Offer useful continuation after results.** Back restores the actual prior context, including a
+   question or observation view—not necessarily a hallway. One-shot answers, End and dismissal need
+   no follow-up picker. No compulsory tree descent or return itinerary.
 
 ## Opt-in Tier-2 whole-tree sweep
 
-A **whole-tree semantic scan** requires **explicit confirmation**. Before asking, state the retained
-agent count and explain that it costs **one inference pass per agent**. Only after confirmation may it
-walk every agent from `tree --json`, retrieve and reconstruct every JSON `show` page as above, infer
-the **one** requested Tier-2 dimension per thread, and annotate the overview. It is expensive and
-never the default; never trigger it implicitly. Cheap whole-tree metadata summaries do not waive this
-gate for semantic interpretation.
+A **whole-tree semantic scan** is never implicit. State its population and concrete cost; negotiate a
+real budget if unusually expensive or restricted. An explicitly requested bounded scan executes without
+another confirmation. Retrieve the evidence needed for its question, not automatically every payload.
+Cheap metadata does not establish semantic interpretation; disclose inspected and uninspected coverage.
 
 ## Worked example
 

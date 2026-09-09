@@ -29,7 +29,7 @@ If part of a requested lens is unsupported, preserve the useful remainder and na
 inference. For example, recorded interruptions and timing gaps may be shown while provider-retry
 causality remains unavailable.
 
-Load `nn skills get nn-transcript --reference interaction` for action targeting, inspection envelopes,
+Load `nn skills get nn-transcript --reference interaction` for action targeting, scope restrictions,
 and retained views. This reference owns lens selection and spatial interpretation, not Find discovery.
 
 ## Shared intent and transition grammar
@@ -41,9 +41,9 @@ background selection differs. Do not invent otherwise-missing axes, lens, or com
 **Explicit operands execute directly**: for example, `scan by
 cost`, `group by manager`, or `compare report with result` applies the named operation.
 
-Without an approved semantic inspection envelope, **Attention questions** such as “what stands out?”
-or “what needs attention?” delegate a cheap metadata-safe lens and may render immediately. Within an
-approved envelope, **review** owns evidence-guided discovery; do not replace it with a filter chooser. **Suggestions require approval**: `suggest a
+Open-ended **Attention questions** such as “what stands out?” or “what needs attention?” dispatch to
+`nn skills get nn-transcript --reference observe` for bounded evidence inspection, not a metadata-only
+fallback awaiting approval. Explicit questions dispatch to **investigate**. **Suggestions require approval**: `suggest a
 scan` presents candidate scans in the chooser rather than creating a separate proposal screen.
 **Selecting a suggested scan** is the human's **approval** and **applies it directly**, so suggestion
 never adds a second confirmation menu. **Delegated choice** such as “choose for
@@ -56,13 +56,10 @@ and `Refresh` are navigation/state operations, not implicit new lens requests.
 
 ## Level-aware scan activation
 
-At a conversation lobby, office hallway, or nested team, **attention-oriented language** such as
-“what needs attention?”, “anything interesting?”, or “what stands out?” must **automatically render**
-a cheap **metadata-only** scan at the **current level** when no semantic envelope is approved.
-An approved Find envelope instead follows **review** for bounded semantic discovery.
-Do not require the human to know the term Office Scan. Use only already retrieved authoritative
-identity, topology, parentage, lifecycle, measured-cost, and missing-value fields; do not infer drift,
-failure, groundedness, waste, or current activity.
+An explicitly requested metadata-only layout uses retrieved authoritative identity, topology, parentage,
+lifecycle, measured-cost and missing-value fields. It cannot establish drift, failure, groundedness,
+waste or current activity. Ordinary observation is not restricted to metadata and does not require the
+human to know the term Office Scan or enable semantic inspection.
 
 Make scanning reachable in one step: each level's direct `Scan…` or `Choose lens…` shortcut opens its
 chooser immediately; where scanning is uncommon, `More…` may expose **Scan this level…** without an

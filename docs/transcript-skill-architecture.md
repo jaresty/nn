@@ -10,10 +10,12 @@ The runtime entry point is `nn skills get nn-transcript`; applicability is avail
 |---|---|---|
 | Entry | Route the user's intent without forcing an unrelated workflow | `skills/nn-transcript/SKILL.md` |
 | Shared contracts | Evidence authority and shared visual grammar | Core |
-| Shared contracts | Target resolution, acquisition envelopes, retained state, Back/Refresh | `interaction` |
+| Shared contracts | Direct bounded reads, target resolution, scope/sample separation, retained state, Back/Refresh | `interaction` |
 | Shared contracts | Suggested actions and approval-only capture | `actions` |
-| Workflows | Browse and interpret a displayed conversation cohort | `discovery` |
-| Workflows | Enter an office and descend authenticated geography | `navigate` |
+| Workflows | Default bounded observation including ROOT; sampling and continuity | `observe` |
+| Workflows | Question-shaped evidence selection across streams | `investigate` |
+| Capabilities + optional view | Discover and interpret a conversation candidate page | `discovery` |
+| Optional views | Browse authenticated hierarchy or render a semantic layout | `navigate` |
 | Workflows | Enter a readable room, expand evidence, return to source view | `rooms` |
 | Workflows | Review queues, evidence-guided Find, correction proposals | `review` |
 | Workflows | Select and apply spatial/question lenses | `lenses` |
@@ -31,7 +33,19 @@ and a capability when they serve the same immediate job; attention is intentiona
 to make the table uniform. The core's shared rules remain compact and binding; reference summaries
 and examples do not create alternative owners or exceptions.
 
-## Why these two extractions
+## ADR-0048 interaction replacement
+
+Observe and investigate are the main activities; hierarchy and queues are optional presentations.
+Ordinary bounded reads execute before contextual choices. Standing-approval/Office defaults are retired,
+not layered underneath the new core. Capture remains separately approved through actions. Native
+retrieval, ownership, evidence and replay contracts retain their existing owners.
+
+The initial observation recipe uses existing commands: bounded conversation discovery, ROOT plus up to
+two direct children per selected conversation, then bounded event tails. It does not imply exhaustive
+coverage, a global mixed-stream ranker, bounded source processing or a fairness scheduler. Native fixture
+execution establishes command compatibility, not conversational usability.
+
+## Search and recovery extractions
 
 A person finding a string needs search mechanics, not session sampling and behavioral synthesis.
 Core therefore routes text lookup directly to `search`; `patterns` loads it only to locate candidates.
@@ -65,7 +79,10 @@ Capture permission remains owned by actions, not by completing the patterns work
 `TestTranscriptDocumentationOwners` exercises embedded CLI-served owners, direct core/listing routes,
 selected contract terms, removal of moved rules from patterns, and the sampling clarification.
 `TestTranscriptSkillLazyDispatch` retains the compact-core bound and existing reference checks.
-Native transcript search tests separately protect command semantics.
+Native transcript tests separately protect command semantics. `TestTranscriptTracerNativeRecipe`
+executes the initial ROOT/direct-child recipe on Pi, SDK-layout and inline Claude fixtures.
+`TestTranscriptTracerPublication` checks served commitments; controlled conversational replay must be
+reported separately, with exact executed inputs, outputs, notebook effects and limitations.
 
 The content checks are deliberately narrow publication tripwires. They neither prove arbitrary
 paraphrases equivalent nor demonstrate that an LLM follows the workflow. Review the normative text

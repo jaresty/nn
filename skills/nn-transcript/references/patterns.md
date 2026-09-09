@@ -1,15 +1,15 @@
 ---
 name: patterns
-applies_when: "When sweeping a pattern across many sessions — aggregate the cohort's deterministic signals, sample whole sessions, drive the navigate descent per sample, infer one Tier-2 dimension, synthesize a cross-session claim, and harvest it."
+applies_when: "When investigating recurrence across sessions, selecting a contextual sample, qualifying cross-session claims, or proposing supported learning."
 ---
 
 # nn-transcript / patterns — across sessions
 
 Owning reference for `[sweep a pattern]`. Fetch before sweeping. Entered with the `cohort` (and
-optionally a `proposed pattern`) in carried state. **Patterns = navigate applied across the
-cohort** — it is the inverse of targeted navigation, statistical coverage over a corpus of runs,
-closer in spirit to `nn shuf` than to `nn grep`. The visual grammar lives
-in the core (`nn skills get nn-transcript`); **discovery** owns listing metadata.
+optionally a `proposed pattern`) in carried state. Load
+`nn skills get nn-transcript --reference investigate` for question-shaped evidence selection and
+`nn skills get nn-transcript --reference interaction` for scope and continuation. A hierarchy descent
+is optional, not a prerequisite for a cross-session question. **Discovery** owns listing metadata.
 
 ## Command owners
 
@@ -23,24 +23,23 @@ not a causal explanation. Keep the whole-session sampling discipline below.
 Load `nn skills get nn-transcript --reference search` to locate attributable occurrences. That owner
 covers literal/regex matching, inputs, payload scope, provenance, limits, and errors; a simple lookup
 does not require this workflow. Here, a match is only a candidate-session locator. Add its whole
-session to the sample and run the navigation descent before making a behavioral claim; never infer
-recurrence by counting matching messages alone.
+session to the sample and inspect evidence relevant to the question before making a behavioral claim;
+never infer recurrence by counting matching messages alone.
 
 ## The unit of sampling is the SESSION, not the message
 
-Sample whole sessions, never messages within a session — a session is the coherent unit of
-interpretation, and fragmenting it destroys the Tier-2 signal. When the corpus is large, sample
-N whole sessions (spread across the time range, plus the cost outliers) and reason about all
-tiers of each, rather than skimming a fragment of every session.
+Sample whole sessions as independent contextual units, rather than treating matching messages as
+independent runs. Choose sessions relevant to the question and disclose selection bias. This does not
+require reading every event or every analytical dimension: retrieve the evidence needed for the claim.
 
 **Sampling is not retrieval coverage.** Selecting a session does not mean every event was inspected,
 nor does it authorize an unbounded dump. Keep the session as the sampling unit, then retrieve the
-assignment and work evidence needed for the declared question under the **interaction** envelope.
+assignment and work evidence needed for the declared question within actual **interaction** restrictions.
 Complete every required page/segment before interpreting an event. Name inspected windows and leave
 uninspected regions explicit; a bounded finding stays bounded. Whole-session claims require evidence
 covering that claim across the session; partial inspection cannot establish absence elsewhere.
-Cross-session behavioral claims still require the navigation descent and supporting evidence in
-multiple sampled sessions. If the authorized evidence is insufficient, narrow the claim or ask for
+Cross-session behavioral claims require supporting evidence in multiple sampled sessions.
+If available evidence is insufficient, inspect the necessary bounded follow-up, narrow the claim or ask for
 more scope; do not equate selecting a session with understanding it.
 
 ## Steps
@@ -79,10 +78,9 @@ measurements; repeated calls and large outputs are candidates for interpretation
    carried in from the front door, its named session ids are automatically in the sample. Keep it
    a handful of *whole* sessions.
 
-3. **Interpret each sampled session across all tiers.** For each, drive the *navigate* descent
-   (`tree` → enter the notable threads; see reference **navigate**) and infer the **one**
-   requested Tier-2 dimension per thread (instruction-drift, context-re-derivation, groundedness,
-   pivots, friction). Session sampling preserves context, but evidence must support the interpretation:
+3. **Interpret the question-relevant evidence in each sampled session.** Use **investigate** to select
+   assignments, exact events, results, summaries or relationships as needed. Use **navigate** when
+   hierarchy is relevant, not as a compulsory itinerary. Evidence must support the interpretation:
    say "in this inspected debrief thread the agent re-derived the session boundary from scratch"
    only after reading the relevant assignment and work, not merely because "some message looked odd."
 
@@ -96,7 +94,8 @@ measurements; repeated calls and large outputs are candidates for interpretation
    for the capture proposal and approval contract. State the supported claim and proposed provenance
    links; apply the normal nn durability discipline. Finishing an investigation is not capture approval.
 
-6. **Return to the core picker** (loop invariant — never terminate the branch on its own).
+6. **Continue according to interaction.** Offer useful contextual choices after navigation results;
+   one-shot answers, End and dismissal do not require a picker. Retain the actual prior context for Back.
 
 ## Unknown schemas
 

@@ -1,0 +1,2 @@
+ok  	github.com/jaresty/nn/cmd/nn/cmd	16.374s
+ok  	github.com/jaresty/nn/internal/attention	1.182s

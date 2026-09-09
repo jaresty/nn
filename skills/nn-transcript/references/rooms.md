@@ -5,18 +5,17 @@ applies_when: "When entering one authenticated agent room, rearranging its Situa
 
 # nn-transcript / rooms — Situation Board
 
-A room is the analytical destination, not a continuation of the office metaphor. Its **Situation Board**
-starts as a neutral readable orientation; a requested/delegated lens may make it spatial.
+A room is an optional selected-stream view, not a mandatory destination. A **Situation Board** is an
+optional spatial presentation; ordinarily answer the current question from the relevant evidence.
 Load `nn skills get nn-transcript --reference interaction` for target resolution, retained views,
-inspection envelopes, and Back; this reference owns room-entry presentation.
+scope restrictions, and Back; this reference owns room-entry presentation.
 Load **events** before event retrieval, **handoffs** before lifecycle claims, **summaries** before
 usage/tool/timing reductions, and **lenses** for shared projection rules.
 
 ## Attention evidence
 
-Load **attention** with `nn skills get nn-transcript --reference attention` on Open or explicit Refresh
-to apply standing attention when enabled and in scope, or when entering via a signal or requesting
-attention for this room. Entering a retained signal's evidence reuses its result, not a fresh check. The target is this exact room, not siblings; the owner governs
+Load **attention** with `nn skills get nn-transcript --reference attention` when entering via a signal
+or requesting attention for this room; there is no standing-approval prompt. Entering a retained signal's evidence reuses its result, not a fresh check. The target is this exact room, not siblings; the owner governs
 retained display versus newly authorized evaluation. Show policy identity, ratio, counts, window, and
 limitations; bind **Inspect evidence** to the exact retained attention snapshot and room, not a fresh tail.
 
@@ -25,7 +24,7 @@ limitations; bind **Inspect evidence** to the exact retained attention snapshot 
 Choose the initial evidence from the active question/action. For assignment alignment, load **context**
 and use `nn transcript context <session> <agent-id> --last 5 --format text` first, budgeting assignments
 as initial evidence. Do not always infer alignment from 'inspect recent work'. For neutral activity
-orientation, retrieve a bounded readable tail within the inspection envelope:
+orientation, retrieve a bounded readable tail within actual resource restrictions:
 
 ```bash
 nn transcript events <session> <agent-id> --last 5 --format text --max-text-chars 1000
@@ -37,7 +36,7 @@ events exist. Initial entry shows a **neutral five-event orientation** in canoni
 said `orient me`, `choose for me`, or supplied an explicit lens. State what the visible content supports
 and its truncation limits, then offer a concrete useful next action; do not require another 'orient me'
 turn or a lens chooser. Inspect an exact event with `--event <event-id> --payload` when its content
-matters and the envelope permits. A comparison lacking **comparison operands** in both the request
+matters and no concrete restriction prevents it. A comparison lacking **comparison operands** in both the request
 and a displayed bound action opens a chooser; do not invent its comparison set.
 
 After a lens is selected, state the active lens, declared axes, selected filters, and evidence boundary.
@@ -52,7 +51,7 @@ When rendering a spatial lens, keep the room identity separate from plotted find
 presets include timeline, evidence strength, failure surface, handoffs, work products, cost, timing,
 claim map, and explicit dependencies, but they are not exhaustive.
 
-Use claim-level evidence labels:
+Optional claim-level evidence labels (the distinctions are required, not the badges):
 
 - `[M]` metadata only;
 - `[R]` agent reported;

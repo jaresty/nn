@@ -11,19 +11,19 @@ import (
 func TestAttentionDiscoveryPublication(t *testing.T) {
 	_, execute := setupNotebook(t)
 	cases := []struct{ id, owner, required string }{
-		{"AD1_SCOPE", "interaction", "For bare attention, the current surface scopes discovery before any background selected target."},
-		{"AD2_PERMISSION", "interaction", "Target resolution is not acquisition permission."},
-		{"AD3_APPROVAL", "attention", "Acceptance authorizes the declared selection and evaluation without per-room reconfirmation."},
-		{"AD4_ATTEMPTS", "attention", "Count an attempted room when its assignment or work acquisition starts, including failures and unknowns."},
-		{"AD5_OUTCOMES", "attention", "Task scope not established is distinct from known outside policy scope."},
-		{"AD6_REPLACEMENT", "attention", "Do not silently replace an unavailable or unclassifiable candidate."},
-		{"AD7_WIDENING", "attention", "An empty filtered population stays empty; do not clear the filter or widen discovery automatically."},
-		{"AD8_BACK", "interaction", "Back never refunds consumed attention attempts or output allowance."},
-		{"AD9_AUTOMATION", "attention", "Without standing approval, entering a view does not start an attention check."},
-		{"AD10_EVALUATOR", "attention", "This discovery recipe does not change the native evaluator or its policy."},
-		{"AD11_IMPERATIVE", "interaction", "A clear imperative authorizes its ordinary bounded read-only operation."},
-		{"AD12_RECOVERY", "attention", "An explicit recovery-check request authorizes one bounded fresh evaluation."},
-		{"AD13_NO_CONFIRM", "attention", "Do not ask “Run recovery check?” after the user has already requested that check."},
+		{"AD1_SCOPE", "attention", "A request for attention across a named cohort retains that cohort, filters and canonical paths rather than substituting a remembered room."},
+		{"AD2_RESTRICTION", "interaction", "Respect a concrete user restriction:"},
+		{"AD3_DIRECT", "interaction", "Ordinary bounded read-only requests execute before optional choices."},
+		{"AD4_ATTEMPTS", "attention", "Count attempted candidates when assignment/work acquisition starts, including errors and unknowns."},
+		{"AD5_OUTCOMES", "attention", "known other task scope is **outside policy scope**."},
+		{"AD6_REPLACEMENT", "attention", "For each selected candidate make one evaluation, with no automatic retry or replacement."},
+		{"AD7_WIDENING", "attention", "An empty filter stays empty."},
+		{"AD8_BACK", "interaction", "Back does not replenish already-spent reads."},
+		{"AD9_AUTOMATION", "interaction", "There is no background monitor or mandatory periodic schedule."},
+		{"AD10_EVALUATOR", "attention", "nn's existing Datalog parser/evaluator"},
+		{"AD11_IMPERATIVE", "attention", "Execute before optional actions."},
+		{"AD12_RECOVERY", "attention", "“Check if the signal has recovered” requests a fresh bounded check of the identified stream, not a confirmation proposal."},
+		{"AD13_NO_CONFIRM", "interaction", "not simply because another read follows."},
 	}
 	normalize := func(s string) string { return strings.Join(strings.Fields(s), " ") }
 	for _, tc := range cases {
@@ -42,16 +42,14 @@ func TestAttentionDiscoveryPublication(t *testing.T) {
 }
 
 // Publication only: these do not emulate an LLM or introduce a runtime hook.
-func TestAttentionStandingApproval(t *testing.T) {
+func TestAttentionDirectReadAndRetention(t *testing.T) {
 	_, execute := setupNotebook(t)
 	for _, clause := range []string{
-		"Standing approval authorizes eligible Open and explicit Refresh checks without per-check reconfirmation.",
-		"One navigation action starts at most one attention pass.",
-		"Back, Forward restoration, re-rendering, pagination, and tool completion do not trigger a check.",
-		"Per-check bounds renew on eligible user navigation; cumulative usage never resets.",
-		"Opt-out, End, a new conversation, or lost authorization state disables standing attention.",
-		"Actual resource constraints pause checks; a pass counter does not expire approval.",
-		"Standing attention does not authorize deeper inspection, capture, or intervention.",
+		"Replay and inspection do not reopen sources or re-evaluate policy.",
+		"Optional replay task/agent flags must match the retained selection.",
+		"Explicit Refresh evaluates anew within current scope and actual limits.",
+		"capture still needs a concrete approved proposal.",
+		"No notebook policy activation, standing-approval wizard, background monitoring, timers or new engine is involved.",
 	} {
 		t.Run(clause, func(t *testing.T) {
 			text, err := execute("skills", "get", "nn-transcript", "--reference", "attention")
@@ -70,26 +68,28 @@ func TestAttentionStandingApproval(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(strings.ToLower(text), "standing attention") {
-				t.Fatalf("STANDING_DISPATCH FAIL: %s", owner)
+			for _, stale := range []string{"apply standing attention", "offer its one-time opt-in", "Without standing approval, entering a view"} {
+				if strings.Contains(text, stale) {
+					t.Fatalf("TRACER_NO_STANDING FAIL: %s retains %q", owner, stale)
+				}
 			}
 		})
 	}
 }
 
-func TestTranscriptDefaultPicker(t *testing.T) {
+func TestTranscriptObservationBeforePicker(t *testing.T) {
 	_, execute := setupNotebook(t)
 	core, _ := execute("skills", "get", "nn-transcript")
 	text, err := execute("skills", "get", "nn-transcript", "--reference", "discovery")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, clause := range []string{"Bare transcript invocation opens the conversation picker", "Selecting a conversation opens it directly without a second confirmation.", "Explicit targets and operations bypass the default picker", "More conversations…"} {
+	for _, clause := range []string{"--reference observe", "before choices", "Selecting a conversation opens", "explicit questions bypass browsing", "More conversations…"} {
 		if !strings.Contains(text, clause) {
 			t.Fatalf("PICKER FAIL: missing %s", clause)
 		}
 	}
-	if !strings.Contains(core, "**Bare invocation:**") {
+	if !strings.Contains(core, "**Bare invocation / what is happening:**") {
 		t.Fatal("PICKER FAIL: core lacks default dispatch")
 	}
 	attention, _ := execute("skills", "get", "nn-transcript", "--reference", "attention")

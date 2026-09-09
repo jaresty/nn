@@ -1,8 +1,9 @@
 # ADR-0046: Standing approval for view-triggered attention
 
-Status: Accepted; default pass-count expiry superseded by
-[ADR-0047](0047-transcript-defaults-and-rejected-calls.md). Standing approval now uses per-check
-bounds until opt-out/session end; explicitly human-imposed total limits still apply.
+Status: Historical accepted decision; standing-approval interaction superseded by
+[ADR-0048](0048-conversational-process-tracer.md). ADR-0047 previously removed its default pass-count
+expiry. Direct bounded reads now replace enablement rituals; explicit restrictions, qualified evidence,
+retained replay and separately approved capture remain. The decision below records the earlier design.
 
 ## Context
 

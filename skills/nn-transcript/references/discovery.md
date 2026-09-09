@@ -10,29 +10,17 @@ visible breadcrumbs, action binding, and exact retained-view Back. Preserve a vi
 Open executes it without re-listing, while Open… chooses a different row. No selection or ambiguous
 target means one focused clarification. Echo numeric selections before retrieval, without another prompt.
 
-## Default conversation picker
+## Optional browsing
 
-Bare transcript invocation opens the conversation picker, not a menu asking whether to browse.
-For “nn transcript”, “open transcripts”, or an unqualified request to open the lobby, retrieve one
-three-conversation page under the front-door rules below, render its labels, and immediately open the
-host's structured picker when available. Otherwise present a numbered conversational picker.
-Use exact returned labels for the options, with project/schema and exact session ID as secondary text.
-Include **More conversations…** for explicit cursor pagination; do not claim that three rows are the
-entire inventory or invent an omitted total. An empty page reports no candidates rather than opening
-an empty picker. Stop when dismissed. Keep Back and End available.
-Selecting a conversation opens it directly without a second confirmation.
-Explicit targets and operations bypass the default picker: resolve a named office in its targeted
-scope, open an already-selected room, or perform an explicitly requested bounded check. Ask only for
-real ambiguity or a missing required permission, not because a default picker exists.
+Bare invocation dispatches to `nn skills get nn-transcript --reference observe` for bounded observation
+before choices. Explicit browsing may present a conversation picker with exact returned labels,
+project/schema and session ID as secondary text, and More conversations… for native cursor pagination.
+An empty page does not prove the inventory empty. Stop on dismissal. Selecting a conversation opens
+it directly; explicit questions bypass browsing. Ask only for genuine ambiguity or concrete restrictions.
 
-## Attention from the lobby
-
-On Open or explicit Refresh, load `nn skills get nn-transcript --reference attention` to apply
-standing attention if enabled, or offer its one-time opt-in without blocking the lobby. Also load it
-for a bare attention request here. The current
-explicitly identified displayed conversation cohort scopes discovery; a background selected room does
-not narrow it. Offer the owner's one bounded proposal without asking the human to nominate rooms first.
-Keep exact paths, visible labels, and page omissions. Approval does not extend to other conversations.
+Optional attention dispatches to `nn skills get nn-transcript --reference attention`. View entry never
+prompts for standing approval. Preserve the named cohort and filters rather than substituting a
+background room. For a question, discovery is a means of locating evidence, not a required first stop.
 
 ## Find an agent by launch name
 
@@ -48,7 +36,7 @@ content search can match assignments, tool results, or the current conversation 
 authoritative launch name. Load **handoffs** before interpreting the description or retrieving
 launch/return records.
 
-## The front door (start here, always)
+## Native discovery
 
 ### Target-first routing
 
@@ -66,7 +54,7 @@ or a guessed directory slug.
 Sweep the selected cohort and draw what stands out:
 
 ```bash
-nn transcript ls <dir> --json --conversation-kind conversation --limit <N>   # bounded to ONE page — this page IS the cohort
+nn transcript ls <dir> --json --conversation-kind conversation --limit <N>   # bounded candidate page, not the entire scope
 ```
 
 Default `<dir>` is the harness transcript root (e.g. `~/.claude/projects/<project-slug>/`).
@@ -95,8 +83,8 @@ because retained transcripts do not establish which Pi windows are open. A host-
 is required before that value may change.
 
 Labels are mutable transcript-derived presentation: retain the complete selected row across Back and
-other non-refresh navigation. Reacquire labels only on explicit discovery refresh. The cohort is
-**replaced, not accumulated** on every re-sweep.
+other non-refresh navigation. Reacquire labels only on explicit discovery refresh. The displayed sample is
+**replaced, not accumulated** on refresh; its scope definition is retained.
 For the next page, pass the last returned row's `cursor` as `--cursor <cursor>` with the same
 directory and any original `--before` filter. Stop on `[]`. Do not derive a cursor from `modified`:
 `--before` is a strict time filter and cannot continue exact timestamp ties. A stale or mismatched
@@ -143,8 +131,7 @@ agent identities, subtree attribution, or detail not carried by the summary.
   `↻×N` (deterministic shapes only, with named ids).
 - **Tier 3 — MUST NOT**: invent a session/cost or an edge absent from `tree`; assert any Tier-2
   behavioral interpretation (drift, groundedness, "failed") from the front door alone; move
-  authoritative spawn geography. Semantic finding layouts are allowed only after entering a thread,
-  under the declared-axis contract. Behavioral claims require escalating to a real read (`tree` → `show`).
+  authoritative spawn geography. Optional semantic finding layouts use the declared-axis contract. Behavioral claims require escalating to a real read (`tree` → `show`).
 - **On violation**: a drawn id not in the sweep, or a width misrepresenting cost → void the
   draw, re-render from `ls`. `↻×N` without N named ids → downgrade to a single observation. A
   front-door behavioral claim with no session read → restate as a proposal.

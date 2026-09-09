@@ -2,8 +2,10 @@
 
 ## Status
 
-Proposed. This records the outcome of conceptual steering, not an implemented or validated
-replacement skill. Implementation remains paused; drafting this ADR does not resume it.
+Accepted architectural direction; implementation authorized. Native recipe and instruction-publication
+verification are distinct from controlled conversational evaluation. Do not infer model compliance or
+usability from this status; see the [verification record](../transcript-tracer-verification.md)
+for executed checks, the bounded controlled conversational replay and its untested cases.
 
 Related:
 - [ADR-0042: Transcript navigator](0042-transcript-navigator-duckdb-spine.md)
@@ -38,7 +40,7 @@ and mandatory capture templates are possible mechanisms, not established require
 conversational replays have validated these proposals. Fictional walkthroughs are design exercises,
 not execution evidence.
 
-## Proposed decision
+## Decision
 
 ### 1. Make the tracer's purpose understanding work and preserving learning
 
@@ -172,7 +174,7 @@ requiring a supported, authenticated mechanism.
 
 ## Relationship to earlier decisions
 
-If accepted, this ADR would replace only the following interaction commitments, not erase their history:
+This ADR replaces only the following interaction commitments, not their historical record:
 
 | Earlier direction | Replacement |
 | --- | --- |
@@ -183,8 +185,7 @@ If accepted, this ADR would replace only the following interaction commitments, 
 
 Retain earlier identity, ownership, lifecycle, measurement, transport, retention, direct-target,
 non-mutation, and uncertainty contracts. ADR-0044's native policy machinery and ADR-0047's separate
-rejected-call/metric-version proposal are not superseded by this interaction decision. While this ADR
-is proposed, it does not change the status or published behavior of those earlier records.
+rejected-call/metric-version changes are not superseded by this interaction decision.
 
 ## Alternatives considered
 

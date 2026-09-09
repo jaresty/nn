@@ -9,7 +9,7 @@ import (
 func TestAwaitingReturnOfficeContract(t *testing.T) {
 	_, execute := setupNotebook(t)
 	for reference, phrases := range map[string][]string{
-		"navigate": {"Awaiting return — default Pi Office view", "--queue awaiting-return --order observed-recent --limit 20 --json", "Show every returned row", "More → All rooms"},
+		"navigate": {"Awaiting return — optional Pi queue", "--queue awaiting-return --order observed-recent --limit 20 --json", "Show every returned row", "More → All rooms"},
 		"review":   {"regardless of terminal count", "Terminal recorded; return missing", "No terminal recorded", "Show every returned row", "expose Next", "not only ROOT children"},
 	} {
 		out, e := execute("skills", "get", "nn-transcript", "--reference", reference)

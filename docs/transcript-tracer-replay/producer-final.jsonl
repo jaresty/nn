@@ -1,0 +1,13 @@
+{"type": "session", "version": 3, "id": "fixture-producer"}
+{"type": "message", "id": "q", "timestamp": "2026-09-01T12:00:00Z", "message": {"role": "user", "content": "Producer work for fixture-job-1. Keep the wire key task_id."}}
+{"type": "message", "id": "launchA", "timestamp": "2026-09-01T12:00:00Z", "message": {"role": "assistant", "content": [{"type": "toolCall", "id": "callA", "name": "Agent", "arguments": {"description": "Implement fixture A", "prompt": "Implement a bounded fixture change; retain evidence."}}]}}
+{"type": "message", "parentId": "launchA", "message": {"role": "toolResult", "toolName": "Agent", "toolCallId": "callA", "content": "spawned", "details": {"status": "background", "agentId": "A"}}}
+{"type": "message", "id": "launchB", "timestamp": "2026-09-01T12:00:00Z", "message": {"role": "assistant", "content": [{"type": "toolCall", "id": "callB", "name": "Agent", "arguments": {"description": "Implement fixture B", "prompt": "Implement a bounded fixture change; retain evidence."}}]}}
+{"type": "message", "parentId": "launchB", "message": {"role": "toolResult", "toolName": "Agent", "toolCallId": "callB", "content": "spawned", "details": {"status": "background", "agentId": "B"}}}
+{"type": "message", "id": "launchC", "timestamp": "2026-09-01T12:00:00Z", "message": {"role": "assistant", "content": [{"type": "toolCall", "id": "callC", "name": "Agent", "arguments": {"description": "Implement fixture C", "prompt": "Implement a bounded fixture change; retain evidence."}}]}}
+{"type": "message", "parentId": "launchC", "message": {"role": "toolResult", "toolName": "Agent", "toolCallId": "callC", "content": "spawned", "details": {"status": "background", "agentId": "C"}}}
+{"type": "message", "id": "root-result", "timestamp": "2026-09-01T12:00:00Z", "message": {"role": "assistant", "content": "Producer sample for fixture-job-1 emits {\"task_id\":\"job-1\"}; no consumer integration test recorded."}}
+{"type": "message", "id": "a-work", "timestamp": "2026-09-01T12:00:00Z", "message": {"role": "assistant", "content": "Updated producer fixture to emit task_id; checked one serialization example."}, "agentId": "A"}
+{"type": "message", "id": "b-work", "timestamp": "2026-09-01T12:00:00Z", "message": {"role": "assistant", "content": "Independent consumer compatibility has not been checked."}, "agentId": "B"}
+{"type": "message", "id": "c-work", "timestamp": "2026-09-01T12:00:00Z", "message": {"role": "assistant", "content": "Uninspected branch contains a separate unrelated packaging question."}, "agentId": "C"}
+{"type": "message", "id": "later-root", "timestamp": "2026-09-02T12:00:00Z", "message": {"role": "assistant", "content": "Later producer note: consumer revalidation is still not recorded here."}}

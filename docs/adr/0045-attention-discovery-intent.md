@@ -4,9 +4,10 @@
 
 Accepted for implementation. Conversational effectiveness remains to be verified.
 
-The blanket entry-time check prohibition is superseded by
-[ADR-0046](0046-standing-attention-approval.md): a session-scoped standing envelope may authorize
-bounded Open/Refresh checks. The discovery scope, evidence, and no-silent-widening rules remain.
+The blanket entry-time check prohibition was superseded by ADR-0046. Its standing-approval replacement
+and this ADR's proposal-first interaction are now superseded by
+[ADR-0048](0048-conversational-process-tracer.md). Discovery scope, evidence and no-silent-widening
+rules remain; the historical interaction below is not a competing current default.
 
 ## Context
 

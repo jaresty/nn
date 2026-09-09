@@ -1,12 +1,12 @@
 ---
 name: review
-applies_when: "When entering the default Awaiting return Office view, inspecting unclosed handoffs, opening the Unclosed Work Desk, finding deterministic patterns in one retained review population, or preparing course corrections."
+applies_when: "When explicitly selecting the optional Awaiting return view, inspecting unclosed handoffs, opening the Unclosed Work Desk, finding deterministic patterns in one retained review population, or preparing course corrections."
 ---
 
 # Transcript Review Queue / Unclosed Work Desk
 
 Use the selected discovery row's exact canonical path. The CLI performs no LLM work.
-Load `nn skills get nn-transcript --reference interaction` for action targeting, inspection envelopes,
+Load `nn skills get nn-transcript --reference interaction` for action targeting, scope restrictions,
 retained view records, and Back. This reference owns desk population and evidence-guided Find.
 
 ```bash
@@ -32,7 +32,8 @@ selection. Advancing a room cursor still requires its raw capture.
 ## Authority and counts
 
 - `awaiting-return`: authenticated launch count ≥1 and parent-return count 0, regardless of terminal count.
-  This is the default Pi Office population, across all retained non-ROOT rooms, not only ROOT children.
+  This optional Pi queue includes retained non-ROOT rooms, not only ROOT children. ROOT is excluded;
+  use **observe** for the ROOT-inclusive default observation recipe.
   Separate **No terminal recorded** (`terminals == 0`) from **Terminal recorded; return missing**
   (`terminals > 0`), using row badges so observed-recent ordering stays intact. Do not infer either
   condition from prose or producer status. The current Pi projection counts producer terminals as
@@ -71,10 +72,10 @@ Timestamp, kind, and `recency_basis: work` describe retained observation, not pr
 ## Attention badges
 
 Load **attention** with `nn skills get nn-transcript --reference attention` before discovery or attaching
-a retained match to an Awaiting return room. On Open or explicit Refresh, apply standing attention
-through that owner when enabled and in scope; do not start a second pass for the same navigation action.
+a retained match to an Awaiting return room. Bounded requested checks execute directly; do not add
+a standing-approval prompt on entry.
 Bare attention retains this queue and pattern; the owner
-supplies the bounded selection/approval recipe. Empty means empty, not an invitation to use archive.
+supplies the bounded selection/evaluation recipe. Empty means empty, not an invitation to use archive.
 Preserve the existing membership/order; label separately captured observations. No badge does not mean
 healthy or evaluated. Additional or returned rooms require an explicit scope change.
 
@@ -140,16 +141,15 @@ scans merely because the command supports them. **interaction** owns question-ba
 
 ## Find: evidence-guided discovery
 
-Find is an intent, not a compulsory filter chooser. Resolve the current room/desk and inspection
-envelope through **interaction**. If the action already names approved room, sample, and follow-up
-bounds, selecting it executes without another confirmation. Otherwise offer one concrete bounded
-inspection action, not a list of technical pattern categories. Preserve active filters; an empty
-filter never silently falls back to the underlying desk.
+Find is an intent, not a compulsory filter chooser. Resolve targets and actual restrictions through
+**interaction**, then execute a bounded relevant inspection before optional choices. Preserve active
+filters; an empty filter never silently falls back to the underlying desk. Broader observation uses
+**observe** and questions use **investigate**, rather than forcing this child-only queue.
 
 Use `review --last N --format text` for activity-only inspection; add `--include-assignment` when
 alignment is the question and assignments are planned into the initial budget. Explain supported observations,
 separate candidate patterns from conclusions, and nominate one useful exact event/assignment when
-needed. Within the envelope, retrieve complete exact-event evidence with `events --event ID --payload
+needed. Within concrete restrictions, retrieve complete exact-event evidence with `events --event ID --payload
 --json`, following transport rules. Stop at sufficient evidence, exhaustion, or unavailability. Do not
 infer a blocker from a failed command before inspecting its cause/recovery, or poor productivity from
 read-heavy work. Repeated message/result representations are not repeated attempts. Say 'nothing
@@ -169,10 +169,9 @@ A new pattern selection acquires a new snapshot; disclose this rather than claim
 snapshot was reused. Never silently widen the queue or selected session.
 
 Semantic questions (instruction drift, shared blockers, duplicated investigation) are LLM-owned.
-Use the approved inspection envelope, distinguishing the initial sample from bounded follow-up.
-If only a last-5-event window was approved, do not invent additional authorization. Selecting a concrete
-bounded proposal is its approval, not the start of another confirmation loop. Prefer the readable native
-bundle above; lossless JSON remains available when the evidence requires it:
+Distinguish the initial sample from bounded follow-up. Respect an explicit last-five-only restriction,
+but an ordinary five-event orientation does not itself impose a new permission requirement. Prefer the
+readable native bundle above; lossless JSON remains available when the evidence requires it:
 
 ```bash
 nn transcript review <session> --queue open-handoff --limit 3 --last 5 --payload --json

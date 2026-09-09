@@ -13,7 +13,7 @@ func TestTranscriptInteractionContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ASSERT_INTERACTION_OWNER: shared interaction contract unavailable: %v", err)
 	}
-	for _, term := range []string{"explicit operand", "displayed matching action", "selected target", "navigation state", "previous_view", "inspection envelope", "follow-up", "budget", "compaction", "exact restoration unavailable", "empty filter", "capture", "no notebook write", "--format text", "--event", "--payload"} {
+	for _, term := range []string{"explicit operand", "displayed matching action", "selected target", "navigation state", "previous_view", "scope definition", "follow-up", "budget", "compaction", "exact restoration unavailable", "empty filter", "capture", "no notebook write", "--format text", "--event", "--payload"} {
 		if !strings.Contains(body, term) {
 			t.Errorf("ASSERT_INTERACTION_CONTRACT: missing %q", term)
 		}
@@ -86,11 +86,11 @@ func TestTranscriptInteractionSingleOwnerRules(t *testing.T) {
 	_, execute := setupNotebook(t)
 	cases := []struct{ name, owner, required, forbidden string }{
 		{"TargetPromise", "interaction", "2. A uniquely displayed matching action wins over a background selected target.", "overrides older fallback-menu examples"},
-		{"BudgetMonotonic", "interaction", "the inspection budget ledger is monotonic across Back", "Back restores the unused budget"},
+		{"BudgetMonotonic", "interaction", "The inspection budget ledger is monotonic across Back", "Back restores the unused budget"},
 		{"BackReplay", "interaction", "**Back restores navigation state, not identical prose.**", "write numbered JSON view records"},
 		{"NoManualPersistence", "interaction", "Do not create temporary files or serialize view JSON for navigation.", "`mktemp -d`"},
 		{"NoDeterministicProse", "interaction", "LLM rerendering is not deterministic", "exact rendered response"},
-		{"ScopeApproval", "interaction", "Approval of just five recent events is not approval of this larger envelope.", "five recent events also authorizes all follow-up"},
+		{"ScopeRestriction", "interaction", "Respect a concrete user restriction:", "Target resolution is not acquisition permission."},
 		{"RoomEntry", "rooms", "--last 5 --format text --max-text-chars 1000", "Retrieve a metadata-oriented bounded tail"},
 		{"ActionCount", "actions", "Promote up to three useful next actions", "Promote two or three useful next actions"},
 		{"BoundComparison", "lenses", "Operands already bound", "never authorize the LLM to supply missing"},

@@ -34,7 +34,7 @@ func TestTranscriptDocumentationOwners(t *testing.T) {
 	}{
 		{"DOC_SEARCH_CONTENT", "search", []string{"--regex", "(?i)", "Go syntax", "case-insensitive literal", "--raw", "--limit", "canonical path", "skipped_files", "--session", "--reference patterns"}, nil},
 		{"DOC_RECOVERY_CONTENT", "recovery", []string{"nn transcript doctor", "exactly one parent", "DAG, no cycles", "at or after its parent's start", "equals the count of spawn tool-calls", "Only emit the relation after all four pass"}, nil},
-		{"DOC_PATTERNS_OWNERS", "patterns", []string{"--reference search", "--reference recovery", "--reference actions"}, []string{"--regex", "each spawn timestamp is at or after"}},
+		{"DOC_PATTERNS_OWNERS", "patterns", []string{"--reference search", "--reference recovery", "--reference actions", "--reference investigate", "--reference interaction"}, []string{"--regex", "each spawn timestamp is at or after", "run the navigation descent", "Return to the core picker"}},
 		{"DOC_SAMPLING_BOUNDARY", "patterns", []string{"Sampling is not retrieval coverage.", "uninspected", "complete", "claim"}, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

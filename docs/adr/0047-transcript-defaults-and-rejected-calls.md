@@ -1,6 +1,8 @@
 # ADR-0047: Transcript picker, sustained attention, and rejected calls
 
-Status: Accepted
+Status: Accepted. Picker-first and standing-attention interaction defaults are superseded by
+[ADR-0048](0048-conversational-process-tracer.md); the rejected-call metric v2 decision remains in force.
+The interaction paragraphs below record the historical decision, not competing current defaults.
 
 ## Decisions
 

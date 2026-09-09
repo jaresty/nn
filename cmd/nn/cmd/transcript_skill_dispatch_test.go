@@ -38,7 +38,7 @@ func TestTranscriptSkillDescriptionLookupRouting(t *testing.T) {
 	t.Log(a + ": PASS")
 }
 
-func TestTranscriptOfficeDefaultAndLensDispatch(t *testing.T) {
+func TestTranscriptTracerEntryAndOptionalLensDispatch(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
 	read := func(name string) string {
 		t.Helper()
@@ -62,8 +62,8 @@ func TestTranscriptOfficeDefaultAndLensDispatch(t *testing.T) {
 	rooms := read(filepath.Join("references", "rooms.md"))
 	lenses := read(filepath.Join("references", "lenses.md"))
 
-	assertContains("ASSERT_TRANSCRIPT_OFFICE_DEFAULT_ENTRY", core,
-		"default entry experience", "Transcript Office", "--reference navigate")
+	assertContains("ASSERT_TRANSCRIPT_TRACER_DEFAULT_ENTRY", core,
+		"**Bare invocation / what is happening:**", "--reference observe", "--reference investigate", "--reference navigate")
 	assertContains("ASSERT_TRANSCRIPT_OFFICE_LLM_MEDIATED_NO_CLI_PICKER", core,
 		"LLM-mediated", "not an interactive CLI")
 	assertContains("ASSERT_TRANSCRIPT_OFFICE_AUTHENTICATED_TOPOLOGY", navigate,
@@ -111,16 +111,16 @@ func TestTranscriptScanDiscoverabilityContract(t *testing.T) {
 	navigate := read(filepath.Join("references", "navigate.md"))
 	rooms := read(filepath.Join("references", "rooms.md"))
 	lenses := read(filepath.Join("references", "lenses.md"))
-	assertContains("ASSERT_TRANSCRIPT_ATTENTION_LANGUAGE_AUTO_SCANS_CURRENT_LEVEL", lenses,
-		"attention-oriented language", "automatically render", "metadata-only", "current level")
-	assertContains("ASSERT_TRANSCRIPT_EVERY_SURFACE_EXPOSES_SCAN_CONTROLS", core,
-		"Scan this level", "Change lens", "Back", "End", "every navigable surface")
+	assertContains("ASSERT_TRANSCRIPT_ATTENTION_LANGUAGE_OBSERVES", lenses,
+		"--reference observe", "bounded evidence inspection", "Explicit questions")
+	assertContains("ASSERT_TRANSCRIPT_OPTIONAL_LENS_CONTROLS", core,
+		"--reference lenses", "Back", "Refresh", "End", "freeform")
 	assertContains("ASSERT_TRANSCRIPT_SCAN_DECLARATION_AND_READABLE_LEGEND", lenses,
 		"scope", "question", "eligible", "inspected", "uninspected", "omitted", "unknown", "readable legend", "color alone")
 	assertContains("ASSERT_TRANSCRIPT_SCAN_STATE_SURVIVES_DRILLDOWN_BACK_REFRESH", navigate,
 		"question, filters, mappings, population, and snapshot", "Back", "Refresh", "reacquires evidence")
-	assertContains("ASSERT_TRANSCRIPT_WHOLE_TREE_SEMANTIC_SCAN_REQUIRES_CONFIRMATION", navigate,
-		"explicit confirmation", "one inference pass per agent", "whole-tree semantic scan")
+	assertContains("ASSERT_TRANSCRIPT_WHOLE_TREE_SEMANTIC_SCAN_BOUNDED", navigate,
+		"never implicit", "concrete cost", "inspected and uninspected coverage")
 	assertContains("ASSERT_TRANSCRIPT_ROOM_AND_EVENT_SCAN_CONTROLS", rooms,
 		"Situation Board fallback shortcuts", "Every **selected-event** detail defaults", "Promote stronger evidence-based next actions", "Scan this level", "Change lens", "Back", "End")
 	assertContains("ASSERT_TRANSCRIPT_INCOMPLETE_OPERATIONS_OPEN_CHOICES", lenses,
@@ -131,18 +131,18 @@ func TestTranscriptScanDiscoverabilityContract(t *testing.T) {
 		"neutral five-event orientation", "does not choose a lens", "comparison operands")
 	assertContains("ASSERT_TRANSCRIPT_BACK_REFRESH_ARE_NOT_NEW_INTENTS", navigate,
 		"Back is restoration, not a new intent", "without reinterpretation", "Refresh", "without changing the lens")
-	assertContains("ASSERT_TRANSCRIPT_VIEWS_ACTION_RAIL_AND_ELLIPSIS", core,
-		"every navigable surface", "uses a visible action rail", "More…", "Back", "End", "Scan this level…", "Change lens…", "ellipsis", "entity picker labels")
+	assertContains("ASSERT_TRANSCRIPT_POST_RESULT_CHOICES", core,
+		"picker after results", "More…", "Back", "End", "ellipsis", "Entity picker labels stay exact")
 	assertContains("ASSERT_TRANSCRIPT_COMMON_ACTIONS_PRECEDE_MORE", core,
-		"up to three high-value actions", "directly", "More…", "uncommon")
-	assertContains("ASSERT_TRANSCRIPT_ONE_INTERMEDIATE_MENU_MAX", core,
-		"at most one intermediate chooser")
+		"up to three useful next actions", "directly", "More…", "uncommon")
+	assertContains("ASSERT_TRANSCRIPT_NO_SECOND_CONFIRMATION", core,
+		"not an extra confirmation of a fully specified request")
 	assertContains("ASSERT_TRANSCRIPT_SELECTED_SUGGESTION_APPLIES", lenses,
 		"Selecting a suggested scan", "approval", "applies it directly")
-	assertContains("ASSERT_TRANSCRIPT_LEVEL_SPECIFIC_SHORTCUTS", core,
-		"Conversation lobby", "Office or team", "Room", "Selected event", "What stands out?", "Open conversation…", "Open room…", "Orient me", "Inspect event…", "Compare…")
-	assertContains("ASSERT_TRANSCRIPT_COMPACT_DEFAULT_STANDOUT_LIMIT", core,
-		"at most three standout", "explicit omitted count")
+	assertContains("ASSERT_TRANSCRIPT_ONE_SHOT_AND_END", core,
+		"one-shot answers", "raw CLI use need no picker", "End or dismissal stops the loop")
+	assertContains("ASSERT_TRANSCRIPT_SAMPLE_CONTINUITY", core,
+		"scope", "sample", "Unrechecked leads remain not", "not resolved")
 }
 
 func TestTranscriptOfficeParentageAndLifecycleAuthority(t *testing.T) {

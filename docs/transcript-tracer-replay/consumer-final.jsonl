@@ -1,0 +1,6 @@
+{"type": "session", "version": 3, "id": "fixture-consumer"}
+{"type": "message", "id": "qb", "timestamp": "2026-09-01T12:00:00Z", "message": {"role": "user", "content": "Read producer sample fixture-job-1."}}
+{"type": "message", "id": "callb", "timestamp": "2026-09-01T12:00:00Z", "message": {"role": "assistant", "content": [{"type": "toolCall", "id": "decode1", "name": "bash", "arguments": {"command": "python decode_fixture.py"}}]}}
+{"type": "message", "id": "resultb", "timestamp": "2026-09-01T12:00:00Z", "message": {"role": "toolResult", "content": "Input {\"task_id\":\"job-1\"}; consumer expression item[\"id\"] raised KeyError: id.", "toolName": "bash", "toolCallId": "decode1", "isError": true}}
+{"type": "message", "id": "retry-call", "timestamp": "2026-09-03T12:00:00Z", "message": {"role": "assistant", "content": [{"type": "toolCall", "id": "decode2", "name": "bash", "arguments": {"command": "python decode_fixture_with_task_id.py"}}]}}
+{"type": "message", "id": "retry-result", "timestamp": "2026-09-03T12:00:01Z", "message": {"role": "toolResult", "toolName": "bash", "toolCallId": "decode2", "isError": false, "content": "PASS: fixture-job-1 input {\"task_id\":\"job-1\"} decoded with item[\"task_id\"]. Only this fixture case was checked."}}

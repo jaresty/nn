@@ -131,7 +131,7 @@ func TestAssignmentQuestionRoutesInitialRetrieval(t *testing.T) {
 		"context":     {"initial", "single-room", "initial inspection envelope"},
 		"review":      {"--include-assignment", "selected_assignments", "recent events only"},
 		"rooms":       {"For assignment alignment", "nn transcript context"},
-		"interaction": {"not a mandatory", "two-follow-up rule", "not an unexpected follow-up"},
+		"interaction": {"not a rigid", "necessary bounded evidence directly", "not simply because another read follows"},
 	} {
 		text, e := execute("skills", "get", "nn-transcript", "--reference", owner)
 		if e != nil {
