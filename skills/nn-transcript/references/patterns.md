@@ -25,6 +25,19 @@ size ceiling and provenance loss of `nn grep`. A match is only a candidate-sessi
 whole session to the sample and run the navigation descent before making a behavioral claim; never
 infer recurrence by counting matching messages alone.
 
+Search accepts multiple files and/or recursively scanned directories:
+`nn transcript search 'lsp_trace_v2_.*|3896' <session-a> <directory> --regex --json`.
+Without `--regex`, matching remains case-insensitive literal substring search. Regex uses Go syntax,
+is case-sensitive by default, and accepts `(?i)` for case-insensitive matching. Invalid patterns fail.
+Use `--raw` for tool payloads excluded from meaningful content; regex does not broaden content scope.
+Overlapping paths and file symlinks are deduplicated by canonical path; the first input spelling is
+retained in provenance. Files are ordered by canonical path, then records by source order. `--limit`
+is global, not per file, and does not bound source scanning. Directory discovery considers `.jsonl`
+and `.output`; unsupported entries are counted in JSON `skipped_files` (or a text diagnostic).
+Nested directory symlinks are not followed. Explicit invalid files and unreadable sources fail rather
+than publishing partial success. `--session` remains a single-file alternative and cannot be mixed
+with positional paths.
+
 ## The unit of sampling is the SESSION, not the message
 
 Sample whole sessions, never messages within a session — a session is the coherent unit of

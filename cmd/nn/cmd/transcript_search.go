@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -26,43 +28,59 @@ type transcriptSearchMatch struct {
 }
 
 type transcriptSearchResult struct {
-	Matches   []transcriptSearchMatch `json:"matches"`
-	Returned  int                     `json:"returned"`
-	Truncated bool                    `json:"truncated"`
+	Matches      []transcriptSearchMatch `json:"matches"`
+	Returned     int                     `json:"returned"`
+	Truncated    bool                    `json:"truncated"`
+	SkippedFiles int                     `json:"skipped_files,omitempty"`
 }
 
 func newTranscriptSearchCmd() *cobra.Command {
 	var session, agentID, before string
-	var raw, asJSON bool
+	var raw, asJSON, regex bool
 	var limit int
 	cmd := &cobra.Command{
-		Use:   "search <query> [dir]",
+		Use:   "search <query> [path ...]",
 		Short: "Search transcript events with session and agent provenance",
-		Args:  cobra.RangeArgs(1, 2),
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 1 {
 				return fmt.Errorf("--limit must be at least 1")
 			}
-			if session != "" && len(args) == 2 {
-				return fmt.Errorf("[dir] and --session are mutually exclusive")
+			if session != "" && len(args) > 1 {
+				return fmt.Errorf("positional paths and --session are mutually exclusive")
 			}
 			if before != "" {
 				if _, err := time.Parse(time.RFC3339, before); err != nil {
 					return fmt.Errorf("invalid --before: %w", err)
 				}
 			}
-			files, err := transcriptSearchFiles(session, optionalArg(args, 1, "."))
+			match, err := transcriptSearchMatcher(args[0], regex)
 			if err != nil {
 				return err
 			}
-			result, err := searchTranscriptFiles(files, args[0], agentID, before, raw, limit)
+			inputs := args[1:]
+			if session != "" {
+				inputs = []string{session}
+			}
+			if len(inputs) == 0 {
+				inputs = []string{"."}
+			}
+			files, skipped, err := transcriptSearchInputs(inputs)
 			if err != nil {
 				return err
 			}
+			result, err := searchTranscriptFilesMatching(files, match, agentID, before, raw, limit)
+			if err != nil {
+				return err
+			}
+			result.SkippedFiles = skipped
 			if asJSON {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				return enc.Encode(result)
+			}
+			if skipped > 0 {
+				fmt.Fprintf(cmd.ErrOrStderr(), "skipped %d unsupported/non-transcript files or directory symlinks\n", skipped)
 			}
 			for _, m := range result.Matches {
 				fmt.Fprintf(cmd.OutOrStdout(), "%s %s %s %s [%s] %s\n", m.Session, m.AgentID, m.EventID, m.Timestamp, m.Role, m.Excerpt)
@@ -76,6 +94,7 @@ func newTranscriptSearchCmd() *cobra.Command {
 	cmd.Flags().StringVar(&session, "session", "", "search one transcript session file")
 	cmd.Flags().StringVar(&agentID, "agent", "", "restrict matches to one agent id")
 	cmd.Flags().StringVar(&before, "before", "", "restrict matches to events before RFC3339 timestamp")
+	cmd.Flags().BoolVar(&regex, "regex", false, "interpret query as a Go regular expression (case-sensitive; use (?i) to ignore case)")
 	cmd.Flags().BoolVar(&raw, "raw", false, "search raw message payloads instead of meaningful content")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit bounded match envelope as JSON")
 	cmd.Flags().IntVar(&limit, "limit", 50, "maximum matches to return")
@@ -114,15 +133,35 @@ func transcriptSearchFiles(session, root string) ([]string, error) {
 }
 
 func searchTranscriptFiles(files []string, query, agentFilter, before string, raw bool, limit int) (transcriptSearchResult, error) {
-	result := transcriptSearchResult{Matches: []transcriptSearchMatch{}}
+	match, _ := transcriptSearchMatcher(query, false)
+	result, err := searchTranscriptFilesMatching(files, match, agentFilter, before, raw, limit)
+	if err != nil {
+		err = errors.Unwrap(err)
+	}
+	return result, err
+}
+
+func transcriptSearchMatcher(query string, regex bool) (func(string) bool, error) {
+	if regex {
+		re, err := regexp.Compile(query)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --regex query: %w", err)
+		}
+		return re.MatchString, nil
+	}
 	needle := strings.ToLower(query)
+	return func(text string) bool { return strings.Contains(strings.ToLower(text), needle) }, nil
+}
+
+func searchTranscriptFilesMatching(files []string, match func(string) bool, agentFilter, before string, raw bool, limit int) (transcriptSearchResult, error) {
+	result := transcriptSearchResult{Matches: []transcriptSearchMatch{}}
 	// Share the initial scanner buffer across files, not their decoded records.
 	buffer := make([]byte, 64*1024)
 	for _, path := range files {
-		matches, truncated, err := searchTranscriptFile(path, needle, agentFilter, before, raw, limit-len(result.Matches), result.Truncated, buffer)
+		matches, truncated, err := searchTranscriptFileMatching(path, match, agentFilter, before, raw, limit-len(result.Matches), result.Truncated, buffer)
 		if err != nil {
 			// The materialized reader discarded the failing file's matches.
-			return result, err
+			return result, fmt.Errorf("search %s: %w", path, err)
 		}
 		result.Matches = append(result.Matches, matches...)
 		result.Truncated = result.Truncated || truncated
@@ -132,6 +171,11 @@ func searchTranscriptFiles(files []string, query, agentFilter, before string, ra
 }
 
 func searchTranscriptFile(path, needle, agentFilter, before string, raw bool, limit int, stopped bool, buffer []byte) ([]transcriptSearchMatch, bool, error) {
+	match, _ := transcriptSearchMatcher(needle, false)
+	return searchTranscriptFileMatching(path, match, agentFilter, before, raw, limit, stopped, buffer)
+}
+
+func searchTranscriptFileMatching(path string, match func(string) bool, agentFilter, before string, raw bool, limit int, stopped bool, buffer []byte) ([]transcriptSearchMatch, bool, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, false, err
@@ -181,7 +225,7 @@ func searchTranscriptFile(path, needle, agentFilter, before string, raw bool, li
 		var text string
 		if raw {
 			text = string(r.Message)
-			if !strings.Contains(strings.ToLower(text), needle) {
+			if !match(text) {
 				continue
 			}
 		}
@@ -192,7 +236,7 @@ func searchTranscriptFile(path, needle, agentFilter, before string, raw bool, li
 		}
 		if !raw {
 			text = meaningfulContent(msg.Role, msg.Content)
-			if !strings.Contains(strings.ToLower(text), needle) {
+			if !match(text) {
 				continue
 			}
 		}
