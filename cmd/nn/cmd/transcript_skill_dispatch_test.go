@@ -86,6 +86,42 @@ func TestTranscriptOfficeDefaultAndLensDispatch(t *testing.T) {
 		"--reference rooms", "--reference lenses")
 }
 
+func TestTranscriptScanDiscoverabilityContract(t *testing.T) {
+	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
+	read := func(name string) string {
+		t.Helper()
+		body, err := os.ReadFile(filepath.Join(root, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(body)
+	}
+	assertContains := func(assertion, text string, phrases ...string) {
+		t.Helper()
+		for _, phrase := range phrases {
+			if !strings.Contains(text, phrase) {
+				t.Errorf("%s: missing %q", assertion, phrase)
+			}
+		}
+	}
+	core := read("SKILL.md")
+	navigate := read(filepath.Join("references", "navigate.md"))
+	rooms := read(filepath.Join("references", "rooms.md"))
+	lenses := read(filepath.Join("references", "lenses.md"))
+	assertContains("ASSERT_TRANSCRIPT_ATTENTION_LANGUAGE_AUTO_SCANS_CURRENT_LEVEL", lenses,
+		"attention-oriented language", "automatically render", "metadata-only", "current level")
+	assertContains("ASSERT_TRANSCRIPT_EVERY_SURFACE_EXPOSES_SCAN_CONTROLS", core,
+		"Scan this level", "Change lens", "Back", "End", "every navigable surface")
+	assertContains("ASSERT_TRANSCRIPT_SCAN_DECLARATION_AND_READABLE_LEGEND", lenses,
+		"scope", "question", "eligible", "inspected", "uninspected", "omitted", "unknown", "readable legend", "color alone")
+	assertContains("ASSERT_TRANSCRIPT_SCAN_STATE_SURVIVES_DRILLDOWN_BACK_REFRESH", navigate,
+		"question, filters, mappings, population, and snapshot", "Back", "Refresh", "reacquires evidence")
+	assertContains("ASSERT_TRANSCRIPT_WHOLE_TREE_SEMANTIC_SCAN_REQUIRES_CONFIRMATION", navigate,
+		"explicit confirmation", "one inference pass per agent", "whole-tree semantic scan")
+	assertContains("ASSERT_TRANSCRIPT_ROOM_AND_EVENT_SCAN_CONTROLS", rooms,
+		"Every Situation Board and selected-event detail view visibly offers", "Scan this level", "Change lens", "selected-event", "Back", "End")
+}
+
 func TestTranscriptOfficeParentageAndLifecycleAuthority(t *testing.T) {
 	const a = "ASSERT_TRANSCRIPT_OFFICE_PARENTAGE_LIFECYCLE_AUTHORITY"
 	skillDir := filepath.Join("..", "..", "..", "skills", "nn-transcript")

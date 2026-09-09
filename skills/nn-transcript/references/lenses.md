@@ -29,12 +29,28 @@ If part of a requested lens is unsupported, preserve the useful remainder and na
 inference. For example, recorded interruptions and timing gaps may be shown while provider-retry
 causality remains unavailable.
 
+## Level-aware scan activation
+
+At a conversation lobby, office hallway, or nested team, **attention-oriented language** such as
+“what needs attention?”, “anything interesting?”, “what stands out?”, “scan these”, or “show the
+background workers” must **automatically render** a cheap **metadata-only** scan at the **current level**.
+Do not require the human to know the term Office Scan. Use only already retrieved authoritative
+identity, topology, parentage, lifecycle, measured-cost, and missing-value fields; do not infer drift,
+failure, groundedness, waste, or current activity.
+
+Make the operation visible even when it was not automatically activated: lobby = **Scan conversations**;
+office or team = **Scan this level**; room or selected-event view = **Scan this level** or **Change lens**.
+The same open projection language applies at office, team, room, and selected-event scope.
+
 ## Office Scan
 
 An **Office Scan** applies a lens to a bounded authenticated population from `tree --json`.
-The default population is the current hallway's direct children; recursive scope is explicit. State
-eligible, inspected, uninspected, omitted, and topology-depth counts. Never rank an uninspected room
-negatively merely because its tail was not retrieved.
+The default population is the current hallway's direct children; recursive scope is explicit. Every
+scan must state its **scope**, **question**, evidence boundary, mappings, filters, and counts for
+**eligible**, **inspected**, **uninspected**, **omitted**, and **unknown** members. Include a compact
+**readable legend**: labels must remain understandable without icons, and no claim may depend on
+**color alone**. State topology-depth counts. Never rank an uninspected room negatively merely because
+its tail was not retrieved.
 
 Office-level examples include:
 

@@ -71,7 +71,9 @@ terminal occurrences remain independent and must not be inferred from each other
 
 An optional **Office Scan** applies a lens from **lenses** to this bounded evidence-qualified population.
 Question-first scans are allowed. State inspected, uninspected, omitted, and unknown counts. Entering
-a room from a scan preserves its question and valid filters; Back restores the same scan snapshot.
+a room from a scan preserves its **question, filters, mappings, population, and snapshot**; **Back**
+restores those exact retained scan coordinates. **Refresh** preserves the selected lens and focus but
+**reacquires evidence**, explicitly replacing the mutable snapshot.
 
 2. **`:enter` one room — dispatch to the Situation Board.** Load **rooms**, **lenses**, and
    **events**, then begin with `nn transcript events <session> <agent-id> --last 5 --json`. This
@@ -134,11 +136,12 @@ fetching every native payload. Size measurements do not establish token attribut
 
 ## Opt-in Tier-2 whole-tree sweep
 
-To light an inferred dimension across the *entire* tree (e.g. "show every thread that drifted"),
-walk every agent from `tree --json`, retrieve and reconstruct every JSON `show` page as above,
-infer the **one** requested Tier-2 dimension per thread, and annotate the overview. **This is
-expensive and never the default — tell the human
-it costs one inference pass per agent before starting. Never trigger it implicitly.**
+A **whole-tree semantic scan** requires **explicit confirmation**. Before asking, state the retained
+agent count and explain that it costs **one inference pass per agent**. Only after confirmation may it
+walk every agent from `tree --json`, retrieve and reconstruct every JSON `show` page as above, infer
+the **one** requested Tier-2 dimension per thread, and annotate the overview. It is expensive and
+never the default; never trigger it implicitly. Cheap whole-tree metadata summaries do not waive this
+gate for semantic interpretation.
 
 ## Worked example
 

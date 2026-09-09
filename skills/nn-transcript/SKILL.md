@@ -135,8 +135,11 @@ If a view invents identity, topology, or measurement, discard it and redraw from
 
 ## Navigation loop and capture
 
-For human-driven navigation, re-present discovered moves, a steer-in-your-own-words affordance,
-and **End** after each step. Do not silently terminate because the goal seems reached. Office views
+For human-driven navigation, **every navigable surface** must visibly offer context-appropriate
+**Scan this level**, **Change lens**, **Back**, and **End** controls alongside discovered moves and a
+steer-in-your-own-words affordance. Do not bury scans as optional documentation or silently terminate
+because the goal seems reached. Hide a control only when the operation is structurally impossible at
+that surface, and keep the remaining labels stable. Office views
 may apply higher-level scans over a bounded authenticated population. Entering a room switches from
 the office metaphor to a rearrangeable Situation Board; named lenses are presets and user-defined
 questions, axes, groups, filters, comparisons, and metaphors are first-class. Drill-down preserves the

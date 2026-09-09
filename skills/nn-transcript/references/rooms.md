@@ -44,6 +44,14 @@ Never assign one evidence level to the whole room. Distinguish an agent report, 
 result, and independent verification. Icons indicate observed evidence kind, not success. Unknown or
 uninspected findings remain visible. A recorded interruption does not establish its cause.
 
+## Discoverable controls
+
+Every Situation Board and selected-event detail view visibly offers **Scan this level**, **Change lens**,
+**Back**, and **End** alongside context-specific actions such as inspect event or expand recent window.
+At room scope, Scan this level rearranges the retained event population; at **selected-event** scope,
+it scans or compares the selected evidence without silently widening to the whole room. Controls are
+plain-language affordances, not hidden colon commands.
+
 ## Conversational rearrangement
 
 Permit “flip the axes,” “focus failures,” “compare reports with results,” “make unknowns prominent,”
@@ -91,5 +99,5 @@ Window: last 5 matching events; older matching events exist
 Established: interruption record exists.
 Not established: retry cause, provider latency, task failure, or current activity.
 
-[inspect event 216] [expand recent window] [rearrange] [back]
+[Inspect event 216] [Expand recent window] [Scan this level] [Change lens] [Back] [End]
 ```
