@@ -35,8 +35,8 @@ conversation unless requested.
   evidence. Never present interpreted text as recorded metadata. Retain the selected row's exact `path`
   and use it unchanged for downstream commands;
   never reconstruct a path from session ID, current project, or cwd. Continue with its `--cursor`;
-  never derive cursors from times. After selection, load navigate and render the authenticated tree
-  as a manager hallway whose rooms are direct children and whose nested managers open sub-offices.
+  never derive cursors from times. Load navigate, then review: Pi defaults to **Awaiting return**.
+  Hierarchy stays under More → All rooms; nested managers open sub-offices.
 - **Already selected session/agent:** go directly to the relevant reference and command below.
   Do not rescan a whole cohort merely to inspect a known thread.
 - **Find an agent by launch name or description:** use `nn transcript ls` to select the parent
@@ -57,7 +57,7 @@ branch references may dispatch to a command owner. Discover applicability with
 | Need | Load | Then use |
 |---|---|---|
 | Cohort / listing metadata | `nn skills get nn-transcript --reference discovery` | `nn transcript ls` |
-| Enter an office / hallway | `nn skills get nn-transcript --reference navigate` | `nn transcript tree` → Office / nested teams |
+| Enter an office / hallway | `nn skills get nn-transcript --reference navigate` | Awaiting return; tree for All rooms |
 | Unclosed Work Desk / review patterns / correction drafts | `nn skills get nn-transcript --reference review` | `nn transcript review` (deterministic Pi evidence) |
 | Assignment versus recent work | `nn skills get nn-transcript --reference context` | `nn transcript context` (recorded launches + bounded tail) |
 | Enter one room | `nn skills get nn-transcript --reference rooms` | Bounded `events --last 5` Situation Board |

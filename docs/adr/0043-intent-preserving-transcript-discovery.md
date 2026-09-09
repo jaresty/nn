@@ -94,9 +94,20 @@ Room entry should give a bounded readable orientation without requiring a second
 This is not permission to impose an analytical lens or silently expand history. CLI mechanics stay
 behind the Office surface unless requested or a failure requires a real human decision.
 
+### Awaiting return as the default Office population
+
+The default Pi Office view uses `review --queue awaiting-return --order observed-recent`:
+authenticated launches with zero recorded parent returns, regardless of terminal count. Show every
+row of each bounded page with eligible total, current range, and Next; a three-action recommendation
+budget must not become a three-room listing cap. Badge terminal evidence without inferring liveness.
+The current Pi producer-terminal projection also counts those records as returns; do not invent a
+terminal-only population. Repeated launches with any return remain ambiguous, not paired attempts.
+All rooms and hierarchy remain under More → All rooms. Legacy CLI review defaults remain compatible;
+the Office explicitly selects its queue. Non-Pi offices retain the disclosed hierarchy fallback.
+
 ### Human hallway ordering
 
-The Pi Office requests `tree --parent ID --order observed-recent`; legacy CLI canonical ordering stays
+Explicit Pi hallway browsing requests `tree --parent ID --order observed-recent`; legacy CLI canonical ordering stays
 unchanged. Rank all direct children before pagination: optional `--selected ID` pinned first, then
 greatest valid owned assistant/tool-result work timestamp descending, unknown last, ID tie-break.
 Launch/return/lifecycle timestamps and file modification times do not stand in for observed work.

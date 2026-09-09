@@ -28,9 +28,20 @@ or a newly inferred current-project lobby. **Refresh** reacquires mutable eviden
 the selected scope and lens **without changing the lens** unless its required dimension becomes
 unsupported, which must be reported rather than silently substituted.
 
+## Awaiting return — default Pi Office view
+
+On ordinary Pi Office entry, load **review** and request
+`nn transcript review <session> --queue awaiting-return --order observed-recent --limit 20 --json`.
+Show every returned row, not three standout rooms. Preserve the full matching population across
+pages, display eligible total and current range, and expose Next whenever `next_cursor` exists.
+Label rows **No terminal recorded** or **Terminal recorded; return missing** from `terminals`,
+not inferred activity. Both belong here. Missing returns do not establish runtime liveness.
+Keep **More → All rooms** for the full hallway and hierarchy below. Non-Pi support remains
+explicitly limited to the hallway; do not substitute an empty awaiting-return view.
+
 ## Unclosed Work Desk
 
-For open-handoff review or course-correction inspection, load **review** and use the native
+For explicitly requested open-handoff review or course-correction inspection, load **review** and use the native
 `nn transcript review <session> --queue open-handoff --limit 20 --json` projection. This is a review
 population, not spawn topology or runtime liveness. Promote supported next actions; **Inspect recent work**
 and **Find patterns…** are fallbacks. **Draft correction…** is promoted only for an evidenced concern;

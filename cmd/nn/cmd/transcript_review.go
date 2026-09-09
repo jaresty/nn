@@ -84,7 +84,7 @@ func newTranscriptReviewCmd() *cobra.Command {
 	var last, page int
 	var snapshot string
 	var text bundleTextOptions
-	c := &cobra.Command{Use: "review <session>", Short: "Review retained open-handoff, ambiguous-handoff, or archive evidence (not liveness)", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "review <session>", Short: "Review retained awaiting-return, open-handoff, ambiguous-handoff, or archive evidence (not liveness)", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
 		if err := text.validate(c); err != nil {
 			return err
 		}
@@ -133,7 +133,7 @@ func newTranscriptReviewCmd() *cobra.Command {
 	c.Flags().IntVar(&page, "page", 1, "bundle transport page (requires --last)")
 	c.Flags().StringVar(&snapshot, "snapshot", "", "bundle snapshot for later transport pages (requires --last)")
 	c.Flags().BoolVar(&asJSON, "json", false, "emit bounded deterministic review JSON")
-	c.Flags().StringVar(&queue, "queue", "open-handoff", "open-handoff, ambiguous-handoff, or archive (all retained non-ROOT rooms)")
+	c.Flags().StringVar(&queue, "queue", "open-handoff", "awaiting-return, open-handoff, ambiguous-handoff, or archive (all retained non-ROOT rooms)")
 	c.Flags().StringVar(&order, "order", "observed-recent", "observed-recent or canonical")
 	c.Flags().StringVar(&pattern, "pattern", "", "errors, interruptions, repeated-tools, repeated-commands, timing-gaps, or missing-evidence")
 	c.Flags().IntVar(&limit, "limit", 20, "rows per page (1–200)")
@@ -143,6 +143,8 @@ func newTranscriptReviewCmd() *cobra.Command {
 
 func reviewEligible(r reviewRow, q string) bool {
 	switch q {
+	case "awaiting-return":
+		return r.AuthenticatedLaunches > 0 && r.Returns == 0
 	case "open-handoff":
 		return r.AuthenticatedLaunches > 0 && r.Terminals == 0 && r.Returns == 0
 	case "ambiguous-handoff":
@@ -230,7 +232,7 @@ func reviewCapture(session, cursor string) (*transcriptCapture, error) {
 
 func buildReviewPageCaptured(c *transcriptCapture, queue, order, pattern string, limit int, cursor string) (reviewPage, error) {
 	var empty reviewPage
-	if queue != "open-handoff" && queue != "ambiguous-handoff" && queue != "archive" {
+	if queue != "awaiting-return" && queue != "open-handoff" && queue != "ambiguous-handoff" && queue != "archive" {
 		return empty, fmt.Errorf("review: invalid queue %q", queue)
 	}
 	if order != "observed-recent" && order != "canonical" {

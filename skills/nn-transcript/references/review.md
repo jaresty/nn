@@ -1,6 +1,6 @@
 ---
 name: review
-applies_when: "When inspecting unclosed handoffs, opening the Unclosed Work Desk, finding deterministic patterns in one retained review population, or preparing course corrections."
+applies_when: "When entering the default Awaiting return Office view, inspecting unclosed handoffs, opening the Unclosed Work Desk, finding deterministic patterns in one retained review population, or preparing course corrections."
 ---
 
 # Transcript Review Queue / Unclosed Work Desk
@@ -10,6 +10,7 @@ Load `nn skills get nn-transcript --reference interaction` for action targeting,
 retained view records, and Back. This reference owns desk population and evidence-guided Find.
 
 ```bash
+nn transcript review <session> --queue awaiting-return --order observed-recent --limit 20 --json
 nn transcript review <session> --queue open-handoff --order observed-recent --limit 20 --json
 nn transcript review <session> --queue ambiguous-handoff --order canonical --limit 20 --json
 nn transcript review <session> --queue archive --limit 20 --json
@@ -30,6 +31,13 @@ selection. Advancing a room cursor still requires its raw capture.
 
 ## Authority and counts
 
+- `awaiting-return`: authenticated launch count ≥1 and parent-return count 0, regardless of terminal count.
+  This is the default Pi Office population, across all retained non-ROOT rooms, not only ROOT children.
+  Separate **No terminal recorded** (`terminals == 0`) from **Terminal recorded; return missing**
+  (`terminals > 0`), using row badges so observed-recent ordering stays intact. Do not infer either
+  condition from prose or producer status. The current Pi projection counts producer terminals as
+  parent returns too, so terminal-only rows may be absent; do not manufacture them. Multiple launches
+  plus a return remain ambiguous, not unmatched attempts inferred by subtracting counts.
 - `open-handoff`: authenticated launch count ≥1, terminal count 0, parent-return count 0.
   Authentication means the existing exact unique owner/call-ID invocation join succeeded.
 - `ambiguous-handoff`: retained launches and parent returns both exist. Their occurrence relationship
@@ -66,7 +74,12 @@ Default to **Inspect recent work**, **Find patterns…**, **More…**, with **Ba
 **End** visible. Promote stronger evidence-based suggestions under the core's suggested-action contract;
 keep displaced controls and **Capture…** under More. Promote **Draft correction…** only for a supported
 concern after adequate assignment inspection, not on an empty result. A useful supported finding may promote
-**Capture this insight**, which opens a proposal rather than writing a note. Show at most three standout cards and explicit displayed/omitted counts. Keep exact
+**Capture this insight**, which opens a proposal rather than writing a note. Show every returned row on the current page;
+never reduce the awaiting-return population to three standout cards. Display **Awaiting return · N total ·
+rows X–Y**, using eligible/offset/returned, and expose Next when `next_cursor` is nonempty. State later-row
+omissions explicitly; a page is not the full list. If eligible is zero, say no authenticated launches
+without recorded returns were found in retained evidence—not that no workers are running. At most three
+suggested actions does not limit listed rooms. Keep **More → All rooms**, Back, and End visible. Keep exact
 picker labels. Position may encode observation time only when the legend says so; do not use red/green
 as an implicit stuck/running signal. Hierarchy and archive remain reachable under More….
 
