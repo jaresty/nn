@@ -1460,7 +1460,7 @@ func TestVirtualCLIReferenceDispatchesNavigationWithoutOwningWorkflow(t *testing
 		t.Fatalf("show virtual-nn-cli-reference: %v", err)
 	}
 	for _, required := range []string{
-		"Before human-driven iterative navigation",
+		"Before notebook-graph navigation",
 		"if you have not yet done so this session, run `nn skills list`",
 		"run `nn skills get nn-navigate`",
 		"binding skill dispatch",
