@@ -19,8 +19,11 @@ Use `nn skills get nn-transcript --reference <name>`; the core's dispatch rule r
 These references own fields and limits. This reference owns the navigation workflow, not those schemas.
 If a command against the carried canonical path fails, report its actual error. Do not relabel a
 missing, moved, or wrongly reconstructed path as unknown schema; use escape-hatch guidance only when
-the exact carried file genuinely receives that diagnosis. Back restores the same scoped cohort and
-its retained rows, not a newly inferred current-project lobby.
+the exact carried file genuinely receives that diagnosis. **Back is restoration, not a new intent**:
+it restores the same scoped cohort and retained rows **without reinterpretation**, automatic scanning,
+or a newly inferred current-project lobby. **Refresh** reacquires mutable evidence while preserving
+the selected scope and lens **without changing the lens** unless its required dimension becomes
+unsupported, which must be reported rather than silently substituted.
 
 ## Steps
 

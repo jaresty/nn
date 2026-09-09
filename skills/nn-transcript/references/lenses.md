@@ -29,11 +29,27 @@ If part of a requested lens is unsupported, preserve the useful remainder and na
 inference. For example, recorded interruptions and timing gaps may be shown while provider-retry
 causality remains unavailable.
 
+## Shared intent and transition grammar
+
+**Incomplete operations open choices.** Bare `scan`, `change lens`, `another view`, and `compare`
+requests transition to a context-appropriate chooser; they never authorize the LLM to supply missing
+axes, lens, or comparison operands. **Explicit operands execute directly**: for example, `scan by
+cost`, `group by manager`, or `compare report with result` applies the named operation.
+
+**Attention questions** such as “what stands out?” or “what needs attention?” delegate selection of a
+cheap metadata-safe lens and may render immediately. **Suggestions require approval**: `suggest a
+scan` proposes one lens and waits rather than rendering it. **Delegated choice** such as “choose for
+me” or “orient me” authorizes selecting and rendering a supported lens. Navigation requests such as
+“show background workers” select only the population; they do not silently choose a lens.
+
+A comparison request without **comparison operands** opens a chooser for the comparison set. `Back`
+and `Refresh` are navigation/state operations, not implicit new lens requests.
+
 ## Level-aware scan activation
 
 At a conversation lobby, office hallway, or nested team, **attention-oriented language** such as
-“what needs attention?”, “anything interesting?”, “what stands out?”, “scan these”, or “show the
-background workers” must **automatically render** a cheap **metadata-only** scan at the **current level**.
+“what needs attention?”, “anything interesting?”, or “what stands out?” must **automatically render**
+a cheap **metadata-only** scan at the **current level**.
 Do not require the human to know the term Office Scan. Use only already retrieved authoritative
 identity, topology, parentage, lifecycle, measured-cost, and missing-value fields; do not infer drift,
 failure, groundedness, waste, or current activity.

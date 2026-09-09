@@ -120,6 +120,16 @@ func TestTranscriptScanDiscoverabilityContract(t *testing.T) {
 		"explicit confirmation", "one inference pass per agent", "whole-tree semantic scan")
 	assertContains("ASSERT_TRANSCRIPT_ROOM_AND_EVENT_SCAN_CONTROLS", rooms,
 		"Every Situation Board and selected-event detail view visibly offers", "Scan this level", "Change lens", "selected-event", "Back", "End")
+	assertContains("ASSERT_TRANSCRIPT_INCOMPLETE_OPERATIONS_OPEN_CHOICES", lenses,
+		"Incomplete operations open choices", "scan", "change lens", "another view", "compare", "Explicit operands execute directly")
+	assertContains("ASSERT_TRANSCRIPT_SUGGESTION_DELEGATION_ATTENTION_DISTINCT", lenses,
+		"Attention questions", "Suggestions require approval", "Delegated choice", "orient me")
+	assertContains("ASSERT_TRANSCRIPT_NAVIGATION_AND_ROOM_ENTRY_DO_NOT_CHOOSE_LENS", rooms,
+		"neutral five-event orientation", "does not choose a lens", "comparison operands")
+	assertContains("ASSERT_TRANSCRIPT_BACK_REFRESH_ARE_NOT_NEW_INTENTS", navigate,
+		"Back is restoration, not a new intent", "without reinterpretation", "Refresh", "without changing the lens")
+	assertContains("ASSERT_TRANSCRIPT_VIEWS_ACTION_RAIL_AND_ELLIPSIS", core,
+		"every navigable surface", "uses a visible action rail", "Views…", "Back", "End", "Scan this level…", "Change lens…", "ellipsis", "entity picker labels")
 }
 
 func TestTranscriptOfficeParentageAndLifecycleAuthority(t *testing.T) {

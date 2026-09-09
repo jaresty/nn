@@ -18,10 +18,15 @@ Retrieve a metadata-oriented bounded tail:
 nn transcript events <session> <agent-id> --last 5 --json
 ```
 
-State the room identity, active lens, declared axes, selected filters, snapshot, matching and returned
-event counts, and whether older matching events exist. Do not request payloads by default. Inspect an
-exact event with `--event <event-id> --payload` when its content matters.
+State the room identity, snapshot, matching and returned event counts, and whether older matching
+events exist. Initial entry shows a **neutral five-event orientation** in canonical ledger order; it
+**does not choose a lens**, infer salient dimensions, or select axes unless the entering request also
+said `orient me`, `choose for me`, or supplied an explicit lens. Then offer lens choices. Do not request
+payloads by default. Inspect an exact event with `--event <event-id> --payload` when its content matters.
+A comparison request lacking **comparison operands** opens a chooser rather than inventing a comparison
+set.
 
+After a lens is selected, state the active lens, declared axes, selected filters, and evidence boundary.
 The default board may use canonical ledger order × evidence kind, but user-defined arrangements are
 first-class and named lenses are presets. The human may supply arbitrary questions, axes, grouping,
 filters, comparisons, or visual metaphors. Apply only dimensions supported by retrieved evidence and
