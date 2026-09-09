@@ -21,7 +21,8 @@ Before the relevant command, load **handoffs** for descriptions, launch/return a
 Use `nn skills get nn-transcript --reference <name>`; the core's dispatch rule remains binding.
 These references own fields and limits. This reference owns the navigation workflow, not those schemas.
 If a command against the carried canonical path fails, report its actual error. Do not relabel a
-missing, moved, or wrongly reconstructed path as unknown schema; use escape-hatch guidance only when
+missing, moved, or wrongly reconstructed path as unknown schema; load
+`nn skills get nn-transcript --reference recovery` for escape-hatch guidance only when
 the exact carried file genuinely receives that diagnosis. **Back is restoration, not a new intent**:
 it restores the same scoped cohort and retained rows **without reinterpretation**, automatic scanning,
 or a newly inferred current-project lobby. **Refresh** reacquires mutable evidence while preserving

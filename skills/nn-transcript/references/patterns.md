@@ -20,23 +20,11 @@ not a causal explanation. Keep the whole-session sampling discipline below.
 
 ## Targeted matches select sessions; they do not prove patterns
 
-Use `nn transcript search <query> <root> --json` to locate attributable occurrences without the
-size ceiling and provenance loss of `nn grep`. A match is only a candidate-session locator. Add its
-whole session to the sample and run the navigation descent before making a behavioral claim; never
-infer recurrence by counting matching messages alone.
-
-Search accepts multiple files and/or recursively scanned directories:
-`nn transcript search 'lsp_trace_v2_.*|3896' <session-a> <directory> --regex --json`.
-Without `--regex`, matching remains case-insensitive literal substring search. Regex uses Go syntax,
-is case-sensitive by default, and accepts `(?i)` for case-insensitive matching. Invalid patterns fail.
-Use `--raw` for tool payloads excluded from meaningful content; regex does not broaden content scope.
-Overlapping paths and file symlinks are deduplicated by canonical path; the first input spelling is
-retained in provenance. Files are ordered by canonical path, then records by source order. `--limit`
-is global, not per file, and does not bound source scanning. Directory discovery considers `.jsonl`
-and `.output`; unsupported entries are counted in JSON `skipped_files` (or a text diagnostic).
-Nested directory symlinks are not followed. Explicit invalid files and unreadable sources fail rather
-than publishing partial success. `--session` remains a single-file alternative and cannot be mixed
-with positional paths.
+Load `nn skills get nn-transcript --reference search` to locate attributable occurrences. That owner
+covers literal/regex matching, inputs, payload scope, provenance, limits, and errors; a simple lookup
+does not require this workflow. Here, a match is only a candidate-session locator. Add its whole
+session to the sample and run the navigation descent before making a behavioral claim; never infer
+recurrence by counting matching messages alone.
 
 ## The unit of sampling is the SESSION, not the message
 
@@ -44,6 +32,16 @@ Sample whole sessions, never messages within a session — a session is the cohe
 interpretation, and fragmenting it destroys the Tier-2 signal. When the corpus is large, sample
 N whole sessions (spread across the time range, plus the cost outliers) and reason about all
 tiers of each, rather than skimming a fragment of every session.
+
+**Sampling is not retrieval coverage.** Selecting a session does not mean every event was inspected,
+nor does it authorize an unbounded dump. Keep the session as the sampling unit, then retrieve the
+assignment and work evidence needed for the declared question under the **interaction** envelope.
+Complete every required page/segment before interpreting an event. Name inspected windows and leave
+uninspected regions explicit; a bounded finding stays bounded. Whole-session claims require evidence
+covering that claim across the session; partial inspection cannot establish absence elsewhere.
+Cross-session behavioral claims still require the navigation descent and supporting evidence in
+multiple sampled sessions. If the authorized evidence is insufficient, narrow the claim or ask for
+more scope; do not equate selecting a session with understanding it.
 
 ## Steps
 
@@ -84,34 +82,27 @@ measurements; repeated calls and large outputs are candidates for interpretation
 3. **Interpret each sampled session across all tiers.** For each, drive the *navigate* descent
    (`tree` → enter the notable threads; see reference **navigate**) and infer the **one**
    requested Tier-2 dimension per thread (instruction-drift, context-re-derivation, groundedness,
-   pivots, friction). Because you sampled whole sessions, the interpretation is coherent — you can
-   say "in this run the debrief agent re-derived the session boundary from scratch," not "some
-   message looked odd."
+   pivots, friction). Session sampling preserves context, but evidence must support the interpretation:
+   say "in this inspected debrief thread the agent re-derived the session boundary from scratch"
+   only after reading the relevant assignment and work, not merely because "some message looked odd."
 
 4. **Surface only cross-session patterns.** A pattern is a claim that holds across **multiple**
-   sampled sessions, e.g. "session-debrief subagents re-derive the daily-note boundary every run
-   — a caching gap." Draw the cross-session summary as spatial ASCII when it helps (a small
+   sampled sessions, e.g. "session-debrief subagents re-derive the daily-note boundary in the inspected
+   debrief threads — a possible caching gap." Draw the cross-session summary as spatial ASCII when it helps (a small
    distribution chart, a ranked outlier list with cost-type bars) — same visual discipline as the
    core grammar.
 
-5. **Harvest patterns into notes.** For each real pattern, `nn new` a note stating the pattern as
-   a claim, linked to the sessions or design notes it bears on. Durability test: capture patterns
-   that would inform future runs, not one-off observations.
+5. **Propose harvesting patterns into notes.** Load `nn skills get nn-transcript --reference actions`
+   for the capture proposal and approval contract. State the supported claim and proposed provenance
+   links; apply the normal nn durability discipline. Finishing an investigation is not capture approval.
 
 6. **Return to the core picker** (loop invariant — never terminate the branch on its own).
 
-## Escape-hatch join validation (four assertions)
+## Unknown schemas
 
-When a sampled session has an `unknown` schema and you reconstruct its spawn relation with
-DuckDB, an LLM-composed query fails silently-but-plausibly — a wrong join can resolve every row
-and still be wrong. Before trusting the reconstructed relation, all four must pass:
-- every non-root agent resolves to exactly one parent;
-- no agent is its own ancestor (DAG, no cycles);
-- each spawn timestamp is at or after its parent's start;
-- the resolved spawn-edge count equals the count of spawn tool-calls.
-
-Only emit the relation after all four pass. If any fails, the join is wrong — iterate. When a new
-schema is cracked, capture the recipe as an `nn` note for reuse.
+Load `nn skills get nn-transcript --reference recovery` for native diagnosis and the four assertions
+required before trusting an escape-hatch reconstruction. Recovery owns those checks for both single
+sessions and cross-session samples; this workflow does not define a second validation contract.
 
 ## Worked example
 
@@ -133,5 +124,5 @@ sample = b71c, a3f2, 9f2a (the proposed ids) + e10c, 7d21 (contrast)
 
 Per-session navigate descent confirms the debrief agent re-derives the daily-note boundary in all
 3 outliers, and *not* in the 2 shallow contrasts. Pattern earned across multiple sessions →
-harvest "session-debrief subagents re-derive the daily-note boundary every run — a caching gap",
+propose capturing "session-debrief subagents re-derive the daily-note boundary in the three inspected outlier threads — a caching-gap candidate",
 linked to the 3 sessions. **Return to the picker.**

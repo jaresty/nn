@@ -26,15 +26,13 @@ surface, not an interactive CLI, terminal picker, or persistent TUI. Hide CLI me
 
 - **Browse / orient:** when the human names an explicit project, workspace, or office, resolve that
   target before generic recent-session discovery. Otherwise load discovery and run
-  `nn transcript ls <dir> --json --limit <N>`. Identify this conversation and present the returned
-  page as candidate retained conversations. Every row carries a readable `label`, its original
-  `opening_label`, and `label_provenance` (`recent`, `opening`, `interpreted`, or `untitled`; `recorded`
-  remains reserved for authenticated metadata) plus its exact session ID as secondary identity. `conversation_kind` classifies the listed top-level row, `owner_session` is null
-  unless ownership is authenticated, and `open_window_status` remains `unavailable` without host
-  evidence. Never present interpreted text as recorded metadata. Retain the selected row's exact `path`
-  and use it unchanged for downstream commands;
-  never reconstruct a path from session ID, current project, or cwd. Continue with its `--cursor`;
-  never derive cursors from times. Load navigate, then review: Pi defaults to **Awaiting return**.
+  `nn transcript ls <dir> --json --conversation-kind conversation --limit <N>`. Identify this conversation.
+  Show the readable `label` and exact session ID; retain `opening_label`, `label_provenance`
+  (`recent`, `opening`, `interpreted`, `untitled`; `recorded` requires authentication),
+  `conversation_kind`, `owner_session`, and `open_window_status`. Discovery owns their full semantics;
+  never present interpreted text as recorded metadata or infer open windows from transcripts.
+  Retain the selected row's exact `path`; never reconstruct it from session ID, cwd, or project.
+  Continue with its `--cursor`, not a derived time. Load navigate, then review: Pi defaults to **Awaiting return**.
   Hierarchy stays under More → All rooms; nested managers open sub-offices.
 - **Already selected session/agent:** use its owner directly.
   Bare attention uses **attention**'s surface scope, not a background room.
@@ -42,9 +40,8 @@ surface, not an interactive CLI, terminal picker, or persistent TUI. Hide CLI me
   session, then use `nn transcript tree <session> --description "<name>" --json`.
   This is metadata discovery: do not use `nn transcript search`, which searches event content and
   can match prompts, results, or the current conversation instead of the authoritative tree label.
-- **Locate a phrase inside event content:** use `nn transcript search "<literal query>" <root> --json`
-  (or --session and --agent). Search locates evidence; it does not establish behavioral recurrence.
-  Never use `nn grep` for transcript JSONL: it loses ownership and may skip oversized files.
+- **Locate text inside transcripts:** load **search** for literal/regex lookup, multiple inputs,
+  payload scope, and limits. Search locates evidence; it does not establish behavioral recurrence.
 
 ## Binding lazy dispatch
 
@@ -62,7 +59,9 @@ branch references may dispatch to a command owner. Discover applicability with
 | Assignment versus recent work | `nn skills get nn-transcript --reference context` | `nn transcript context` (recorded launches + bounded tail) |
 | Enter one room | `nn skills get nn-transcript --reference rooms` | Bounded `events --last 5` Situation Board |
 | Scan or rearrange any view | `nn skills get nn-transcript --reference lenses` | Preset, blank, inferred, or user-defined lens |
-| Cross-session patterns | `nn skills get nn-transcript --reference patterns` | Whole-session sampling and navigation |
+| Find transcript text | `nn skills get nn-transcript --reference search` | `nn transcript search` (literal/regex; files/directories) |
+| Cross-session patterns | `nn skills get nn-transcript --reference patterns` | Session sampling and evidence-bounded investigation |
+| Unknown schema | `nn skills get nn-transcript --reference recovery` | `nn transcript doctor`; validated escape hatch |
 | Tree fields, text, events, windows | `nn skills get nn-transcript --reference events` | `tree --agent --fields`, `nn transcript show --json`, `nn transcript events` |
 | Usage / tool volume / timing | `nn skills get nn-transcript --reference summaries` | `events --summary usage`, `--summary tools`, `--summary timing` |
 | Description, launch / return, lifecycle | `nn skills get nn-transcript --reference handoffs` | `events --at launch`, `--at return` against the parent |
@@ -169,8 +168,8 @@ current status, or reproducible lookup is not a durable finding. Use the normal 
 
 ## Unknown schemas and versioning
 
-When scan reports unknown, run `nn transcript doctor`; DuckDB is an escape hatch, not the normal
-workflow. Load patterns and satisfy its four join assertions before trusting a reconstructed relation.
+When scan reports unknown, load **recovery** for diagnosis and reconstructed-join validation.
+DuckDB is an escape hatch, not the normal workflow; patterns is not a prerequisite.
 The tree is a lossy overview; retrieve complete relevant events before interpreting behavior.
 
 Skills and CLI ship together. Do not probe a separate capability endpoint or create preflight scripts.

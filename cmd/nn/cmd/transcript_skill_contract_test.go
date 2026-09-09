@@ -196,7 +196,7 @@ func TestEmbeddedTranscriptSkillEventsContract(t *testing.T) {
 func TestEmbeddedTranscriptSkillSearchContractMatchesCLI(t *testing.T) {
 	const assertion = "ASSERT_EMBEDDED_TRANSCRIPT_SKILL_SEARCH_CONTRACT_MATCHES_CLI"
 	cmd := newTranscriptSearchCmd()
-	for _, name := range []string{"session", "agent", "before", "raw", "json", "limit"} {
+	for _, name := range []string{"session", "agent", "before", "raw", "regex", "json", "limit"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Fatalf("%s: search flag --%s is absent", assertion, name)
 		}
@@ -204,7 +204,7 @@ func TestEmbeddedTranscriptSkillSearchContractMatchesCLI(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
 	paths := []string{
 		filepath.Join(root, "skills", "nn-transcript", "SKILL.md"),
-		filepath.Join(root, "skills", "nn-transcript", "references", "patterns.md"),
+		filepath.Join(root, "skills", "nn-transcript", "references", "search.md"),
 	}
 	for _, path := range paths {
 		body, err := os.ReadFile(path)
