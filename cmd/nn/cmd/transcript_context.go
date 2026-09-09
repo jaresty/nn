@@ -113,12 +113,13 @@ func buildTranscriptContext(session, id string, last, page int, snapshot string)
 	if e != nil {
 		return empty, e
 	}
-	result, e := buildLedgerPage(path, id, schemaPi, tail.DetailStatus, fields, true, events, page, snapshot, "", false)
+	schema := classifyTranscript(path)
+	result, e := buildLedgerPage(path, id, schema, tail.DetailStatus, fields, true, events, page, snapshot, "", false)
 	if e != nil {
 		return empty, e
 	}
 	if e = saveCapturedPages(result, request, capture, func(n int) (ledgerPage, error) {
-		return buildLedgerPage(path, id, schemaPi, tail.DetailStatus, fields, true, events, n, result.Snapshot, "", false)
+		return buildLedgerPage(path, id, schema, tail.DetailStatus, fields, true, events, n, result.Snapshot, "", false)
 	}); e != nil {
 		return empty, e
 	}
@@ -203,12 +204,13 @@ func buildReviewTails(session, queue, order, pattern string, limit int, cursor s
 		receipt["selected_assignments"] = assignmentCount
 	}
 	events = append([]ledgerEvent{receipt}, events...)
-	result, e := buildLedgerPage(path, "review_tails", schemaPi, "per_room", fields, payload, events, page, snapshot, "", false)
+	schema := classifyTranscript(path)
+	result, e := buildLedgerPage(path, "review_tails", schema, "per_room", fields, payload, events, page, snapshot, "", false)
 	if e != nil {
 		return empty, e
 	}
 	if e = saveCapturedPages(result, request, capture, func(n int) (ledgerPage, error) {
-		return buildLedgerPage(path, "review_tails", schemaPi, "per_room", fields, payload, events, n, result.Snapshot, "", false)
+		return buildLedgerPage(path, "review_tails", schema, "per_room", fields, payload, events, n, result.Snapshot, "", false)
 	}); e != nil {
 		return empty, e
 	}
@@ -234,6 +236,6 @@ func contextTail(capture *transcriptCapture, id string, last int, payload bool) 
 	if e != nil {
 		return ledgerPage{}, nil, e
 	}
-	result, e := buildQueriedLedgerPage(capture.Path, id, schemaPi, detail, fields, payload, events, 1, "", "", true, ledgerQuery{Last: last})
+	result, e := buildQueriedLedgerPage(capture.Path, id, classifyTranscript(capture.Path), detail, fields, payload, events, 1, "", "", true, ledgerQuery{Last: last})
 	return result, capture.digests(), e
 }

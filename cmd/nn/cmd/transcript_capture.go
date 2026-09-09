@@ -156,16 +156,6 @@ func newTranscriptCapture(session string) (*transcriptCapture, error) {
 	if e != nil {
 		return nil, e
 	}
-	pi := false
-	for _, r := range root.Records {
-		if r.Type == "session" || r.CustomType == "subagents:record" {
-			pi = true
-			break
-		}
-	}
-	if !pi {
-		return nil, fmt.Errorf("capture requires a Pi transcript")
-	}
 	input, _ := filepath.Abs(session)
 	c := &transcriptCapture{InputPath: input, Path: path, Sources: map[string]capturedTranscriptSource{path: root}, AuthPaths: map[string]string{}}
 	for _, loc := range piBackgroundLocators(root.Records) {
