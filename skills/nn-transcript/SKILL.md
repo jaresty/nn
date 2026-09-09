@@ -22,8 +22,7 @@ Use the binary, not raw-file scripts, for supported discovery, ownership, joins,
 ## Transcript Office — default entry experience
 
 The default entry experience is the **Transcript Office**: an LLM-mediated navigation and analysis
-surface, not an interactive CLI, terminal picker, or persistent TUI. Keep CLI details behind the
-conversation unless requested.
+surface, not an interactive CLI, terminal picker, or persistent TUI. Hide CLI mechanics unless requested.
 
 - **Browse / orient:** when the human names an explicit project, workspace, or office, resolve that
   target before generic recent-session discovery. Otherwise load discovery and run
@@ -38,9 +37,9 @@ conversation unless requested.
   never derive cursors from times. Load navigate, then review: Pi defaults to **Awaiting return**.
   Hierarchy stays under More → All rooms; nested managers open sub-offices.
 - **Already selected session/agent:** go directly to the relevant reference and command below.
-  Do not rescan a whole cohort merely to inspect a known thread.
+  Do not rescan for a known thread.
 - **Find an agent by launch name or description:** use `nn transcript ls` to select the parent
-  session, then inspect `nn transcript tree <session> --json` and match its recorded `description`.
+  session, then use `nn transcript tree <session> --description "<name>" --json`.
   This is metadata discovery: do not use `nn transcript search`, which searches event content and
   can match prompts, results, or the current conversation instead of the authoritative tree label.
 - **Locate a phrase inside event content:** use `nn transcript search "<literal query>" <root> --json`
@@ -59,6 +58,7 @@ branch references may dispatch to a command owner. Discover applicability with
 | Cohort / listing metadata | `nn skills get nn-transcript --reference discovery` | `nn transcript ls` |
 | Enter an office / hallway | `nn skills get nn-transcript --reference navigate` | Awaiting return; tree for All rooms |
 | Unclosed Work Desk / review patterns / correction drafts | `nn skills get nn-transcript --reference review` | `nn transcript review` (deterministic Pi evidence) |
+| Attention signals | `nn skills get nn-transcript --reference attention` | `nn transcript attention` |
 | Assignment versus recent work | `nn skills get nn-transcript --reference context` | `nn transcript context` (recorded launches + bounded tail) |
 | Enter one room | `nn skills get nn-transcript --reference rooms` | Bounded `events --last 5` Situation Board |
 | Scan or rearrange any view | `nn skills get nn-transcript --reference lenses` | Preset, blank, inferred, or user-defined lens |

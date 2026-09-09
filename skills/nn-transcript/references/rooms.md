@@ -12,6 +12,11 @@ inspection envelopes, and Back; this reference owns room-entry presentation.
 Load **events** before event retrieval, **handoffs** before lifecycle claims, **summaries** before
 usage/tool/timing reductions, and **lenses** for shared projection rules.
 
+## Attention evidence
+
+Load **attention** when entering via a signal. Show its policy identity, ratio, counts, window, and
+limitations; bind **Inspect evidence** to the exact retained attention snapshot and room, not a fresh tail.
+
 ## Initial room entry
 
 Choose the initial evidence from the active question/action. For assignment alignment, load **context**

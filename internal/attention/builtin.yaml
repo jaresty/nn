@@ -1,0 +1,18 @@
+id: low-edit-ratio
+version: 1
+scope:
+  task: implementation
+window:
+  last_work_events: 100
+parameters:
+  minimum_commands: 30
+  minimum_edit_ratio: 0.05
+rule: |
+  attention(Thread, "Low observed edit-to-command ratio") :-
+    command_count(Thread, Commands),
+    edit_command_ratio(Thread, Ratio),
+    parameter(minimum_commands, Minimum),
+    parameter(minimum_edit_ratio, Threshold),
+    Commands >= Minimum,
+    Ratio < Threshold,
+    classification_complete(Thread).

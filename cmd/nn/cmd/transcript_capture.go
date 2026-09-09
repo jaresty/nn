@@ -24,13 +24,14 @@ type capturedTranscriptSource struct {
 	Raw         []byte      `json:"bytes"`
 }
 type transcriptCapture struct {
-	Ledgers   map[string][]ledgerRecord           `json:"-"`
-	Details   map[string]string                   `json:"-"`
-	InputPath string                              `json:"input_path"`
-	ID        string                              `json:"-"`
-	Path      string                              `json:"path"`
-	Sources   map[string]capturedTranscriptSource `json:"sources"`
-	AuthPaths map[string]string                   `json:"authenticated_paths"`
+	Ledgers        map[string][]ledgerRecord           `json:"-"`
+	Details        map[string]string                   `json:"-"`
+	InputPath      string                              `json:"input_path"`
+	ID             string                              `json:"-"`
+	Path           string                              `json:"path"`
+	Sources        map[string]capturedTranscriptSource `json:"sources"`
+	AuthPaths      map[string]string                   `json:"authenticated_paths"`
+	AgentSelection []string                            `json:"agent_selection,omitempty"` // nil retains the legacy full capture
 }
 type captureBinding struct {
 	Capture, Request string
@@ -147,6 +148,13 @@ func parseCapturedRecords(b []byte) ([]rawRecord, error) {
 }
 
 func newTranscriptCapture(session string) (*transcriptCapture, error) {
+	return newTranscriptCaptureForAgents(session, nil)
+}
+
+// A non-nil selection limits sidechain I/O, not root authority: retain the entire
+// root prefix for identity/ownership, but do not open unrelated sidechains.
+// Existing capture callers retain the original all-sidechains behavior.
+func newTranscriptCaptureForAgents(session string, selected map[string]bool) (*transcriptCapture, error) {
 	cleanupTranscriptCaptures()
 	path, e := contextPath(session)
 	if e != nil {
@@ -158,7 +166,16 @@ func newTranscriptCapture(session string) (*transcriptCapture, error) {
 	}
 	input, _ := filepath.Abs(session)
 	c := &transcriptCapture{InputPath: input, Path: path, Sources: map[string]capturedTranscriptSource{path: root}, AuthPaths: map[string]string{}}
+	for id, include := range selected {
+		if include {
+			c.AgentSelection = append(c.AgentSelection, id)
+		}
+	}
+	sort.Strings(c.AgentSelection)
 	for _, loc := range piBackgroundLocators(root.Records) {
+		if selected != nil && !selected[loc.AgentID] {
+			continue
+		}
 		safe := validatePiSidechainPath(loc.Path, loc.AgentID)
 		if safe == "" {
 			continue
@@ -172,12 +189,7 @@ func newTranscriptCapture(session string) (*transcriptCapture, error) {
 		}
 		c.AuthPaths[loc.Path+"\x00"+loc.AgentID] = safe
 	}
-	b, e := json.Marshal(c)
-	if e != nil {
-		return nil, e
-	}
-	c.ID = captureHash(b)
-	if e = writeCaptureFile(c.ID+".json", b); e != nil {
+	if e = saveTranscriptCapture(c); e != nil {
 		return nil, e
 	}
 	c.indexLedgers()
@@ -384,7 +396,7 @@ func cleanupTranscriptCaptures() {
 		return
 	}
 	for _, entry := range entries {
-		if !(strings.HasSuffix(entry.Name(), ".json") || strings.HasSuffix(entry.Name(), ".binding") || strings.HasSuffix(entry.Name(), ".page") || strings.HasSuffix(entry.Name(), ".hallway")) {
+		if !(strings.HasSuffix(entry.Name(), ".json") || strings.HasSuffix(entry.Name(), ".binding") || strings.HasSuffix(entry.Name(), ".page") || strings.HasSuffix(entry.Name(), ".hallway") || strings.HasSuffix(entry.Name(), ".attention")) {
 			continue
 		}
 		info, e := entry.Info()

@@ -39,6 +39,11 @@ not inferred activity. Both belong here. Missing returns do not establish runtim
 Keep **More → All rooms** for the full hallway and hierarchy below. Non-Pi support remains
 explicitly limited to the hallway; do not substitute an empty awaiting-return view.
 
+## Attention signals
+
+Load **attention** before evaluating or displaying signals. Keep **More → Attention signals** available
+for explicitly selected rooms, including returned rooms. Do not scan automatically on Office entry.
+
 ## Unclosed Work Desk
 
 For explicitly requested open-handoff review or course-correction inspection, load **review** and use the native

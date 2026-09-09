@@ -68,6 +68,11 @@ message timestamps are milliseconds. Unknown times sort last; ties use canonical
 `last_observed_event_id` identifies the ledger message containing that work (including tool blocks).
 Timestamp, kind, and `recency_basis: work` describe retained observation, not process activity.
 
+## Attention badges
+
+Load **attention** before attaching a retained match to an Awaiting return room. Preserve the existing
+membership/order; label separately captured observations. No badge does not mean healthy or evaluated.
+
 ## Desk actions
 
 Default to **Inspect recent work**, **Find patterns…**, **More…**, with **Back** and

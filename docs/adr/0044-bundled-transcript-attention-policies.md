@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted architectural direction; not implemented. The illustrative language, metrics, thresholds,
-and evaluator integration below require validation before becoming a public contract.
+Implemented direction with provisional thresholds; verification and performance measurements accompany
+this increment. The normative v1 command/metric contract is in the [attention reference](../../skills/nn-transcript/references/attention.md).
+The original arithmetic example below records intended semantics, not executable syntax.
 
 Related: [ADR-0043: Intent-preserving transcript discovery](0043-intent-preserving-transcript-discovery.md)
 and [ADR-0042: Transcript navigator](0042-transcript-navigator-duckdb-spine.md).
@@ -40,6 +41,17 @@ A match is an attention suggestion, not a diagnosis or an instruction to act on 
 Initially, load only bundled definitions. Do not add user-policy discovery, notebook activation,
 general configuration commands, background monitoring, or automatic notifications in this increment.
 Do not make this a mandatory global alert: evaluation is explicitly scoped to selected work.
+
+### Supported sources and initial interface
+
+Support both Pi and Claude transcript families using existing ownership adapters. Claude SDK-layout
+child files are supported; inline Claude child identities without recoverable child work remain explicitly
+indeterminate. Never evaluate ROOT's work as a substitute for unavailable child evidence.
+
+The initial command requires 1–20 explicit room IDs, in input order, and an explicit task classification
+for policy applicability. Returned rooms are eligible for selection. No implicit office-wide expansion
+or change to existing handoff queues occurs. The Office may offer subsequent bounded cohorts using its
+existing discovery pages; each evaluation discloses its selected and unevaluated population.
 
 ### 2. Retain the wrapper plus Datalog-style rule shape
 
@@ -87,6 +99,18 @@ intended semantics; it does not authorize publishing unsupported syntax. If nece
 existing implementation narrowly or express the operation through a supported safe numeric relation,
 with regression tests preserving existing notebook behavior. Neither a fresh parser nor a hard-coded
 policy-specific detector is an acceptable workaround for unsupported illustrative syntax.
+
+### Implemented rule binding
+
+The bundled YAML definition lives in `internal/attention/builtin.yaml`. Its `rule` body is parsed directly
+by `rules.ParseRule` and evaluated by a new isolated `rules.Engine`; no shared parser/evaluator changes
+were needed. Native facts provide `edit_command_ratio(Thread, Ratio)`; `parameter(key, Value)` facts bind
+validated numeric parameters, and the rule uses `Commands >= Minimum` and `Ratio < Threshold`.
+
+V1 admits one nonrecursive clause over singleton metrics and named parameters, with bounded body/definition
+sizes and strict wrapper validation. Unsupported predicates, unsafe operands, and unknown wrapper fields
+fail explicitly. This is an admission layer over the existing AST, not a second Datalog parser. General
+user definitions remain disabled.
 
 ### 3. Define evidence before interpreting the ratio
 
