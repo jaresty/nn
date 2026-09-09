@@ -6,6 +6,8 @@ applies_when: "When inspecting unclosed handoffs, opening the Unclosed Work Desk
 # Transcript Review Queue / Unclosed Work Desk
 
 Use the selected discovery row's exact canonical path. The CLI performs no LLM work.
+Load `nn skills get nn-transcript --reference interaction` for action targeting, inspection envelopes,
+retained view records, and Back. This reference owns desk population and evidence-guided Find.
 
 ```bash
 nn transcript review <session> --queue open-handoff --order observed-recent --limit 20 --json
@@ -60,9 +62,10 @@ Timestamp, kind, and `recency_basis: work` describe retained observation, not pr
 
 ## Desk actions
 
-Default to **Inspect recent work**, **Draft correction…**, **Find patterns…**, **More…**, with **Back** and
+Default to **Inspect recent work**, **Find patterns…**, **More…**, with **Back** and
 **End** visible. Promote stronger evidence-based suggestions under the core's suggested-action contract;
-keep displaced controls and **Capture…** under More. A useful supported finding may promote
+keep displaced controls and **Capture…** under More. Promote **Draft correction…** only for a supported
+concern after adequate assignment inspection, not on an empty result. A useful supported finding may promote
 **Capture this insight**, which opens a proposal rather than writing a note. Show at most three standout cards and explicit displayed/omitted counts. Keep exact
 picker labels. Position may encode observation time only when the legend says so; do not use red/green
 as an implicit stuck/running signal. Hierarchy and archive remain reachable under More….
@@ -90,9 +93,24 @@ required. Use JSON for exact evidence when a conclusion depends on clipped text.
 pages produce no partial text. Report display truncation as an inspection limit, not complete semantic
 coverage merely because transport is complete.
 
-## Find patterns…
+## Find: evidence-guided discovery
 
-Deterministic quick patterns are native filters over the chosen queue:
+Find is an intent, not a compulsory filter chooser. Resolve the current room/desk and inspection
+envelope through **interaction**. If the action already names approved room, sample, and follow-up
+bounds, selecting it executes without another confirmation. Otherwise offer one concrete bounded
+inspection action, not a list of technical pattern categories. Preserve active filters; an empty
+filter never silently falls back to the underlying desk.
+
+Use `review --last N --format text` for a bounded readable sample. Explain supported observations,
+separate candidate patterns from conclusions, and nominate one useful exact event/assignment when
+needed. Within the envelope, retrieve complete exact-event evidence with `events --event ID --payload
+--json`, following transport rules. Stop at sufficient evidence, exhaustion, or unavailability. Do not
+infer a blocker from a failed command before inspecting its cause/recovery, or poor productivity from
+read-heavy work. Repeated message/result representations are not repeated attempts. Say 'nothing
+compelling in this sample' when appropriate; capture useful discoveries as approval-only proposals.
+
+The following deterministic quick patterns are optional native filters over the chosen queue, not
+semantic diagnoses or a mandatory menu:
 
 ```bash
 nn transcript review <session> --queue open-handoff --pattern repeated-tools --limit 20 --json
@@ -105,8 +123,10 @@ A new pattern selection acquires a new snapshot; disclose this rather than claim
 snapshot was reused. Never silently widen the queue or selected session.
 
 Semantic questions (instruction drift, shared blockers, duplicated investigation) are LLM-owned.
-Confirm a bounded plan naming the eligible IDs, number of rooms, and last-5-event window. Use the native
-bundle instead of an agent loop or a Python collector:
+Use the approved inspection envelope, distinguishing the initial sample from bounded follow-up.
+If only a last-5-event window was approved, do not invent additional authorization. Selecting a concrete
+bounded proposal is its approval, not the start of another confirmation loop. Prefer the readable native
+bundle above; lossless JSON remains available when the evidence requires it:
 
 ```bash
 nn transcript review <session> --queue open-handoff --limit 3 --last 5 --payload --json

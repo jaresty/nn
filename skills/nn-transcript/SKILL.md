@@ -103,8 +103,8 @@ views; the separate semantic thread-layout contract below governs findings insid
 
 ### Semantic thread layouts
 
-On `:enter`, show 2–4 salient findings in a meaningful spatial diagram, not a status list dressed
-with icons. Choose axes suited to the question and available evidence; no fixed axis pair is required.
+For a requested or delegated spatial lens, show supported findings in a meaningful spatial diagram,
+not a status list dressed with icons. Plain room entry is neutral and readable under **rooms**.
 
 - **Declare both axes** and their direction, categories or units before the diagram. Position must
   encode those meanings consistently, not arbitrary quadrants, padding, or decorative placement.
@@ -131,13 +131,13 @@ The owning navigate reference demonstrates application; its examples do not pres
 
 Copy the cohort's identities and authority-qualified values unchanged. Every mark must attach to
 an actual returned session. `◈` is relative to this cohort. `↻×N` must name N sessions and initially
-assert only deterministic recorded shapes—not behavioral recurrence. Behavioral patterns require
-reading the selected whole sessions through the patterns workflow. Do not infer edges from previews.
+assert only deterministic recorded shapes—not behavioral recurrence. Bounded candidate patterns require inspected evidence and explicit limits;
+whole-session or cross-session behavioral conclusions require the **patterns** workflow. Do not infer edges from previews.
 If a view invents identity, topology, or measurement, discard it and redraw from authoritative output.
 
 ## Navigation loop and capture
 
-For human-driven navigation, **every navigable surface** uses a visible action rail with two or three high-value actions exposed **directly**, followed by **More…** for **uncommon** controls; **Back**
+For human-driven navigation, **every navigable surface** uses a visible action rail with up to three high-value actions exposed **directly**, followed by **More…** for **uncommon** controls; **Back**
 and **End** remain visible outside the overflow. An ordinary action requires at most one intermediate chooser. `More…` may expose context-appropriate **Scan this level…**, **Change lens…**, hierarchy,
 refresh, and advanced operations that are not already direct shortcuts. An **ellipsis** means the
 operation needs more input and opens a chooser; a label without one executes immediately. Keep
@@ -150,8 +150,8 @@ Use these level-specific defaults when no stronger evidence-based suggestion is 
 - **Room** — `Orient me`, `Choose lens…`, `Inspect event…`, `More…`.
 - **Selected event** — `Explain`, `Compare…`, `Inspect payload`, `More…`.
 
-Before promoting suggestions or offering/acting on capture, load
-`nn skills get nn-transcript --reference actions`. Evidence-based suggestions may replace the defaults;
+Before navigating, load `nn skills get nn-transcript --reference interaction` for targeting, view state,
+and inspection authorization. For suggestions/capture load `nn skills get nn-transcript --reference actions`;
 **Capture…** is always available under More or via “capture that”, but writes require proposal approval.
 
 Compact default surfaces show **at most three standout** entities and an **explicit omitted count**;

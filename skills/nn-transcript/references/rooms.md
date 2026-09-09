@@ -5,26 +5,29 @@ applies_when: "When entering one authenticated agent room, rearranging its Situa
 
 # nn-transcript / rooms — Situation Board
 
-A room is the analytical destination, not a continuation of the office metaphor. On entry, show a
-**Situation Board**: a bounded, evidence-backed spatial projection for one authenticated agent.
+A room is the analytical destination, not a continuation of the office metaphor. Its **Situation Board**
+starts as a neutral readable orientation; a requested/delegated lens may make it spatial.
+Load `nn skills get nn-transcript --reference interaction` for target resolution, retained views,
+inspection envelopes, and Back; this reference owns room-entry presentation.
 Load **events** before event retrieval, **handoffs** before lifecycle claims, **summaries** before
 usage/tool/timing reductions, and **lenses** for shared projection rules.
 
 ## Initial room entry
 
-Retrieve a metadata-oriented bounded tail:
+Retrieve a bounded readable tail within the inspection envelope:
 
 ```bash
-nn transcript events <session> <agent-id> --last 5 --json
+nn transcript events <session> <agent-id> --last 5 --format text --max-text-chars 1000
 ```
 
 State the room identity, snapshot, matching and returned event counts, and whether older matching
 events exist. Initial entry shows a **neutral five-event orientation** in canonical ledger order; it
 **does not choose a lens**, infer salient dimensions, or select axes unless the entering request also
-said `orient me`, `choose for me`, or supplied an explicit lens. Then offer lens choices. Do not request
-payloads by default. Inspect an exact event with `--event <event-id> --payload` when its content matters.
-A comparison request lacking **comparison operands** opens a chooser rather than inventing a comparison
-set.
+said `orient me`, `choose for me`, or supplied an explicit lens. State what the visible content supports
+and its truncation limits, then offer a concrete useful next action; do not require another 'orient me'
+turn or a lens chooser. Inspect an exact event with `--event <event-id> --payload` when its content
+matters and the envelope permits. A comparison lacking **comparison operands** in both the request
+and a displayed bound action opens a chooser; do not invent its comparison set.
 
 After a lens is selected, state the active lens, declared axes, selected filters, and evidence boundary.
 The default board may use canonical ledger order × evidence kind, but user-defined arrangements are
@@ -34,7 +37,7 @@ label interpreted dimensions.
 
 ## Situation Board grammar
 
-Keep the room identity separate from plotted findings. Declare both axes and every mark. Useful
+When rendering a spatial lens, keep the room identity separate from plotted findings. Declare both axes and every mark. Useful
 presets include timeline, evidence strength, failure surface, handoffs, work products, cost, timing,
 claim map, and explicit dependencies, but they are not exhaustive.
 

@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted architectural direction; implementation pending except for the delivered foundations
-listed below. Candidate signals, sampling strategies, thresholds, and command/schema designs remain
+Accepted architectural direction. The baseline-A skill contract and native capability/contract tests
+are implemented; controlled conversational evaluation and conditional follow-on primitives remain pending.
+See [baseline A implementation and evaluation boundary](../transcript-interaction-baseline.md). Candidate signals, sampling strategies, thresholds, and command/schema designs remain
 provisional. This record does not authorize automatic notebook writes, correction delivery, or runtime
 control.
 
@@ -63,10 +64,18 @@ Maintain selected conversation, room, and event; current surface; queue/filter; 
 question/lens; recommended action and exact target; retained evidence identifiers; newer overlays;
 and Back history. The state is conversational, not a claim of a persistent host UI or open windows.
 
-Show a compact breadcrumb and selected target. Resolve commands using explicit operands first, then
-an applicable selected target, then a unique applicable recommendation. If those do not resolve the
-intent without changing scope, ask one focused clarification. Never infer a target from an empty filter
-by silently returning to an unfiltered population.
+Show a compact breadcrumb and selected target. Bind every promoted action to a verb, exact target,
+selection options, and evidence identity. Resolve explicit operands first, then the uniquely displayed
+matching action, then an applicable selected target. A background selection must not override the
+visible action's promise. If these do not resolve intent without changing scope, ask one focused
+clarification. Never silently clear an empty filter to borrow a target from the underlying desk.
+
+Retain a view record containing the rendered findings, breadcrumb, selection, scope, question/lens,
+action bindings, evidence references, and previous-view identity. A snapshot alone cannot restore the
+LLM's interpretation or action choices. Back replays that record without regeneration. Preserve the
+record or its session-artifact path across compaction. If it is missing, disclose that exact restoration
+is unavailable and offer explicit reconstruction; do not silently regenerate. Expired evidence prevents
+new evidence inspection but need not prevent replay of a retained rendered view, labeled as historical.
 
 - **Open** executes the selected target; **Open...** selects a different target.
 - **Find** performs a bounded evidence-guided diagnostic within established scope rather than requiring
@@ -128,8 +137,16 @@ score. Unknown shell effects must not be silently classified as non-edit. Assign
 are necessary before interpreting edit activity. Counts from overlapping windows are not independent
 corroboration.
 
-The LLM inspects nominated exchanges and, if useful within scope, follows up with assignment context,
-an exact result, or a bounded adjacent exchange. A small exploratory sample is a candidate way to avoid
+Separate the initial sample from the authorized inspection envelope. The envelope names the exact
+room set, initial window, permitted follow-up kinds/counts, cumulative context/output budget, freshness
+policy, and stop conditions. Approval of an envelope permits its bounded read-only follow-up without
+repeated confirmations. Approval of only an initial sample does not authorize unspecified expansion.
+When no envelope exists, state a concrete bound and obtain agreement through the selected action.
+
+The LLM inspects nominated exchanges and follows up with assignment context, an exact result, or a
+bounded adjacent exchange only within that envelope. Stop when there is enough evidence for a useful
+next action, the budget is exhausted, or the needed evidence is unavailable. Ask before enlarging the
+room set, follow-up budget, or other authorization boundary. A small exploratory sample is a candidate way to avoid
 signal-selection bias; its size, selection strategy, reproducibility, and efficacy require evaluation.
 No fixed three-room/five-event policy or specific ranking algorithm is adopted here.
 
@@ -201,35 +218,42 @@ or schema is specified by this ADR.
 
 ### Pending work and ordered continuation
 
+The interaction-only baseline is a real delivery, not a prerequisite for an already-chosen metrics
+pipeline. Evaluate each increment before committing to the next. Native summaries and exchange
+retrieval are conditional on a demonstrated limitation of existing commands.
+
 1. **Reconcile state and interaction contracts.** Inventory conflicting fixed-menu/metadata-first rules
    across the core and references. Define selection, scope, recommendation targeting, breadcrumbs,
    and exact Back transitions. Preserve the compact-core/lazy-reference contract.
    Acceptance: replay Open/Find/Inspect/Back without unnecessary choosers or silent filter clearing.
-   Next: use this state model to bind the single-room pilot.
-2. **Implement one-room activity evidence.** Specify invocation identity, classification and unknowns,
-   equality rules, window bounds, and count denominators before adding a native summary.
-   Acceptance: duplicates do not inflate counts; shell ambiguity and missing joins remain unknown;
-   read-only work is not scored poorly for lacking edits. Then nominate exact source evidence.
-3. **Implement bounded exchange retrieval.** Retrieve a selected invocation/result plus limited
-   surrounding activity from retained evidence. Design limits and option/snapshot binding explicitly.
-   Acceptance: stable continuation after append/deletion; missing/ambiguous/out-of-window joins remain
-   qualified; no partial publication after corrupt/missing pages; readable output requires no script.
-   Next: expose direct inspection from a finding.
-4. **Close the semantic loop.** Combine activity hints, bounded exchange inspection, and optional
-   approved exploratory sampling. Offer a concrete recommendation, not a compulsory filter choice.
-   Acceptance: distinguish observation/hypothesis/finding, report inspection limits, and allow 'nothing
-   compelling'. Consult assignment context before drift/low-edit judgments. Then test capture proposals
-   and cancellation while preserving navigation state.
-5. **Add and benchmark handoff overlays.** Define retained-versus-new evidence and unavailable/error
-   behavior before enabling entry-time checks. Acceptance: a return during navigation is shown without
-   implying success or rewriting Back. Then evaluate the end-to-end pilot.
-6. **Evaluate against recent-tail inspection.** Run both approaches over the same retained conversations
-   with declared comparable room/context budgets, including clean read-only work, productive edit/test
-   cycles, unchanged retries, recovered failures, shell edits, missing evidence, and useful discoveries.
-   Measure useful supported findings, false alarms, context consumed, processing/replay latency, and
-   user turns. Record truncation, omissions, and reviewer judgment basis. Report unfavorable results.
-   Expand to multi-room prioritization only if the pilot justifies the added complexity; otherwise
-   revise selection/context before adopting thresholds or a dashboard.
+   Next: freeze replay cases and evaluation criteria before adding evidence machinery.
+2. **Deliver baseline A using existing commands.** Combine sticky selection, action bindings, readable
+   recent evidence, exact-event inspection, assignment context when authorized, and retained-view Back.
+   Exercise a stale selected event A with a visible Inspect B action, empty-filter Inspect, sample versus
+   follow-up authorization, capture cancellation, compaction loss, and a failure hidden by truncation.
+   Acceptance: explicit operands win; Inspect follows the visible action; no silent scope expansion;
+   no automatic notebook write; no regenerated Back; no scripts for ordinary reading. A useful finding
+   cites enough retained evidence for its conclusion and recommends a relevant next action. A false
+   alarm asserts a concern unsupported by inspected evidence; unnecessary follow-up consumes retrieval
+   without resolving a declared uncertainty. Record those judgments, not just counts.
+3. **Evaluate A before choosing increment B.** Use a fixed retained test set and declared comparable
+   room/context budgets. Compare the prior recent-tail/menu baseline against A, then compare any new
+   selection primitive B against A, so interaction gains cannot be misattributed to new metrics. Include
+   read-only work, productive edit/test cycles, repeated/recovered failures, shell ambiguity, missing
+   evidence, and useful discoveries. Record supported findings, false alarms, context, latency, and user
+   turns. No identity/authorization/Back regression is acceptable. Declare a target bottleneck and a
+   measurable success criterion before B; report trade-offs and unfavorable results rather than assuming
+   more plausible findings means improvement. If A suffices, stop without adding B.
+4. **Add only a demonstrated missing primitive.** If A cannot retrieve the required coherent evidence
+   within budget, design bounded invocation/result plus surrounding retrieval. If candidate selection
+   is the measured bottleneck, trial activity hints with defined invocation identity, unknown classifier
+   cases, equality, windows, and denominators. These are alternatives, not mandatory sequential features.
+   Acceptance includes no duplicate count inflation, no guessed joins/shell effects, source identities,
+   snapshot integrity, and stable bounded transport. Evaluate B against A before extending.
+5. **Test freshness overlays separately.** They are not a prerequisite for discovery evaluation. Define
+   old/new identities, unavailable/error and latency behavior before enabling entry-time checks. A return
+   during navigation must not imply success or rewrite Back. Until this increment passes, make refresh
+   explicit and retain the older view as historical. Continuous watching remains out of scope.
 
 For executable changes, use assertion-specific regression tests and isolated mutations, then normal/race
 suites, vet, diff hygiene, installation, and realistic live/retained replay measurements. Documentation
@@ -241,11 +265,14 @@ checks validate dispatch and consistency, not semantic recommendation quality.
 - Window size/overlap, exploration sampling strategy, and follow-up/context budgets.
 - Native API/schema names, cache reuse, and processing limits for activity/exchange projections.
 - How assignment classification is evidenced and how updates affect interpretation.
-- Metrics for useful semantic findings and evaluation acceptance criteria; no validated thresholds yet.
+- Pilot dataset, quantitative improvement targets, and reviewer agreement; qualitative acceptance
+  criteria above are fixed, but no validated metric thresholds exist.
 - Persistent cross-conversation UI state, watch scheduling, and runtime control remain outside scope.
 
 ### Immediate next action
 
-Start with step 1 and freeze concrete conversational replay cases before implementing step 2.
-The first delivery is one room -> activity summary -> coherent exchange -> qualified semantic finding
--> direct Inspect, with exact Back and approval-only capture. Do not begin with a dashboard.
+The view/action and inspection-envelope contracts now ship with baseline A's existing-command path:
+one room -> readable evidence -> qualified finding -> direct Inspect -> exact Back. Run the retained
+conversational replay cases in the linked baseline document; contract/native tests alone do not establish
+model compliance or comparative benefit. Earn any new selection primitive through A's measured
+limitations, not by assuming new summaries are necessary. Do not begin with a dashboard.

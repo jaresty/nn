@@ -29,29 +29,37 @@ If part of a requested lens is unsupported, preserve the useful remainder and na
 inference. For example, recorded interruptions and timing gaps may be shown while provider-retry
 causality remains unavailable.
 
+Load `nn skills get nn-transcript --reference interaction` for action targeting, inspection envelopes,
+and retained views. This reference owns lens selection and spatial interpretation, not Find discovery.
+
 ## Shared intent and transition grammar
 
 **Incomplete operations open choices.** Bare `scan`, `change lens`, `another view`, and `compare`
-requests transition to a context-appropriate chooser; they never authorize the LLM to supply missing
-axes, lens, or comparison operands. **Explicit operands execute directly**: for example, `scan by
+requests with unresolved operands transition to a context-appropriate chooser. Operands already bound
+by a uniquely displayed matching action are resolved: selecting its verb executes it, even when a
+background selection differs. Do not invent otherwise-missing axes, lens, or comparison operands.
+**Explicit operands execute directly**: for example, `scan by
 cost`, `group by manager`, or `compare report with result` applies the named operation.
 
-**Attention questions** such as “what stands out?” or “what needs attention?” delegate selection of a
-cheap metadata-safe lens and may render immediately. **Suggestions require approval**: `suggest a
+Without an approved semantic inspection envelope, **Attention questions** such as “what stands out?”
+or “what needs attention?” delegate a cheap metadata-safe lens and may render immediately. Within an
+approved envelope, **review** owns evidence-guided discovery; do not replace it with a filter chooser. **Suggestions require approval**: `suggest a
 scan` presents candidate scans in the chooser rather than creating a separate proposal screen.
 **Selecting a suggested scan** is the human's **approval** and **applies it directly**, so suggestion
 never adds a second confirmation menu. **Delegated choice** such as “choose for
 me” or “orient me” authorizes selecting and rendering a supported lens. Navigation requests such as
 “show background workers” select only the population; they do not silently choose a lens.
 
-A comparison request without **comparison operands** opens a chooser for the comparison set. `Back`
+A comparison request without **comparison operands** in either the utterance or a uniquely displayed
+bound action opens a chooser for the comparison set. `Back`
 and `Refresh` are navigation/state operations, not implicit new lens requests.
 
 ## Level-aware scan activation
 
 At a conversation lobby, office hallway, or nested team, **attention-oriented language** such as
 “what needs attention?”, “anything interesting?”, or “what stands out?” must **automatically render**
-a cheap **metadata-only** scan at the **current level**.
+a cheap **metadata-only** scan at the **current level** when no semantic envelope is approved.
+An approved Find envelope instead follows **review** for bounded semantic discovery.
 Do not require the human to know the term Office Scan. Use only already retrieved authoritative
 identity, topology, parentage, lifecycle, measured-cost, and missing-value fields; do not infer drift,
 failure, groundedness, waste, or current activity.

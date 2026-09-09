@@ -11,6 +11,9 @@ is the argument to every transcript command. Render the **Transcript Office** ha
 optional lenses, and enter room Situation Boards. **Discovery** owns listing metadata; **rooms** owns the
 single-agent destination; **lenses** owns the shared open projection language.
 
+Load `nn skills get nn-transcript --reference interaction` for shared action targeting, retained view
+records, inspection authorization, and exact Back. This reference owns office topology/navigation.
+
 ## Command owners
 
 Before the relevant command, load **handoffs** for descriptions, launch/return and lifecycle scope;
@@ -29,8 +32,9 @@ unsupported, which must be reported rather than silently substituted.
 
 For open-handoff review or course-correction inspection, load **review** and use the native
 `nn transcript review <session> --queue open-handoff --limit 20 --json` projection. This is a review
-population, not spawn topology or runtime liveness. Expose **Inspect recent work**, **Draft correction…**,
-and **Find patterns…** directly; **More…** contains archive and hierarchy. Semantic scans and correction
+population, not spawn topology or runtime liveness. Promote supported next actions; **Inspect recent work**
+and **Find patterns…** are fallbacks. **Draft correction…** is promoted only for an evidenced concern;
+**More…** contains archive, hierarchy, and displaced controls. Semantic scans and correction
 drafts remain LLM-owned. The review reference owns counts, authority, cursor, and refresh semantics.
 For explicit hierarchy navigation, retain the native hallway steps below.
 
@@ -86,7 +90,8 @@ These are evidence lanes, never alive/dead labels. A background launch is launch
 `completed` is producer lifecycle evidence rather than task success. Return and
 terminal occurrences remain independent and must not be inferred from each other.
 
-At office and nested-team scope expose `Attention`, `Scan…`, `Open room…`, and `More…` directly,
+At office and nested-team scope default to `Attention`, `Scan…`, `Open room…`, and `More…` when no
+stronger contextual action is available,
 with `Back` and `End` visible. `More…` owns uncommon hierarchy, refresh, and advanced-lens controls.
 An optional **Office Scan** applies a lens from **lenses** to this bounded evidence-qualified population.
 Question-first scans are allowed. State inspected, uninspected, omitted, and unknown counts. Entering
@@ -95,7 +100,7 @@ restores those exact retained scan coordinates. **Refresh** preserves the select
 **reacquires evidence**, explicitly replacing the mutable snapshot.
 
 2. **`:enter` one room — dispatch to the Situation Board.** Load **rooms**, **lenses**, and
-   **events**, then begin with `nn transcript events <session> <agent-id> --last 5 --json`. This
+   **events**, then follow **rooms** for a neutral readable `--last 5` orientation. This
    bounded view supports initial orientation and conversational rearrangement without fetching the
    whole thread. Offer an explicitly refreshed `--last 20` replacement snapshot, not stable backward
    continuation. Metadata fallback is not evidence that the child did no work. Never execute commands
@@ -111,9 +116,9 @@ restores those exact retained scan coordinates. **Refresh** preserves the select
    Plain show is complete text; JSON requires every page and ordered segment under one snapshot
    before making whole-thread claims.
 
-   Answer one question: **what is worth attending to in THIS thread?** Read the selected events and
-   propose **2–4** salient dimensions, drawing from this palette or naming a novel one the thread
-   makes salient:
+   When the human requests or delegates a lens, answer **what is worth attending to in THIS thread?**
+   Read the selected evidence and propose supported dimensions (never fill a quota), drawing from
+   this palette or naming a novel one the evidence makes salient:
    - **instruction-drift** — did it do what its spawn prompt asked?
    - **context-re-derivation** — did it waste turns rediscovering already-known context?
    - **groundedness** — are claims backed by tool results, or asserted?
@@ -124,9 +129,9 @@ restores those exact retained scan coordinates. **Refresh** preserves the select
    spine-owned. Findings within this thread may have interpretive positions under the core's
    semantic thread-layout contract; they are not new agent positions or inferred spawn edges.
 
-3. **Draw the `:enter` dimension diagram** using the core's semantic thread-layout contract.
-   Select and declare meaningful axes and a compact channel legend before placing 2–4 salient
-   findings. Use evidence-grounded coordinates, not arbitrary quadrants or an icon-decorated list.
+3. **For a selected/delegated spatial lens, draw its dimension diagram** using the core's semantic
+   thread-layout contract. Select and declare meaningful axes and a compact channel legend before
+   placing supported findings. Plain entry does not require a diagram. Use evidence-grounded coordinates, not arbitrary quadrants or an icon-decorated list.
    Keep the selected thread identity visible separately. Make the qualifications behind placement
    legible, including missing evidence. No fixed axes are prescribed: the question determines the
    useful spatial model. The worked example is illustrative, not a default layout.

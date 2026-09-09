@@ -5,11 +5,16 @@ applies_when: "Before promoting suggested navigation actions, recommending captu
 
 ### Suggested actions and capture
 
-Promote two or three useful next actions based on inspected evidence and the human's current question,
+Load `nn skills get nn-transcript --reference interaction` for target binding, approved inspection
+envelopes, view retention, and Back. This reference owns recommendation quality and capture proposals.
+
+Promote up to three useful next actions based on inspected evidence and the human's current question,
 not a fixed menu. Name the concrete action: **Inspect the assignment**, **Compare these failures**,
 **Expand recent window to 20**, or **Capture this insight**. These suggestions may replace the defaults
 on any surface; displaced controls remain available under **More…**. Preserve **Back** and **End**.
-Do not invent a finding to fill an action slot. Suggestions never expand scope or execute themselves.
+Do not invent a finding to fill an action slot. One good action is enough. Suggestions never expand
+scope or execute themselves; selecting a bound action executes within its approved envelope. A bare
+verb follows the uniquely displayed matching action before any background selection.
 
 **Capture…** is always available under **More…**, and **capture that** works conversationally on every
 surface. Promote **Capture this insight** only when a specific, useful, well-supported candidate is

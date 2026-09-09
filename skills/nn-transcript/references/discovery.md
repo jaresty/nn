@@ -5,6 +5,11 @@ applies_when: "Before listing or interpreting discovery cohorts, cursors, cost/t
 
 # nn-transcript / discovery
 
+Load `nn skills get nn-transcript --reference interaction` for selected-target Open/Open… behavior,
+visible breadcrumbs, action binding, and exact retained-view Back. Preserve a visibly selected row;
+Open executes it without re-listing, while Open… chooses a different row. No selection or ambiguous
+target means one focused clarification. Echo numeric selections before retrieval, without another prompt.
+
 ## Find an agent by launch name
 
 Use `nn transcript ls <root> --json` to select the parent session, then
@@ -54,7 +59,7 @@ for an unmodified later message, `opening` when the opening remains selected, `i
 bounded shortening, or `untitled` when no usable user message exists (`recorded` remains reserved for
 future authenticated metadata). Display the label as primary identity and the exact session ID as
 secondary identity; never present interpreted text as recorded metadata. Keep the lobby compact: show
-at most three standout conversations plus the explicit omitted count, then the direct shortcuts
+at most three standout conversations plus the explicit omitted count, then contextual actions or fallback shortcuts
 `What stands out?`, `Scan…`, `Open conversation…`, and `More…`; keep `Back` and `End` visible.
 
 `conversation_kind` classifies each retained row as `conversation` or `sidechain`; Pi agent execution

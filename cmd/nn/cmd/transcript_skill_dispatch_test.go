@@ -121,7 +121,7 @@ func TestTranscriptScanDiscoverabilityContract(t *testing.T) {
 	assertContains("ASSERT_TRANSCRIPT_WHOLE_TREE_SEMANTIC_SCAN_REQUIRES_CONFIRMATION", navigate,
 		"explicit confirmation", "one inference pass per agent", "whole-tree semantic scan")
 	assertContains("ASSERT_TRANSCRIPT_ROOM_AND_EVENT_SCAN_CONTROLS", rooms,
-		"Every Situation Board uses direct", "Every **selected-event** detail uses direct", "Scan this level", "Change lens", "Back", "End")
+		"Situation Board fallback shortcuts", "Every **selected-event** detail defaults", "Promote stronger evidence-based next actions", "Scan this level", "Change lens", "Back", "End")
 	assertContains("ASSERT_TRANSCRIPT_INCOMPLETE_OPERATIONS_OPEN_CHOICES", lenses,
 		"Incomplete operations open choices", "scan", "change lens", "another view", "compare", "Explicit operands execute directly")
 	assertContains("ASSERT_TRANSCRIPT_SUGGESTION_DELEGATION_ATTENTION_DISTINCT", lenses,
@@ -133,7 +133,7 @@ func TestTranscriptScanDiscoverabilityContract(t *testing.T) {
 	assertContains("ASSERT_TRANSCRIPT_VIEWS_ACTION_RAIL_AND_ELLIPSIS", core,
 		"every navigable surface", "uses a visible action rail", "More…", "Back", "End", "Scan this level…", "Change lens…", "ellipsis", "entity picker labels")
 	assertContains("ASSERT_TRANSCRIPT_COMMON_ACTIONS_PRECEDE_MORE", core,
-		"two or three high-value actions", "directly", "More…", "uncommon")
+		"up to three high-value actions", "directly", "More…", "uncommon")
 	assertContains("ASSERT_TRANSCRIPT_ONE_INTERMEDIATE_MENU_MAX", core,
 		"at most one intermediate chooser")
 	assertContains("ASSERT_TRANSCRIPT_SELECTED_SUGGESTION_APPLIES", lenses,
