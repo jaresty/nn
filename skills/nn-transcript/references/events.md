@@ -21,6 +21,24 @@ response. Both reject explicit --page/--snapshot flags, and show --all requires 
 is the same as the equivalent bounded projection. --all changes transport, not source completeness.
 Default bounded modes remain unchanged and omit the all field.
 
+## Compact readable tails
+
+```bash
+nn transcript events <session> <agent-id> --last 8 --format text --max-text-chars 1000
+```
+
+Use this instead of `--all | jq` to obtain a readable recent tail. It selects the last N ledger events
+before rendering in canonical order; N is 1–200 (required). Includes message, tools, and lifecycle
+facets automatically. Message records and their tool-block events remain separate ledger events,
+not deduplicated turns. Assistant text, tool calls, results, and lifecycle status carry exact event IDs.
+The header carries the snapshot, returned count, omitted event count, and detail availability.
+Whitespace/control characters are flattened; each event is limited to 1–10000 readable characters
+(default 1000), with explicit `[truncated N chars]` markers. This is a lossy display, not an LLM summary.
+Use exact-event JSON with payload for complete evidence. Text mode rejects explicit JSON, select,
+payload, all, page, snapshot, event, at, and summary flags. Time and error filters remain available and
+apply before last-N selection. Default JSON is unchanged. Text snapshots are evidence identifiers,
+not a paging interface; refresh reruns the command.
+
 ## Structured event ledger
 
 Use `nn transcript events <session> <agent-id> --json` for deterministic event analysis instead

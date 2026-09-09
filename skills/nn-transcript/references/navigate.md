@@ -25,6 +25,15 @@ or a newly inferred current-project lobby. **Refresh** reacquires mutable eviden
 the selected scope and lens **without changing the lens** unless its required dimension becomes
 unsupported, which must be reported rather than silently substituted.
 
+## Unclosed Work Desk
+
+For open-handoff review or course-correction inspection, load **review** and use the native
+`nn transcript review <session> --queue open-handoff --limit 20 --json` projection. This is a review
+population, not spawn topology or runtime liveness. Expose **Inspect recent work**, **Draft correction…**,
+and **Find patterns…** directly; **More…** contains archive and hierarchy. Semantic scans and correction
+drafts remain LLM-owned. The review reference owns counts, authority, cursor, and refresh semantics.
+For explicit hierarchy navigation, retain the native hallway steps below.
+
 ## Steps
 
 1. **Tree overview (deterministic, trustworthy).**

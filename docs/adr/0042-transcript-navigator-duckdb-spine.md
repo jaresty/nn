@@ -154,6 +154,51 @@ schema. Node geography (spawn hierarchy on the Y bands, time on X, closed positi
 is deterministic and never moved by the skill layer; the skill may only light appearance
 and choose emphasis.
 
+### Project deterministic transcript review queues
+
+Add a pure-Go `nn transcript review` projection over normalized tree and handoff evidence. It performs
+no LLM work. Its initial conservative `open-handoff` predicate admits an agent only when at least one
+authenticated launch is retained and both terminal-occurrence and parent-return-occurrence counts are
+zero. Launch and return occurrence numbers remain independent and are never paired into inferred
+attempts. An agent with retained launches and returns whose occurrence relationship is not exactly
+authenticated belongs in `ambiguous-handoff`, never `open-handoff`. Neither queue asserts process
+liveness.
+
+Review pages carry readable evidence-qualified labels, last-observed timestamp/kind/basis, exact
+occurrence counts, eligible/returned/omitted counts, and an opaque cursor binding the transcript
+snapshot, queue, ordering, filters, and canonical eligible IDs. Deterministic quick patterns may count
+exact recorded events or explicitly specified algorithms; semantic patterns and course-correction
+judgments remain in the skill/LLM layer above this command.
+
+The initial executable review contract supports Pi and requires JSON, with queues `open-handoff`,
+`ambiguous-handoff`, and `archive` (all non-ROOT rooms). Ambiguity admits retained launches even when
+invocation authentication is unavailable; the separate authenticated count prevents promotion into
+open-handoff. All producer terminal records count regardless of status vocabulary. No attempt pairing
+is inferred. Work recency excludes lifecycle-only and user records, sorts known absolute timestamps
+newest first and unknown last, with ID tie-breaking; canonical ID ordering is also available.
+
+Pages default to 20 rows with a 1–200 limit. Cursor identity also binds page size. Accounting is
+`eligible = offset + returned + omitted`; `unknown` is an overlapping count across the full non-ROOT
+population, not an additional eligibility bucket. Source digests detect changes during collection and
+bind continuation. Labels preserve recorded/opening source provenance through deterministic shortening.
+Detailed launch/return occurrences remain in `events --at`, not unbounded review-card payloads.
+
+Quick pattern filters expose their algorithms: exact repeated tools and command strings (without shell
+normalization), explicit errors/interruptions, a 300-second observed-gap threshold, and missing evidence.
+The skill owns semantic interpretation and proposal-only course corrections. Changing a pattern acquires
+a new selection snapshot; Back restores retained state, and Refresh explicitly reacquires evidence.
+
+### Render bounded readable event tails
+
+`events --format text --last N --max-text-chars M` adds deterministic lossy rendering over native
+last-N selection, not a new semantic command. N is required and bounded to 1–200; M defaults to 1000
+and is bounded to 1–10000. The renderer exposes snapshot, detail availability, event IDs, returned and
+omitted counts, and per-event truncation markers. It includes tool facets and payloads automatically,
+preserves canonical ledger events (including message/tool-block distinctions), flattens terminal
+control characters, and never interprets content. Default JSON and existing event selection remain
+unchanged. Text disallows JSON paging/selection/export mode flags; exact-event JSON remains the
+lossless follow-up. This replaces unbounded exports followed by client-side tail slicing.
+
 ### Provide bounded native hallway projections
 
 `tree --summary --json` returns a bounded aggregate over the complete normalized relation: total

@@ -52,8 +52,27 @@ func newTranscriptEventsCmd() *cobra.Command {
 	var selection, snapshot, eventFilter, summary, groupBy, since, until, at string
 	var payload, asJSON, all, errorsOnly bool
 	var page, bucketSize, resultLimit, last int
-	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound normalized event ledger (JSON)", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, args []string) error {
+	var format string
+	var maxTextChars int
+	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound event ledger (JSON) or bounded readable tail", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, args []string) error {
 		summaryMode := c.Flags().Changed("summary")
+		if format != "json" && format != "text" {
+			return fmt.Errorf("events: --format must be json or text")
+		}
+		if format == "text" {
+			if last < 1 || last > 200 || maxTextChars < 1 || maxTextChars > 10000 {
+				return fmt.Errorf("events: text requires --last 1..200 and --max-text-chars 1..10000")
+			}
+			for _, flag := range []string{"json", "all", "page", "snapshot", "event", "at", "summary", "select", "payload"} {
+				if c.Flags().Changed(flag) {
+					return fmt.Errorf("events: text cannot combine with --%s", flag)
+				}
+			}
+			selection = "identity,message,tools,lifecycle"
+			payload = true
+		} else if c.Flags().Changed("max-text-chars") {
+			return fmt.Errorf("events: --max-text-chars requires --format text")
+		}
 		if c.Flags().Changed("last") {
 			if last <= 0 {
 				return fmt.Errorf("events: --last must be greater than zero")
@@ -191,9 +210,12 @@ func newTranscriptEventsCmd() *cobra.Command {
 			_, err = c.OutOrStdout().Write(body)
 			return err
 		}
-		result, err := buildQueriedLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all, query)
+		result, err := buildQueriedLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all || format == "text", query)
 		if err != nil {
 			return err
+		}
+		if format == "text" {
+			return renderLedgerText(c.OutOrStdout(), result, maxTextChars)
 		}
 		b, err := json.Marshal(result)
 		if err != nil {
@@ -202,6 +224,8 @@ func newTranscriptEventsCmd() *cobra.Command {
 		_, err = c.OutOrStdout().Write(append(b, '\n'))
 		return err
 	}}
+	c.Flags().StringVar(&format, "format", "json", "json or bounded readable text (text requires --last)")
+	c.Flags().IntVar(&maxTextChars, "max-text-chars", 1000, "per-event readable character limit, 1..10000 (text only)")
 	c.Flags().StringVar(&at, "at", "", "parent-side handoff occurrences: launch or return (Pi)")
 	c.Flags().StringVar(&since, "since", "", "inclusive RFC3339 lower event timestamp bound")
 	c.Flags().StringVar(&until, "until", "", "inclusive RFC3339 upper event timestamp bound")
@@ -215,7 +239,7 @@ func newTranscriptEventsCmd() *cobra.Command {
 	c.Flags().StringVar(&eventFilter, "event", "", "retrieve one exact event id, preserving its ledger ordinal")
 	c.Flags().StringVar(&selection, "select", "identity,message,usage,tools,lifecycle", "comma-separated facets; identity is always included")
 	c.Flags().BoolVar(&payload, "payload", false, "include native payloads (oversized events are fragmented)")
-	c.Flags().BoolVar(&asJSON, "json", true, "emit bounded JSON (the only output format)")
+	c.Flags().BoolVar(&asJSON, "json", true, "emit bounded JSON (default; use --format text for readable tails)")
 	c.Flags().IntVar(&page, "page", 1, "one-based page")
 	c.Flags().StringVar(&snapshot, "snapshot", "", "page-1 SHA-256; required for every later page")
 	return c

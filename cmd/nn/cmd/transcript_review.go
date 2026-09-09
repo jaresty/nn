@@ -1,0 +1,464 @@
+package cmd
+
+import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/spf13/cobra"
+)
+
+// Review is a retained-evidence projection, never a runtime control surface.
+// Counts describe observed records; zero does not assert source completeness.
+type reviewRow struct {
+	ID                    string  `json:"id"`
+	Parentage             string  `json:"parentage_status"`
+	Label                 string  `json:"label"`
+	LabelProvenance       string  `json:"label_provenance"`
+	LabelEventID          string  `json:"label_event_id"`
+	LaunchOccurrence      int     `json:"launch_occurrence"`
+	Launches              int     `json:"launches"`
+	AuthenticatedLaunches int     `json:"authenticated_launches"`
+	Returns               int     `json:"parent_returns"`
+	Terminals             int     `json:"terminals"`
+	Pairing               string  `json:"pairing"`
+	LastObservedAt        *string `json:"last_observed_at"`
+	LastObservedKind      string  `json:"last_observed_kind"`
+	LastObservedEventID   string  `json:"last_observed_event_id"`
+	RecencyBasis          string  `json:"recency_basis"`
+	Liveness              string  `json:"liveness_status"`
+	WorkStatus            string  `json:"work_evidence_status"`
+	Errors                int     `json:"errors"`
+	Interruptions         int     `json:"interruptions"`
+	RepeatedTools         int     `json:"repeated_tools"`
+	RepeatedCommands      int     `json:"repeated_commands"`
+	MaxGapSeconds         float64 `json:"max_gap_seconds"`
+	UnknownTimestamps     int     `json:"unknown_timestamps"`
+}
+
+type reviewPage struct {
+	Path       string      `json:"path"`
+	Snapshot   string      `json:"snapshot"`
+	Queue      string      `json:"queue"`
+	Order      string      `json:"order"`
+	Pattern    string      `json:"pattern"`
+	Algorithm  string      `json:"algorithm"`
+	Population int         `json:"population"`
+	Eligible   int         `json:"eligible"`
+	Offset     int         `json:"offset"`
+	Returned   int         `json:"returned"`
+	Omitted    int         `json:"omitted"`
+	Unknown    int         `json:"unknown"`
+	NextCursor string      `json:"next_cursor,omitempty"`
+	Rows       []reviewRow `json:"rows"`
+}
+
+type reviewCursor struct {
+	Version  int
+	Snapshot string
+	Offset   int
+}
+
+var reviewAlgorithms = map[string]string{
+	"":                  "No pattern filter; counts refer only to retained evidence.",
+	"errors":            "At least one owned message has isError=true, stopReason=error, or a producer return has status=error.",
+	"interruptions":     "At least one owned message has stopReason=aborted or a producer return has status=stopped.",
+	"repeated-tools":    "At least one exact case-sensitive tool name occurs in two or more owned tool-call blocks; count is occurrences beyond the first per name.",
+	"repeated-commands": "At least one exact command argument string occurs in two or more owned tool-call blocks; count is occurrences beyond the first per string. No shell normalization.",
+	"timing-gaps":       "Maximum gap between sorted known owned work timestamps is at least 300 seconds; no causal attribution.",
+	"missing-evidence":  "Work records unavailable, any work timestamp unknown, or no authenticated launch retained.",
+}
+
+func newTranscriptReviewCmd() *cobra.Command {
+	var queue, order, pattern, cursor string
+	var limit int
+	var asJSON bool
+	c := &cobra.Command{Use: "review <session>", Short: "Review retained open-handoff, ambiguous-handoff, or archive evidence (not liveness)", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
+		if !asJSON {
+			return fmt.Errorf("review: --json is required")
+		}
+		p, err := buildReviewPage(args[0], queue, order, pattern, limit, cursor)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(c.OutOrStdout()).Encode(p)
+	}}
+	c.Flags().BoolVar(&asJSON, "json", false, "emit bounded deterministic review JSON")
+	c.Flags().StringVar(&queue, "queue", "open-handoff", "open-handoff, ambiguous-handoff, or archive (all retained non-ROOT rooms)")
+	c.Flags().StringVar(&order, "order", "observed-recent", "observed-recent or canonical")
+	c.Flags().StringVar(&pattern, "pattern", "", "errors, interruptions, repeated-tools, repeated-commands, timing-gaps, or missing-evidence")
+	c.Flags().IntVar(&limit, "limit", 20, "rows per page (1–200)")
+	c.Flags().StringVar(&cursor, "cursor", "", "continue the exact frozen review selection")
+	return c
+}
+
+func reviewEligible(r reviewRow, q string) bool {
+	switch q {
+	case "open-handoff":
+		return r.AuthenticatedLaunches > 0 && r.Terminals == 0 && r.Returns == 0
+	case "ambiguous-handoff":
+		return r.Launches > 0 && r.Returns > 0 // No recorded attempt pairing exists in Pi handoff records.
+	case "archive":
+		return true
+	}
+	return false
+}
+
+func reviewPattern(r reviewRow, p string) bool {
+	switch p {
+	case "errors":
+		return r.Errors > 0
+	case "interruptions":
+		return r.Interruptions > 0
+	case "repeated-tools":
+		return r.RepeatedTools > 0
+	case "repeated-commands":
+		return r.RepeatedCommands > 0
+	case "timing-gaps":
+		return r.MaxGapSeconds >= 300
+	case "missing-evidence":
+		return r.WorkStatus == "unavailable" || r.UnknownTimestamps > 0 || r.AuthenticatedLaunches == 0
+	}
+	return true
+}
+
+func reviewTimestamp(r rawRecord, m map[string]json.RawMessage) (time.Time, bool) {
+	if t, e := time.Parse(time.RFC3339Nano, r.Timestamp); e == nil {
+		return t, true
+	}
+	var s string
+	if json.Unmarshal(m["timestamp"], &s) == nil {
+		if t, e := time.Parse(time.RFC3339Nano, s); e == nil {
+			return t, true
+		}
+	}
+	var millis float64
+	if len(m["timestamp"]) > 0 && string(m["timestamp"]) != "null" && json.Unmarshal(m["timestamp"], &millis) == nil && millis > 0 {
+		return time.UnixMilli(int64(millis)).UTC(), true
+	}
+	return time.Time{}, false
+}
+
+func reviewLabel(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	rr := []rune(s)
+	if len(rr) > 120 {
+		return string(rr[:117]) + "..."
+	}
+	return s
+}
+
+func buildReviewPage(session, queue, order, pattern string, limit int, cursor string) (reviewPage, error) {
+	var empty reviewPage
+	if queue != "open-handoff" && queue != "ambiguous-handoff" && queue != "archive" {
+		return empty, fmt.Errorf("review: invalid queue %q", queue)
+	}
+	if order != "observed-recent" && order != "canonical" {
+		return empty, fmt.Errorf("review: invalid order %q", order)
+	}
+	algorithm, ok := reviewAlgorithms[pattern]
+	if !ok {
+		return empty, fmt.Errorf("review: invalid pattern %q", pattern)
+	}
+	if limit < 1 || limit > 200 {
+		return empty, fmt.Errorf("review: limit must be between 1 and 200")
+	}
+	path, err := filepath.Abs(session)
+	if err != nil {
+		return empty, err
+	}
+	path, err = filepath.EvalSymlinks(path)
+	if err != nil {
+		return empty, err
+	}
+	sources := map[string]string{}
+	rootDigest, err := reviewFileDigest(path)
+	if err != nil {
+		return empty, err
+	}
+	sources[path] = rootDigest
+	if classifyTranscript(path) != schemaPi {
+		return empty, fmt.Errorf("review: authenticated handoff review currently requires a Pi transcript")
+	}
+	records, err := readRecords(path)
+	if err != nil {
+		return empty, err
+	}
+	agents, err := buildTree(path)
+	if err != nil {
+		return empty, err
+	}
+	h := sha256.New()
+	enc := json.NewEncoder(h)
+	_ = enc.Encode(struct {
+		Version                     int
+		Path, Queue, Order, Pattern string
+		Limit                       int
+	}{1, path, queue, order, pattern, limit})
+	_ = enc.Encode(records)
+	_ = enc.Encode(agents)
+	byID := map[string]*reviewRow{}
+	for _, a := range agents {
+		if a.ID == "ROOT" {
+			continue
+		}
+		byID[a.ID] = &reviewRow{ID: a.ID, Parentage: a.ParentageStatus, Label: "Untitled room · " + reviewShortID(a.ID), LabelProvenance: "untitled", LabelEventID: "unavailable", Pairing: "not_inferred", LastObservedKind: "unknown", LastObservedEventID: "unavailable", RecencyBasis: "work", Liveness: "not_inferred", WorkStatus: "unavailable"}
+	}
+	for _, handoff := range piHandoffs(records) {
+		r := byID[handoff.Child]
+		if r == nil {
+			continue
+		}
+		if handoff.Kind == "launch" {
+			r.Launches++
+			if handoff.Match == "matched" {
+				r.AuthenticatedLaunches++
+			}
+			if handoff.Description != "" {
+				r.Label = reviewLabel(handoff.Description)
+				r.LabelProvenance = "recorded"
+				r.LabelEventID = ledgerID(path, handoff.Record.RecordOrdinal, r.ID, "handoff:launch")
+				r.LaunchOccurrence = r.Launches
+			}
+		} else {
+			r.Returns++
+			r.Terminals++ // Every producer terminal record counts, including unfamiliar statuses.
+			var d piCustomData
+			_ = json.Unmarshal(handoff.Record.Data, &d)
+
+			if d.Status == "error" {
+				r.Errors++
+			}
+			if d.Status == "stopped" {
+				r.Interruptions++
+			}
+		}
+	}
+	ids := make([]string, 0, len(byID))
+	for id := range byID {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	rows := []reviewRow{}
+	unknown := 0
+	locators := piBackgroundLocators(records)
+	owned := map[string][]ledgerRecord{}
+	for _, record := range records {
+		if isPiEventRecord(record) && record.AgentID != "" {
+			owned[record.AgentID] = append(owned[record.AgentID], ledgerRecord{Record: record, Path: path})
+		}
+	}
+	for _, id := range ids {
+		r := byID[id]
+		recs := owned[id]
+		if len(recs) == 0 {
+			for _, loc := range locators {
+				if loc.AgentID != id {
+					continue
+				}
+				safe := validatePiSidechainPath(loc.Path, id)
+				if safe != "" {
+					digest, e := reviewFileDigest(safe)
+					if e != nil {
+						return empty, e
+					}
+					sources[safe] = digest
+				}
+				selected, source := readOwnedPiSidechain(loc.Path, id)
+				for _, record := range selected {
+					recs = append(recs, ledgerRecord{Record: record, Path: source})
+				}
+				break
+			}
+		}
+		_ = enc.Encode(recs)
+		tools, commands := map[string]int{}, map[string]int{}
+		stamps := []time.Time{}
+		for _, lr := range recs {
+			if lr.Lifecycle {
+				continue
+			}
+			var m map[string]json.RawMessage
+			if json.Unmarshal(lr.Record.Message, &m) != nil {
+				continue
+			}
+			role := ledgerString(m, "role")
+			if role == "" {
+				role = lr.Record.Type
+			}
+			var blocks []map[string]json.RawMessage
+			_ = json.Unmarshal(m["content"], &blocks)
+			eventID := ledgerID(lr.Path, lr.Record.RecordOrdinal, id, "message")
+			if role == "user" && r.LabelProvenance == "untitled" {
+				var text string
+				_ = json.Unmarshal(m["content"], &text)
+				for _, b := range blocks {
+					if ledgerString(b, "type") == "text" {
+						text += " " + ledgerString(b, "text")
+					}
+				}
+				if strings.TrimSpace(text) != "" {
+					r.Label = reviewLabel(text)
+					r.LabelProvenance = "opening"
+					r.LabelEventID = eventID
+				}
+			}
+			if role != "assistant" && role != "toolResult" && role != "tool" {
+				continue
+			}
+			r.WorkStatus = "observed"
+			kind := "assistant"
+			if role != "assistant" {
+				kind = "tool_result"
+			}
+			if string(m["isError"]) == "true" || ledgerString(m, "stopReason") == "error" {
+				r.Errors++
+			}
+			if ledgerString(m, "stopReason") == "aborted" {
+				r.Interruptions++
+			}
+			if role == "assistant" {
+				for _, b := range blocks {
+					typ := ledgerString(b, "type")
+					if typ != "toolCall" && typ != "tool_use" {
+						continue
+					}
+					kind = "tool_call"
+					name := ledgerString(b, "name")
+					if name != "" {
+						tools[name]++
+					}
+					args := b["arguments"]
+					if len(args) == 0 {
+						args = b["input"]
+					}
+					var a map[string]json.RawMessage
+					_ = json.Unmarshal(args, &a)
+					if command := ledgerString(a, "command"); command != "" {
+						commands[command]++
+					}
+				}
+			}
+			stamp, known := reviewTimestamp(lr.Record, m)
+			if !known {
+				r.UnknownTimestamps++
+				continue
+			}
+			stamps = append(stamps, stamp)
+			previous := time.Time{}
+			if r.LastObservedAt != nil {
+				previous, _ = time.Parse(time.RFC3339Nano, *r.LastObservedAt)
+			}
+			if r.LastObservedAt == nil || stamp.After(previous) {
+				s := stamp.UTC().Format(time.RFC3339Nano)
+				r.LastObservedAt = &s
+				r.LastObservedKind = kind
+				r.LastObservedEventID = eventID
+			}
+		}
+		for _, n := range tools {
+			if n > 1 {
+				r.RepeatedTools += n - 1
+			}
+		}
+		for _, n := range commands {
+			if n > 1 {
+				r.RepeatedCommands += n - 1
+			}
+		}
+		sort.Slice(stamps, func(i, j int) bool { return stamps[i].Before(stamps[j]) })
+		for i := 1; i < len(stamps); i++ {
+			if d := stamps[i].Sub(stamps[i-1]).Seconds(); d > r.MaxGapSeconds {
+				r.MaxGapSeconds = d
+			}
+		}
+		if r.WorkStatus == "unavailable" || r.UnknownTimestamps > 0 || r.AuthenticatedLaunches == 0 {
+			unknown++
+		}
+		if reviewEligible(*r, queue) && reviewPattern(*r, pattern) {
+			rows = append(rows, *r)
+		}
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		if order == "observed-recent" {
+			a, b := rows[i].LastObservedAt, rows[j].LastObservedAt
+			if a == nil && b != nil {
+				return false
+			}
+			if a != nil && b == nil {
+				return true
+			}
+			if a != nil && b != nil && *a != *b {
+				ta, _ := time.Parse(time.RFC3339Nano, *a)
+				tb, _ := time.Parse(time.RFC3339Nano, *b)
+				return ta.After(tb)
+			}
+		}
+		return rows[i].ID < rows[j].ID
+	})
+	sourcePaths := make([]string, 0, len(sources))
+	for source := range sources {
+		sourcePaths = append(sourcePaths, source)
+	}
+	sort.Strings(sourcePaths)
+	for _, source := range sourcePaths {
+		digest, e := reviewFileDigest(source)
+		if e != nil {
+			return empty, e
+		}
+		if digest != sources[source] {
+			return empty, fmt.Errorf("review: source changed during projection; retry")
+		}
+		_ = enc.Encode([]string{source, digest})
+	}
+	_ = enc.Encode(rows)
+	snapshot := hex.EncodeToString(h.Sum(nil))
+	offset := 0
+	if cursor != "" {
+		b, e := base64.RawURLEncoding.DecodeString(cursor)
+		var c reviewCursor
+		if e != nil || json.Unmarshal(b, &c) != nil || c.Version != 1 || c.Snapshot != snapshot || c.Offset < 1 || c.Offset >= len(rows) {
+			return empty, fmt.Errorf("review: stale or mismatched cursor")
+		}
+		offset = c.Offset
+	}
+	end := offset + limit
+	if end > len(rows) {
+		end = len(rows)
+	}
+	p := reviewPage{Path: path, Snapshot: snapshot, Queue: queue, Order: order, Pattern: pattern, Algorithm: algorithm, Population: len(ids), Eligible: len(rows), Offset: offset, Returned: end - offset, Omitted: len(rows) - end, Unknown: unknown, Rows: rows[offset:end]}
+	if end < len(rows) {
+		b, _ := json.Marshal(reviewCursor{1, snapshot, end})
+		p.NextCursor = base64.RawURLEncoding.EncodeToString(b)
+	}
+	return p, nil
+}
+
+func reviewShortID(id string) string {
+	r := []rune(id)
+	if len(r) > 12 {
+		return string(r[:12])
+	}
+	return id
+}
+
+func reviewFileDigest(path string) (string, error) {
+	f, e := os.Open(path)
+	if e != nil {
+		return "", e
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, e = io.Copy(h, f); e != nil {
+		return "", e
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
