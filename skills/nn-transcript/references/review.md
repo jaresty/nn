@@ -60,8 +60,10 @@ Timestamp, kind, and `recency_basis: work` describe retained observation, not pr
 
 ## Desk actions
 
-Expose **Inspect recent work**, **Draft correction…**, **Find patterns…**, **More…**, with **Back** and
-**End** visible. Show at most three standout cards and explicit displayed/omitted counts. Keep exact
+Default to **Inspect recent work**, **Draft correction…**, **Find patterns…**, **More…**, with **Back** and
+**End** visible. Promote stronger evidence-based suggestions under the core's suggested-action contract;
+keep displaced controls and **Capture…** under More. A useful supported finding may promote
+**Capture this insight**, which opens a proposal rather than writing a note. Show at most three standout cards and explicit displayed/omitted counts. Keep exact
 picker labels. Position may encode observation time only when the legend says so; do not use red/green
 as an implicit stuck/running signal. Hierarchy and archive remain reachable under More….
 

@@ -143,12 +143,16 @@ refresh, and advanced operations that are not already direct shortcuts. An **ell
 operation needs more input and opens a chooser; a label without one executes immediately. Keep
 **entity picker labels** exact and separate from view controls.
 
-Use these level-specific defaults, adapting only when an action is structurally unsupported:
+Use these level-specific defaults when no stronger evidence-based suggestion is available:
 
 - **Conversation lobby** — `What stands out?`, `Scan…`, `Open conversation…`, `More…`.
 - **Office or team** — `Attention`, `Scan…`, `Open room…`, `More…`.
 - **Room** — `Orient me`, `Choose lens…`, `Inspect event…`, `More…`.
 - **Selected event** — `Explain`, `Compare…`, `Inspect payload`, `More…`.
+
+Before promoting suggestions or offering/acting on capture, load
+`nn skills get nn-transcript --reference actions`. Evidence-based suggestions may replace the defaults;
+**Capture…** is always available under More or via “capture that”, but writes require proposal approval.
 
 Compact default surfaces show **at most three standout** entities and an **explicit omitted count**;
 full retained population counts remain visible. Also preserve a steer-in-your-own-words affordance.

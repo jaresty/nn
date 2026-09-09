@@ -51,8 +51,11 @@ uninspected findings remain visible. A recorded interruption does not establish 
 
 ## Discoverable controls
 
-Every Situation Board uses direct `Orient me`, `Choose lens…`, `Inspect event…`, and `More…` shortcuts.
-Every **selected-event** detail uses direct `Explain`, `Compare…`, `Inspect payload`, and `More…`
+Situation Board fallback shortcuts are `Orient me`, `Choose lens…`, `Inspect event…`, and `More…`.
+Promote stronger evidence-based next actions using the core's suggested-action contract; displaced
+controls remain under More. Capture is always available there or via “capture that”; promote
+`Capture this insight` only for a useful supported candidate, opening an approval proposal.
+Every **selected-event** detail defaults to `Explain`, `Compare…`, `Inspect payload`, and `More…`
 shortcuts. `Back` and `End` remain visible at both levels. `More…` exposes uncommon operations such as
 **Scan this level…**, **Change lens…**, expand recent window, or advanced comparison without inserting
 another intermediate menu. At room scope a scan rearranges the retained event population; at selected-
