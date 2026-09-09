@@ -76,14 +76,36 @@ A new pattern selection acquires a new snapshot; disclose this rather than claim
 snapshot was reused. Never silently widen the queue or selected session.
 
 Semantic questions (instruction drift, shared blockers, duplicated investigation) are LLM-owned.
-Confirm a bounded plan naming the retained eligible IDs, number of rooms, and last-5-event window.
-Retrieve those room tails with **events**; preserve each room snapshot separately. Report eligible,
-inspected, uninspected, omitted, and unknown coverage. Cite event IDs and mark findings interpreted.
-Do not claim a globally atomic cross-room semantic scan or scan rooms outside the approved population.
+Confirm a bounded plan naming the eligible IDs, number of rooms, and last-5-event window. Use the native
+bundle instead of an agent loop or a Python collector:
+
+```bash
+nn transcript review <session> --queue open-handoff --limit 3 --last 5 --payload --json
+# Same options plus --page <next_page> --snapshot <snapshot> for EVERY remaining transport page.
+```
+
+The first record (`kind: review_receipt`) carries the review snapshot, population/eligible counts,
+room offset, retrieved/omitted/unavailable room counts, selected/omitted-earlier event counts, and
+`next_room_cursor`. Each `review_room` record carries its exact row, detail availability, query receipt,
+and room snapshot; source events have `section: recent` and retain original event IDs/ordinals.
+Metadata records can also fragment: reconstruct every ordered segment under **events** transport rules.
+Preserve stream order; original ordinals are room-local, not a cross-room sort key.
+
+`--limit` bounds the room selection; `--last` bounds events per room (1–200). `--page` advances transport,
+not rooms. Only after all transport pages are complete may `next_room_cursor` advance room selection.
+Keep all options identical, including payload, last, limit, queue, order, and pattern. Changes to evidence
+reject continuation. A fresh bundle reacquires the selected queue: compare its IDs with the approved
+room set before interpreting; disclose changes and reconfirm rather than silently extending scope.
+
+Report eligible, inspected, uninspected, omitted, and unknown coverage. CLI counts describe retrieval,
+not LLM inspection (`inspection_status: not_inferred`). Cite event IDs and mark findings interpreted.
+Do not claim globally atomic original-source completeness or scan rooms outside the approved population.
 
 ## Correction drafts
 
-Retrieve the exact launch assignment via **handoffs**, then bounded recent evidence via **events**.
+Load **context** and retrieve `nn transcript context <session> <agent-id> --last 5 --json` to obtain
+recorded launch assignments and bounded recent evidence in one paginated bundle. **handoffs** remains
+the owner for detailed occurrence semantics; context does not select a governing launch or infer steering.
 Disclose omitted earlier history and cite event IDs. Expand only when needed and with disclosed scope.
 Draft proposals only; do not send, steer, or stop without separately authenticated runtime authority.
 Shared corrections must name each applicable room and preserve uncertain matches/counterexamples.

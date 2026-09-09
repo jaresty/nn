@@ -80,10 +80,24 @@ var reviewAlgorithms = map[string]string{
 func newTranscriptReviewCmd() *cobra.Command {
 	var queue, order, pattern, cursor string
 	var limit int
-	var asJSON bool
+	var asJSON, payload bool
+	var last, page int
+	var snapshot string
 	c := &cobra.Command{Use: "review <session>", Short: "Review retained open-handoff, ambiguous-handoff, or archive evidence (not liveness)", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
 		if !asJSON {
 			return fmt.Errorf("review: --json is required")
+		}
+		if c.Flags().Changed("last") {
+			p, err := buildReviewTails(args[0], queue, order, pattern, limit, cursor, last, payload, page, snapshot)
+			if err != nil {
+				return err
+			}
+			return json.NewEncoder(c.OutOrStdout()).Encode(p)
+		}
+		for _, flag := range []string{"payload", "page", "snapshot"} {
+			if c.Flags().Changed(flag) {
+				return fmt.Errorf("review: --%s requires --last", flag)
+			}
 		}
 		p, err := buildReviewPage(args[0], queue, order, pattern, limit, cursor)
 		if err != nil {
@@ -91,6 +105,10 @@ func newTranscriptReviewCmd() *cobra.Command {
 		}
 		return json.NewEncoder(c.OutOrStdout()).Encode(p)
 	}}
+	c.Flags().IntVar(&last, "last", 0, "bundle the latest 1–200 events per selected room")
+	c.Flags().BoolVar(&payload, "payload", false, "include native tail payloads (requires --last)")
+	c.Flags().IntVar(&page, "page", 1, "bundle transport page (requires --last)")
+	c.Flags().StringVar(&snapshot, "snapshot", "", "bundle snapshot for later transport pages (requires --last)")
 	c.Flags().BoolVar(&asJSON, "json", false, "emit bounded deterministic review JSON")
 	c.Flags().StringVar(&queue, "queue", "open-handoff", "open-handoff, ambiguous-handoff, or archive (all retained non-ROOT rooms)")
 	c.Flags().StringVar(&order, "order", "observed-recent", "observed-recent or canonical")

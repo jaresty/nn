@@ -32,6 +32,7 @@ Start here:
 Navigate one session:
   tree      spawn DAG + cost/status for a session
   review    bounded retained handoff queues and deterministic patterns (Pi)
+  context   launch assignments plus recent owned evidence (Pi)
   show      one agent's events (--raw for the full record)
   events    normalized event ledger with selectable facets and bounded JSON pages
   search    bounded event matches with session/agent provenance
@@ -58,7 +59,7 @@ func newTranscriptCmd(_ *rootState) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.AddCommand(newTranscriptReviewCmd(), newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd(), newTranscriptSearchCmd(), newTranscriptEventsCmd())
+	cmd.AddCommand(newTranscriptContextCmd(), newTranscriptReviewCmd(), newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd(), newTranscriptSearchCmd(), newTranscriptEventsCmd())
 	return cmd
 }
 

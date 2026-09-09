@@ -188,6 +188,26 @@ normalization), explicit errors/interruptions, a 300-second observed-gap thresho
 The skill owns semantic interpretation and proposal-only course corrections. Changing a pattern acquires
 a new selection snapshot; Back restores retained state, and Refresh explicitly reacquires evidence.
 
+### Bundle review tails and assignment context
+
+`review --last N [--payload] --json` retrieves tails for the bounded room page selected by the existing
+queue/order/pattern/limit/cursor options. Room pagination remains distinct from transport pagination:
+`--page` and `--snapshot` retrieve every lossless transport segment of that room selection, while
+`next_room_cursor` advances the room selection only after its transport is complete. Omitted rooms
+are disclosed; no command silently scans the entire queue. Counts describe retrieved evidence, never
+LLM inspection. N is 1–200. Without `--last`, existing review output is unchanged.
+
+`context <session> <agent> --last N --json` bundles independently numbered parent launch records
+(including exactly joined invocation payloads) and the recent owned event tail. It includes payloads
+by default so assignments are readable, but never guesses a governing attempt. Steering authority is
+explicitly unavailable in the initial adapter. Unsupported schemas and unknown rooms fail explicitly.
+
+Both commands use the existing 48,000-byte lossless ledger transport. Room metadata and evidence
+sections are themselves paginated records, avoiding an unbounded metadata envelope. Bundle snapshots
+bind the selection and evidence; changes during collection or between pages fail closed. Original
+event IDs remain intact and a section label distinguishes assignment from recent evidence. The skill
+owns pattern interpretation, full page/segment consumption, and correction proposals.
+
 ### Render bounded readable event tails
 
 `events --format text --last N --max-text-chars M` adds deterministic lossy rendering over native
