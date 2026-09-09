@@ -137,6 +137,29 @@ reference, window coverage, numerator, denominator, ratio when defined, and clas
 The Office presents a match as **worth inspecting**, with an evidence inspection action. Do not expose
 an unexplained red/green state, productivity score, or inferred liveness. No automatic intervention follows.
 
+### 6. Surface signals in the Transcript Office
+
+Present evaluated signals in three places:
+
+- **Awaiting return:** attach a compact signal to the matching room, for example **Low observed
+  edit-to-command ratio**. Signals do not change queue membership or silently reorder the list.
+- **Room view:** show the policy identity, ratio and underlying counts, evidence window, and
+  classification/coverage limitations, with **Inspect evidence** bound to that retained evidence.
+- **More → Attention signals:** offer an explicit view of matching rooms across the selected office,
+  including rooms that have already returned. This view is not restricted to Awaiting return and
+  must disclose evaluated scope, coverage, and pagination rather than imply exhaustive evaluation.
+
+An absent signal does not mean a room is healthy, productive, or even evaluated. Preserve the
+match/no-match/inapplicable/indeterminate/error distinctions when explaining coverage. Display only
+results from explicitly scoped evaluation; opening the Office does not authorize unbounded scanning.
+Retain the evidence and policy identity with the displayed result, and do not silently refresh signals
+on Back or treat an older evaluation as a current observation.
+
+These are presentation surfaces for the bounded evaluator, not a separate monitoring dashboard,
+background alerting service, or notification system. Their verification must cover room/action identity,
+unchanged Awaiting return ordering and membership, returned-room discoverability in Attention signals,
+and honest disclosure of unevaluated or indeterminate evidence.
+
 ## Alternatives considered
 
 - **Hard-code one detector, add configuration later:** rejected; it postpones exercising the intended
