@@ -137,7 +137,7 @@ type piCustomData struct {
 func newTranscriptTreeCmd() *cobra.Command {
 	var asJSON bool
 	var strict, hallwaySummary bool
-	var agentID, description, fields, parentID, cursor string
+	var agentID, description, fields, parentID, cursor, order, selected string
 	var limit int
 	cmd := &cobra.Command{
 		Use:   "tree <session>",
@@ -152,8 +152,8 @@ func newTranscriptTreeCmd() *cobra.Command {
 			if hallwaySummary && parentMode {
 				return fmt.Errorf("tree: --summary cannot be combined with --parent")
 			}
-			if !parentMode && (cmd.Flags().Changed("limit") || cmd.Flags().Changed("cursor")) {
-				return fmt.Errorf("tree: --limit and --cursor require --parent")
+			if !parentMode && (cmd.Flags().Changed("limit") || cmd.Flags().Changed("cursor") || cmd.Flags().Changed("order") || cmd.Flags().Changed("selected")) {
+				return fmt.Errorf("tree: --limit, --cursor, --order, and --selected require --parent")
 			}
 			if parentMode && parentID == "" {
 				return fmt.Errorf("tree: --parent must not be empty")
@@ -169,6 +169,19 @@ func newTranscriptTreeCmd() *cobra.Command {
 			}
 			if cmd.Flags().Changed("agent") && cmd.Flags().Changed("description") {
 				return fmt.Errorf("tree: --agent cannot be combined with --description")
+			}
+			if order != "canonical" && order != "observed-recent" {
+				return fmt.Errorf("tree: invalid order %q", order)
+			}
+			if cmd.Flags().Changed("selected") && selected == "" {
+				return fmt.Errorf("tree: --selected must not be empty")
+			}
+			if parentMode && (order == "observed-recent" || selected != "") {
+				page, err := buildOrderedTreeChildPage(args[0], parentID, order, selected, limit, cursor, strict)
+				if err != nil {
+					return err
+				}
+				return json.NewEncoder(cmd.OutOrStdout()).Encode(page)
 			}
 			agents, err := buildTree(args[0])
 			if err != nil {
@@ -230,6 +243,8 @@ func newTranscriptTreeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&fields, "fields", "", "comma-separated top-level JSON field names (requires --json)")
 	cmd.Flags().BoolVar(&hallwaySummary, "summary", false, "emit bounded hallway aggregate (requires --json)")
 	cmd.Flags().StringVar(&parentID, "parent", "", "select exact direct children of one manager (requires --json)")
+	cmd.Flags().StringVar(&order, "order", "canonical", "parent ordering: canonical or observed-recent (Pi owned work, unknown last)")
+	cmd.Flags().StringVar(&selected, "selected", "", "pin an exact direct child first (Pi; requires --parent)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "limit parent children per page (0 = all)")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "continue a parent-child page under the same snapshot")
 	cmd.Flags().BoolVar(&strict, "strict", false, "abort on validation failure instead of repairing orphans (use for untrusted/escape-hatch schemas)")

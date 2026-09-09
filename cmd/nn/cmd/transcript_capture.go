@@ -394,7 +394,7 @@ func cleanupTranscriptCaptures() {
 		return
 	}
 	for _, entry := range entries {
-		if !(strings.HasSuffix(entry.Name(), ".json") || strings.HasSuffix(entry.Name(), ".binding") || strings.HasSuffix(entry.Name(), ".page")) {
+		if !(strings.HasSuffix(entry.Name(), ".json") || strings.HasSuffix(entry.Name(), ".binding") || strings.HasSuffix(entry.Name(), ".page") || strings.HasSuffix(entry.Name(), ".hallway")) {
 			continue
 		}
 		info, e := entry.Info()

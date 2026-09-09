@@ -94,6 +94,21 @@ Room entry should give a bounded readable orientation without requiring a second
 This is not permission to impose an analytical lens or silently expand history. CLI mechanics stay
 behind the Office surface unless requested or a failure requires a real human decision.
 
+### Human hallway ordering
+
+The Pi Office requests `tree --parent ID --order observed-recent`; legacy CLI canonical ordering stays
+unchanged. Rank all direct children before pagination: optional `--selected ID` pinned first, then
+greatest valid owned assistant/tool-result work timestamp descending, unknown last, ID tie-break.
+Launch/return/lifecycle timestamps and file modification times do not stand in for observed work.
+An explicit selected room must be a direct child; it is a presentation pin, not a reparenting operation.
+
+Capture and persist the ordered child projection once. Bind parent, order, selected ID, limit, source
+input, and strictness into retained continuation. Cached continuation does not reread live sources;
+missing/expired/corrupt cache fails explicitly. Ordinary canonical unpinned pagination is unchanged.
+Initial recent/pinned support is Pi-only; other schemas keep clearly labeled canonical browsing until
+an equally authoritative work-recency adapter exists. A recent page is not an activity or importance
+ranking. Label it 'Recent rooms'; retain its rendered/conversational state on Back without refresh.
+
 ### 3. Recommend actions from evidence, not a fixed menu
 
 Promote up to three concrete useful actions, with the target clear. Generic level menus remain

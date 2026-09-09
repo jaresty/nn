@@ -69,7 +69,8 @@ func TestTranscriptOfficeDefaultAndLensDispatch(t *testing.T) {
 	assertContains("ASSERT_TRANSCRIPT_OFFICE_AUTHENTICATED_TOPOLOGY", navigate,
 		"authenticated topology", "direct children", "nested manager")
 	assertContains("ASSERT_TRANSCRIPT_OFFICE_USES_NATIVE_HALLWAY_PROJECTIONS", navigate,
-		"--summary --json", "--parent ROOT --limit 3 --json", "next_cursor", "do not fetch the whole tree", "`jq`")
+		"--summary --json", "--parent ROOT --order observed-recent --limit 3 --json", "next_cursor", "do not fetch the whole tree", "`jq`",
+		"--selected <id>", "Recent rooms", "Canonical order", "exact restoration unavailable", "All children are ranked before the page limit")
 	assertContains("ASSERT_TRANSCRIPT_ROOM_OPEN_LENS", rooms,
 		"Situation Board", "user-defined", "named lenses are presets")
 	assertContains("ASSERT_TRANSCRIPT_OFFICE_LENS_SCAN", lenses,

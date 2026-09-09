@@ -43,9 +43,17 @@ For explicit hierarchy navigation, retain the native hallway steps below.
 1. **Tree overview (deterministic, trustworthy).**
    ```bash
    nn transcript tree <session> --summary --json
-   nn transcript tree <session> --parent ROOT --limit 3 --json
+   nn transcript tree <session> --parent ROOT --order observed-recent --limit 3 --json
    ```
-   Use `next_cursor` with the identical `--parent` to continue the canonical direct-child list. The
+   For Pi offices, default to `--order observed-recent`. If the carried selected room is a direct
+   child of this manager, add `--selected <id>` to pin it first; never invent a selection or change
+   parentage to make the pin applicable. Recency means the greatest valid owned assistant/tool-result
+   work timestamp, not launch time, file modification time, liveness, or importance. Unknown recency
+   sorts last; ties use canonical ID. All children are ranked before the page limit.
+   Use `next_cursor` with identical parent, order, selected ID, limit, and strictness to continue
+   the retained projection. Missing/expired/corrupt retention fails explicitly; do not silently refresh.
+   For non-Pi schemas use explicitly labeled canonical browsing; recent ordering is Pi-only for now.
+   The
    summary and parent page are native bounded hallway projections: do not fetch the whole tree and use
    `jq` to reconstruct counts, filter children, or invent paging. Use unprojected `tree --json` only
    when the complete relation itself is required.
@@ -75,8 +83,12 @@ A direct child with recorded descendants is a **nested manager** door; entering 
 a sub-office and shows the manager path. Never flatten descendants into siblings or infer teams from
 descriptions, timing, or semantic similarity. When no nested edge appears, say exactly **“No nested parent edges were recovered in this selected transcript”** rather than “no nested managers”; this is
 a session-local evidence statement, not a global absence claim. For dense hallways, page a complete
-cached direct-child list in canonical tree order, state displayed and omitted counts, and never
-characterize uninspected rooms as inactive.
+retained direct-child list in observed-recent order, state displayed and omitted counts, and never
+characterize uninspected rooms as inactive. Label the page **Recent rooms · 3 shown of 431** (using
+actual counts), and add **Selected room pinned first** when applicable. Keep **Canonical order** under
+More, using `--order canonical`; label that page **Canonical rooms**, not recommendations. On Back,
+restore the retained navigation/evidence state without a fresh query or re-sort. If lost, disclose
+**exact restoration unavailable** rather than silently rebuilding it.
 
 Separate rooms by observed lifecycle evidence when that distinction aids navigation:
 

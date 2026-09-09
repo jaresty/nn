@@ -20,6 +20,9 @@ type treeHallwaySummary struct {
 }
 
 type treeChildPage struct {
+	Order         string         `json:"order,omitempty"`
+	Selected      string         `json:"selected,omitempty"`
+	CaptureID     string         `json:"capture_id,omitempty"`
 	Snapshot      string         `json:"snapshot"`
 	Parent        string         `json:"parent"`
 	TotalChildren int            `json:"total_children"`
@@ -30,18 +33,19 @@ type treeChildPage struct {
 }
 
 type treeChildRow struct {
-	ID                string `json:"id"`
-	ParentID          string `json:"parent_id"`
-	ParentageStatus   string `json:"parentage_status,omitempty"`
-	Type              string `json:"type"`
-	Description       string `json:"description,omitempty"`
-	Started           string `json:"started"`
-	Ended             string `json:"ended"`
-	Cost              int    `json:"cost"`
-	SubtreeCost       int    `json:"subtree_cost"`
-	CostStatus        string `json:"cost_status"`
-	SubtreeCostStatus string `json:"subtree_cost_status"`
-	Status            string `json:"status"`
+	Recency           *treeChildRecency `json:"recency,omitempty"`
+	ID                string            `json:"id"`
+	ParentID          string            `json:"parent_id"`
+	ParentageStatus   string            `json:"parentage_status,omitempty"`
+	Type              string            `json:"type"`
+	Description       string            `json:"description,omitempty"`
+	Started           string            `json:"started"`
+	Ended             string            `json:"ended"`
+	Cost              int               `json:"cost"`
+	SubtreeCost       int               `json:"subtree_cost"`
+	CostStatus        string            `json:"cost_status"`
+	SubtreeCostStatus string            `json:"subtree_cost_status"`
+	Status            string            `json:"status"`
 }
 
 type treeChildCursor struct {
