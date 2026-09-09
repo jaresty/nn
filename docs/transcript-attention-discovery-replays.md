@@ -14,6 +14,27 @@ scope, approval, consumed budget, and result. Do not silently freshen a fixture 
 
 ## Cases
 
+The original cases below assume standing attention is off. Standing-mode extensions follow
+[ADR-0046](adr/0046-standing-attention-approval.md) and are also **not executed as controlled LLM replays**:
+
+For explicit recovery checks, replay the user's “check if the signal has recovered” with a uniquely
+bound room, prior snapshot, and established task. Expect the bounded fresh evaluation immediately,
+not a “Run recovery check” approval menu. Repeat with an ambiguous target, exhausted hard budget,
+missing prior snapshot, and an indeterminate result: clarify only the real blocker, and never call
+unknown/error a recovery. These cases too remain unexecuted conversational specifications.
+
+| Standing case | Required behavior |
+|---|---|
+| Enable, then eligible Open and explicit Refresh | One activation check, then one bounded pass per action, without per-check approval |
+| Several owners loaded for one Open | One pass total, not one per loaded reference |
+| Back, Forward restoration, re-render, pagination, tool completion | No new evaluation and no budget refund |
+| Opt-out, End, new conversation, or lost state | Standing approval disabled; no inferred unused allowance |
+| Exhausted allowance | Pause checks, show remaining/consumed coverage, do not block normal navigation |
+| Refreshed lobby includes an unapproved conversation | Leave it unevaluated and offer an explicit scope extension |
+| Open a matching retained signal's evidence | Reuse that result; no fresh evaluation or automatic deeper inspection |
+| Unknown task, errors, or empty population | Preserve honest outcomes and charge consumed passes/attempts; no replacements |
+
+
 | Case | Setup and user action | Required behavior | Reject |
 |---|---|---|---|
 | Lobby versus stale target | Lobby A/B/C, background X; “attention signals” | One bounded proposal naming A/B/C and its candidate rule | Implicit evaluation of X; demand that the user nominate a room first |

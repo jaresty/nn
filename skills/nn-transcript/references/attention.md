@@ -1,6 +1,6 @@
 ---
 name: attention
-applies_when: "When evaluating attention signals, opening More → Attention signals, annotating an Office room with a retained signal, or inspecting the evidence for a signal."
+applies_when: "On Office Open or explicit Refresh to apply standing attention approval, when enabling/disabling attention, evaluating signals, or displaying/inspecting retained attention evidence."
 ---
 
 # Attention signals — bounded, opt-in policy evaluation
@@ -15,17 +15,85 @@ For target precedence and permission, load **interaction**. Bare attention at a 
 within the explicitly named displayed conversation cohort, not a remembered room. At a hallway it is
 discovery within the current office and active queue/filter; at a room it addresses that exact room.
 An explicit operand or uniquely bound action takes precedence, but target resolution does not grant
-acquisition permission. Entering a view does not start an automatic attention scan.
+acquisition permission. Without standing approval, entering a view does not start an attention check.
 This discovery recipe does not change the native evaluator or its policy.
 
-When the request is already covered by a concrete approved action, execute it. Otherwise offer one
-bounded proposal, not a sequence of room/task/permission menus. Identify the conversations, filter,
+When the request is already covered by a concrete approved action or is an explicit bounded check,
+execute it. Otherwise offer one bounded proposal, not a sequence of room/task/permission menus. Identify the conversations, filter,
 selection rule, attempted-room limit, work window, classification retrieval, output reservation,
 freshness, and stop conditions. Acceptance authorizes the declared selection and evaluation without per-room reconfirmation.
 Do not make a human choose a room merely to ask where to look. A narrow remembered-room evaluation
 can be offered as an explicitly named alternative, never as an implicit lobby fallback.
 
-### Small default proposal — not standing permission
+## Explicit checks — execute the request
+
+“Check if the signal has recovered” for a uniquely identified room and prior result requests a fresh
+check, not a proposal. An explicit recovery-check request authorizes one bounded fresh evaluation.
+Briefly state what will run, then use that room's exact canonical path and ID, reusing its established
+task classification. Use the last 100 owned work messages, one room and one attempt, reserving up to
+200,000 source-output bytes for evaluation. If classification is not established, the ordinary check
+includes the bounded assignment retrieval below (up to two context pages, 296,000 bytes total).
+A prior explicit hard limit or unavailable context can still block this recipe; explain the specific
+constraint once. A remembered target without a checking imperative is not permission.
+
+Do not ask “Run recovery check?” after the user has already requested that check.
+Compare against the retained prior result without refreshing it. If it is missing, say comparison is
+unavailable; never fabricate its metrics or automatically recover wider history. Different policies,
+parameters, ownership coverage, or windows must be disclosed and may prevent a like-for-like comparison.
+Report the current policy outcome: a prior match followed by no-match means the signal no longer
+matches this window, not that the work is healthy, successful, or the underlying issue is resolved.
+Unknowns and errors are not recovery. No retries, siblings, extra history, or evidence drill-down are
+included. Execute before offering optional next actions. This works with standing attention off too;
+one requested check neither enables standing approval nor resets an exhausted allowance.
+
+## Standing attention — notice without asking each time
+
+Offer **Enable attention…** once when attention is off, without blocking the requested view or
+repeatedly prompting after a decline. Enabling requires a concrete session-scoped envelope, not just
+permission to inspect an unspecified population. Implementation assent is not that live authorization.
+
+Standing approval authorizes eligible Open and explicit Refresh checks without per-check reconfirmation.
+Name canonical conversations, allowed surfaces and queue/filter rules, the candidate selection rule,
+per-pass task/metadata pages, work window, output reservation, total pass count, and cumulative ceiling.
+Room IDs may be selected under that explicitly delegated rule. The existing small recipe below is the
+per-pass default; offer three passes initially, not indefinite monitoring. At its maximum this means
+nine room attempts and 4,464,000 reserved output bytes across the session; reduce the proposal before
+approval if available context cannot accommodate it. These are proposals, not mandatory sizes.
+
+On enable, check the current approved view once. Thereafter, finish the normal view's metadata
+selection, apply the approved candidate rule, and check before presenting its attention cues.
+One navigation action starts at most one attention pass.
+Loading discovery, navigate, review, and rooms for that action does not multiply passes. Bind each
+pass to that action and its exact view/selection evidence in conversational state, not a new file.
+Back, Forward restoration, re-rendering, pagination, and tool completion do not trigger a check.
+Opening **Inspect evidence** reuses the matching retained result; it is not an implicit fresh check.
+An explicit Refresh may evaluate again within the approved scope and remaining allowance; do not
+require an additional attention command. No timers, polling, idle hooks, or background worker exist.
+
+Every pass consumes the standing allowance; no navigation action resets cumulative consumption.
+Consume a pass when its approved selection/acquisition starts, even if the population is empty or
+an operation fails; room attempts still start at assignment/work acquisition. Retained-result display
+alone consumes no new pass. Keep actual attempts/pages and reserved output separate from pass counts.
+Exhaustion pauses checks; it does not renew permission.
+Offer renewal without blocking normal navigation or repeatedly nagging. An out-of-scope view opens
+normally but is **not evaluated — outside standing scope**. New conversations in a refreshed lobby,
+new pages, changed queues/filters, and wider history require explicit scope extension unless the
+standing envelope already names that exact permitted transition. Never silently adopt them.
+
+Opt-out, End, a new conversation, or lost authorization state disables standing attention.
+Honor **Attention off** immediately. Losing the consumption ledger also pauses fresh work; do not
+assume unused allowance. Retain old results as historical where available. No global preference,
+notebook activation, persistent navigation file, or cross-conversation consent is created.
+
+Show **Attention on/paused/off**, remaining passes, and a compact coverage line. Surface matching
+signals and their exact retained evidence automatically; preserve evaluated/no-match, unknown task,
+indeterminate, errors, and skipped/unevaluated counts. A quiet view is not evidence of health.
+Keep hallway membership/order and label separately captured freshness. Offer an appropriate next
+inspection action for matches, not an automatic drill-down.
+Standing attention does not authorize deeper inspection, capture, or intervention.
+Those need a separate approved envelope; the existing policies and native evaluator are unchanged.
+
+### Small default proposal — per-pass bounds
 
 These defaults are an initial proposal, not an entitlement to inspect anything:
 
@@ -38,7 +106,8 @@ These defaults are an initial proposal, not an entitlement to inspect anything:
   when there are no candidate rooms. Explicit ROOT evaluation remains available.
 - **Hallway:** select up to the first three rooms on the current retained page, in its existing order.
   Preserve its queue, pattern, parent, and other scope options. Do not silently use archive in place
-  of Awaiting return or flatten a nested hallway. A next page or refreshed selection is a new proposal.
+  of Awaiting return or flatten a nested hallway. A next page or refreshed selection needs approval
+  unless that exact transition is already covered by the standing envelope.
 - **Room:** select that exact room. Do not inspect siblings.
 - **Metadata:** at most one new page per named conversation, three pages overall. Reuse retained
   metadata when it supplies the candidates; record the exact canonical paths and IDs before evaluation.
@@ -151,7 +220,8 @@ Replay and inspection do not reopen source files or re-evaluate the policy. Opti
 on replay must match the retained selection. Cache is private, digest-checked, and expires after 24 hours.
 A missing, expired, or corrupt snapshot fails explicitly. Back restores retained evidence, not new
 interpretation; if retention or conversational state is lost, disclose **exact restoration unavailable**.
-Refresh is a new, explicitly authorized evaluation—not Back. Changing the binary does not reinterpret an
+Refresh is a new evaluation authorized by standing approval with remaining allowance, or a separate
+explicit proposal—not Back. Changing the binary does not reinterpret an
 old snapshot; its original policy definition and digest remain attached.
 
 ## Metric contract v1

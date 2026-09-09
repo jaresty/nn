@@ -55,7 +55,7 @@ branch references may dispatch to a command owner. Discover applicability with
 | Cohort / listing metadata | `nn skills get nn-transcript --reference discovery` | `nn transcript ls` |
 | Enter an office / hallway | `nn skills get nn-transcript --reference navigate` | Awaiting return; tree for All rooms |
 | Unclosed Work Desk / review patterns / correction drafts | `nn skills get nn-transcript --reference review` | `nn transcript review` (deterministic Pi evidence) |
-| Attention signals | `nn skills get nn-transcript --reference attention` | `nn transcript attention` |
+| Open / Refresh; attention signals | `nn skills get nn-transcript --reference attention` | Standing opt-in checks; `nn transcript attention` |
 | Assignment versus recent work | `nn skills get nn-transcript --reference context` | `nn transcript context` (recorded launches + bounded tail) |
 | Enter one room | `nn skills get nn-transcript --reference rooms` | Bounded `events --last 5` Situation Board |
 | Scan or rearrange any view | `nn skills get nn-transcript --reference lenses` | Preset, blank, inferred, or user-defined lens |

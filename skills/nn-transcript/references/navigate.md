@@ -46,7 +46,9 @@ Load **attention** with `nn skills get nn-transcript --reference attention` befo
 displaying signals. Bare attention discovers within the current office and active queue/filter, not
 an older selected room. The owner supplies one bounded proposal and resolves native room IDs before
 acquisition. Keep **More → Attention signals** available; including returned rooms from Awaiting return
-is an explicit scope change, not a silent archive substitution. Do not scan automatically on Office entry.
+is an explicit scope change, not a silent archive substitution. On Open or explicit Refresh, apply
+standing attention through that owner when enabled and in scope. Without it, offer opt-in rather
+than scanning. A single navigation action produces at most one pass across loaded owners.
 
 ## Unclosed Work Desk
 

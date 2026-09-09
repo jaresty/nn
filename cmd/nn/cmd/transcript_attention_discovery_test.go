@@ -19,8 +19,11 @@ func TestAttentionDiscoveryPublication(t *testing.T) {
 		{"AD6_REPLACEMENT", "attention", "Do not silently replace an unavailable or unclassifiable candidate."},
 		{"AD7_WIDENING", "attention", "An empty filtered population stays empty; do not clear the filter or widen discovery automatically."},
 		{"AD8_BACK", "interaction", "Back never refunds consumed attention attempts or output allowance."},
-		{"AD9_AUTOMATION", "attention", "Entering a view does not start an automatic attention scan."},
+		{"AD9_AUTOMATION", "attention", "Without standing approval, entering a view does not start an attention check."},
 		{"AD10_EVALUATOR", "attention", "This discovery recipe does not change the native evaluator or its policy."},
+		{"AD11_IMPERATIVE", "interaction", "A clear imperative authorizes its ordinary bounded read-only operation."},
+		{"AD12_RECOVERY", "attention", "An explicit recovery-check request authorizes one bounded fresh evaluation."},
+		{"AD13_NO_CONFIRM", "attention", "Do not ask “Run recovery check?” after the user has already requested that check."},
 	}
 	normalize := func(s string) string { return strings.Join(strings.Fields(s), " ") }
 	for _, tc := range cases {
@@ -34,6 +37,42 @@ func TestAttentionDiscoveryPublication(t *testing.T) {
 				t.Fatalf("%s FAIL: required publication clause absent", tc.id)
 			}
 			t.Logf("%s PASS", tc.id)
+		})
+	}
+}
+
+// Publication only: these do not emulate an LLM or introduce a runtime hook.
+func TestAttentionStandingApproval(t *testing.T) {
+	_, execute := setupNotebook(t)
+	for _, clause := range []string{
+		"Standing approval authorizes eligible Open and explicit Refresh checks without per-check reconfirmation.",
+		"One navigation action starts at most one attention pass.",
+		"Back, Forward restoration, re-rendering, pagination, and tool completion do not trigger a check.",
+		"Every pass consumes the standing allowance; no navigation action resets cumulative consumption.",
+		"Opt-out, End, a new conversation, or lost authorization state disables standing attention.",
+		"Exhaustion pauses checks; it does not renew permission.",
+		"Standing attention does not authorize deeper inspection, capture, or intervention.",
+	} {
+		t.Run(clause, func(t *testing.T) {
+			text, err := execute("skills", "get", "nn-transcript", "--reference", "attention")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(strings.Join(strings.Fields(text), " "), clause) {
+				t.Fatalf("STANDING FAIL: %s", clause)
+			}
+			t.Logf("STANDING PASS: %s", clause)
+		})
+	}
+	for _, owner := range []string{"discovery", "navigate", "review", "rooms", "interaction"} {
+		t.Run(owner, func(t *testing.T) {
+			text, err := execute("skills", "get", "nn-transcript", "--reference", owner)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(strings.ToLower(text), "standing attention") {
+				t.Fatalf("STANDING_DISPATCH FAIL: %s", owner)
+			}
 		})
 	}
 }

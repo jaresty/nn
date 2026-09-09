@@ -71,7 +71,9 @@ Timestamp, kind, and `recency_basis: work` describe retained observation, not pr
 ## Attention badges
 
 Load **attention** with `nn skills get nn-transcript --reference attention` before discovery or attaching
-a retained match to an Awaiting return room. Bare attention retains this queue and pattern; the owner
+a retained match to an Awaiting return room. On Open or explicit Refresh, apply standing attention
+through that owner when enabled and in scope; do not start a second pass for the same navigation action.
+Bare attention retains this queue and pattern; the owner
 supplies the bounded selection/approval recipe. Empty means empty, not an invitation to use archive.
 Preserve the existing membership/order; label separately captured observations. No badge does not mean
 healthy or evaluated. Additional or returned rooms require an explicit scope change.

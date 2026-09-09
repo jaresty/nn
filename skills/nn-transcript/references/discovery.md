@@ -12,7 +12,9 @@ target means one focused clarification. Echo numeric selections before retrieval
 
 ## Attention from the lobby
 
-Load `nn skills get nn-transcript --reference attention` for a bare attention request here. The current
+On Open or explicit Refresh, load `nn skills get nn-transcript --reference attention` to apply
+standing attention if enabled, or offer its one-time opt-in without blocking the lobby. Also load it
+for a bare attention request here. The current
 explicitly identified displayed conversation cohort scopes discovery; a background selected room does
 not narrow it. Offer the owner's one bounded proposal without asking the human to nominate rooms first.
 Keep exact paths, visible labels, and page omissions. Approval does not extend to other conversations.

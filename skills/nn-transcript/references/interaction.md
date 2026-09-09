@@ -21,8 +21,15 @@ Use this order, checking scope and applicability at each step:
 4. For other actions, an applicable selected target is the fallback.
 5. Otherwise ask one focused clarification; do not invent a target.
 
-Target resolution is not acquisition permission. An explicit operand outside an approved envelope
-resolves the target but requires a new bounded proposal before acquisition. At a lobby, bare attention
+Target resolution is not acquisition permission. Merely naming a target does not authorize retrieval.
+A clear imperative authorizes its ordinary bounded read-only operation.
+Do not turn an explicit request into a proposal to perform that same operation. Resolve its target,
+state the normal bounds briefly, and execute when those bounds are defined by the owning reference
+and fit the available allowance. A request does not override a previously stated hard resource limit,
+prohibition, or scope restriction. If the target is ambiguous, the ordinary bounds are undefined, or
+additional scope is needed, ask one focused question or offer one concrete extension—not a menu.
+An operand outside an approved envelope alone still requires a new proposal; an explicit imperative
+may supply fresh authorization for its ordinary bounded operation, subject to those hard limits. At a lobby, bare attention
 means discovery among explicitly identified displayed conversations; at a hallway, within the current
 office and active queue/filter; at a room, that exact room. A remembered room is an optional shortcut,
 not an implicit override of a broader surface. A uniquely bound visible action still takes precedence.
@@ -37,7 +44,8 @@ Example: selected event A, displayed action **Inspect failure B**, user says **i
 User says **inspect A** -> inspect A if authorized. An empty filter has no selectable room; never silently
 clear it or borrow a prior unfiltered selection. Offer **Clear pattern and inspect prior room** as an
 explicit, bound scope transition instead. A selected action executes directly; do not ask again merely
-because the underlying command has flags.
+because the underlying command has flags. Fresh retrieval is not by itself a reason to reconfirm an
+explicit retrieval request. This rule does not authorize mutations, capture, or intervention.
 
 ## Navigation state and Back
 
@@ -133,8 +141,11 @@ Capture, and Refresh; Back and End remain visible. Displaced default controls re
 
 'Attention' must name its actual population; do not silently equate it with open-handoff. In baseline A,
 refresh is explicit. A new room result may contain newer handoff evidence: label that separately from
-the prior desk, never call returned work successful without support, and never rewrite Back. Automatic
-entry-time overlays and continuous watching are not implemented by this contract.
+the prior desk, never call returned work successful without support, and never rewrite Back.
+The **attention** owner defines standing attention: session-scoped approval can cover bounded checks
+on Open and explicit Refresh without another per-check prompt. This consumes its declared cumulative
+allowance, never resets inspection budgets, and never changes Back into a fresh check. No continuous
+watching or native entry-time hook is implemented; the LLM invokes the existing CLI within consent.
 
 Capture follows **actions** and the normal nn workflow: propose a source-qualified note/update and
 links, then require explicit approval of the concrete proposal. **Capture this insight** opens the
