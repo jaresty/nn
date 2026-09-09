@@ -154,6 +154,19 @@ schema. Node geography (spawn hierarchy on the Y bands, time on X, closed positi
 is deterministic and never moved by the skill layer; the skill may only light appearance
 and choose emphasis.
 
+### Provide bounded native hallway projections
+
+`tree --summary --json` returns a bounded aggregate over the complete normalized relation: total
+agents, ROOT direct children, non-ROOT edges, parentage-status counts, lifecycle-status counts, and
+explicit unknown counts. `tree --parent <id> --limit N --json` returns an envelope of that manager's
+canonical direct children with total/returned/omitted counts and an opaque continuation cursor.
+Filtering occurs before limiting. The cursor binds a versioned digest of the normalized relation,
+selected parent, and canonical child ordering; changed evidence or arguments reject stale rather than
+mixing pages. Unknown parents and incompatible projection flags fail explicitly. Existing unflagged
+JSON/text and exact-agent/description projections remain unchanged. These projections keep topology
+selection, reduction, ordering, and snapshot custody in the pure-Go spine rather than client-side
+`jq` reconstruction.
+
 ### Co-version the embedded skill and CLI contract
 
 The canonical `nn-transcript` skill is embedded in and served by the same `nn` binary as the

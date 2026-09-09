@@ -29,8 +29,13 @@ unsupported, which must be reported rather than silently substituted.
 
 1. **Tree overview (deterministic, trustworthy).**
    ```bash
-   nn transcript tree <session> --json
+   nn transcript tree <session> --summary --json
+   nn transcript tree <session> --parent ROOT --limit 3 --json
    ```
+   Use `next_cursor` with the identical `--parent` to continue the canonical direct-child list. The
+   summary and parent page are native bounded hallway projections: do not fetch the whole tree and use
+   `jq` to reconstruct counts, filter children, or invent paging. Use unprojected `tree --json` only
+   when the complete relation itself is required.
    Read only Tier-0/1 signals — always present, no inference:
    - `cost` / `subtree_cost` — token counts, with `cost_status` / `subtree_cost_status` authority:
      complete is measured, unavailable is unknown, partial is a lower bound (*audit*).

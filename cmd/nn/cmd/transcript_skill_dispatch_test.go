@@ -68,6 +68,8 @@ func TestTranscriptOfficeDefaultAndLensDispatch(t *testing.T) {
 		"LLM-mediated", "not an interactive CLI")
 	assertContains("ASSERT_TRANSCRIPT_OFFICE_AUTHENTICATED_TOPOLOGY", navigate,
 		"authenticated topology", "direct children", "nested manager")
+	assertContains("ASSERT_TRANSCRIPT_OFFICE_USES_NATIVE_HALLWAY_PROJECTIONS", navigate,
+		"--summary --json", "--parent ROOT --limit 3 --json", "next_cursor", "do not fetch the whole tree", "`jq`")
 	assertContains("ASSERT_TRANSCRIPT_ROOM_OPEN_LENS", rooms,
 		"Situation Board", "user-defined", "named lenses are presets")
 	assertContains("ASSERT_TRANSCRIPT_OFFICE_LENS_SCAN", lenses,

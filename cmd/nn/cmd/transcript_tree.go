@@ -136,14 +136,31 @@ type piCustomData struct {
 
 func newTranscriptTreeCmd() *cobra.Command {
 	var asJSON bool
-	var strict bool
-	var agentID, description, fields string
+	var strict, hallwaySummary bool
+	var agentID, description, fields, parentID, cursor string
+	var limit int
 	cmd := &cobra.Command{
 		Use:   "tree <session>",
 		Short: "Reconstruct the spawn DAG into the normalized relation",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			parentMode := cmd.Flags().Changed("parent")
 			projected := cmd.Flags().Changed("agent") || cmd.Flags().Changed("description") || cmd.Flags().Changed("fields")
+			if (hallwaySummary || parentMode) && (projected || !asJSON) {
+				return fmt.Errorf("tree: --summary and --parent require --json and cannot combine with agent, description, or fields")
+			}
+			if hallwaySummary && parentMode {
+				return fmt.Errorf("tree: --summary cannot be combined with --parent")
+			}
+			if !parentMode && (cmd.Flags().Changed("limit") || cmd.Flags().Changed("cursor")) {
+				return fmt.Errorf("tree: --limit and --cursor require --parent")
+			}
+			if parentMode && parentID == "" {
+				return fmt.Errorf("tree: --parent must not be empty")
+			}
+			if limit < 0 {
+				return fmt.Errorf("tree: --limit must be non-negative")
+			}
 			if projected && !asJSON {
 				return fmt.Errorf("tree: --agent, --description, and --fields require --json")
 			}
@@ -174,6 +191,16 @@ func newTranscriptTreeCmd() *cobra.Command {
 			}
 			if asJSON {
 				enc := json.NewEncoder(cmd.OutOrStdout())
+				if hallwaySummary {
+					return enc.Encode(summarizeTreeHallway(agents))
+				}
+				if parentMode {
+					page, err := buildTreeChildPage(agents, parentID, limit, cursor)
+					if err != nil {
+						return err
+					}
+					return enc.Encode(page)
+				}
 				enc.SetIndent("", "  ")
 				if projected {
 					selected := agents
@@ -201,6 +228,10 @@ func newTranscriptTreeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&agentID, "agent", "", "select one agent after full-tree validation/rollup (requires --json)")
 	cmd.Flags().StringVar(&description, "description", "", "select every exact launch-description match after full-tree validation/rollup (requires --json)")
 	cmd.Flags().StringVar(&fields, "fields", "", "comma-separated top-level JSON field names (requires --json)")
+	cmd.Flags().BoolVar(&hallwaySummary, "summary", false, "emit bounded hallway aggregate (requires --json)")
+	cmd.Flags().StringVar(&parentID, "parent", "", "select exact direct children of one manager (requires --json)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "limit parent children per page (0 = all)")
+	cmd.Flags().StringVar(&cursor, "cursor", "", "continue a parent-child page under the same snapshot")
 	cmd.Flags().BoolVar(&strict, "strict", false, "abort on validation failure instead of repairing orphans (use for untrusted/escape-hatch schemas)")
 	return cmd
 }
