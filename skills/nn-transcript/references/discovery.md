@@ -10,6 +10,13 @@ visible breadcrumbs, action binding, and exact retained-view Back. Preserve a vi
 Open executes it without re-listing, while Open… chooses a different row. No selection or ambiguous
 target means one focused clarification. Echo numeric selections before retrieval, without another prompt.
 
+## Attention from the lobby
+
+Load `nn skills get nn-transcript --reference attention` for a bare attention request here. The current
+explicitly identified displayed conversation cohort scopes discovery; a background selected room does
+not narrow it. Offer the owner's one bounded proposal without asking the human to nominate rooms first.
+Keep exact paths, visible labels, and page omissions. Approval does not extend to other conversations.
+
 ## Find an agent by launch name
 
 Use `nn transcript ls <root> --json` to select the parent session, then

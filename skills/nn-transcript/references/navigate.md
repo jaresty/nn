@@ -41,8 +41,11 @@ explicitly limited to the hallway; do not substitute an empty awaiting-return vi
 
 ## Attention signals
 
-Load **attention** before evaluating or displaying signals. Keep **More → Attention signals** available
-for explicitly selected rooms, including returned rooms. Do not scan automatically on Office entry.
+Load **attention** with `nn skills get nn-transcript --reference attention` before evaluating or
+displaying signals. Bare attention discovers within the current office and active queue/filter, not
+an older selected room. The owner supplies one bounded proposal and resolves native room IDs before
+acquisition. Keep **More → Attention signals** available; including returned rooms from Awaiting return
+is an explicit scope change, not a silent archive substitution. Do not scan automatically on Office entry.
 
 ## Unclosed Work Desk
 

@@ -14,7 +14,9 @@ usage/tool/timing reductions, and **lenses** for shared projection rules.
 
 ## Attention evidence
 
-Load **attention** when entering via a signal. Show its policy identity, ratio, counts, window, and
+Load **attention** with `nn skills get nn-transcript --reference attention` when entering via a signal
+or requesting attention for this room. The target is this exact room, not siblings; the owner governs
+retained display versus newly authorized evaluation. Show policy identity, ratio, counts, window, and
 limitations; bind **Inspect evidence** to the exact retained attention snapshot and room, not a fresh tail.
 
 ## Initial room entry

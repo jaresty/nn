@@ -17,8 +17,16 @@ Use this order, checking scope and applicability at each step:
 
 1. An explicit operand wins, including an exact label, event, or number from the current picker.
 2. A uniquely displayed matching action wins over a background selected target.
-3. An applicable selected target is the fallback.
-4. Otherwise ask one focused clarification; do not invent a target.
+3. For bare attention, the current surface scopes discovery before any background selected target.
+4. For other actions, an applicable selected target is the fallback.
+5. Otherwise ask one focused clarification; do not invent a target.
+
+Target resolution is not acquisition permission. An explicit operand outside an approved envelope
+resolves the target but requires a new bounded proposal before acquisition. At a lobby, bare attention
+means discovery among explicitly identified displayed conversations; at a hallway, within the current
+office and active queue/filter; at a room, that exact room. A remembered room is an optional shortcut,
+not an implicit override of a broader surface. A uniquely bound visible action still takes precedence.
+Load `nn skills get nn-transcript --reference attention` for the discovery recipe and one-approval defaults.
 
 Bind every visible action to its verb, exact target IDs, selection options, evidence references,
 operation, authorization needs, and return view. Preserve exact picker labels and echo a numeric target
@@ -47,6 +55,7 @@ view. Any new interpretation is separate from restoration, not presented as the 
 
 Consumed budget belongs to the active inspection session, not a historical view: the inspection budget ledger is monotonic across Back.
 Back, Forward, cancellation, and a new history branch never refund consumption or renew approval.
+Back never refunds consumed attention attempts or output allowance.
 If consumption state is lost, stop budgeted follow-up and obtain a new explicit envelope rather than
 assuming an unused balance. A newer evidence overlay does not rewrite an older view.
 

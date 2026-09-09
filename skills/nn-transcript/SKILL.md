@@ -36,8 +36,8 @@ surface, not an interactive CLI, terminal picker, or persistent TUI. Hide CLI me
   never reconstruct a path from session ID, current project, or cwd. Continue with its `--cursor`;
   never derive cursors from times. Load navigate, then review: Pi defaults to **Awaiting return**.
   Hierarchy stays under More → All rooms; nested managers open sub-offices.
-- **Already selected session/agent:** go directly to the relevant reference and command below.
-  Do not rescan for a known thread.
+- **Already selected session/agent:** use its owner directly.
+  Bare attention uses **attention**'s surface scope, not a background room.
 - **Find an agent by launch name or description:** use `nn transcript ls` to select the parent
   session, then use `nn transcript tree <session> --description "<name>" --json`.
   This is metadata discovery: do not use `nn transcript search`, which searches event content and
