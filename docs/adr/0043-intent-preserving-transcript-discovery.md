@@ -70,18 +70,23 @@ matching action, then an applicable selected target. A background selection must
 visible action's promise. If these do not resolve intent without changing scope, ask one focused
 clarification. Never silently clear an empty filter to borrow a target from the underlying desk.
 
-Retain a view record containing the rendered findings, breadcrumb, selection, scope, question/lens,
-action bindings, evidence references, and previous-view identity. A snapshot alone cannot restore the
-LLM's interpretation or action choices. Back replays that record without regeneration. Preserve the
-record or its session-artifact path across compaction. If it is missing, disclose that exact restoration
-is unavailable and offer explicit reconstruction; do not silently regenerate. Expired evidence prevents
-new evidence inspection but need not prevent replay of a retained rendered view, labeled as historical.
+Back restores structured navigation/evidence state, not identical LLM prose. A snapshot alone cannot
+restore an interpretation; rerendering by an LLM is not deterministic. Do not require the LLM to create
+private temporary JSON or preserve rendered responses. Until native navigation storage exists, retain
+concise conversational state and disclose loss across compaction. Never silently refresh lost evidence.
+
+A small native navigation session is the chosen next persistence direction: store selection, filters,
+picker mappings, history, action targets, and evidence references, not LLM prose or conclusions. Keep
+consumed inspection budget in a separate monotonic session ledger; Back/Forward cannot refund it.
+Evidence captures remain authoritative and separately retained. This facility is designed, not shipped;
+see [native navigation-session design](../transcript-office-state-design.md) for scope and open choices.
 
 - **Open** executes the selected target; **Open...** selects a different target.
 - **Find** performs a bounded evidence-guided diagnostic within established scope rather than requiring
   the human to select a CLI filter. State the bounds; confirm a new or enlarged semantic scope.
 - **Inspect** follows the contextual selected/recommended evidence item when unambiguous.
-- **Back** restores the actual retained view, options, selection, question, and evidence without refresh.
+- **Back** restores retained navigation options, selection, question, and evidence without refresh;
+  it does not guarantee identical prose or recomputed conclusions.
 - Echo numeric target selections before retrieval; preserve immediate conversational correction and
   Back. Navigation recovery does not undo external actions.
 
@@ -91,7 +96,7 @@ behind the Office surface unless requested or a failure requires a real human de
 
 ### 3. Recommend actions from evidence, not a fixed menu
 
-Promote two or three concrete useful actions, with the target clear. Generic level menus remain
+Promote up to three concrete useful actions, with the target clear. Generic level menus remain
 fallbacks; displaced controls stay under More, with Back and End always visible. An empty result should
 lead to a justified next action or an honest statement that nothing compelling was found, not another
 unranked filter menu. Do not invent findings to fill action slots.
@@ -213,8 +218,8 @@ The supplied interaction trace shows remaining selection/menu friction after tho
 - `skills/nn-transcript/SKILL.md` and `references/`: interaction/state/action contracts.
 - Transcript command/contract tests and performance documentation under `docs/`.
 
-Re-inspect exact integration points before implementation. No new command name, flag set, cache format,
-or schema is specified by this ADR.
+Re-inspect exact integration points before implementation. No shipped command name, flag set, cache format,
+or schema is added by this ADR; the linked native-state design describes proposed operations.
 
 ### Pending work and ordered continuation
 
@@ -224,7 +229,7 @@ retrieval are conditional on a demonstrated limitation of existing commands.
 
 1. **Reconcile state and interaction contracts.** Inventory conflicting fixed-menu/metadata-first rules
    across the core and references. Define selection, scope, recommendation targeting, breadcrumbs,
-   and exact Back transitions. Preserve the compact-core/lazy-reference contract.
+   and navigation-state Back transitions. Preserve the compact-core/lazy-reference contract.
    Acceptance: replay Open/Find/Inspect/Back without unnecessary choosers or silent filter clearing.
    Next: freeze replay cases and evaluation criteria before adding evidence machinery.
 2. **Deliver baseline A using existing commands.** Combine sticky selection, action bindings, readable
@@ -232,7 +237,7 @@ retrieval are conditional on a demonstrated limitation of existing commands.
    Exercise a stale selected event A with a visible Inspect B action, empty-filter Inspect, sample versus
    follow-up authorization, capture cancellation, compaction loss, and a failure hidden by truncation.
    Acceptance: explicit operands win; Inspect follows the visible action; no silent scope expansion;
-   no automatic notebook write; no regenerated Back; no scripts for ordinary reading. A useful finding
+   no automatic notebook write; no silent refresh on Back; no scripts or manual view files for ordinary navigation. A useful finding
    cites enough retained evidence for its conclusion and recommends a relevant next action. A false
    alarm asserts a concern unsupported by inspected evidence; unnecessary follow-up consumes retrieval
    without resolving a declared uncertainty. Record those judgments, not just counts.
@@ -271,8 +276,8 @@ checks validate dispatch and consistency, not semantic recommendation quality.
 
 ### Immediate next action
 
-The view/action and inspection-envelope contracts now ship with baseline A's existing-command path:
-one room -> readable evidence -> qualified finding -> direct Inspect -> exact Back. Run the retained
-conversational replay cases in the linked baseline document; contract/native tests alone do not establish
-model compliance or comparative benefit. Earn any new selection primitive through A's measured
-limitations, not by assuming new summaries are necessary. Do not begin with a dashboard.
+Mandatory manual view persistence has been removed from baseline A. Use conversational navigation
+state with explicit restoration limits now. Validate and implement the linked minimal native-session
+design next: manual state-management friction is an observed limitation, unlike unproven metric needs.
+Retain the one-room inspection loop and conversational replay cases; contract tests alone do not
+establish model compliance or benefit. No metric dashboard is implied.

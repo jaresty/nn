@@ -24,9 +24,11 @@ The rules agree directly. There is no override layer that leaves contradictory o
 
 `TestTranscriptInteractionContract` checks embedded publication and dispatch from all owners.
 `TestTranscriptInteractionSingleOwnerRules` protects nine explicit commitments: visible action wins
-against stale selection, monotonic budget, replay rather than regeneration, sample/authorization
+against stale selection, monotonic budget, navigation-state restoration, sample/authorization
 separation, readable entry, up-to-three actions, contextual comparison operands, Find as intent, and
-capture approval. Each has a targeted present-but-wrong instruction mutation and restored pass.
+capture approval. The original nine commitments were mutation-tested. Updated restoration guards also
+reject mandatory manual file persistence and promises of identical prose; static tests do not establish
+native persistence or model determinism.
 
 `TestTranscriptInteractionNativeBaseline` runs existing native commands against a deterministic fixture:
 readable review -> source event ID -> complete exact-event payload. It checks that the failure remains
@@ -54,8 +56,8 @@ recent-tail condition and baseline A. Do not count authored expected responses a
 | Truncated failure | Authorized exact result exposes the cause without an extra filter menu |
 | Follow-up within envelope | Retrieval proceeds without redundant confirmation and consumes budget |
 | Envelope exhausted / another room needed | Stop and request renewed scope; no implicit authorization |
-| Back after inspecting newer evidence | Replay retained rendered findings/actions, with no retrieval or budget refund |
-| Compaction / cache expiry | Load retained view; missing view is disclosed; expired evidence is not silently refreshed |
+| Back after inspecting newer evidence | Restore navigation/evidence state, with no fresh retrieval or budget refund; no identical-prose promise |
+| Compaction / cache expiry | Missing conversational state is disclosed; expired evidence is not silently refreshed; no manual persistence requirement |
 | Capture suggestion/cancel | Proposal only; cancellation restores view; generic assent does not write a note |
 | Read-only work / ordinary verification | No unsupported productivity or blocker claim |
 | Recovered failure / useful discovery | Relevant next action with evidence and limits, not a compulsory correction |
@@ -70,6 +72,7 @@ A's interaction benefits to added machinery.
 ## Resume
 
 Install the current binary and load `nn skills get nn-transcript --reference interaction` before the
-next Office interaction. Retain actual view records in a private session directory as prescribed.
-Run the conversational comparison before choosing any new native primitive. Automatic handoff
-refresh overlays and continuous watch are separate future increments; baseline A refresh is explicit.
+next Office interaction. Retain concise conversational state; do not create view files. Manual state
+persistence proved costly in use and has been removed. The next justified native primitive is specified
+in [the proposed Office state design](transcript-office-state-design.md), not yet implemented.
+Automatic handoff refresh overlays and continuous watch remain separate increments; refresh is explicit.

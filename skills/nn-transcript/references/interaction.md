@@ -31,34 +31,31 @@ clear it or borrow a prior unfiltered selection. Offer **Clear pattern and inspe
 explicit, bound scope transition instead. A selected action executes directly; do not ask again merely
 because the underlying command has flags.
 
-## Retained view record
+## Navigation state and Back
 
-Before leaving any rendered view, retain a record with:
+Keep the canonical session path, current surface, selection, queue/filter/options, picker mappings,
+question/lens, bound actions, evidence references, and `previous_view` in conversational context.
+Do not create temporary files or serialize view JSON for navigation. Native navigation-session storage
+is planned, not currently available: do not invent `office save`, history commands, or replay tokens.
+This state is not notebook truth: no notebook write, source mutation, or capture approval follows.
 
-- `view_id`, `previous_view`, current surface, breadcrumb, and exact rendered response;
-- canonical session path, selected row/room/event, queue/filter/options, and picker-number mapping;
-- findings and their evidence qualifications, question/lens, and actual action bindings;
-- snapshot/capture identities, retrieved source event IDs, freshness/inspection limits;
-- inspection envelope, approval basis, remaining budget, and any separately identified newer overlay.
+**Back restores navigation state, not identical prose.** Return to the prior scope, selection, filter,
+question, and evidence identity without issuing fresh transcript queries. LLM rerendering is not deterministic;
+do not promise verbatim text or identical new recommendations. Reuse retained findings and action
+bindings where available, preserving their qualifications; do not infer new findings just to fill the
+view. Any new interpretation is separate from restoration, not presented as the prior finding.
 
-Use a private, session-local artifact for exact restoration, not just prose memory. Create one private
-session directory with `mktemp -d` and write numbered JSON view records there using the agent's file
-tools; directory mode must be 0700 and records 0600. Preserve its absolute path and current/history
-record IDs in compaction handoffs. Store the rendered view and identifiers, not entire native payloads
-or hidden reasoning. This is session UI state: no notebook write, note creation, or source mutation.
-If private storage is unavailable, disclose that exact Back cannot be guaranteed rather than pretending
-an ephemeral summary is an exact saved view. No persistent cross-session UI is claimed.
+Consumed budget belongs to the active inspection session, not a historical view: the inspection budget ledger is monotonic across Back.
+Back, Forward, cancellation, and a new history branch never refund consumption or renew approval.
+If consumption state is lost, stop budgeted follow-up and obtain a new explicit envelope rather than
+assuming an unused balance. A newer evidence overlay does not rewrite an older view.
 
-**Back is replay, not regeneration.** Read and replay the retained `previous_view`'s rendered findings,
-actions, selections, and evidence. Do not issue transcript queries, reinterpret findings, or restore
-spent authorization budget: the inspection budget ledger is monotonic across Back. A later overlay
-belongs to its new view and cannot rewrite the prior view. A capture proposal/cancel is also a view
-transition, so cancellation returns to the exact originating view.
-
-After compaction, load the retained artifact before resolving shorthand. If it is missing, say
-**exact restoration unavailable** and offer explicit reconstruction or a new selection. An expired
-capture does not prevent replay of retained rendered text, labeled historical; it does prevent new
-inspection of missing evidence. Never silently reacquire live evidence to make an old action work.
+Across compaction, carry concise navigation state and remaining authorization in the normal handoff;
+do not create a persistence artifact. If required context is missing, say **exact restoration unavailable**
+and offer explicit reconstruction or a new selection. If evidence expired, retained state may still be
+shown as historical, but new inspection requires explicit reacquisition. Never silently refresh to make
+an old action work. Capture cancellation returns to the originating navigation state, not a regenerated
+claim of identical rendered output.
 
 ## Inspection envelope: sample is not authorization
 
@@ -132,7 +129,8 @@ proposal, not a write. No notebook write follows generic navigation assent. Canc
 - Empty-filter Inspect never silently clears the filter; a displayed clear-and-inspect action does.
 - Open uses sticky selection and echoes it; Open… alone opens a chooser.
 - In-envelope follow-up executes without a second confirmation; exhausted/out-of-envelope work stops.
-- Back replays rendered findings/actions without new retrieval or restoring consumed budget.
+- Back restores selection/filter/evidence state without fresh retrieval or restoring consumed budget;
+  it does not promise identical LLM prose or require file-writing tools.
 - Missing view after compaction reports exact restoration unavailable; expired evidence is not refreshed.
 - Capture opens a proposal; cancel preserves state; navigation approval never becomes write approval.
 - Readable entry and Find use native commands, report truncation, and do not force a metric/lens menu.
