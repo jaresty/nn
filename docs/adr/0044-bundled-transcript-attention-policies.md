@@ -76,11 +76,17 @@ context in which the rule runs. Parameters must be typed, validated, and bound a
 into executable rule text by string substitution. Definition identity/version or digest must accompany
 results so later changes cannot silently reinterpret an earlier match.
 
-The existing Datalog engine's aggregation, numeric comparison, parameter, and arithmetic support has
-not been established by this decision. Check those capabilities before fixing the grammar. The example
-expresses intended semantics; it does not authorize publishing unsupported syntax. A bounded numeric
-extension or equivalent safe numeric relation may be needed. Prefer reuse of the existing engine where
-it preserves isolation; do not silently turn the policy into a hard-coded detector if syntax differs.
+Reuse nn's existing Datalog parser for the `rule` body; do not write a second Datalog parser or
+parallel rule-language implementation. The scope/window/parameter wrapper is a separate configuration
+layer and delegates rule parsing to that existing parser. Reuse the existing evaluator with an isolated
+transcript fact context.
+
+The existing engine's aggregation, numeric comparison, parameter, and arithmetic support has not been
+established by this decision. Check those capabilities before fixing the grammar. The example expresses
+intended semantics; it does not authorize publishing unsupported syntax. If necessary, extend the
+existing implementation narrowly or express the operation through a supported safe numeric relation,
+with regression tests preserving existing notebook behavior. Neither a fresh parser nor a hard-coded
+policy-specific detector is an acceptable workaround for unsupported illustrative syntax.
 
 ### 3. Define evidence before interpreting the ratio
 
@@ -151,7 +157,9 @@ It does not yet establish that the signal is useful or that any threshold is cal
 
 Before shipping:
 
-1. Verify engine capabilities and freeze the minimal supported grammar and metric definitions.
+1. Inspect and reuse the existing Datalog parser and evaluator; verify their capabilities and freeze
+   the minimal supported wrapper, rule grammar, and metric definitions. Test that bundled rule bodies
+   actually pass through the existing parser rather than a parallel implementation.
 2. Test parser/type errors, positive thresholds, zero/unknown denominators, scope mismatch, window
    boundaries, duplicate representations, unknown classifications, and bounded evaluation failure.
 3. Prove the bundled definition controls matching: change its ratio threshold or rule in an isolated
