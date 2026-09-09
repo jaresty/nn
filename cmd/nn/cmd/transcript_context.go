@@ -125,12 +125,20 @@ func buildTranscriptContext(session, id string, last, page int, snapshot string)
 	return result, nil
 }
 
-func buildReviewTails(session, queue, order, pattern string, limit int, cursor string, last int, payload bool, page int, snapshot string) (ledgerPage, error) {
+func buildReviewTails(session, queue, order, pattern string, limit int, cursor string, last int, payload bool, page int, snapshot string, assignments ...bool) (ledgerPage, error) {
+	includeAssignment := len(assignments) > 0 && assignments[0]
+	if includeAssignment {
+		payload = true
+	}
 	var empty ledgerPage
 	if e := contextBounds(last, page, snapshot); e != nil {
 		return empty, e
 	}
-	request, e := captureRequest(session, "review", queue, order, pattern, limit, cursor, last, payload)
+	requestKind := "review"
+	if includeAssignment {
+		requestKind = "review-assignment"
+	}
+	request, e := captureRequest(session, requestKind, queue, order, pattern, limit, cursor, last, payload)
 	if e != nil {
 		return empty, e
 	}
@@ -150,6 +158,7 @@ func buildReviewTails(session, queue, order, pattern string, limit int, cursor s
 	events := []ledgerEvent{}
 	sources := capture.digests()
 	retrieved, unavailable, omittedEvents := 0, 0, 0
+	assignmentCount := 0
 	for i, row := range rooms.Rows {
 		tail, digests, e := contextTail(capture, row.ID, last, payload)
 		if e != nil {
@@ -166,13 +175,33 @@ func buildReviewTails(session, queue, order, pattern string, limit int, cursor s
 		}
 		retrieved += len(tail.Events)
 		omittedEvents += tail.Query.Total - tail.Query.Selected
-		events = append(events, ledgerEvent{"event_id": ledgerID(path, i, row.ID, "review:room"), "ordinal": i, "kind": "review_room", "agent_id": row.ID, "room": row, "recent": tail.Query, "room_snapshot": tail.Snapshot, "detail_status": tail.DetailStatus})
+		room := ledgerEvent{"event_id": ledgerID(path, i, row.ID, "review:room"), "ordinal": i, "kind": "review_room", "agent_id": row.ID, "room": row, "recent": tail.Query, "room_snapshot": tail.Snapshot, "detail_status": tail.DetailStatus}
+		events = append(events, room)
+		if includeAssignment {
+			launches, err := buildHandoffPage(path, row.ID, "launch", fields, true, 1, "", "", true, capture)
+			if err != nil {
+				return empty, err
+			}
+			room["launches"] = launches.Handoff
+			room["assignment_events"] = len(launches.Events)
+			room["steering_status"] = "unavailable"
+			room["governing_attempt"] = "not_inferred"
+			assignmentCount += len(launches.Events)
+			events, e = appendContextEvents(events, launches.Events, "launch")
+			if e != nil {
+				return empty, e
+			}
+		}
 		events, e = appendContextEvents(events, tail.Events, "recent")
 		if e != nil {
 			return empty, e
 		}
 	}
 	receipt := ledgerEvent{"event_id": ledgerID(path, 0, "ROOT", "review:receipt"), "ordinal": 0, "kind": "review_receipt", "bundle": "review_tails", "path": path, "queue": queue, "order": order, "pattern": pattern, "last": last, "limit": limit, "review_snapshot": rooms.Snapshot, "population": rooms.Population, "eligible": rooms.Eligible, "offset": rooms.Offset, "retrieved_rooms": rooms.Returned, "omitted_rooms": rooms.Omitted, "unknown_population": rooms.Unknown, "unavailable_rooms": unavailable, "selected_events": retrieved, "omitted_earlier_events": omittedEvents, "next_room_cursor": rooms.NextCursor, "inspection_status": "not_inferred", "capture_sources": len(sources), "capture_id": capture.ID, "capture_boundary": "sequential_complete_record_prefixes"}
+	if includeAssignment {
+		receipt["include_assignment"] = true
+		receipt["selected_assignments"] = assignmentCount
+	}
 	events = append([]ledgerEvent{receipt}, events...)
 	result, e := buildLedgerPage(path, "review_tails", schemaPi, "per_room", fields, payload, events, page, snapshot, "", false)
 	if e != nil {

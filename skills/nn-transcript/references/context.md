@@ -10,6 +10,12 @@ nn transcript context <session> <agent-id> --last 5 --json
 nn transcript context <session> <agent-id> --last 5 --json --page <next_page> --snapshot <snapshot>
 ```
 
+Choose context as the **initial** operation for a single-room question about work relative to its
+assignment. Do not fetch a recent tail first just to discover that assignment context is missing.
+For multi-room alignment, **review** offers `--last N --include-assignment`; both use the same launch
+joins and independent occurrences. Activity-only scans need not include assignments. Plan required
+assignment evidence into the initial inspection envelope, with enough output budget for its size.
+
 For normal reading without a page loop:
 
 ```bash

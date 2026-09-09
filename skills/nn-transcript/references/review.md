@@ -93,6 +93,28 @@ required. Use JSON for exact evidence when a conclusion depends on clipped text.
 pages produce no partial text. Report display truncation as an inspection limit, not complete semantic
 coverage merely because transport is complete.
 
+## Assignment-aware initial inspection
+
+When the question concerns work relative to assignments across several rooms, retrieve both initially:
+
+```bash
+nn transcript review <session> --queue open-handoff --limit 3 --last 5 --include-assignment --format text
+```
+
+`--include-assignment` requires `--last`, implies payloads (rejects `--payload=false`), and works with
+JSON or text. It reuses context's handoff join on the same captured sources for every selected room:
+all independent launch occurrences, not a chosen governing attempt. Steering remains unavailable;
+missing/ambiguous joins are explicit. Text labels launch records and their qualification. JSON adds
+`include_assignment` and `selected_assignments` to the receipt, and `launches`, `assignment_events`,
+`steering_status`, and `governing_attempt` to each room. Launch events retain IDs and `section: launch`.
+`selected_events` continues to count recent events only; assignments are counted separately.
+
+The option participates in snapshot binding. Repeat it for replay/pages; default activity-only bundles
+and their cache bindings remain unchanged. Assignment payloads can be large or unavailable: preserve
+truncation/coverage and budget them initially instead of consuming one unplanned follow-up per room.
+For one selected room, prefer **context** directly. Do not include assignments in ordinary activity-only
+scans merely because the command supports them. **interaction** owns question-based authorization.
+
 ## Find: evidence-guided discovery
 
 Find is an intent, not a compulsory filter chooser. Resolve the current room/desk and inspection
@@ -101,7 +123,8 @@ bounds, selecting it executes without another confirmation. Otherwise offer one 
 inspection action, not a list of technical pattern categories. Preserve active filters; an empty
 filter never silently falls back to the underlying desk.
 
-Use `review --last N --format text` for a bounded readable sample. Explain supported observations,
+Use `review --last N --format text` for activity-only inspection; add `--include-assignment` when
+alignment is the question and assignments are planned into the initial budget. Explain supported observations,
 separate candidate patterns from conclusions, and nominate one useful exact event/assignment when
 needed. Within the envelope, retrieve complete exact-event evidence with `events --event ID --payload
 --json`, following transport rules. Stop at sufficient evidence, exhaustion, or unavailability. Do not

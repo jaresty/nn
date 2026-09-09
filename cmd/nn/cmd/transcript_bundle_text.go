@@ -74,6 +74,9 @@ func renderBundleText(w io.Writer, first ledgerPage, o bundleTextOptions, load f
 		switch kind {
 		case "review_receipt":
 			emit(fmt.Sprintf("capture: %s · sequential source prefixes\nrooms retrieved: %s · eligible: %s · omitted rooms: %s · unavailable rooms: %s\nevents selected: %s · earlier events omitted: %s\n", ledgerString(e, "capture_id"), val("retrieved_rooms"), val("eligible"), val("omitted_rooms"), val("unavailable_rooms"), val("selected_events"), val("omitted_earlier_events")))
+			if string(e["include_assignment"]) == "true" {
+				emit("assignment records: " + val("selected_assignments") + " (independent launches; not additional recent events)\n")
+			}
 			if cursor := ledgerString(e, "next_room_cursor"); cursor != "" {
 				emit("next room cursor: " + cursor + "\n")
 			}
@@ -87,6 +90,9 @@ func renderBundleText(w io.Writer, first ledgerPage, o bundleTextOptions, load f
 			var row map[string]json.RawMessage
 			_ = json.Unmarshal(e["room"], &row)
 			emit(fmt.Sprintf("\nROOM %s [%s] · detail: %s\n", cleanBundleText(ledgerString(row, "label")), cleanBundleText(ledgerString(e, "agent_id")), ledgerString(e, "detail_status")))
+			if _, ok := e["assignment_events"]; ok {
+				emit(fmt.Sprintf("assignment records: %s · steering: %s · governing attempt: %s\n", val("assignment_events"), ledgerString(e, "steering_status"), ledgerString(e, "governing_attempt")))
+			}
 			return nil
 		}
 		label, text := bundleEventText(e)

@@ -14,7 +14,10 @@ usage/tool/timing reductions, and **lenses** for shared projection rules.
 
 ## Initial room entry
 
-Retrieve a bounded readable tail within the inspection envelope:
+Choose the initial evidence from the active question/action. For assignment alignment, load **context**
+and use `nn transcript context <session> <agent-id> --last 5 --format text` first, budgeting assignments
+as initial evidence. Do not always infer alignment from 'inspect recent work'. For neutral activity
+orientation, retrieve a bounded readable tail within the inspection envelope:
 
 ```bash
 nn transcript events <session> <agent-id> --last 5 --format text --max-text-chars 1000

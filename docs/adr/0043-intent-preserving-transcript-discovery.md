@@ -113,6 +113,20 @@ Correction is not a default prominent action when no concern is established. Ret
 assignment and work evidence before drafting. Recorded returns are not proof of successful completion,
 and no correction is delivered without separate authorization and an authenticated delivery mechanism.
 
+### Match initial evidence to the question
+
+Activity-only questions use recent-work bundles. Single-room assignment-alignment questions use
+`context` first; multi-room alignment uses opt-in `review --last N --include-assignment`. The option
+includes native payloads and all retained independent launch records for the selected room page,
+using the same captured inputs and handoff joins as context. Missing/ambiguous assignments remain
+qualified; no governing occurrence or steering is inferred. Default review output is unchanged.
+Assignment records have separate counts from recent events and share bounded, cached transport.
+
+Plan assignment retrieval as part of the initial inspection envelope when alignment is the question.
+It must not consume an arbitrary per-room follow-up merely because the first operation omitted necessary
+context. Initial and follow-up output still count against the declared total budget; enlarge it explicitly
+when required. Do not include potentially large assignments in every activity-only scan by default.
+
 ### 4. Inspect coherent bounded evidence
 
 The next retrieval capability should select an invocation, its authentically matched result when

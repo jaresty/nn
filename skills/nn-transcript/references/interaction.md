@@ -67,17 +67,25 @@ An inspection envelope specifies:
 - whether initial acquisition is fresh, and whether later fresh retrieval is allowed;
 - stop conditions and the human action granting approval.
 
-For a new **Find** in a known desk, use a conservative offered baseline: up to three displayed rooms,
-five recent events each, and at most two targeted follow-ups in those rooms. Name the room IDs in the
-retained envelope. Tell the human the room/event/follow-up bounds in ordinary language. If Find was
-already offered with these bounds, selecting it is approval; no second confirmation. Otherwise offer
-one concrete bounded action rather than a filter menu. A request delegating bounded discovery may
-resolve the room selection from metadata; a previously approved exact room set may not silently change.
+Plan the initial evidence from the question before setting a follow-up allowance. Activity-only scans
+need recent work; assignment-alignment questions need assignments and work together. For one selected
+room use **context** first; for several selected rooms use **review** with `--include-assignment`.
+Do not fetch tails first and then spend one follow-up per room to obtain predictable assignment context.
+Bare 'inspect recent work' uses the active question/action, not an assumption that alignment is always
+wanted. Do not enlarge an already-approved activity-only envelope silently.
 
-Budget baseline: initial text bundle `--max-output-chars 24000` (reserve at most 96000 UTF-8 bytes),
-plus at most two 48000-byte JSON transport pages, cumulative ceiling 192000 source-output bytes. This
-is a conservative transport/context bound, not a token count or a universal sampling policy. A follow-up
-may consume both pages; stop before another page if the reservation is exhausted. Bounded text room
+Offer concrete room, initial-evidence, follow-up, and output bounds sized to the question. Up to three
+rooms and five recent events each remains a small starting sample, not a universal policy. Name exact
+room IDs in the envelope. If the displayed action already states these bounds, selecting it is approval;
+no second confirmation. Otherwise offer one bounded action rather than a filter menu. A delegated
+bounded selection may resolve rooms from metadata; a previously approved exact room set cannot silently change.
+
+Declare a cumulative output/context reservation, including assignments when planned initially. One
+activity-only example is a text bundle `--max-output-chars 24000` (at most 96000 UTF-8 bytes) plus two
+48000-byte exact-evidence pages: ceiling 192000 source-output bytes. This is an example, not a mandatory
+two-follow-up rule. Assignment-heavy inspection may need a different explicitly approved budget; it
+must not inherit an insufficient activity-only allowance. Initial assignment retrieval still consumes
+budget, but is not an unexpected follow-up. Stop before another page if its reservation is exhausted. Bounded text room
 entry uses `--last 5 --max-text-chars 1000`; reserve at most 24000 bytes including headers. Larger or
 multibyte identifiers that cannot fit the reservation require a smaller retrieval or renewed scope.
 Record consumed/reserved output separately from actual semantic inspection. Do not interpret a

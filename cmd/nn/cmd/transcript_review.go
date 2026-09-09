@@ -80,7 +80,7 @@ var reviewAlgorithms = map[string]string{
 func newTranscriptReviewCmd() *cobra.Command {
 	var queue, order, pattern, cursor string
 	var limit int
-	var asJSON, payload bool
+	var asJSON, payload, includeAssignment bool
 	var last, page int
 	var snapshot string
 	var text bundleTextOptions
@@ -97,19 +97,25 @@ func newTranscriptReviewCmd() *cobra.Command {
 		if !asJSON && text.Format != "text" {
 			return fmt.Errorf("review: --json is required")
 		}
+		if includeAssignment {
+			if c.Flags().Changed("payload") && !payload {
+				return fmt.Errorf("review: --include-assignment requires payloads; omit --payload=false")
+			}
+			payload = true
+		}
 		if c.Flags().Changed("last") {
-			p, err := buildReviewTails(args[0], queue, order, pattern, limit, cursor, last, payload, page, snapshot)
+			p, err := buildReviewTails(args[0], queue, order, pattern, limit, cursor, last, payload, page, snapshot, includeAssignment)
 			if err != nil {
 				return err
 			}
 			if text.Format == "text" {
 				return renderBundleText(c.OutOrStdout(), p, text, func(n int) (ledgerPage, error) {
-					return buildReviewTails(args[0], queue, order, pattern, limit, cursor, last, payload, n, p.Snapshot)
+					return buildReviewTails(args[0], queue, order, pattern, limit, cursor, last, payload, n, p.Snapshot, includeAssignment)
 				})
 			}
 			return json.NewEncoder(c.OutOrStdout()).Encode(p)
 		}
-		for _, flag := range []string{"payload", "page", "snapshot"} {
+		for _, flag := range []string{"payload", "page", "snapshot", "include-assignment"} {
 			if c.Flags().Changed(flag) {
 				return fmt.Errorf("review: --%s requires --last", flag)
 			}
@@ -122,6 +128,7 @@ func newTranscriptReviewCmd() *cobra.Command {
 	}}
 	addBundleTextFlags(c, &text)
 	c.Flags().IntVar(&last, "last", 0, "bundle the latest 1–200 events per selected room")
+	c.Flags().BoolVar(&includeAssignment, "include-assignment", false, "include all independent recorded launch assignments; implies payloads (requires --last)")
 	c.Flags().BoolVar(&payload, "payload", false, "include native tail payloads (requires --last)")
 	c.Flags().IntVar(&page, "page", 1, "bundle transport page (requires --last)")
 	c.Flags().StringVar(&snapshot, "snapshot", "", "bundle snapshot for later transport pages (requires --last)")
