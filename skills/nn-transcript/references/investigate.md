@@ -31,6 +31,12 @@ lead, not a complete explanation. Retrieve relevant surrounding evidence, every 
 ordered payload segments before claims depending on them. Do not read every whole session when a
 bounded exact window answers the question; do not call a sampled recurrence an exhaustive one.
 
+When investigating an evaluative claim—such as inefficiency, overengineering, or poor quality—do not
+select evidence primarily by those labels. Use label searches to locate prior assessments, not to
+establish the behavior. Examine concrete work sequences and outcomes, including counterexamples and
+legitimate explanations. Distinguish demonstrated incidents from claims about their prevalence or
+contribution to elapsed time.
+
 Cross-thread questions can consult several canonical sessions. Name their relationship only when
 supported by native ownership/handoff/artifact evidence; similar text, names, and paths are not proof.
 Preserve separate source identities, windows, coverage and uncertainty. If A reports fixing B, distinguish
