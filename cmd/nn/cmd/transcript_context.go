@@ -15,16 +15,26 @@ func newTranscriptContextCmd() *cobra.Command {
 	var last, page int
 	var snapshot string
 	var asJSON bool
+	var text bundleTextOptions
 	c := &cobra.Command{Use: "context <session> <agent-id>", Short: "Recorded launch assignments and bounded recent evidence; no inferred governing attempt", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, args []string) error {
-		if !asJSON {
+		if err := text.validate(c); err != nil {
+			return err
+		}
+		if !asJSON && text.Format != "text" {
 			return fmt.Errorf("context: --json is required")
 		}
 		result, err := buildTranscriptContext(args[0], args[1], last, page, snapshot)
 		if err != nil {
 			return err
 		}
+		if text.Format == "text" {
+			return renderBundleText(c.OutOrStdout(), result, text, func(n int) (ledgerPage, error) {
+				return buildTranscriptContext(args[0], args[1], last, n, result.Snapshot)
+			})
+		}
 		return json.NewEncoder(c.OutOrStdout()).Encode(result)
 	}}
+	addBundleTextFlags(c, &text)
 	c.Flags().BoolVar(&asJSON, "json", false, "emit lossless paginated context JSON")
 	c.Flags().IntVar(&last, "last", 5, "recent events per room, 1–200")
 	c.Flags().IntVar(&page, "page", 1, "transport page, not a new room selection")

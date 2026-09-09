@@ -230,6 +230,22 @@ while live appends do not invalidate continuation. Original
 event IDs remain intact and a section label distinguishes assignment from recent evidence. The skill
 owns pattern interpretation, full page/segment consumption, and correction proposals.
 
+### Read bundles without client orchestration
+
+`review --last N --format text` and `context --last N --format text` automatically consume every
+retained transport page and reconstruct oversized records before deterministic rendering. Text mode
+includes payloads internally, rejects explicit JSON/payload/page flags, and accepts an existing bundle
+snapshot for stable replay. JSON behavior remains unchanged. Review text retains its bounded room
+selection; it never advances `next_room_cursor` automatically.
+
+Text includes capture/snapshot identity, room/assignment sections, exact source event IDs, retrieval
+coverage, and explicit omission/truncation. Per-event readable text defaults to 1000 characters
+(1–10000); total output defaults to 24000 characters (2048–200000). The total bound includes headers
+and summaries. Even when display space is exhausted, all pages are validated before any output is
+published. Text is intentionally lossy and never an LLM summary. Full JSON remains the exact-evidence
+interface. Thinking/signature blocks are not rendered, failure fields remain visible, and terminal
+control characters are neutralized.
+
 ### Render bounded readable event tails
 
 `events --format text --last N --max-text-chars M` adds deterministic lossy rendering over native

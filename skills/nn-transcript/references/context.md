@@ -10,9 +10,23 @@ nn transcript context <session> <agent-id> --last 5 --json
 nn transcript context <session> <agent-id> --last 5 --json --page <next_page> --snapshot <snapshot>
 ```
 
+For normal reading without a page loop:
+
+```bash
+nn transcript context <session> <agent-id> --last 5 --format text
+```
+
+Text automatically consumes all cached pages and reconstructs segmented assignments. It shows launch
+occurrence/join status, original prompts, recent event IDs, explicit unavailable steering, failure fields,
+and coverage. `--max-text-chars` defaults to 1000 per event (1–10000), and `--max-output-chars` defaults
+to 24000 total (2048–200000). Long prompts and skipped events are explicitly disclosed. It is lossy
+rendering, not an LLM summary. Replay the same capture using the printed `--snapshot`; display limits
+may change without changing evidence. Text rejects explicit JSON/payload/page flags. Use lossless JSON
+when clipped assignment text matters, and never treat a truncated preview as complete instruction context.
+
 Use the carried canonical session path and exact agent ID. This deterministic Pi-only command returns
-recorded parent launch assignments and bounded owned recent events. JSON is required; payloads are
-included. Last defaults to 5 and accepts 1–200. Unknown agents and unsupported schemas fail explicitly.
+recorded parent launch assignments and bounded owned recent events. Choose `--json` for lossless
+transport or `--format text` for readable output; payloads are included. Last defaults to 5 and accepts 1–200. Unknown agents and unsupported schemas fail explicitly.
 
 The first record has `kind: context_receipt`, with path, last, launch receipt, recent query receipt,
 capture source count, detail status, `steering_status: unavailable`, and `governing_attempt: not_inferred`.

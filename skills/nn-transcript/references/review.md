@@ -14,7 +14,8 @@ nn transcript review <session> --queue archive --limit 20 --json
 ```
 
 Initial support is Pi only; other schemas fail explicitly, never return a misleading empty queue.
-`archive` means all retained non-ROOT rooms, not completed work. `--json` is required.
+`archive` means all retained non-ROOT rooms, not completed work. Queue metadata requires `--json`;
+for readable evidence use `--last N --format text`.
 `--limit` is 1–200, default 20. Continue with `--cursor <next_cursor>` and identical options,
 including limit. Changed selection rejects the cursor. Live source appends do not: continuation uses
 the retained capture without rereading live files. Refresh deliberately by omitting cursor/snapshot.
@@ -66,6 +67,26 @@ as an implicit stuck/running signal. Hierarchy and archive remain reachable unde
 
 Back restores retained rows, options, snapshot, question, and inspected-room set without rereading.
 Refresh reacquires evidence and preserves the chosen lens unless unsupported.
+
+## Read bundle contents without scripts
+
+```bash
+nn transcript review <session> --queue open-handoff --limit 3 --last 5 --format text
+```
+
+Prefer this for a readable bounded scan. It includes payloads internally, consumes every retained
+transport page, reconstructs segmented records, and renders room headings and source event IDs—no
+Python, `jq`, or manual page loop. It does not advance the room cursor. `--max-text-chars` bounds each
+event (default 1000, 1–10000); `--max-output-chars` bounds the complete display (default 24000,
+2048–200000). Counts distinguish earlier/other-room omissions from events omitted by the display cap.
+Truncation markers disclose shortened text; hidden thinking/signatures are not rendered. Failure
+fields remain visible. This is lossy deterministic rendering, not semantic summarization.
+
+Supply the text output's `--snapshot` with identical selection options to replay or adjust display
+limits over the same capture. Text rejects explicit `--json`, `--payload`, and `--page`; `--last` is
+required. Use JSON for exact evidence when a conclusion depends on clipped text. Failed later transport
+pages produce no partial text. Report display truncation as an inspection limit, not complete semantic
+coverage merely because transport is complete.
 
 ## Find patterns…
 

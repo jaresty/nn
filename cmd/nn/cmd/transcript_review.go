@@ -83,14 +83,29 @@ func newTranscriptReviewCmd() *cobra.Command {
 	var asJSON, payload bool
 	var last, page int
 	var snapshot string
+	var text bundleTextOptions
 	c := &cobra.Command{Use: "review <session>", Short: "Review retained open-handoff, ambiguous-handoff, or archive evidence (not liveness)", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
-		if !asJSON {
+		if err := text.validate(c); err != nil {
+			return err
+		}
+		if text.Format == "text" {
+			if !c.Flags().Changed("last") {
+				return fmt.Errorf("review: text requires --last")
+			}
+			payload = true
+		}
+		if !asJSON && text.Format != "text" {
 			return fmt.Errorf("review: --json is required")
 		}
 		if c.Flags().Changed("last") {
 			p, err := buildReviewTails(args[0], queue, order, pattern, limit, cursor, last, payload, page, snapshot)
 			if err != nil {
 				return err
+			}
+			if text.Format == "text" {
+				return renderBundleText(c.OutOrStdout(), p, text, func(n int) (ledgerPage, error) {
+					return buildReviewTails(args[0], queue, order, pattern, limit, cursor, last, payload, n, p.Snapshot)
+				})
 			}
 			return json.NewEncoder(c.OutOrStdout()).Encode(p)
 		}
@@ -105,6 +120,7 @@ func newTranscriptReviewCmd() *cobra.Command {
 		}
 		return json.NewEncoder(c.OutOrStdout()).Encode(p)
 	}}
+	addBundleTextFlags(c, &text)
 	c.Flags().IntVar(&last, "last", 0, "bundle the latest 1–200 events per selected room")
 	c.Flags().BoolVar(&payload, "payload", false, "include native tail payloads (requires --last)")
 	c.Flags().IntVar(&page, "page", 1, "bundle transport page (requires --last)")
