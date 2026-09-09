@@ -1,6 +1,8 @@
 # ADR-0046: Standing approval for view-triggered attention
 
-Status: Accepted
+Status: Accepted; default pass-count expiry superseded by
+[ADR-0047](0047-transcript-defaults-and-rejected-calls.md). Standing approval now uses per-check
+bounds until opt-out/session end; explicitly human-imposed total limits still apply.
 
 ## Context
 

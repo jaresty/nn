@@ -10,6 +10,21 @@ visible breadcrumbs, action binding, and exact retained-view Back. Preserve a vi
 Open executes it without re-listing, while Open… chooses a different row. No selection or ambiguous
 target means one focused clarification. Echo numeric selections before retrieval, without another prompt.
 
+## Default conversation picker
+
+Bare transcript invocation opens the conversation picker, not a menu asking whether to browse.
+For “nn transcript”, “open transcripts”, or an unqualified request to open the lobby, retrieve one
+three-conversation page under the front-door rules below, render its labels, and immediately open the
+host's structured picker when available. Otherwise present a numbered conversational picker.
+Use exact returned labels for the options, with project/schema and exact session ID as secondary text.
+Include **More conversations…** for explicit cursor pagination; do not claim that three rows are the
+entire inventory or invent an omitted total. An empty page reports no candidates rather than opening
+an empty picker. Stop when dismissed. Keep Back and End available.
+Selecting a conversation opens it directly without a second confirmation.
+Explicit targets and operations bypass the default picker: resolve a named office in its targeted
+scope, open an already-selected room, or perform an explicitly requested bounded check. Ask only for
+real ambiguity or a missing required permission, not because a default picker exists.
+
 ## Attention from the lobby
 
 On Open or explicit Refresh, load `nn skills get nn-transcript --reference attention` to apply

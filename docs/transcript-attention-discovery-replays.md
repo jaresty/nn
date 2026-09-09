@@ -4,6 +4,10 @@ Owner: [ADR-0045](adr/0045-attention-discovery-intent.md).
 Status: specified, **not executed as controlled LLM replays**. Native command compatibility and served
 instruction publication have separate Go tests; neither proves the conversational behavior below.
 
+ADR-0047 additionally requires a bare invocation to open the labeled conversation picker directly,
+with explicit pagination and no second confirmation after selection. Explicit target/action requests
+must bypass that default picker. These are specified conversational cases, not executed model tests.
+
 ## Fixture vocabulary
 
 Use synthetic conversations A/B/C, with exact retained paths and room IDs. Retain a lobby showing A/B/C,
@@ -29,7 +33,8 @@ unknown/error a recovery. These cases too remain unexecuted conversational speci
 | Several owners loaded for one Open | One pass total, not one per loaded reference |
 | Back, Forward restoration, re-render, pagination, tool completion | No new evaluation and no budget refund |
 | Opt-out, End, new conversation, or lost state | Standing approval disabled; no inferred unused allowance |
-| Exhausted allowance | Pause checks, show remaining/consumed coverage, do not block normal navigation |
+| Repeated eligible Open/Refresh beyond three checks | Attention stays enabled; each check is bounded and cumulative usage remains visible |
+| Actual context/resource constraint or human-imposed total limit | Pause checks with the concrete reason; do not block normal navigation |
 | Refreshed lobby includes an unapproved conversation | Leave it unevaluated and offer an explicit scope extension |
 | Open a matching retained signal's evidence | Reuse that result; no fresh evaluation or automatic deeper inspection |
 | Unknown task, errors, or empty population | Preserve honest outcomes and charge consumed passes/attempts; no replacements |

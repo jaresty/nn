@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const attentionLimitations = "Recognized tool invocations, not successful edits or filesystem changes. Shell side effects are opaque. Unknown tools/arguments make classification indeterminate. Canonical owned-message window, not elapsed time. No liveness or health inference."
+const attentionLimitations = "Recognized tool invocations, not successful edits or filesystem changes. Shell side effects are opaque. Uniquely linked Pi missing-command validation rejections are counted separately, not as executed commands. Unknown tools/arguments make classification indeterminate. Canonical owned-message window, not elapsed time. No liveness or health inference."
 
 type attentionRoom struct {
 	ID      string            `json:"agent_id"`
@@ -24,19 +24,20 @@ type attentionRoom struct {
 }
 
 type attentionPage struct {
-	Version     int               `json:"version"`
-	Snapshot    string            `json:"snapshot"`
-	Path        string            `json:"path"`
-	Schema      string            `json:"schema"`
-	CaptureID   string            `json:"capture_id,omitempty"`
-	CaptureMode string            `json:"capture_mode"`
-	Task        string            `json:"task"`
-	Policy      *attention.Policy `json:"policy"`
-	Population  int               `json:"population"`
-	Evaluated   int               `json:"evaluated"`
-	Unevaluated int               `json:"unevaluated"`
-	Limitations string            `json:"limitations"`
-	Rooms       []attentionRoom   `json:"rooms"`
+	Version       int               `json:"version"`
+	MetricVersion int               `json:"metric_version,omitempty"`
+	Snapshot      string            `json:"snapshot"`
+	Path          string            `json:"path"`
+	Schema        string            `json:"schema"`
+	CaptureID     string            `json:"capture_id,omitempty"`
+	CaptureMode   string            `json:"capture_mode"`
+	Task          string            `json:"task"`
+	Policy        *attention.Policy `json:"policy"`
+	Population    int               `json:"population"`
+	Evaluated     int               `json:"evaluated"`
+	Unevaluated   int               `json:"unevaluated"`
+	Limitations   string            `json:"limitations"`
+	Rooms         []attentionRoom   `json:"rooms"`
 }
 
 type attentionRetention struct {
@@ -216,7 +217,7 @@ func buildAttention(session string, ids []string, task string) (attentionRetenti
 			return empty, fmt.Errorf("attention: unknown agent %q", id)
 		}
 	}
-	p := attentionPage{Version: 1, Path: path, Schema: schema, Task: task, Policy: policy, Population: len(agents), Evaluated: len(ids), Unevaluated: len(agents) - len(ids), Limitations: attentionLimitations, CaptureMode: "sequential retained owned-record projections", Rooms: []attentionRoom{}}
+	p := attentionPage{Version: 1, MetricVersion: 2, Path: path, Schema: schema, Task: task, Policy: policy, Population: len(agents), Evaluated: len(ids), Unevaluated: len(agents) - len(ids), Limitations: attentionLimitations, CaptureMode: "sequential retained owned-record projections", Rooms: []attentionRoom{}}
 	if capture != nil {
 		p.CaptureID = capture.ID
 		p.CaptureMode = "root plus selected sidechain complete-record prefixes"
@@ -310,6 +311,11 @@ func renderAttention(w io.Writer, p attentionPage) error {
 			ratio = fmt.Sprintf("%.5g", *r.Result.Ratio)
 		}
 		fmt.Fprintf(&b, "\n%s · %s\n%s — %s\n%d recognized edits / %d commands = %s; unknown=%d\nWindow: %d/%d work records; %d earlier ledger records omitted; unknown timestamps=%d\nInspect evidence: nn transcript attention inspect %s --agent %s\n", r.Label, cleanBundleText(r.ID), r.Result.Status, r.Result.Reason, r.Metrics.Edits, r.Metrics.Commands, ratio, r.Metrics.Unknown, r.Window.Selected, r.Window.Requested, r.Window.Earlier, r.Window.UnknownTimestamps, p.Snapshot, "'"+strings.ReplaceAll(r.ID, "'", "'\\''")+"'")
+	}
+	for _, r := range p.Rooms {
+		if r.Metrics.Rejected > 0 {
+			fmt.Fprintf(&b, "\n%s: validation-rejected operations=%d (excluded from ratio)\n", cleanBundleText(r.ID), r.Metrics.Rejected)
+		}
 	}
 	fmt.Fprintf(&b, "\n%s\n", p.Limitations)
 	return attentionText(w, b.String())

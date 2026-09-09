@@ -15,15 +15,15 @@ requires: nn CLI (nn transcript spine, ADR-0042); DuckDB only for the unknown-sc
 
 # nn-transcript
 
-Explore agent transcripts using the co-versioned `nn transcript` CLI. The core owns dispatch,
-shared authority rules, and visual grammar; lazy references own detailed command contracts.
-Use the binary, not raw-file scripts, for supported discovery, ownership, joins, and reductions.
+Use the co-versioned `nn transcript` CLI, not raw-file scripts. Core owns dispatch, authority,
+and visual grammar; references own detailed command contracts.
 
 ## Transcript Office — default entry experience
 
-The default entry experience is the **Transcript Office**: an LLM-mediated navigation and analysis
-surface, not an interactive CLI, terminal picker, or persistent TUI. Hide CLI mechanics unless requested.
+The default entry experience is the **Transcript Office**: LLM-mediated, not an interactive CLI,
+terminal picker, or persistent TUI. Hide CLI mechanics unless requested.
 
+- **Bare invocation:** open the conversation picker via **discovery**; explicit actions bypass it.
 - **Browse / orient:** when the human names an explicit project, workspace, or office, resolve that
   target before generic recent-session discovery. Otherwise load discovery and run
   `nn transcript ls <dir> --json --conversation-kind conversation --limit <N>`. Identify this conversation.

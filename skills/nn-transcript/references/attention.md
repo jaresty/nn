@@ -44,7 +44,7 @@ Report the current policy outcome: a prior match followed by no-match means the 
 matches this window, not that the work is healthy, successful, or the underlying issue is resolved.
 Unknowns and errors are not recovery. No retries, siblings, extra history, or evidence drill-down are
 included. Execute before offering optional next actions. This works with standing attention off too;
-one requested check neither enables standing approval nor resets an exhausted allowance.
+one requested check neither enables standing approval nor overrides an explicit hard resource limit.
 
 ## Standing attention — notice without asking each time
 
@@ -54,11 +54,11 @@ permission to inspect an unspecified population. Implementation assent is not th
 
 Standing approval authorizes eligible Open and explicit Refresh checks without per-check reconfirmation.
 Name canonical conversations, allowed surfaces and queue/filter rules, the candidate selection rule,
-per-pass task/metadata pages, work window, output reservation, total pass count, and cumulative ceiling.
-Room IDs may be selected under that explicitly delegated rule. The existing small recipe below is the
-per-pass default; offer three passes initially, not indefinite monitoring. At its maximum this means
-nine room attempts and 4,464,000 reserved output bytes across the session; reduce the proposal before
-approval if available context cannot accommodate it. These are proposals, not mandatory sizes.
+per-check task/metadata pages, work window, and output reservation. Room IDs may be selected under
+that explicitly delegated rule. Use the existing small recipe below per check and reduce it before
+approval if context cannot accommodate it. Standing attention has no default pass-count expiry.
+It stays on until opt-out or session end, subject to retained authorization and actual resource limits.
+Honor any total ceiling the human explicitly imposed; never invent one as an automatic expiry.
 
 On enable, check the current approved view once. Thereafter, finish the normal view's metadata
 selection, apply the approved candidate rule, and check before presenting its attention cues.
@@ -67,15 +67,16 @@ Loading discovery, navigate, review, and rooms for that action does not multiply
 pass to that action and its exact view/selection evidence in conversational state, not a new file.
 Back, Forward restoration, re-rendering, pagination, and tool completion do not trigger a check.
 Opening **Inspect evidence** reuses the matching retained result; it is not an implicit fresh check.
-An explicit Refresh may evaluate again within the approved scope and remaining allowance; do not
+An explicit Refresh may evaluate again within the approved scope and per-check bounds; do not
 require an additional attention command. No timers, polling, idle hooks, or background worker exist.
 
-Every pass consumes the standing allowance; no navigation action resets cumulative consumption.
-Consume a pass when its approved selection/acquisition starts, even if the population is empty or
-an operation fails; room attempts still start at assignment/work acquisition. Retained-result display
-alone consumes no new pass. Keep actual attempts/pages and reserved output separate from pass counts.
-Exhaustion pauses checks; it does not renew permission.
-Offer renewal without blocking normal navigation or repeatedly nagging. An out-of-scope view opens
+Per-check bounds renew on eligible user navigation; cumulative usage never resets.
+Record each check and its actual attempts/pages/output, including failures. Room attempts still start
+at assignment/work acquisition. Retained-result display consumes no new check. Reaching a per-check
+limit stops that check, not standing approval; no replacements or extra pages within it.
+Actual resource constraints pause checks; a pass counter does not expire approval.
+Name the concrete context/resource limit, or explicit human-imposed ceiling, rather than asking for
+renewal after an arbitrary number of checks. Keep normal navigation available. An out-of-scope view opens
 normally but is **not evaluated — outside standing scope**. New conversations in a refreshed lobby,
 new pages, changed queues/filters, and wider history require explicit scope extension unless the
 standing envelope already names that exact permitted transition. Never silently adopt them.
@@ -85,7 +86,7 @@ Honor **Attention off** immediately. Losing the consumption ledger also pauses f
 assume unused allowance. Retain old results as historical where available. No global preference,
 notebook activation, persistent navigation file, or cross-conversation consent is created.
 
-Show **Attention on/paused/off**, remaining passes, and a compact coverage line. Surface matching
+Show **Attention on/paused/off**, cumulative usage, and a compact coverage line. Surface matching
 signals and their exact retained evidence automatically; preserve evaluated/no-match, unknown task,
 indeterminate, errors, and skipped/unevaluated counts. A quiet view is not evidence of health.
 Keep hallway membership/order and label separately captured freshness. Offer an appropriate next
@@ -220,11 +221,11 @@ Replay and inspection do not reopen source files or re-evaluate the policy. Opti
 on replay must match the retained selection. Cache is private, digest-checked, and expires after 24 hours.
 A missing, expired, or corrupt snapshot fails explicitly. Back restores retained evidence, not new
 interpretation; if retention or conversational state is lost, disclose **exact restoration unavailable**.
-Refresh is a new evaluation authorized by standing approval with remaining allowance, or a separate
+Refresh is a new evaluation authorized by standing approval within per-check/resource bounds, or a separate
 explicit proposal—not Back. Changing the binary does not reinterpret an
 old snapshot; its original policy definition and digest remain attached.
 
-## Metric contract v1
+## Metric contract v2
 
 The window is the last 100 owned assistant/tool-result **messages** in canonical ledger order (source
 path then record ordinal), not time order or individual tool/result facets. Claude tool-result blocks in
@@ -241,11 +242,19 @@ Exact tool vocabulary:
 - Commands: `bash`, `Bash`, `functions.bash`, with a nonempty command argument.
 - Recognized edits: `edit`, `Edit`, `write`, `Write`, `functions.edit`, `functions.write`, with a path.
 - Neutral: `read`, `Read`, `grep`, `Grep`, `find`, `Glob`, `ls`, `functions.read`.
-- Unsupported names, missing IDs/argument objects, malformed or ambiguous records: unknown.
+- Pi `bash` missing `command`: count separately as `validation_rejected_operations` only with a
+  unique matching later same-source `toolResult` in the window, matching call ID/name, `isError: true`,
+  the exact Pi missing-command validation envelope, and matching Received arguments. Exclude that
+  invocation from command/edit counts; retain the rejection result ID in inspection evidence.
+- Unsupported names, missing IDs/argument objects, malformed or ambiguous records: unknown unless
+  the narrow validated-rejection rule above applies. Adjacent prose and ordinary shell errors do not qualify.
+
+Fresh results carry `metric_version: 2`; absent version in older retained results means v1. Replay
+never reclassifies old evidence. Disclose metric-version changes when comparing signals.
 
 These are invocation counts, not successful edits, changed lines, or filesystem observations. Shell
 commands are recognized command operations but their filesystem side effects are opaque: they may edit
-files. The categories do not overlap in v1. Unknown operations or unavailable detail make the ratio
+files. The categories do not overlap. Unknown operations or unavailable detail make the ratio
 indeterminate; zero denominator is undefined, not zero. A classified shell call is not proof of no edit.
 
 The bundled provisional threshold is ratio < 0.05 with at least 30 commands. These are uncalibrated

@@ -51,6 +51,7 @@ func collectAttention(records []ledgerRecord, status, id string, n int) (attenti
 	}
 	evidence := []attentionEvidence{}
 	seen := map[string]string{}
+	rejected := attentionRejectedCommands(records, indices, id)
 	operations := 0
 	for j := len(indices) - 1; j >= 0; j-- {
 		lr := records[indices[j]]
@@ -115,6 +116,11 @@ func collectAttention(records []ledgerRecord, status, id string, n int) (attenti
 						continue
 					}
 					seen[callID] = fingerprint
+				}
+				if resultID, ok := rejected[callID]; ok {
+					metrics.Rejected++
+					summaries = append(summaries, name+" [validation rejected before execution]; result "+resultID)
+					continue
 				}
 				switch class {
 				case "command":

@@ -48,9 +48,9 @@ func TestAttentionStandingApproval(t *testing.T) {
 		"Standing approval authorizes eligible Open and explicit Refresh checks without per-check reconfirmation.",
 		"One navigation action starts at most one attention pass.",
 		"Back, Forward restoration, re-rendering, pagination, and tool completion do not trigger a check.",
-		"Every pass consumes the standing allowance; no navigation action resets cumulative consumption.",
+		"Per-check bounds renew on eligible user navigation; cumulative usage never resets.",
 		"Opt-out, End, a new conversation, or lost authorization state disables standing attention.",
-		"Exhaustion pauses checks; it does not renew permission.",
+		"Actual resource constraints pause checks; a pass counter does not expire approval.",
 		"Standing attention does not authorize deeper inspection, capture, or intervention.",
 	} {
 		t.Run(clause, func(t *testing.T) {
@@ -74,6 +74,29 @@ func TestAttentionStandingApproval(t *testing.T) {
 				t.Fatalf("STANDING_DISPATCH FAIL: %s", owner)
 			}
 		})
+	}
+}
+
+func TestTranscriptDefaultPicker(t *testing.T) {
+	_, execute := setupNotebook(t)
+	core, _ := execute("skills", "get", "nn-transcript")
+	text, err := execute("skills", "get", "nn-transcript", "--reference", "discovery")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, clause := range []string{"Bare transcript invocation opens the conversation picker", "Selecting a conversation opens it directly without a second confirmation.", "Explicit targets and operations bypass the default picker", "More conversations…"} {
+		if !strings.Contains(text, clause) {
+			t.Fatalf("PICKER FAIL: missing %s", clause)
+		}
+	}
+	if !strings.Contains(core, "**Bare invocation:**") {
+		t.Fatal("PICKER FAIL: core lacks default dispatch")
+	}
+	attention, _ := execute("skills", "get", "nn-transcript", "--reference", "attention")
+	for _, stale := range []string{"offer three passes", "remaining passes", "total pass count"} {
+		if strings.Contains(attention, stale) {
+			t.Fatalf("STANDING EXPIRY FAIL: %s", stale)
+		}
 	}
 }
 

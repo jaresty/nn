@@ -143,8 +143,9 @@ Capture, and Refresh; Back and End remain visible. Displaced default controls re
 refresh is explicit. A new room result may contain newer handoff evidence: label that separately from
 the prior desk, never call returned work successful without support, and never rewrite Back.
 The **attention** owner defines standing attention: session-scoped approval can cover bounded checks
-on Open and explicit Refresh without another per-check prompt. This consumes its declared cumulative
-allowance, never resets inspection budgets, and never changes Back into a fresh check. No continuous
+on Open and explicit Refresh without another per-check prompt. Each eligible action receives the
+approved per-check allowance; cumulative usage remains monotonic, separate inspection budgets do not
+reset, and Back never becomes a fresh check. Standing attention has no default pass-count expiry. No continuous
 watching or native entry-time hook is implemented; the LLM invokes the existing CLI within consent.
 
 Capture follows **actions** and the normal nn workflow: propose a source-qualified note/update and

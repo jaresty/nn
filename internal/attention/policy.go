@@ -43,6 +43,7 @@ type Metrics struct {
 	Unknown    int  `json:"unknown_operations"`
 	Neutral    int  `json:"neutral_operations"`
 	Duplicates int  `json:"duplicate_invocations"`
+	Rejected   int  `json:"validation_rejected_operations,omitempty"`
 	Available  bool `json:"detail_available"`
 }
 
@@ -157,7 +158,7 @@ func parse(src string) (*Policy, error) {
 
 func (p *Policy) Evaluate(thread, task string, m Metrics) (Result, error) {
 	result := Result{Status: "no_match", Reason: "Rule did not match; this is not a health assessment"}
-	if m.Commands < 0 || m.Edits < 0 || m.Unknown < 0 || m.Neutral < 0 || m.Duplicates < 0 || m.Commands+m.Edits+m.Unknown+m.Neutral+m.Duplicates > 2000 {
+	if m.Commands < 0 || m.Edits < 0 || m.Unknown < 0 || m.Neutral < 0 || m.Duplicates < 0 || m.Rejected < 0 || m.Commands+m.Edits+m.Unknown+m.Neutral+m.Duplicates+m.Rejected > 2000 {
 		return Result{}, fmt.Errorf("attention: metric evaluation limit exceeded or invalid counts")
 	}
 	if task != p.Scope.Task {
