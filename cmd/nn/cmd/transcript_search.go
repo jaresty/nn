@@ -47,7 +47,7 @@ func newTranscriptSearchCmd() *cobra.Command {
 	var context ledgerWindowOptions
 	cmd := &cobra.Command{
 		Use:   "search <query> [path ...]",
-		Short: "Search transcript events with session and agent provenance",
+		Short: "Search explicit paths or default Claude, Codex, and Pi transcript roots",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			context.Enabled = cmd.Flags().Changed("context") || cmd.Flags().Changed("before-context") || cmd.Flags().Changed("after-context")
@@ -82,7 +82,12 @@ func newTranscriptSearchCmd() *cobra.Command {
 				inputs = []string{session}
 			}
 			if len(inputs) == 0 {
-				inputs = []string{"."}
+				var unavailable []transcriptRoot
+				inputs, unavailable, err = defaultTranscriptRoots()
+				if err != nil {
+					return err
+				}
+				reportUnavailableTranscriptRoots(cmd.ErrOrStderr(), unavailable)
 			}
 			files, skipped, err := transcriptSearchInputs(inputs)
 			if err != nil {
@@ -230,6 +235,7 @@ func searchTranscriptFileMatching(path string, match func(string) bool, agentFil
 			continue
 		}
 		ordinal++ // Parsed-record position, not physical line number.
+		normalizeCodexRecord(&r)
 		if !headerFound && r.Type == "session" && r.ID != "" {
 			sessionID, headerFound = r.ID, true
 		}

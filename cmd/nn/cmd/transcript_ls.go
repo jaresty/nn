@@ -45,12 +45,19 @@ func newTranscriptLsCmd() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "ls [dir]",
-		Short: "List recent sessions most-recent-first, each with a compact subagent-tree preview",
+		Short: "List recent sessions from Claude, Codex, and Pi defaults or an explicit directory",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dir := "."
+			var dirs []string
 			if len(args) == 1 {
-				dir = args[0]
+				dirs = []string{args[0]}
+			} else {
+				available, unavailable, err := defaultTranscriptRoots()
+				if err != nil {
+					return err
+				}
+				reportUnavailableTranscriptRoots(cmd.ErrOrStderr(), unavailable)
+				dirs = available
 			}
 			var beforeTime time.Time
 			if before != "" {
@@ -66,7 +73,7 @@ func newTranscriptLsCmd() *cobra.Command {
 			if conversationKind != "" && conversationKind != "conversation" && conversationKind != "sidechain" {
 				return fmt.Errorf("--conversation-kind must be conversation or sidechain")
 			}
-			rows, err := listSessionsPage(dir, limit, beforeTime, cursor, conversationKind)
+			rows, err := listSessionsRootsPage(dirs, limit, beforeTime, cursor, conversationKind)
 			if err != nil {
 				return err
 			}
@@ -110,9 +117,17 @@ type transcriptLsCursor struct {
 }
 
 func listSessionsPage(dir string, limit int, before time.Time, cursor, conversationKind string) ([]sessionRow, error) {
-	absoluteDir, err := filepath.Abs(dir)
-	if err != nil {
-		return nil, err
+	return listSessionsRootsPage([]string{dir}, limit, before, cursor, conversationKind)
+}
+
+func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, conversationKind string) ([]sessionRow, error) {
+	absoluteDirs := make([]string, 0, len(dirs))
+	for _, dir := range dirs {
+		absoluteDir, err := filepath.Abs(dir)
+		if err != nil {
+			return nil, err
+		}
+		absoluteDirs = append(absoluteDirs, absoluteDir)
 	}
 	type disc struct {
 		path string
@@ -120,29 +135,31 @@ func listSessionsPage(dir string, limit int, before time.Time, cursor, conversat
 		size int64
 	}
 	var found []disc
-	err = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+	for _, dir := range dirs {
+		err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				return nil
+			}
+			if !strings.HasSuffix(path, ".jsonl") {
+				return nil
+			}
+			// skip subagent child files (classified with their parent session)
+			if filepath.Base(filepath.Dir(path)) == "subagents" {
+				return nil
+			}
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			found = append(found, disc{path: path, mod: info.ModTime(), size: info.Size()})
+			return nil
+		})
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if d.IsDir() {
-			return nil
-		}
-		if !strings.HasSuffix(path, ".jsonl") {
-			return nil
-		}
-		// skip subagent child files (classified with their parent session)
-		if filepath.Base(filepath.Dir(path)) == "subagents" {
-			return nil
-		}
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-		found = append(found, disc{path: path, mod: info.ModTime(), size: info.Size()})
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 
 	// Most recent first; exact timestamp ties have stable ascending path order.
@@ -153,7 +170,9 @@ func listSessionsPage(dir string, limit int, before time.Time, cursor, conversat
 		return found[i].mod.After(found[j].mod)
 	})
 	h := sha256.New()
-	writeSnapshotPart(h, []byte(absoluteDir))
+	for _, absoluteDir := range absoluteDirs {
+		writeSnapshotPart(h, []byte(absoluteDir))
+	}
 	filter := ""
 	if !before.IsZero() {
 		filter = before.UTC().Format(time.RFC3339Nano)

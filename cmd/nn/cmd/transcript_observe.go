@@ -21,7 +21,7 @@ func newTranscriptObserveCmd() *cobra.Command {
 		Use:   "observe <session>",
 		Short: "Read bounded streams and qualified attention signals",
 		Long:  "One-shot readable observation: ROOT plus up to two canonical direct children, five ledger events each, 1000 readable characters per event. Canonical sampling is not recency or importance ranking. Independent reads; no monitor. Attention measures every bundled signal in an independent bounded cohort, retaining evidence and reporting unknown applicability explicitly. Output bounds do not bound source processing.",
-		Args:  cobra.ExactArgs(1),
+		Args:  transcriptSessionArgs(cobra.ExactArgs(1)),
 		RunE: func(c *cobra.Command, args []string) error {
 			decodedBefore := transcriptDecodeCount.Load()
 			if coveragePage < 0 {

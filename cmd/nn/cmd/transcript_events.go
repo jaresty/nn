@@ -62,7 +62,7 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 	var namedAgent string
 	var includeAssignment bool
 	var window ledgerWindowOptions
-	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound event ledger (JSON) or bounded readable tail", Args: cobra.RangeArgs(1, 2), RunE: func(c *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound event ledger (JSON) or bounded readable tail", Args: transcriptSessionArgs(cobra.RangeArgs(1, 2)), RunE: func(c *cobra.Command, args []string) error {
 		if c.Flags().Changed("agent") {
 			if len(args) != 1 || strings.TrimSpace(namedAgent) == "" {
 				return fmt.Errorf("events: supply either positional agent-id or nonempty --agent, never both")

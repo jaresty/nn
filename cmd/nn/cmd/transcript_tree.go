@@ -74,6 +74,7 @@ type rawRecord struct {
 	Timestamp     string          `json:"timestamp"`
 	Message       json.RawMessage `json:"message"`
 	Data          json.RawMessage `json:"data"`
+	Payload       json.RawMessage `json:"payload"`
 }
 
 type contentBlock struct {
@@ -143,7 +144,7 @@ func newTranscriptTreeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tree <session>",
 		Short: "Reconstruct the spawn DAG into the normalized relation",
-		Args:  cobra.ExactArgs(1),
+		Args:  transcriptSessionArgs(cobra.ExactArgs(1)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			parentMode := cmd.Flags().Changed("parent")
 			projected := cmd.Flags().Changed("agent") || cmd.Flags().Changed("description") || cmd.Flags().Changed("fields")
@@ -259,7 +260,7 @@ func newTranscriptShowCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show <session> <agent-id>",
 		Short: "Per-agent events (meaningful by default; --raw for schema-native detail)",
-		Args:  cobra.ExactArgs(2),
+		Args:  transcriptSessionArgs(cobra.ExactArgs(2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if all && (!asJSON || cmd.Flags().Changed("page") || cmd.Flags().Changed("snapshot")) {
 				return fmt.Errorf("transcript show: --all requires --json and cannot be combined with paging flags")
@@ -315,6 +316,8 @@ func buildTree(session string) ([]agent, error) {
 		agents, err = buildPiTree(session)
 	case schemaClaudeCode:
 		agents, err = buildClaudeCodeTree(session)
+	case schemaCodex:
+		agents, err = buildCodexTree(session)
 	default:
 		return nil, fmt.Errorf("unknown transcript schema for %s; use the escape hatch", session)
 	}
@@ -345,6 +348,7 @@ func readRecords(path string) ([]rawRecord, error) {
 		var r rawRecord
 		if json.Unmarshal(line, &r) == nil {
 			r.RecordOrdinal = len(recs) + 1
+			normalizeCodexRecord(&r)
 			recs = append(recs, r)
 		}
 	}
@@ -571,6 +575,56 @@ func buildSDKCLITree(session string) ([]agent, error) {
 		}
 	}
 	return mapToSlice(agents), nil
+}
+
+// --- codex recipe: one rollout file is one root conversation stream --------
+
+func buildCodexTree(session string) ([]agent, error) {
+	recs, err := readRecords(session)
+	if err != nil {
+		return nil, err
+	}
+	root := agent{ID: "ROOT", Type: "agent", EvidenceScope: &agentEvidenceScope{
+		Status: "unavailable", Timestamps: "root_message_history",
+		Cost: "unavailable", SubtreeCost: "unavailable",
+	}}
+	for _, r := range recs {
+		if r.Timestamp != "" {
+			if root.Started == "" || r.Timestamp < root.Started {
+				root.Started = r.Timestamp
+			}
+			if r.Timestamp > root.Ended {
+				root.Ended = r.Timestamp
+			}
+		}
+	}
+	return []agent{root}, nil
+}
+
+func normalizeCodexRecord(r *rawRecord) {
+	if r.Type == "event_msg" {
+		var payload struct {
+			Type    string `json:"type"`
+			Message string `json:"message"`
+		}
+		if json.Unmarshal(r.Payload, &payload) == nil && payload.Type == "user_message" {
+			r.Type = "message"
+			r.Message, _ = json.Marshal(struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			}{Role: "user", Content: payload.Message})
+		}
+		return
+	}
+	if r.Type == "response_item" {
+		var payload struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(r.Payload, &payload) == nil && payload.Type == "message" {
+			r.Type = "message"
+			r.Message = append(json.RawMessage(nil), r.Payload...)
+		}
+	}
 }
 
 // --- pi recipe: Agent background tool-result -> spawn owner; terminal records -> state
@@ -1097,6 +1151,27 @@ func showAgent(session, agentID string, raw bool) (string, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "agent %s (schema %s)\n", agentID, schema)
 
+	if schema == schemaCodex {
+		if agentID != "ROOT" {
+			fmt.Fprintf(&b, "(no per-agent detail found for %s)\n", agentID)
+			return b.String(), nil
+		}
+		if raw {
+			data, err := os.ReadFile(session)
+			if err != nil {
+				return "", err
+			}
+			b.Write(data)
+			return b.String(), nil
+		}
+		recs, err := readRecords(session)
+		if err != nil {
+			return "", err
+		}
+		renderMeaningfulEvents(&b, recs)
+		return b.String(), nil
+	}
+
 	// For pi, the agent may be a custom subagents:record — surface its full data.
 	if schema == schemaPi {
 		recs, err := readRecords(session)
@@ -1201,7 +1276,7 @@ func textContent(raw json.RawMessage) string {
 	var parts []string
 	for _, bl := range blocks {
 		switch bl.Type {
-		case "text":
+		case "text", "output_text":
 			if bl.Text != "" {
 				parts = append(parts, bl.Text)
 			}

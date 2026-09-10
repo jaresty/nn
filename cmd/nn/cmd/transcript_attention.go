@@ -55,7 +55,7 @@ type attentionRetention struct {
 func newTranscriptAttentionCmd() *cobra.Command {
 	var ids, agentTasks []string
 	var task, snapshot, format string
-	c := &cobra.Command{Use: "attention <session>", Short: "Evaluate the bundled attention policy for explicitly selected rooms (Pi and Claude)", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "attention <session>", Short: "Evaluate the bundled attention policy for explicitly selected rooms (Pi and Claude)", Args: transcriptSessionArgs(cobra.ExactArgs(1)), RunE: func(c *cobra.Command, args []string) error {
 		if format != "json" && format != "text" {
 			return fmt.Errorf("attention: format must be json or text")
 		}

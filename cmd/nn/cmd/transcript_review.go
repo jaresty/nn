@@ -84,7 +84,7 @@ func newTranscriptReviewCmd() *cobra.Command {
 	var last, page int
 	var snapshot string
 	var text bundleTextOptions
-	c := &cobra.Command{Use: "review <session>", Short: "Review retained awaiting-return, open-handoff, ambiguous-handoff, or archive evidence (not liveness)", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "review <session>", Short: "Review retained awaiting-return, open-handoff, ambiguous-handoff, or archive evidence (not liveness)", Args: transcriptSessionArgs(cobra.ExactArgs(1)), RunE: func(c *cobra.Command, args []string) error {
 		if err := text.validate(c); err != nil {
 			return err
 		}

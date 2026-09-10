@@ -116,7 +116,8 @@ func ledgerReadableContent(raw json.RawMessage) string {
 	_ = json.Unmarshal(raw, &blocks)
 	parts := []string{}
 	for _, b := range blocks {
-		if ledgerString(b, "type") == "text" {
+		kind := ledgerString(b, "type")
+		if kind == "text" || kind == "output_text" {
 			parts = append(parts, ledgerString(b, "text"))
 		}
 	}

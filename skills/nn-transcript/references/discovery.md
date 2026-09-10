@@ -24,7 +24,7 @@ background room. For a question, discovery is a means of locating evidence, not 
 
 ## Find an agent by launch name
 
-Use `nn transcript ls <root> --json` to select the parent session, then
+Use `nn transcript ls --json` to select the parent session from the bounded Claude, Codex, and Pi default roots (or `nn transcript ls <root> --json` for an explicit scope), then
 `nn transcript tree <session> --description "<exact launch name>" --json`. This filters authenticated
 launch metadata after complete tree validation and rollup, returns every exact case-sensitive match in
 canonical tree order, and returns `[]` when there are none; descriptions are not unique identities.
@@ -47,17 +47,20 @@ scopes are plausible, present the ambiguous candidates rather than guessing. Gen
 discovery is the fallback only when no target was supplied or the human explicitly requests recency.
 
 Retain the complete selected `ls` row as conversational state, especially `path`, `session`, `schema`,
-and cursor/scope provenance. The exact `path` is the downstream command argument. Pass it
+and cursor/scope provenance. Prefer the exact `path` as the downstream command argument and pass it
 byte-for-byte to `tree`, `events`, and `show`; never rebuild it from `session`, cwd, current project,
-or a guessed directory slug.
+or a guessed directory slug. For direct CLI use when no selected row is retained, those commands may
+accept a unique filename/session-metadata ID and resolve it to the exact discovered inventory path;
+zero or ambiguous matches fail rather than guessing.
 
 Sweep the selected cohort and draw what stands out:
 
 ```bash
-nn transcript ls <dir> --json --conversation-kind conversation --limit <N>   # bounded candidate page, not the entire scope
+nn transcript ls --json --conversation-kind conversation --limit <N>         # bounded supported-provider roots
+nn transcript ls <dir> --json --conversation-kind conversation --limit <N>   # explicit bounded scope
 ```
 
-Default `<dir>` is the harness transcript root (e.g. `~/.claude/projects/<project-slug>/`).
+With no `<dir>`, discovery checks only the registered Claude, Codex, and Pi roots and reports unavailable roots on stderr. An explicit `<dir>` remains the highest-priority scope and is never combined with defaults.
 Use native `--conversation-kind conversation` for a conversation lobby or
 `--conversation-kind sidechain` for a sidechain-only cohort; do not pipe through `jq` merely to remove
 the other kind. The filter is applied before pagination, and its value is bound into the cursor

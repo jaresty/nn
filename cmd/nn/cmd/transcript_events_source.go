@@ -110,7 +110,7 @@ func ledgerRecords(session, id string) ([]ledgerRecord, string, string, error) {
 				selected = append(selected, r)
 			}
 		}
-	case schemaClaudeCode:
+	case schemaClaudeCode, schemaCodex:
 		if id == "ROOT" {
 			selected = ownedPiRecords(recs, id, false)
 		}

@@ -10,11 +10,14 @@ cross-session investigation. Use `nn transcript search`, not `nn grep` on transc
 loses ownership and may skip oversized files. Run `nn transcript search --help` for the full flag list.
 
 ```bash
+nn transcript search 'literal phrase' --json                              # bounded Claude, Codex, and Pi roots
 nn transcript search 'literal phrase' <session-or-directory> --json
 nn transcript search 'lsp_trace_v2_.*|3896' <session-a> <directory> --regex --json
 ```
 
-Search accepts multiple files and/or recursively scanned directories.
+Search accepts multiple files and/or recursively scanned directories. With no path it searches only
+available registered Claude, Codex, and Pi roots and reports unavailable roots on stderr; any explicit
+path set defines the corpus instead and is not combined with defaults.
 Without `--regex`, matching remains case-insensitive literal substring search. Regex uses Go syntax,
 is case-sensitive by default, and accepts `(?i)` for case-insensitive matching. Invalid patterns fail.
 Use `--raw` for tool payloads excluded from meaningful content; regex does not broaden content scope.

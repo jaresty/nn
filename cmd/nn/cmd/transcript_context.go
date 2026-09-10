@@ -16,7 +16,7 @@ func newTranscriptContextCmd() *cobra.Command {
 	var snapshot string
 	var asJSON bool
 	var text bundleTextOptions
-	c := &cobra.Command{Use: "context <session> <agent-id>", Short: "Recorded launch assignments and bounded recent evidence; no inferred governing attempt", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "context <session> <agent-id>", Short: "Recorded launch assignments and bounded recent evidence; no inferred governing attempt", Args: transcriptSessionArgs(cobra.ExactArgs(2)), RunE: func(c *cobra.Command, args []string) error {
 		if err := text.validate(c); err != nil {
 			return err
 		}

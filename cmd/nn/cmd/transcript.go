@@ -17,6 +17,7 @@ import (
 const (
 	schemaSDKCLI     = "sdk-cli"
 	schemaPi         = "pi"
+	schemaCodex      = "codex"
 	schemaClaudeCode = "claude-code"
 	schemaUnknown    = "unknown"
 )
@@ -68,19 +69,26 @@ func newTranscriptCmd(_ *rootState) *cobra.Command {
 func newTranscriptScanCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "scan [dir]",
-		Short: "Discover transcript files and classify each by recognized schema",
+		Short: "Classify transcripts from Claude, Codex, and Pi defaults or an explicit directory",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			dir := "."
+			var dirs []string
 			if len(args) == 1 {
-				dir = args[0]
+				dirs = []string{args[0]}
+			} else {
+				available, unavailable, err := defaultTranscriptRoots()
+				if err != nil {
+					return err
+				}
+				reportUnavailableTranscriptRoots(cmd.ErrOrStderr(), unavailable)
+				dirs = available
 			}
-			counts, err := scanTranscriptDir(dir)
+			counts, err := scanTranscriptDirs(dirs)
 			if err != nil {
 				return err
 			}
 			// Deterministic order: known schemas first, unknown last.
-			order := []string{schemaClaudeCode, schemaSDKCLI, schemaPi, schemaUnknown}
+			order := []string{schemaClaudeCode, schemaCodex, schemaSDKCLI, schemaPi, schemaUnknown}
 			out := cmd.OutOrStdout()
 			for _, schema := range order {
 				fmt.Fprintf(out, "%s: %d\n", schema, counts[schema])
@@ -112,27 +120,33 @@ func newTranscriptDoctorCmd() *cobra.Command {
 // child files, which are classified with their parent session) and returns a
 // count per recognized schema.
 func scanTranscriptDir(dir string) (map[string]int, error) {
+	return scanTranscriptDirs([]string{dir})
+}
+
+func scanTranscriptDirs(dirs []string) (map[string]int, error) {
 	counts := map[string]int{}
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+	for _, dir := range dirs {
+		err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				return nil
+			}
+			if !strings.HasSuffix(path, ".jsonl") {
+				return nil
+			}
+			// Subagent child files under a subagents/ dir are part of their parent
+			// session's classification, not standalone transcripts.
+			if filepath.Base(filepath.Dir(path)) == "subagents" {
+				return nil
+			}
+			counts[classifyTranscript(path)]++
+			return nil
+		})
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if d.IsDir() {
-			return nil
-		}
-		if !strings.HasSuffix(path, ".jsonl") {
-			return nil
-		}
-		// Subagent child files under a subagents/ dir are part of their parent
-		// session's classification, not standalone transcripts.
-		if filepath.Base(filepath.Dir(path)) == "subagents" {
-			return nil
-		}
-		counts[classifyTranscript(path)]++
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 	return counts, nil
 }
@@ -154,6 +168,7 @@ type transcriptRecord struct {
 //   - sdk-cli:     a sibling subagents/agent-*.jsonl + .meta.json layout exists
 //   - pi:          any record has customType "subagents:record", or a pi session
 //     header record ({"type":"session","version":N})
+//   - codex:       a producer-defined session_meta record
 //   - claude-code: records carry parentUuid/uuid (the interactive uuid DAG) and
 //     no separate subagents/ dir
 func classifyTranscript(path string) string {
@@ -182,6 +197,9 @@ func classifyTranscript(path string) string {
 		var rec transcriptRecord
 		if json.Unmarshal([]byte(line), &rec) != nil {
 			continue
+		}
+		if rec.Type == "session_meta" {
+			return schemaCodex
 		}
 		if rec.CustomType == "subagents:record" {
 			return schemaPi
