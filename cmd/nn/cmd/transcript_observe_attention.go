@@ -8,9 +8,10 @@ import (
 )
 
 type observeAttentionOptions struct {
-	IDs   []string
-	Limit int
-	Task  string
+	IDs        []string
+	Limit      int
+	Task       string
+	AgentTasks []string
 }
 
 func selectObserveAttention(agents []agent, o observeAttentionOptions) ([]string, error) {
@@ -71,25 +72,30 @@ func observeAttentionSection(session string, o observeAttentionOptions) (string,
 	fmt.Fprintf(&out, "Attention selection: %s; independent of the readable two-child sample\n", mode)
 	fmt.Fprintf(&out, "Candidate inventory: selected %d of %d; outside attention cohort: %d\n", len(ids), len(agents), len(agents)-len(ids))
 	fmt.Fprintf(&out, "Selected attention IDs: %s\n", observeLabel(strings.Join(ids, ", ")))
-	if o.Task == "" {
-		fmt.Fprintf(&out, "not evaluated — task scope not established; evaluated: 0; unevaluated: %d\n", len(agents))
-		fmt.Fprintln(&out, "Use --task implementation only for an established implementation cohort; use --attention-agent for mixed-task conversations.")
-		fmt.Fprintln(&out, "No findings have been computed. No health or liveness inference.")
-		return out.String(), nil
+	overrides, err := parseAgentTasks(o.AgentTasks)
+	if err != nil {
+		return "", err
 	}
-	fmt.Fprintln(&out, "Task classification is caller-supplied for the whole selected attention cohort.")
-	retained, err := buildAttention(session, ids, o.Task)
+	for id := range overrides {
+		found := false
+		for _, selected := range ids {
+			if id == selected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return "", fmt.Errorf("observe: agent-task names unselected agent %q", id)
+		}
+	}
+	fmt.Fprintln(&out, "All bundled signals are measured; task overrides affect applicability, not activation.")
+	retained, err := buildAttentionWithTasks(session, ids, o.Task, overrides)
 	if err != nil {
 		fmt.Fprintf(&out, "attention error — batch did not complete; no successful evaluation published: %s\n", observeLabel(err.Error()))
 		fmt.Fprintln(&out, "Do not interpret this error as no findings. No retry or scope substitution performed.")
 		return out.String(), nil
 	}
 	page := retained.Page
-	counts := map[string]int{}
-	for _, room := range page.Rooms {
-		counts[room.Result.Status]++
-	}
-	fmt.Fprintf(&out, "Outcomes: match=%d; no_match=%d; indeterminate=%d (insufficient evidence); inapplicable=%d (outside policy scope)\n", counts["match"], counts["no_match"], counts["indeterminate"], counts["inapplicable"])
 	fmt.Fprintf(&out, "Metric version: %d. Retained evaluation scope follows; candidate inventory and evaluation are independent acquisitions.\n", page.MetricVersion)
 	if err = renderAttention(&out, page); err != nil {
 		return "", err

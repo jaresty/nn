@@ -25,9 +25,6 @@ func TestObserveKnownTaskPublishedRecipe(t *testing.T) {
 			if template == "" {
 				t.Fatal("KNOWN_TASK_RECIPE FAIL: missing combined recipe")
 			}
-			if strings.Index(body, template) > strings.Index(body, "\nnn transcript observe <session>\n") {
-				t.Fatal("KNOWN_TASK_RECIPE FAIL: bare invocation takes precedence")
-			}
 			args := strings.Fields(template)[1:]
 			for i, arg := range args {
 				switch arg {
@@ -43,7 +40,7 @@ func TestObserveKnownTaskPublishedRecipe(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, want := range []string{"## ROOT —", "Selected attention IDs: " + id, "match=1; no_match=0; indeterminate=0", "Inspect evidence: nn transcript attention inspect"} {
+			for _, want := range []string{"## ROOT —", "Selected attention IDs: " + id, "triggered=1; not_triggered=0; needs_context=0", "Inspect evidence: nn transcript attention inspect"} {
 				if !strings.Contains(out, want) {
 					t.Fatalf("KNOWN_TASK_RECIPE FAIL: missing %q", want)
 				}

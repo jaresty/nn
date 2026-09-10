@@ -39,6 +39,24 @@ payload, all, page, snapshot, at, and summary flags. Exact `--event` text retrie
 apply before last-N selection. Default JSON is unchanged. Text snapshots are evidence identifiers,
 not a paging interface; refresh reruns the command.
 
+## Recent events and failures in one acquisition
+
+```bash
+nn transcript events <session> <agent-id> --last 10 --include-errors 10 --format text --max-text-chars 1400
+```
+
+When Refresh needs both recent activity and explicit failures, use this combined command instead
+of separate ordinary and `--errors-only` reads. Each tail has its own 1–200 event limit; the failure
+tail searches the whole selected ledger, not just the recent tail. Time bounds apply to both.
+Both sections share one composite snapshot and identify overlapping event IDs. IDs and canonical
+order remain unchanged; empty failure tails are explicit. Older failures do not establish unresolved
+problems, and no failures is not a health verdict. These are events, not deduplicated work messages.
+
+The shortcut is text-only and rejects errors-only, search/context, exact-event, summary, handoff,
+and JSON/pagination options. Existing per-event clipping applies, with an atomic 200,000-byte
+combined output limit. One ledger acquisition is not an atomic multi-source capture. The snapshot
+identifies evidence, not retained replay; Back uses retained output and Refresh acquires anew.
+
 ## Search and grep-style context
 
 ```bash

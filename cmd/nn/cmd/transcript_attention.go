@@ -16,28 +16,34 @@ import (
 const attentionLimitations = "Recognized tool invocations, not successful edits or filesystem changes. Shell side effects are opaque. Uniquely linked Pi missing-command validation rejections are counted separately, not as executed commands. Unknown tools/arguments make classification indeterminate. Canonical owned-message window, not elapsed time. No liveness or health inference."
 
 type attentionRoom struct {
-	ID      string            `json:"agent_id"`
-	Label   string            `json:"label"`
-	Metrics attention.Metrics `json:"metrics"`
-	Window  attentionWindow   `json:"window"`
-	Result  attention.Result  `json:"result"`
+	Signals     []attentionSignal     `json:"signals,omitempty"`
+	TaskContext *attentionTaskContext `json:"task_context,omitempty"`
+	ID          string                `json:"agent_id"`
+	Label       string                `json:"label"`
+	Metrics     attention.Metrics     `json:"metrics"`
+	Window      attentionWindow       `json:"window"`
+	Result      attention.Result      `json:"result"`
 }
 
 type attentionPage struct {
-	Version       int               `json:"version"`
-	MetricVersion int               `json:"metric_version,omitempty"`
-	Snapshot      string            `json:"snapshot"`
-	Path          string            `json:"path"`
-	Schema        string            `json:"schema"`
-	CaptureID     string            `json:"capture_id,omitempty"`
-	CaptureMode   string            `json:"capture_mode"`
-	Task          string            `json:"task"`
-	Policy        *attention.Policy `json:"policy"`
-	Population    int               `json:"population"`
-	Evaluated     int               `json:"evaluated"`
-	Unevaluated   int               `json:"unevaluated"`
-	Limitations   string            `json:"limitations"`
-	Rooms         []attentionRoom   `json:"rooms"`
+	SelectedAgents    int                 `json:"selected_agents,omitempty"`
+	Policies          []*attention.Policy `json:"policies,omitempty"`
+	AgentTasks        map[string]string   `json:"agent_tasks,omitempty"`
+	SignalEvaluations int                 `json:"signal_evaluations,omitempty"`
+	Version           int                 `json:"version"`
+	MetricVersion     int                 `json:"metric_version,omitempty"`
+	Snapshot          string              `json:"snapshot"`
+	Path              string              `json:"path"`
+	Schema            string              `json:"schema"`
+	CaptureID         string              `json:"capture_id,omitempty"`
+	CaptureMode       string              `json:"capture_mode"`
+	Task              string              `json:"task"`
+	Policy            *attention.Policy   `json:"policy"`
+	Population        int                 `json:"population"`
+	Evaluated         int                 `json:"evaluated"`
+	Unevaluated       int                 `json:"unevaluated"`
+	Limitations       string              `json:"limitations"`
+	Rooms             []attentionRoom     `json:"rooms"`
 }
 
 type attentionRetention struct {
@@ -47,11 +53,15 @@ type attentionRetention struct {
 }
 
 func newTranscriptAttentionCmd() *cobra.Command {
-	var ids []string
+	var ids, agentTasks []string
 	var task, snapshot, format string
 	c := &cobra.Command{Use: "attention <session>", Short: "Evaluate the bundled attention policy for explicitly selected rooms (Pi and Claude)", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
 		if format != "json" && format != "text" {
 			return fmt.Errorf("attention: format must be json or text")
+		}
+		overrides, err := parseAgentTasks(agentTasks)
+		if err != nil {
+			return err
 		}
 		var retained attentionRetention
 		var e error
@@ -67,6 +77,13 @@ func newTranscriptAttentionCmd() *cobra.Command {
 			if path != retained.InputPath && path != retained.Page.Path {
 				return fmt.Errorf("attention: snapshot path mismatch")
 			}
+			if c.Flags().Changed("agent-task") {
+				a, _ := json.Marshal(overrides)
+				b, _ := json.Marshal(retained.Page.AgentTasks)
+				if string(a) != string(b) {
+					return fmt.Errorf("attention: snapshot agent-task mismatch")
+				}
+			}
 			if c.Flags().Changed("task") && task != retained.Page.Task {
 				return fmt.Errorf("attention: snapshot task mismatch")
 			}
@@ -78,7 +95,7 @@ func newTranscriptAttentionCmd() *cobra.Command {
 				return fmt.Errorf("attention: snapshot selection mismatch")
 			}
 		} else {
-			retained, e = buildAttention(args[0], ids, task)
+			retained, e = buildAttentionWithTasks(args[0], ids, task, overrides)
 			if e != nil {
 				return e
 			}
@@ -89,7 +106,8 @@ func newTranscriptAttentionCmd() *cobra.Command {
 		return renderAttention(c.OutOrStdout(), retained.Page)
 	}}
 	c.Flags().StringArrayVar(&ids, "agent", nil, "exact room ID; repeat for up to 20 explicitly selected rooms, including ROOT")
-	c.Flags().StringVar(&task, "task", "", "explicit task classification (implementation applies; absent/other is inapplicable)")
+	c.Flags().StringVar(&task, "task", "", "optional cohort task override; all signals are measured even when absent")
+	c.Flags().StringArrayVar(&agentTasks, "agent-task", nil, "optional per-agent task override ID=TASK; repeat for selected agents")
 	c.Flags().StringVar(&snapshot, "snapshot", "", "replay a retained evaluation without source reads; optional selectors must match")
 	c.Flags().StringVar(&format, "format", "text", "text or json")
 	c.AddCommand(newAttentionInspectCmd())
@@ -148,6 +166,7 @@ func newAttentionInspectCmd() *cobra.Command {
 		p.Rooms = []attentionRoom{room}
 		p.Evaluated = 1
 		p.Unevaluated = p.Population - 1
+		p.SignalEvaluations = len(room.Signals)
 		if e = renderAttention(&b, p); e != nil {
 			return e
 		}
@@ -167,6 +186,18 @@ func newAttentionInspectCmd() *cobra.Command {
 }
 
 func buildAttention(session string, ids []string, task string) (attentionRetention, error) {
+	return buildAttentionWithTasks(session, ids, task, nil)
+}
+
+func buildAttentionWithTasks(session string, ids []string, task string, overrides map[string]string) (attentionRetention, error) {
+	policies, err := attention.Builtins()
+	if err != nil {
+		return attentionRetention{}, err
+	}
+	return buildAttentionPolicies(session, ids, task, overrides, policies)
+}
+
+func buildAttentionPolicies(session string, ids []string, task string, overrides map[string]string, policies []*attention.Policy) (attentionRetention, error) {
 	var empty attentionRetention
 	if len(ids) < 1 || len(ids) > 20 {
 		return empty, fmt.Errorf("attention: select 1–20 exact --agent IDs; no implicit office-wide scan")
@@ -178,13 +209,25 @@ func buildAttention(session string, ids []string, task string) (attentionRetenti
 		}
 		seen[id] = true
 	}
-	if len(task) > 80 {
+	if len(task) > 80 || (task != "" && strings.TrimSpace(task) == "") {
 		return empty, fmt.Errorf("attention: task scope exceeds 80 bytes")
 	}
-	policy, e := attention.Builtin()
-	if e != nil {
-		return empty, e
+	for id, value := range overrides {
+		if !seen[id] || strings.TrimSpace(value) == "" || len(value) > 80 {
+			return empty, fmt.Errorf("attention: agent-task must name a selected agent and a nonempty task of at most 80 bytes")
+		}
 	}
+	if len(policies) == 0 || len(policies) > 20 {
+		return empty, fmt.Errorf("attention: expected 1–20 bundled signals")
+	}
+	policyIDs := map[string]bool{}
+	for _, p := range policies {
+		if p == nil || p.ID == "" || policyIDs[p.ID] {
+			return empty, fmt.Errorf("attention: invalid or duplicate bundled signal")
+		}
+		policyIDs[p.ID] = true
+	}
+	policy := policies[0] // First-signal compatibility fields; plural fields are authoritative.
 	input, e := filepath.Abs(session)
 	if e != nil {
 		return empty, e
@@ -217,37 +260,46 @@ func buildAttention(session string, ids []string, task string) (attentionRetenti
 			return empty, fmt.Errorf("attention: unknown agent %q", id)
 		}
 	}
-	p := attentionPage{Version: 1, MetricVersion: 2, Path: path, Schema: schema, Task: task, Policy: policy, Population: len(agents), Evaluated: len(ids), Unevaluated: len(agents) - len(ids), Limitations: attentionLimitations, CaptureMode: "sequential retained owned-record projections", Rooms: []attentionRoom{}}
+	p := attentionPage{Version: 2, MetricVersion: 2, SelectedAgents: len(ids), Policies: policies, AgentTasks: overrides, Path: path, Schema: schema, Task: task, Policy: policy, Population: len(agents), Evaluated: len(ids), Unevaluated: len(agents) - len(ids), Limitations: attentionLimitations, CaptureMode: "sequential retained owned-record projections", Rooms: []attentionRoom{}}
 	if capture != nil {
 		p.CaptureID = capture.ID
 		p.CaptureMode = "root plus selected sidechain complete-record prefixes"
 	}
 	retained := attentionRetention{InputPath: input, Evidence: map[string][]attentionEvidence{}}
+	var handoffs []piHandoff
+	if capture != nil {
+		parent, err := capture.read(path)
+		if err != nil {
+			return empty, err
+		}
+		handoffs = piHandoffs(parent)
+	}
 	for _, id := range ids {
 		var records []ledgerRecord
 		var status string
+		var acquisitionErr error
 		if capture != nil {
 			records, status = capture.ledger(id)
 		} else {
-			records, _, status, e = ledgerRecords(path, id)
-			if e != nil {
-				return empty, e
-			}
+			records, _, status, acquisitionErr = ledgerRecords(path, id)
 		}
-		metrics, window, evidence, e := collectAttention(records, status, id, policy.Window.LastWorkEvents)
-		if e != nil {
-			return empty, e
+		classification, source := task, "cohort_override"
+		if v, ok := overrides[id]; ok {
+			classification, source = v, "agent_override"
 		}
-		result, e := policy.Evaluate(id, task, metrics)
-		if e != nil {
-			return empty, e
+		signals, evidence := collectAttentionSignals(policies, records, status, id, classification, source, acquisitionErr)
+		context := attentionTaskContextFor(id, path, records, handoffs)
+		if acquisitionErr != nil {
+			context.Status = "error"
 		}
+		first := signals[0]
+		p.SignalEvaluations += len(signals)
 		label := byID[id].Description
 		if label == "" {
 			label = "Room " + id
 		}
 		label = reviewLabel(cleanBundleText(label))
-		p.Rooms = append(p.Rooms, attentionRoom{ID: id, Label: label, Metrics: metrics, Window: window, Result: result})
+		p.Rooms = append(p.Rooms, attentionRoom{ID: id, Label: label, Metrics: first.Metrics, Window: first.Window, Result: legacyAttentionResult(first), Signals: signals, TaskContext: &context})
 		retained.Evidence[id] = evidence
 	}
 	retained.Page = p
@@ -276,7 +328,7 @@ func loadAttention(snapshot string) (attentionRetention, error) {
 	if e != nil {
 		return r, fmt.Errorf("attention: retained evaluation unavailable: %w", e)
 	}
-	if captureHash(b) != snapshot || json.Unmarshal(b, &r) != nil || r.Page.Version != 1 {
+	if captureHash(b) != snapshot || json.Unmarshal(b, &r) != nil || (r.Page.Version != 1 && r.Page.Version != 2) {
 		return attentionRetention{}, fmt.Errorf("attention: corrupt retained evaluation")
 	}
 	r.Page.Snapshot = snapshot
@@ -302,6 +354,9 @@ func attentionText(w io.Writer, text string) error {
 	return e
 }
 func renderAttention(w io.Writer, p attentionPage) error {
+	if p.Version >= 2 {
+		return renderAttentionSignals(w, p)
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "Attention signals · %d evaluated · %d unevaluated in selected transcript\nSnapshot: %s\nPolicy: %s v%d · %s\nTask: %s\nCapture: %s\n", p.Evaluated, p.Unevaluated, p.Snapshot, p.Policy.ID, p.Policy.Version, p.Policy.Digest, cleanBundleText(p.Task), p.CaptureMode)
 	fmt.Fprintf(&b, "Parameters: %v\n", p.Policy.Parameters)

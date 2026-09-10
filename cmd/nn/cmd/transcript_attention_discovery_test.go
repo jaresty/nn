@@ -135,11 +135,18 @@ func TestAttentionDiscoveryNativeRecipe(t *testing.T) {
 		if err = json.Unmarshal([]byte(out), &p); err != nil || len(p.Rooms) != 1 || p.Rooms[0].ID != id || p.Task != task {
 			t.Fatalf("native evaluation changed identity/scope: %s %v", out, err)
 		}
-		if task != "implementation" && p.Rooms[0].Result.Status != "inapplicable" {
-			t.Fatal("native missing/other scope semantics changed")
+		if len(p.Rooms[0].Signals) != 1 {
+			t.Fatal("missing per-signal result")
+		}
+		s := p.Rooms[0].Signals[0]
+		if task == "research" && s.Outcome != "not_applicable" {
+			t.Fatal("known other task became applicable")
+		}
+		if task == "" && (s.Applicability.Status != "unknown" || s.Condition.Status == "inapplicable") {
+			t.Fatal("unknown task suppressed measurement")
 		}
 	}
-	t.Log("NATIVE_RECIPE_PASS: one metadata page, one context page, exact selected room; native scope semantics unchanged")
+	t.Log("NATIVE_RECIPE_PASS: one metadata page, one context page, exact selected room; versioned applicability remains separate from measurement")
 }
 
 func TestAttentionDiscoveryDispatch(t *testing.T) {

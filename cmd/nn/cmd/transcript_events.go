@@ -50,16 +50,25 @@ func ledgerSelect(s string) ([]string, error) {
 }
 
 func newTranscriptEventsCmd() *cobra.Command {
+	return newTranscriptEventsCmdUsing(ledgerRecords)
+}
+
+func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, string, string, error)) *cobra.Command {
 	var selection, snapshot, eventFilter, summary, groupBy, since, until, at string
 	var payload, asJSON, all, errorsOnly bool
 	var page, bucketSize, resultLimit, last int
 	var format string
-	var maxTextChars int
+	var maxTextChars, includeErrors int
 	var window ledgerWindowOptions
 	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound event ledger (JSON) or bounded readable tail", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, args []string) error {
 		summaryMode := c.Flags().Changed("summary")
 		if err := window.configure(c, eventFilter, format); err != nil {
 			return err
+		}
+		if c.Flags().Changed("include-errors") {
+			if format != "text" || last < 1 || includeErrors < 1 || includeErrors > 200 || window.Enabled || c.Flags().Changed("errors-only") {
+				return fmt.Errorf("events: --include-errors requires --format text, --last 1..200 and a failure limit 1..200; cannot combine with errors-only or search/context")
+			}
 		}
 		if format != "json" && format != "text" {
 			return fmt.Errorf("events: --format must be json or text")
@@ -191,7 +200,7 @@ func newTranscriptEventsCmd() *cobra.Command {
 			_, err = c.OutOrStdout().Write(append(b, '\n'))
 			return err
 		}
-		records, schema, detail, err := ledgerRecords(args[0], args[1])
+		records, schema, detail, err := acquire(args[0], args[1])
 		if err != nil {
 			return err
 		}
@@ -205,6 +214,9 @@ func newTranscriptEventsCmd() *cobra.Command {
 		events, err := projectLedger(records, args[1], projectionFields, payload || summary == "tools" || window.Enabled)
 		if err != nil {
 			return err
+		}
+		if includeErrors > 0 {
+			return renderCombinedEventTails(c.OutOrStdout(), args[0], args[1], schema, detail, selectFields, events, query, includeErrors, maxTextChars)
 		}
 		if summaryMode {
 			var body []byte
@@ -253,6 +265,7 @@ func newTranscriptEventsCmd() *cobra.Command {
 	}}
 	window.flags(c)
 	c.Flags().StringVar(&format, "format", "json", "json or bounded readable text (requires --last, --event, or search/context options)")
+	c.Flags().IntVar(&includeErrors, "include-errors", 0, "also show the last 1..200 explicit failure events from the same acquisition (text tail only)")
 	c.Flags().IntVar(&maxTextChars, "max-text-chars", 1000, "per-event readable character limit, 1..10000 (text only)")
 	c.Flags().StringVar(&at, "at", "", "parent-side handoff occurrences: launch or return (Pi)")
 	c.Flags().StringVar(&since, "since", "", "inclusive RFC3339 lower event timestamp bound")

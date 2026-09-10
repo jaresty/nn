@@ -37,7 +37,7 @@ func TestObserveAttentionIndependentScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err, text)
 	}
-	for _, s := range []string{"Selected attention IDs: ROOT, A, B, C", "match=2; no_match=0; indeterminate=2", "Metric version: 2", "Inspect evidence: nn transcript attention inspect", "## ROOT —", "## A —", "## B —"} {
+	for _, s := range []string{"Selected attention IDs: ROOT, A, B, C", "triggered=2; not_triggered=0; needs_context=0; not_applicable=0; insufficient_evidence=2", "Metric version: 2", "Inspect evidence: nn transcript attention inspect", "## ROOT —", "## A —", "## B —"} {
 		if !strings.Contains(text, s) {
 			t.Fatalf("OBSERVE_ATTENTION_SCOPE FAIL: missing %q", s)
 		}
@@ -66,8 +66,8 @@ func TestObserveAttentionUnknownTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(text, "not evaluated — task scope not established; evaluated: 0; unevaluated: 4") || strings.Contains(text, "Outcomes:") || strings.Contains(text, "\nSnapshot:") {
-		t.Fatal("OBSERVE_ATTENTION_TASK FAIL: absent task became evaluation", text)
+	if !strings.Contains(text, "needs_context=2") || !strings.Contains(text, "Condition: match") || !strings.Contains(text, "\nSnapshot:") || strings.Contains(text, "not evaluated — task scope not established") {
+		t.Fatal("OBSERVE_ATTENTION_TASK FAIL: absent task suppressed measured signals", text)
 	}
 	if !strings.Contains(text, "## ROOT —") {
 		t.Fatal("observation lost")
@@ -81,7 +81,7 @@ func TestObserveAttentionNativeStates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(text, "inapplicable=1") || !strings.Contains(text, "outside attention cohort: 3") {
+	if !strings.Contains(text, "not_applicable=1") || !strings.Contains(text, "outside attention cohort: 3") {
 		t.Fatal(text)
 	}
 	f, err := os.OpenFile(p, os.O_APPEND|os.O_WRONLY, 0600)
@@ -96,7 +96,7 @@ func TestObserveAttentionNativeStates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(text, "match=0; no_match=1; indeterminate=0") || !strings.Contains(text, "2 recognized edits / 40 commands") {
+	if !strings.Contains(text, "triggered=0; not_triggered=1; needs_context=0") || !strings.Contains(text, "2 recognized edits / 40 commands") {
 		t.Fatal("OBSERVE_ATTENTION_STATES FAIL", text)
 	}
 	t.Log("OBSERVE_ATTENTION_STATES PASS")
@@ -117,7 +117,7 @@ func TestObserveAttentionSelection(t *testing.T) {
 	}
 	p := observeAttentionFixture(t)
 	text, err := contextCommand(t, "observe", p, "--task", "implementation", "--attention-limit", "1")
-	if err != nil || !strings.Contains(text, "selected 1 of 4; outside attention cohort: 3") || !strings.Contains(text, "1 evaluated · 3 unevaluated") {
+	if err != nil || !strings.Contains(text, "selected 1 of 4; outside attention cohort: 3") || !strings.Contains(text, "1 selected · 3 omitted") {
 		t.Fatal(err, text)
 	}
 	for _, flags := range [][]string{{"--attention-limit", "0"}, {"--attention-limit", "21"}, {"--attention-agent", "A", "--attention-limit", "2"}, {"--attention-agent", "missing"}, {"--attention-agent", "A", "--attention-agent", "A"}, {"--attention-agent", ""}, {"--task", ""}} {
@@ -136,7 +136,7 @@ func TestObserveAttentionErrorIsNotNoMatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(text, "attention error — batch did not complete") || !strings.Contains(text, "no successful evaluation published") || !strings.Contains(text, "## ROOT —") || strings.Contains(text, "Outcomes:") {
+	if !strings.Contains(text, "Outcome: error") || !strings.Contains(text, "error=1") || !strings.Contains(text, "## ROOT —") || !strings.Contains(text, "not_triggered=0") {
 		t.Fatal("OBSERVE_ATTENTION_ERROR FAIL", text)
 	}
 	t.Log("OBSERVE_ATTENTION_ERROR PASS")

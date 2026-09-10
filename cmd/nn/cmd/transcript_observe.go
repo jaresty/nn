@@ -17,7 +17,7 @@ func newTranscriptObserveCmd() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "observe <session>",
 		Short: "Read bounded streams and qualified attention signals",
-		Long:  "One-shot readable observation: ROOT plus up to two canonical direct children, five ledger events each, 1000 readable characters per event. Canonical sampling is not recency or importance ranking. Independent reads; no monitor. Attention uses an independent bounded cohort and needs --task classification; evaluated signals retain native evidence. Output bounds do not bound source processing.",
+		Long:  "One-shot readable observation: ROOT plus up to two canonical direct children, five ledger events each, 1000 readable characters per event. Canonical sampling is not recency or importance ranking. Independent reads; no monitor. Attention measures every bundled signal in an independent bounded cohort, retaining evidence and reporting unknown applicability explicitly. Output bounds do not bound source processing.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			if attention.Limit < 1 || attention.Limit > 20 {
@@ -77,7 +77,8 @@ func newTranscriptObserveCmd() *cobra.Command {
 			return err
 		},
 	}
-	command.Flags().StringVar(&attention.Task, "task", "", "established task for the attention cohort; implementation enables the bundled policy")
+	command.Flags().StringVar(&attention.Task, "task", "", "optional cohort task override; attention runs without it")
+	command.Flags().StringArrayVar(&attention.AgentTasks, "agent-task", nil, "optional per-agent task override ID=TASK for a selected attention agent")
 	command.Flags().StringArrayVar(&attention.IDs, "attention-agent", nil, "exact attention agent ID; repeat up to 20 (independent of readable sample)")
 	command.Flags().IntVar(&attention.Limit, "attention-limit", 20, "ROOT-first canonical attention population bound, 1..20; incompatible with explicit IDs")
 	return command
