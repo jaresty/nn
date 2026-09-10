@@ -553,7 +553,7 @@ Resolve each related note before the next action — run `nn show <id>` to open.
 
 `--json` output: `[{"kind": "...", "name": "...", "signature": "...", "line": N}]` (no footer)
 
-`--refs` searches for name-match references to every symbol in the outline across the codebase rooted at `--root` (default: `.`). Emits one `references to "X"` section per symbol. Name-match only — not symbol-resolved, may include false positives. Prefer `nn trace` when you need call-graph traversal rather than text matches.
+`--refs` searches for name-match references to every symbol in the outline across the codebase rooted at `--root` (default: `.`). Emits one `references to "X"` section per symbol. Name-match only — not symbol-resolved, may include false positives. Use a call-graph tool when you need call traversal rather than name-match references; `nn trace` is the notebook-enriched offline option.
 
 ```
 nn ast src/backend/gitlocal.go --refs --root ./
@@ -601,7 +601,7 @@ nn trace <root-dir> --symbol <name> [--symbol <name> ...] [--depth N] [--json] [
 
 Syntax-aware call graph from one or more entry-point symbols. Uses gotreesitter to index all definitions in `<root-dir>` (or `--root <dir>` if given), then DFS-traces calls from each `--symbol` up to `--depth` hops (default 3).
 
-**Prefer `nn trace` over `nn grep`** when you want to understand how a symbol is called or what it calls across files — trace follows actual call edges rather than text matches.
+Use a call-graph tool rather than `nn grep` when you need caller or callee relationships instead of text matches. `nn trace` provides an offline, syntax-aware graph with notebook annotations; its project-local name resolution may leave external calls unresolved or produce ambiguous targets.
 
 Each resolved node is annotated with related nn notes via BM25 (same mechanism as `nn grep`). After the tree, a `## Related notes` section lists all surfaced notes with the standard resolution instruction.
 

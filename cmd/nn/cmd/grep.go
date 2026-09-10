@@ -219,7 +219,10 @@ func newGrepCmd(state *rootState) *cobra.Command {
 						dir := filepath.Dir(m.file)
 						if idx, err := traceIndexFor(dir); err == nil {
 							if sym, _, ok := resolveFileLineInIndex(idx, m.file, m.lineNum); ok {
-								result := trace.Trace(idx, []string{sym}, 3, traceAnnotator(prepared, k))
+								// Inline grep traces print structural nodes only; related notes
+								// are ranked once below from the match context. Avoid computing
+								// and discarding BM25 annotations for every traced node.
+								result := trace.Trace(idx, []string{sym}, 3, nil)
 								fmt.Fprintf(w, "  [trace: %s --symbol %s]\n", dir, sym)
 								// Count how many resolved nodes share each name so
 								// name-only resolution ambiguity can be surfaced.
