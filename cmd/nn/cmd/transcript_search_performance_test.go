@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -67,7 +68,7 @@ func searchMaterializedReference(files []string, query, filter, before string, r
 			if id == "" {
 				id = fmt.Sprintf("record:%d", i+1)
 			}
-			result.Matches = append(result.Matches, transcriptSearchMatch{session, owner, id, r.Timestamp, role, strings.TrimSpace(text), path})
+			result.Matches = append(result.Matches, transcriptSearchMatch{Session: session, AgentID: owner, EventID: id, Timestamp: r.Timestamp, Role: role, Excerpt: strings.TrimSpace(text), SourcePath: path, recordOrdinal: i + 1, messageDigest: sha256.Sum256(r.Message)})
 		}
 	}
 	result.Returned = len(result.Matches)

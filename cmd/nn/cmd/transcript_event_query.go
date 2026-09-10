@@ -18,25 +18,26 @@ func (q ledgerQuery) active() bool {
 }
 
 type ledgerQueryReceipt struct {
-	Since          *string `json:"since"`
-	Until          *string `json:"until"`
-	ErrorsOnly     bool    `json:"errors_only"`
-	Clock          string  `json:"clock"`
-	Boundary       string  `json:"boundary"`
-	LedgerSnapshot string  `json:"ledger_snapshot"`
-	Total          int     `json:"total_events"`
-	Selected       int     `json:"selected_events"`
-	Before         int     `json:"excluded_before"`
-	After          int     `json:"excluded_after"`
-	Unknown        int     `json:"excluded_unknown_timestamp"`
-	NonErrors      int     `json:"excluded_non_errors"`
-	First          any     `json:"first_event"`
-	Last           any     `json:"last_event"`
-	Completeness   string  `json:"completeness"`
-	RequestedLast  *int    `json:"requested_last,omitempty"`
-	MatchingEvents *int    `json:"matching_events,omitempty"`
-	ReturnedEvents *int    `json:"returned_events,omitempty"`
-	OlderMatching  *bool   `json:"older_matching_events,omitempty"`
+	Window         *ledgerWindowReceipt `json:"window,omitempty"`
+	Since          *string              `json:"since"`
+	Until          *string              `json:"until"`
+	ErrorsOnly     bool                 `json:"errors_only"`
+	Clock          string               `json:"clock"`
+	Boundary       string               `json:"boundary"`
+	LedgerSnapshot string               `json:"ledger_snapshot"`
+	Total          int                  `json:"total_events"`
+	Selected       int                  `json:"selected_events"`
+	Before         int                  `json:"excluded_before"`
+	After          int                  `json:"excluded_after"`
+	Unknown        int                  `json:"excluded_unknown_timestamp"`
+	NonErrors      int                  `json:"excluded_non_errors"`
+	First          any                  `json:"first_event"`
+	Last           any                  `json:"last_event"`
+	Completeness   string               `json:"completeness"`
+	RequestedLast  *int                 `json:"requested_last,omitempty"`
+	MatchingEvents *int                 `json:"matching_events,omitempty"`
+	ReturnedEvents *int                 `json:"returned_events,omitempty"`
+	OlderMatching  *bool                `json:"older_matching_events,omitempty"`
 }
 
 func parseLedgerBound(value string) (*time.Time, error) {

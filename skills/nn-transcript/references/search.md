@@ -26,6 +26,38 @@ Nested directory symlinks are not followed. Explicit invalid files and unreadabl
 than publishing partial success. `--session` remains a single-file alternative and cannot be mixed
 with positional paths.
 
+## Grep-style surrounding context
+
+```bash
+nn transcript search 'decision' <session-or-directory> -C 3
+nn transcript search 'bar build' <session> --raw -B 2 -A 6 --json
+```
+
+`-C/--context N` includes N ledger events on both sides; `-B/--before-context` and
+`-A/--after-context` select one side. Counts mean **events**, not messages/turns, identically to
+`events` context. Values are 0–200; -C cannot combine with -A/-B, even when a bound is zero.
+Context is opt-in: without these flags, existing search results/output remain unchanged.
+
+Search still matches whole messages using its existing meaningful/raw scope, not event-kind facets.
+Context anchors are canonical **message events**; `context_event_id` adds their exact ledger ID
+without changing the existing native `event_id`. For individual tool-call/result anchors or --role,
+use `events --kind ... --search ...` from the `events` reference. Tool metadata/raw reasoning does
+not become searchable by adding context; --raw remains a separate, explicit expansion of search scope.
+
+The existing global --limit caps matches before expansion (default 50; with context, maximum 200).
+Windows merge per source/agent; context may fail the search/time predicates but never crosses ownership
+or file boundaries. Unavailable ownership/changed matching message evidence fails rather than guessing.
+Context acquisition rereads selected sources; it is not an immutable snapshot of the earlier search.
+
+Text labels MATCH/CONTEXT and gaps. JSON adds grouped `context`, canonical IDs/ordinals, roles/kinds,
+selected-anchor markers, source-window snapshots, and query counts. These are **lossy displays**, not
+payload exports or a pagination interface: rerun search to refresh; use `events --event ID --payload`
+for full evidence. Search excerpts and each context event are clipped to 1,000 characters with explicit
+omitted-character counts. Context never displays opaque message metadata/thinking; explicit --raw
+search excerpts can still include them. At most 2,000 expanded events globally, 200,000 text bytes or
+1 MiB JSON; exceeding a bound fails with guidance to reduce --limit/context. Source scanning remains
+unbounded by these output limits. No context flags means no new clipping or bounds.
+
 ## What the match authorizes you to conclude
 
 A match locates an attributable occurrence, not a recurring behavior. Preserve returned source and

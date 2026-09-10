@@ -35,11 +35,13 @@ never implicitly expands ongoing observation scope. **interaction** owns this di
 
 Before an applicable action, fetch its owner below unless already loaded from this skill version in
 the current uncompacted context. Load only applicable references; branch references dispatch to native
-command owners. Discover applicability with `nn skills get nn-transcript --list-references`.
+command owners. Exception: **observe** is self-contained for its published initial discovery and
+`nn transcript observe` recipe; do not preload interaction, navigate, or events for those calls.
+Discover applicability with `nn skills get nn-transcript --list-references`.
 
 | Need | Load |
 |---|---|
-| Open-ended observation / default recipe | `nn skills get nn-transcript --reference observe` |
+| Open-ended observation / self-contained default recipe | `nn skills get nn-transcript --reference observe` |
 | Question-driven evidence selection | `nn skills get nn-transcript --reference investigate` |
 | Targets, scope, Back, Refresh, pickers | `nn skills get nn-transcript --reference interaction` |
 | Learning and capture proposals | `nn skills get nn-transcript --reference actions` |

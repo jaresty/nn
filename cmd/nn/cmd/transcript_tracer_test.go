@@ -32,10 +32,9 @@ func TestTranscriptTracerNativeRecipe(t *testing.T) {
 					commands = append(commands, line)
 				}
 			}
-			if len(commands) != 4 {
-				t.Fatal("TRACER_RECIPE FAIL: expected discovery, tree, ROOT and child commands")
+			if len(commands) != 2 {
+				t.Fatal("TRACER_RECIPE FAIL: expected discovery and observation commands")
 			}
-			seen := map[string]bool{}
 			run := func(index int, child string) string {
 				t.Helper()
 				// Split the published argument template before substituting paths, so
@@ -58,12 +57,6 @@ func TestTranscriptTracerNativeRecipe(t *testing.T) {
 				if strings.TrimSpace(out) == "" {
 					t.Fatal("TRACER_RECIPE FAIL: empty receipt")
 				}
-				if args[1] == "events" {
-					if seen[args[3]] {
-						t.Fatal("TRACER_RECIPE FAIL: duplicate stream")
-					}
-					seen[args[3]] = true
-				}
 				return out
 			}
 			var rows []sessionRow
@@ -85,18 +78,21 @@ func TestTranscriptTracerNativeRecipe(t *testing.T) {
 				t.Fatal("TRACER_RECIPE FAIL: fixture canonical path not discovered")
 			}
 			var page treeChildPage
-			if err = json.Unmarshal([]byte(run(1, "")), &page); err != nil {
+			tree, err := execute("transcript", "tree", path, "--parent", "ROOT", "--limit", "2", "--json")
+			if err != nil {
 				t.Fatal(err)
 			}
-			if len(page.Children) > 2 {
-				t.Fatal("TRACER_RECIPE FAIL: child selection unbounded")
+			if err = json.Unmarshal([]byte(tree), &page); err != nil {
+				t.Fatal(err)
 			}
-			run(2, "")
+			observed := run(1, "")
+			if strings.Count(observed, "\n## ") != len(page.Children)+1 || !strings.Contains(observed, "## ROOT —") {
+				t.Fatal("TRACER_RECIPE FAIL: wrong stream sample")
+			}
 			for _, child := range page.Children {
-				run(3, child.ID)
-			}
-			if !seen["ROOT"] || len(seen) != len(page.Children)+1 {
-				t.Fatal("TRACER_RECIPE FAIL: ROOT or selected child omitted")
+				if !strings.Contains(observed, "## "+child.ID+" —") {
+					t.Fatal("TRACER_RECIPE FAIL: selected child omitted")
+				}
 			}
 			t.Log("TRACER_RECIPE PASS: served discovery, ROOT and bounded direct children execute; no liveness or completeness inference")
 		})

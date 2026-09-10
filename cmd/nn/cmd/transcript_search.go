@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,31 +19,49 @@ import (
 )
 
 type transcriptSearchMatch struct {
-	Session    string `json:"session"`
-	AgentID    string `json:"agent_id"`
-	EventID    string `json:"event_id"`
-	Timestamp  string `json:"timestamp"`
-	Role       string `json:"role"`
-	Excerpt    string `json:"excerpt"`
-	SourcePath string `json:"source_path"`
+	ContextEventID             string `json:"context_event_id,omitempty"`
+	ExcerptTruncatedCharacters int    `json:"excerpt_truncated_characters,omitempty"`
+	recordOrdinal              int
+	messageDigest              [32]byte
+	Session                    string `json:"session"`
+	AgentID                    string `json:"agent_id"`
+	EventID                    string `json:"event_id"`
+	Timestamp                  string `json:"timestamp"`
+	Role                       string `json:"role"`
+	Excerpt                    string `json:"excerpt"`
+	SourcePath                 string `json:"source_path"`
 }
 
 type transcriptSearchResult struct {
-	Matches      []transcriptSearchMatch `json:"matches"`
-	Returned     int                     `json:"returned"`
-	Truncated    bool                    `json:"truncated"`
-	SkippedFiles int                     `json:"skipped_files,omitempty"`
+	Context      []transcriptSearchContext `json:"context,omitempty"`
+	Matches      []transcriptSearchMatch   `json:"matches"`
+	Returned     int                       `json:"returned"`
+	Truncated    bool                      `json:"truncated"`
+	SkippedFiles int                       `json:"skipped_files,omitempty"`
 }
 
 func newTranscriptSearchCmd() *cobra.Command {
 	var session, agentID, before string
 	var raw, asJSON, regex bool
 	var limit int
+	var context ledgerWindowOptions
 	cmd := &cobra.Command{
 		Use:   "search <query> [path ...]",
 		Short: "Search transcript events with session and agent provenance",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			context.Enabled = cmd.Flags().Changed("context") || cmd.Flags().Changed("before-context") || cmd.Flags().Changed("after-context")
+			if context.Enabled {
+				if cmd.Flags().Changed("context") {
+					if cmd.Flags().Changed("before-context") || cmd.Flags().Changed("after-context") {
+						return fmt.Errorf("search: --context cannot combine with --before-context or --after-context")
+					}
+					context.Before, context.After = context.Context, context.Context
+				}
+				if context.Before < 0 || context.Before > 200 || context.After < 0 || context.After > 200 || limit > 200 {
+					return fmt.Errorf("search: context requires 0..200 and --limit at most 200")
+				}
+			}
 			if limit < 1 {
 				return fmt.Errorf("--limit must be at least 1")
 			}
@@ -74,6 +93,12 @@ func newTranscriptSearchCmd() *cobra.Command {
 				return err
 			}
 			result.SkippedFiles = skipped
+			if context.Enabled {
+				if err := addTranscriptSearchContext(&result, context); err != nil {
+					return err
+				}
+				return renderTranscriptSearchContext(cmd.OutOrStdout(), result, asJSON)
+			}
 			if asJSON {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
@@ -91,6 +116,9 @@ func newTranscriptSearchCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().IntVarP(&context.Before, "before-context", "B", 0, "preceding ledger events per match (0..200)")
+	cmd.Flags().IntVarP(&context.After, "after-context", "A", 0, "following ledger events per match (0..200)")
+	cmd.Flags().IntVarP(&context.Context, "context", "C", 0, "ledger events on each side; incompatible with -A/-B")
 	cmd.Flags().StringVar(&session, "session", "", "search one transcript session file")
 	cmd.Flags().StringVar(&agentID, "agent", "", "restrict matches to one agent id")
 	cmd.Flags().StringVar(&before, "before", "", "restrict matches to events before RFC3339 timestamp")
@@ -253,6 +281,7 @@ func searchTranscriptFileMatching(path string, match func(string) bool, agentFil
 			eventID = fmt.Sprintf("record:%d", ordinal)
 		}
 		matches = append(matches, transcriptSearchMatch{
+			recordOrdinal: ordinal, messageDigest: sha256.Sum256(r.Message),
 			AgentID: owner, EventID: eventID, Timestamp: r.Timestamp,
 			Role: role, Excerpt: strings.TrimSpace(text), SourcePath: path,
 		})

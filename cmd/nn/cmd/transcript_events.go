@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -54,16 +55,23 @@ func newTranscriptEventsCmd() *cobra.Command {
 	var page, bucketSize, resultLimit, last int
 	var format string
 	var maxTextChars int
+	var window ledgerWindowOptions
 	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound event ledger (JSON) or bounded readable tail", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, args []string) error {
 		summaryMode := c.Flags().Changed("summary")
+		if err := window.configure(c, eventFilter, format); err != nil {
+			return err
+		}
 		if format != "json" && format != "text" {
 			return fmt.Errorf("events: --format must be json or text")
 		}
 		if format == "text" {
-			if last < 1 || last > 200 || maxTextChars < 1 || maxTextChars > 10000 {
+			if (!window.Enabled && last < 1) || last < 0 || last > 200 || maxTextChars < 1 || maxTextChars > 10000 {
 				return fmt.Errorf("events: text requires --last 1..200 and --max-text-chars 1..10000")
 			}
 			for _, flag := range []string{"json", "all", "page", "snapshot", "event", "at", "summary", "select", "payload"} {
+				if flag == "event" && window.Enabled {
+					continue
+				}
 				if c.Flags().Changed(flag) {
 					return fmt.Errorf("events: text cannot combine with --%s", flag)
 				}
@@ -191,7 +199,10 @@ func newTranscriptEventsCmd() *cobra.Command {
 		if errorsOnly {
 			projectionFields, _ = ledgerSelect(selection + ",message,tools")
 		}
-		events, err := projectLedger(records, args[1], projectionFields, payload || summary == "tools")
+		if window.Enabled {
+			projectionFields, _ = ledgerSelect("identity,message,usage,tools,lifecycle")
+		}
+		events, err := projectLedger(records, args[1], projectionFields, payload || summary == "tools" || window.Enabled)
 		if err != nil {
 			return err
 		}
@@ -210,11 +221,27 @@ func newTranscriptEventsCmd() *cobra.Command {
 			_, err = c.OutOrStdout().Write(body)
 			return err
 		}
-		result, err := buildQueriedLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all || format == "text", query)
+		var result ledgerPage
+		if window.Enabled {
+			result, err = buildWindowLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all || format == "text", query, window)
+		} else {
+			result, err = buildQueriedLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all || format == "text", query)
+		}
 		if err != nil {
 			return err
 		}
 		if format == "text" {
+			if window.Enabled {
+				var output bytes.Buffer
+				if err := renderLedgerText(&output, result, maxTextChars); err != nil {
+					return err
+				}
+				if output.Len() > 200000 {
+					return fmt.Errorf("events: text exceeds 200000 bytes; reduce --max-matches, context, or --max-text-chars")
+				}
+				_, err = c.OutOrStdout().Write(output.Bytes())
+				return err
+			}
 			return renderLedgerText(c.OutOrStdout(), result, maxTextChars)
 		}
 		b, err := json.Marshal(result)
@@ -224,7 +251,8 @@ func newTranscriptEventsCmd() *cobra.Command {
 		_, err = c.OutOrStdout().Write(append(b, '\n'))
 		return err
 	}}
-	c.Flags().StringVar(&format, "format", "json", "json or bounded readable text (text requires --last)")
+	window.flags(c)
+	c.Flags().StringVar(&format, "format", "json", "json or bounded readable text (requires --last, --event, or search/context options)")
 	c.Flags().IntVar(&maxTextChars, "max-text-chars", 1000, "per-event readable character limit, 1..10000 (text only)")
 	c.Flags().StringVar(&at, "at", "", "parent-side handoff occurrences: launch or return (Pi)")
 	c.Flags().StringVar(&since, "since", "", "inclusive RFC3339 lower event timestamp bound")

@@ -28,16 +28,51 @@ nn transcript events <session> <agent-id> --last 8 --format text --max-text-char
 ```
 
 Use this instead of `--all | jq` to obtain a readable recent tail. It selects the last N ledger events
-before rendering in canonical order; N is 1–200 (required). Includes message, tools, and lifecycle
+before rendering in canonical order; N is 1–200 (required for this tail form). Includes message, tools, and lifecycle
 facets automatically. Message records and their tool-block events remain separate ledger events,
 not deduplicated turns. Assistant text, tool calls, results, and lifecycle status carry exact event IDs.
 The header carries the snapshot, returned count, omitted event count, and detail availability.
 Whitespace/control characters are flattened; each event is limited to 1–10000 readable characters
 (default 1000), with explicit `[truncated N chars]` markers. This is a lossy display, not an LLM summary.
 Use exact-event JSON with payload for complete evidence. Text mode rejects explicit JSON, select,
-payload, all, page, snapshot, event, at, and summary flags. Time and error filters remain available and
+payload, all, page, snapshot, at, and summary flags. Exact `--event` text retrieval is also supported. Time and error filters remain available and
 apply before last-N selection. Default JSON is unchanged. Text snapshots are evidence identifiers,
 not a paging interface; refresh reruns the command.
+
+## Search and grep-style context
+
+```bash
+nn transcript events <session> <agent-id> --kind tool_call --search 'bar build' -B 2 -A 8 --format text
+nn transcript events <session> <agent-id> --event <event-id> -C 5 --format text
+nn transcript events <session> <agent-id> --role assistant --search 'decision' --last 5 --format text
+```
+
+`--kind` selects message/tool_call/tool_result/lifecycle. `--role` matches the native role of
+**message events only**. `--search` matches case-insensitive literal readable text, tool names and
+decoded arguments/results, or lifecycle status—not thinking, signatures or unrelated metadata.
+`--regex` explicitly enables Go regex (case-sensitive unless `(?i)` is supplied). Filters combine
+with AND, including time/error filters. Exact `--event` cannot combine with anchor filters.
+
+`-B/--before-context N`, `-A/--after-context N`, and `-C/--context N` count ledger **events**, not
+messages/turns. Bounds are 0–200; -C rejects combination with -A/-B. Context ignores anchor filters
+(including time/error) and stays in the selected agent's canonical ledger. For “after completion,”
+use the uniquely matched result's ID, not the call ID; absent/ambiguous tool joins remain explicit.
+
+The first 20 matching anchors are selected by default; `--max-matches 1..200` changes this cap.
+`--last N` selects the most recent matching anchors, still capped by --max-matches. No anchor
+filters means all events are eligible. Overlapping/adjacent windows merge. `window_match` marks
+selected anchors (other events, even those satisfying the predicate beyond the cap, are context);
+`window_start` marks each merged window. Text prints MATCH/CONTEXT and inter-window omission counts.
+`query.window` reports matched/selected/omitted anchors, context count and number of windows.
+Time/error exclusion counters describe rejected **anchors**, not a partition of returned context.
+
+At most 2,000 expanded events and 200,000 rendered text bytes; larger requests fail with reduction
+guidance. Per-event text clipping remains explicit. JSON retains normal 48KB pagination and
+segmentation; retrieve all relevant pages/segments. The full matching input, including searchable
+payload even when hidden from output, and query options bind the snapshot. Search/context rejects
+summaries and handoff --at. None of these output limits bounds source scanning or runtime.
+
+For cross-file text search with the same -B/-A/-C convention, load the `search` reference.
 
 ## Structured event ledger
 

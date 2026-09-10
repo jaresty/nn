@@ -27,6 +27,7 @@ const (
 const transcriptJobHelp = `nn transcript — explore agent execution transcripts (ADR-0042)
 
 Start here:
+  observe   ROOT plus two canonical direct children, five readable events each
   ls        browse recent sessions, most-recent-first, each with a mini subagent-tree
 
 Navigate one session:
@@ -60,7 +61,7 @@ func newTranscriptCmd(_ *rootState) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.AddCommand(newTranscriptAttentionCmd(), newTranscriptContextCmd(), newTranscriptReviewCmd(), newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd(), newTranscriptSearchCmd(), newTranscriptEventsCmd())
+	cmd.AddCommand(newTranscriptObserveCmd(), newTranscriptAttentionCmd(), newTranscriptContextCmd(), newTranscriptReviewCmd(), newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd(), newTranscriptSearchCmd(), newTranscriptEventsCmd())
 	return cmd
 }
 

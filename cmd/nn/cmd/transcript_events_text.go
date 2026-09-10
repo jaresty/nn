@@ -17,10 +17,28 @@ func renderLedgerText(w io.Writer, p ledgerPage, maxChars int) error {
 	if _, e := fmt.Fprintf(w, "snapshot: %s\nreturned: %d · omitted: %d · detail: %s\n", p.Snapshot, len(p.Events), omitted, p.DetailStatus); e != nil {
 		return e
 	}
+	windowed := p.Query != nil && p.Query.Window != nil
+	if windowed {
+		r := p.Query.Window
+		if _, err := fmt.Fprintf(w, "matches: %d of %d · context: %d · omitted matches: %d · windows: %d\n", r.SelectedMatches, r.Matches, r.ContextEvents, r.OmittedMatches, r.Windows); err != nil {
+			return err
+		}
+	}
+	previous := 0
 	for _, raw := range p.Events {
 		var event map[string]json.RawMessage
 		if e := json.Unmarshal(raw, &event); e != nil {
 			return e
+		}
+		if windowed {
+			var ordinal int
+			_ = json.Unmarshal(event["ordinal"], &ordinal)
+			if previous > 0 && ordinal > previous+1 {
+				if _, err := fmt.Fprintf(w, "-- %d events omitted --\n", ordinal-previous-1); err != nil {
+					return err
+				}
+			}
+			previous = ordinal
 		}
 		var payload map[string]json.RawMessage
 		_ = json.Unmarshal(event["payload"], &payload)
@@ -72,6 +90,15 @@ func renderLedgerText(w io.Writer, p ledgerPage, maxChars int) error {
 		}
 		if text == "" {
 			text = "[no readable text]"
+		}
+		if windowed {
+			var match bool
+			_ = json.Unmarshal(event["window_match"], &match)
+			if match {
+				label = "MATCH " + label
+			} else {
+				label = "CONTEXT " + label
+			}
 		}
 		if _, e := fmt.Fprintf(w, "%s [%s]: %s\n", label, ledgerString(event, "event_id"), text); e != nil {
 			return e
