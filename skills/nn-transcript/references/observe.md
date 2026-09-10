@@ -39,16 +39,17 @@ of up to 20 agents, including descendants. Neither sample is ranked by importanc
 Use --attention-limit 1..20 to reduce that cohort, or repeat --attention-agent ID for exact targets;
 never combine those selectors or silently drop explicit targets. Signal selection is not required.
 
-Known task and exact agent(s): `nn transcript observe <session> --attention-agent <id> --task implementation`
-This optional override does not enable evaluation: the bare command already measures every signal.
-For mixed tasks use repeatable --agent-task ID=TASK on selected agents. Never infer a cohort's task
-from one worker, a label or a command ratio. Refresh preserves applicable scope/overrides, not guesses.
+Exact target: `nn transcript observe <session> --attention-agent <id>`
+Observe and Refresh omit task classification, even for known tasks; interpret returned evidence.
+Preserve scope, not assistant-added classification flags from older recipes. Only human-requested
+classification overrides warrant the advanced attention reference; never preload it for normal observation.
 
 ## Interpret the returned evidence
 
-Report task/agent, signal type, applicability, measured condition, outcome and evidence. Preserve
-triggered, not_triggered, needs_context, not_applicable, insufficient_evidence and error separately.
-Unknown applicability is not no-match; an applicable measured match is not proof of poor work or health.
+Label every result and transition `Signal: <signal_id> · policy v<version> · metric v<metric_version>`;
+counts or metric version alone do not identify it. Report task/agent, applicability, condition and evidence.
+Keep triggered, not_triggered, needs_context, not_applicable, insufficient_evidence and error distinct.
+Unknown applicability is not no-match; no longer matching is not recovery, task-phase change, or success.
 
 Read the included task context before acquiring anything else. It contains bounded attributed launch
 or owned-user text, with omission/clipping counts; multiple candidates do not identify a governing task.

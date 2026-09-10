@@ -15,7 +15,7 @@ not an interactive CLI or a persistent monitoring UI. Use the co-versioned nativ
 ## Observe or investigate
 
 - **Bare invocation / what is happening:** load **observe** and execute its bounded recipe.
-  One `observe` call measures all bundled signals; task overrides are optional, not activation.
+  One `observe` call measures all bundled signals; normal recipes select work without task classification.
   Interpret included task evidence and conditions before requesting more context; do not rerun a detector
   merely to attach an applicability interpretation.
   Do not open an enablement wizard or require a conversation picker before useful observation.

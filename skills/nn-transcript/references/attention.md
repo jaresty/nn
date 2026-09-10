@@ -12,7 +12,17 @@ low-edit-ratio, using nn's existing Datalog parser/evaluator. No plugin system.
 No notebook policy activation, standing-approval wizard, background monitoring, timers or new engine is involved.
 No health, productivity, liveness, success or failure assessment.
 
-## Scope and optional task overrides
+## Scope and advanced task overrides
+
+Normal observation does not supply task classification, even when the task is known. Use the
+returned evidence for interpretation. Only when the human explicitly requests a native classification
+override, use (for example):
+
+```bash
+nn transcript observe <session> --attention-agent <id> --task implementation
+```
+
+Do not carry assistant-added classification flags from older recipes into ordinary Refresh.
 
 A request for attention across a named cohort retains that cohort, filters and canonical paths rather
 than substituting a remembered room. An empty filter stays empty. Preserve exact paths and IDs. ROOT is eligible. Review queues exclude ROOT and do not define attention scope; never

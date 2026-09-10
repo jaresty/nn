@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-// Execute the served known-task recipe; this tests publication and native
-// capability, not whether a conversational model chooses the correct branch.
-func TestObserveKnownTaskPublishedRecipe(t *testing.T) {
+// Execute the served exact-target recipe without classification flags. This tests
+// publication and native capability, not conversational model compliance.
+func TestObserveExactTargetPublishedRecipe(t *testing.T) {
 	for _, schema := range []string{"pi", "sdk-cli", "claude-code"} {
 		t.Run(schema, func(t *testing.T) {
 			_, execute := setupNotebook(t)
@@ -16,14 +16,22 @@ func TestObserveKnownTaskPublishedRecipe(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if !strings.Contains(body, "Signal: <signal_id> · policy v<version> · metric v<metric_version>") {
+				t.Fatal("SIGNAL_LABEL FAIL: missing explicit signal identity recipe")
+			}
+			for _, flag := range []string{"--task", "--agent-task"} {
+				if strings.Contains(body, flag) {
+					t.Fatalf("EXACT_TARGET_RECIPE FAIL: normal observation advertises %s", flag)
+				}
+			}
 			template := ""
 			for _, line := range strings.Split(body, "\n") {
-				if value, ok := strings.CutPrefix(line, "Known task and exact agent(s): `"); ok {
+				if value, ok := strings.CutPrefix(line, "Exact target: `"); ok {
 					template = strings.TrimSuffix(value, "`")
 				}
 			}
 			if template == "" {
-				t.Fatal("KNOWN_TASK_RECIPE FAIL: missing combined recipe")
+				t.Fatal("EXACT_TARGET_RECIPE FAIL: missing combined recipe")
 			}
 			args := strings.Fields(template)[1:]
 			for i, arg := range args {
@@ -40,12 +48,12 @@ func TestObserveKnownTaskPublishedRecipe(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, want := range []string{"## ROOT —", "Selected attention IDs: " + id, "triggered=1; not_triggered=0; needs_context=0", "Inspect evidence: nn transcript attention inspect"} {
+			for _, want := range []string{"## ROOT —", "Selected attention IDs: " + id, "triggered=0; not_triggered=0; needs_context=1", "Condition: match", "Inspect evidence: nn transcript attention inspect"} {
 				if !strings.Contains(out, want) {
-					t.Fatalf("KNOWN_TASK_RECIPE FAIL: missing %q", want)
+					t.Fatalf("EXACT_TARGET_RECIPE FAIL: missing %q", want)
 				}
 			}
-			t.Log("KNOWN_TASK_RECIPE PASS: one published acquisition includes streams and classified attention")
+			t.Log("EXACT_TARGET_RECIPE PASS: one published acquisition includes streams and automatic attention without classification flags")
 		})
 	}
 }
