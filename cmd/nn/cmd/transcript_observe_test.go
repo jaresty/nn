@@ -75,7 +75,7 @@ func TestTranscriptObserveCompactDispatch(t *testing.T) {
 	if len(strings.Split(body, "\n")) > 75 || len(body) > 5000 {
 		t.Fatal("initial owner grew beyond compact budget")
 	}
-	if !strings.Contains(body, "initial bounded read") || !strings.Contains(body, "nn transcript observe <session>") {
+	if !strings.Contains(body, "initial bounded read") || !strings.Contains(body, "nn transcript observe <session-id>") {
 		t.Fatal("missing self-contained entry point")
 	}
 	for _, old := range []string{"Load `nn skills get nn-transcript --reference interaction` first", "nn transcript events <session>", "nn transcript tree <session>"} {

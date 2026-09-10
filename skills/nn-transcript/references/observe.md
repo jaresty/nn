@@ -11,14 +11,13 @@ Read directly without a standing approval, picker, or invented question.
 ## Resolve scope
 
 Inspect every explicitly named conversation; a named project remains a project scope, not a sample.
-Otherwise retain scope. With none, state the harness root (Pi: `~/.pi/agent/sessions`; Claude:
-`~/.claude/projects`) and select one eligible conversation:
+Otherwise retain scope. With none, discover across the bounded Claude, Codex, and Pi default roots and select one eligible conversation:
 
 ```bash
-nn transcript ls <transcript-root> --conversation-kind conversation --limit 5 --json
+nn transcript ls --conversation-kind conversation --limit 5 --json
 ```
 
-Keep exact paths. Order is mtime-descending, not work recency. Exclude the known observer from
+Retain both `session` and exact `path` from the selected row. Use the `session` ID for ordinary commands; if resolution reports ambiguity, retry with that row's exact `path` rather than guessing. Order is mtime-descending, not work recency. Exclude the known observer from
 untargeted discovery; disclose unknown self-identity. Explicit self-observation is allowed.
 The candidate page is not the entire scope. Never silently change projects, drop targets or replace unavailable sources.
 Load discovery only for more pages/filters or metadata detail.
@@ -28,7 +27,7 @@ Load discovery only for more pages/filters or metadata detail.
 Always include ROOT in the initial selected-conversation sample.
 
 ```bash
-nn transcript observe <session>
+nn transcript observe <session-id>
 ```
 
 Sample ROOT plus two canonical children (five events each, 1000 characters); excluded Pi histories stay unopened.
@@ -38,9 +37,9 @@ No first-20 evaluation cap on recent candidates. --attention-limit 1..20 bounds 
 Coverage pages expose all agents; other schemas retain evidence-time selection. Source changes are not activity proof.
 Unchanged Refresh can reuse metadata-checked evidence; that is not a fresh content inspection.
 
-Refresh: `nn transcript observe <session> --refresh <observation-snapshot>`
-Replay/Back: `nn transcript observe <session> --snapshot <observation-snapshot>`
-Coverage: `nn transcript observe <session> --snapshot <observation-snapshot> --coverage-page 1`
+Refresh: `nn transcript observe <session-id> --refresh <observation-snapshot>`
+Replay/Back: `nn transcript observe <session-id> --snapshot <observation-snapshot>`
+Coverage: `nn transcript observe <session-id> --snapshot <observation-snapshot> --coverage-page 1`
 Refresh checks new agents and changed owned/launch/lifecycle evidence, policies or explicit overrides.
 Unchanged results keep their prior snapshots and are not re-evaluated. Missing state requires a
 reported fresh baseline, not a silent reset. Prior worker inspection never narrows normal observation.

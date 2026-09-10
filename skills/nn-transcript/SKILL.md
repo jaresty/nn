@@ -1,6 +1,6 @@
 ---
 name: nn-transcript
-description: Observe recorded agent work, investigate questions across transcripts, and preserve useful learnings in nn. Supports Claude Code, sdk-cli, and Pi. Use for recent work, failures, assignments, handoffs, usage, recurring patterns, or learning capture.
+description: Observe recorded agent work, investigate questions across transcripts, and preserve useful learnings in nn. Supports Claude Code, Codex, sdk-cli, and Pi. Use for recent work, failures, assignments, handoffs, usage, recurring patterns, or learning capture.
 when_to_use: >
   Whenever the human asks what happened in agent transcripts, wants to follow recorded work,
   investigate a failure or question, compare observations, or capture a useful learning.
@@ -66,7 +66,7 @@ Discover applicability with `nn skills get nn-transcript --list-references`.
 A launch name or description is metadata: use `nn transcript ls` to select its parent, then
 `tree <session> --description "<name>" --json`; do not use `nn transcript search` for that lookup.
 Preserve the selected row's exact `path`; never reconstruct it from a session ID or project name.
-Show the readable `label` with source qualifications; discovery owns opening_label, label_provenance,
+Use a selected row's `session` ID for ordinary transcript commands and retain its exact `path` as the ambiguity fallback; never reconstruct either value. Show the readable `label` with source qualifications; discovery owns opening_label, label_provenance,
 conversation_kind, owner_session, and open_window_status. Labels may be recent, opening, interpreted
 or untitled; interpreted labels are not recorded metadata.
 

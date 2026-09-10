@@ -40,11 +40,12 @@ func TestTranscriptTracerNativeRecipe(t *testing.T) {
 				// Split the published argument template before substituting paths, so
 				// fixture directories with spaces remain single operands. No shell.
 				args := strings.Fields(commands[index])[1:]
+				if index == 0 {
+					args = append(args, filepath.Dir(path))
+				}
 				for i, arg := range args {
 					switch arg {
-					case "<transcript-root>":
-						args[i] = filepath.Dir(path)
-					case "<session>":
+					case "<session-id>":
 						args[i] = path
 					case "<child-id>":
 						args[i] = child

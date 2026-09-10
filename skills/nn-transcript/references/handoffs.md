@@ -7,8 +7,8 @@ applies_when: "Before interpreting Pi lifecycle scope, launch descriptions, or p
 
 ## Select by recorded description
 
-A launch name is tree metadata. Use `nn transcript ls <root> --json` to select the parent session,
-then `nn transcript tree <session> --json` and match `description`; if the parent is known, start at
+A launch name is tree metadata. Use `nn transcript ls --json` to select the parent session from default roots (or add an explicit root to restrict scope), then
+`nn transcript tree <session-id> --json` and match `description`; if the parent is known, start at
 tree. For agent selection, do not use `nn transcript search`: it searches event content rather than
 the authoritative description and may match copied prompts or later discussion. After selecting the
 agent ID, use the launch/return commands below.

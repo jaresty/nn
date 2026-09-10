@@ -16,7 +16,7 @@ func TestObserveDefaultPublishedSignals(t *testing.T) {
 			}
 			template := ""
 			for _, line := range strings.Split(body, "\n") {
-				if line == "nn transcript observe <session>" {
+				if line == "nn transcript observe <session-id>" {
 					template = line
 				}
 			}
