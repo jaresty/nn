@@ -14,6 +14,7 @@ type attentionSignal struct {
 	ID      string            `json:"signal_id"`
 	Version int               `json:"signal_version"`
 	Digest  string            `json:"policy_digest"`
+	Scope   string            `json:"scope,omitempty"`
 	Metrics attention.Metrics `json:"metrics"`
 	Window  attentionWindow   `json:"window"`
 	attention.SignalResult
@@ -163,7 +164,7 @@ func collectAttentionSignals(policies []*attention.Policy, records []ledgerRecor
 			result.Error = err.Error()
 			result.Condition = attention.Result{Status: "error", Reason: err.Error()}
 		}
-		signals = append(signals, attentionSignal{p.ID, p.Version, p.Digest, metrics, window, result})
+		signals = append(signals, attentionSignal{ID: p.ID, Version: p.Version, Digest: p.Digest, Scope: p.Scope.Task, Metrics: metrics, Window: window, SignalResult: result})
 		if err == nil && len(ev) > len(evidence) {
 			evidence = ev
 		}
@@ -185,6 +186,27 @@ func legacyAttentionResult(s attentionSignal) attention.Result {
 		r.Reason = s.Error
 	}
 	return r
+}
+
+func attentionHypothetical(s attentionSignal) string {
+	if s.Applicability.Status != "unknown" || s.Scope == "" {
+		return ""
+	}
+	scope := cleanBundleText(s.Scope)
+	article := "a"
+	if strings.ContainsRune("aeiouAEIOU", rune(scope[0])) {
+		article = "an"
+	}
+	switch s.Condition.Status {
+	case "match":
+		return fmt.Sprintf("If this is %s %s task, this signal would trigger.", article, scope)
+	case "no_match":
+		return fmt.Sprintf("If this is %s %s task, this signal would not trigger.", article, scope)
+	case "indeterminate":
+		return fmt.Sprintf("If this is %s %s task, available evidence is insufficient.", article, scope)
+	default:
+		return ""
+	}
 }
 
 func renderAttentionSignals(w io.Writer, p attentionPage) error {
@@ -209,7 +231,11 @@ func renderAttentionSignals(w io.Writer, p attentionPage) error {
 			if s.Condition.Ratio != nil {
 				ratio = fmt.Sprintf("%.5g", *s.Condition.Ratio)
 			}
-			fmt.Fprintf(&b, "Signal: %s v%d · %s\nApplicability: %s · task=%s · source=%s — %s\nCondition: %s — %s\nOutcome: %s\n%d recognized edits / %d commands = %s; unknown=%d; validation-rejected operations=%d\nWindow: %d/%d work records; %d earlier ledger records omitted; unknown timestamps=%d\n", s.ID, s.Version, s.Digest, s.Applicability.Status, cleanBundleText(s.Applicability.Task), s.Applicability.Source, s.Applicability.Reason, s.Condition.Status, cleanBundleText(s.Condition.Reason), s.Outcome, s.Metrics.Edits, s.Metrics.Commands, ratio, s.Metrics.Unknown, s.Metrics.Rejected, s.Window.Selected, s.Window.Requested, s.Window.Earlier, s.Window.UnknownTimestamps)
+			fmt.Fprintf(&b, "Signal: %s v%d · scope: %s · %s\nApplicability: %s · task=%s · source=%s — %s\nCondition: %s — %s\n", s.ID, s.Version, cleanBundleText(s.Scope), s.Digest, s.Applicability.Status, cleanBundleText(s.Applicability.Task), s.Applicability.Source, s.Applicability.Reason, s.Condition.Status, cleanBundleText(s.Condition.Reason))
+			if hypothetical := attentionHypothetical(s); hypothetical != "" {
+				fmt.Fprintf(&b, "Hypothetical: %s\n", hypothetical)
+			}
+			fmt.Fprintf(&b, "Outcome: %s\n%d recognized edits / %d commands = %s; unknown=%d; validation-rejected operations=%d\nWindow: %d/%d work records; %d earlier ledger records omitted; unknown timestamps=%d\n", s.Outcome, s.Metrics.Edits, s.Metrics.Commands, ratio, s.Metrics.Unknown, s.Metrics.Rejected, s.Window.Selected, s.Window.Requested, s.Window.Earlier, s.Window.UnknownTimestamps)
 		}
 		ctx := room.TaskContext
 		if ctx != nil {

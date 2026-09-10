@@ -512,7 +512,10 @@ func renderObserveCoverage(s observeLiveState, page int) (string, error) {
 		fmt.Fprintf(&out, "%s · %s · attention snapshot: %s\n", observeLabel(a.ID), a.State, a.Snapshot)
 		if a.Room != nil {
 			for _, sig := range a.Room.Signals {
-				fmt.Fprintf(&out, "  Signal: %s · metric v2 · prior outcome: %s · condition: %s · applicability: %s\n", sig.ID, sig.Outcome, sig.Condition.Status, sig.Applicability.Status)
+				fmt.Fprintf(&out, "  Signal: %s · scope: %s · metric v2 · prior outcome: %s · condition: %s · applicability: %s\n", sig.ID, observeLabel(sig.Scope), sig.Outcome, sig.Condition.Status, sig.Applicability.Status)
+				if hypothetical := attentionHypothetical(sig); hypothetical != "" {
+					fmt.Fprintf(&out, "    Hypothetical: %s\n", hypothetical)
+				}
 			}
 		}
 	}
