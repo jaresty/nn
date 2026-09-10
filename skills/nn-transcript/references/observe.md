@@ -51,7 +51,7 @@ Normal recipes omit classification. Only explicit human restrictions/overrides u
 Label every result and transition `Signal: <signal_id> · policy v<version> · metric v<metric_version>`;
 counts or metric version alone do not identify it. Report task/agent, applicability, condition and evidence.
 Keep triggered, not_triggered, needs_context, not_applicable, insufficient_evidence and error distinct.
-Relay unknown-applicability hypotheticals without inferring the task; no match is not recovery, phase change, or success.
+Relay unknown-applicability hypotheticals and failed checks without inferring the task; no match is not recovery or phase change.
 
 Read included task evidence first. Attributed launch/user excerpts disclose clipping and omissions;
 multiple candidates do not identify a governing task. Interpret complete, unambiguous assignments

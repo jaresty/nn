@@ -20,7 +20,13 @@ import (
 //go:embed builtin.yaml
 var builtin string
 
-func Builtin() (*Policy, error) { return parse(builtin) }
+func Builtin() (*Policy, error) {
+	p, err := parse(builtin)
+	if err == nil {
+		p.builtinDiagnostics = true
+	}
+	return p, err
+}
 
 type Policy struct {
 	ID      string `yaml:"id" json:"id"`
@@ -31,10 +37,11 @@ type Policy struct {
 	Window struct {
 		LastWorkEvents int `yaml:"last_work_events" json:"last_work_events"`
 	} `yaml:"window" json:"window"`
-	Parameters map[string]float64 `yaml:"parameters" json:"parameters"`
-	Rule       string             `yaml:"rule" json:"rule"`
-	Digest     string             `yaml:"-" json:"digest"`
-	parsed     rules.Rule
+	Parameters         map[string]float64 `yaml:"parameters" json:"parameters"`
+	Rule               string             `yaml:"rule" json:"rule"`
+	Digest             string             `yaml:"-" json:"digest"`
+	parsed             rules.Rule
+	builtinDiagnostics bool
 }
 
 type Metrics struct {
@@ -47,10 +54,19 @@ type Metrics struct {
 	Available  bool `json:"detail_available"`
 }
 
+type ConditionCheck struct {
+	Name      string  `json:"name"`
+	Actual    float64 `json:"actual"`
+	Operator  string  `json:"operator"`
+	Threshold float64 `json:"threshold"`
+	Passed    bool    `json:"passed"`
+}
+
 type Result struct {
-	Status string   `json:"status"`
-	Reason string   `json:"reason"`
-	Ratio  *float64 `json:"ratio"`
+	Status string           `json:"status"`
+	Reason string           `json:"reason"`
+	Ratio  *float64         `json:"ratio"`
+	Checks []ConditionCheck `json:"checks,omitempty"`
 }
 
 var identifier = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
@@ -173,6 +189,14 @@ func (p *Policy) Evaluate(thread, task string, m Metrics) (Result, error) {
 	}
 	ratio := float64(m.Edits) / float64(m.Commands)
 	result.Ratio = &ratio
+	if p.builtinDiagnostics {
+		minimum := p.Parameters["minimum_commands"]
+		threshold := p.Parameters["minimum_edit_ratio"]
+		result.Checks = []ConditionCheck{
+			{Name: "minimum_commands", Actual: float64(m.Commands), Operator: ">=", Threshold: minimum, Passed: float64(m.Commands) >= minimum},
+			{Name: "maximum_edit_ratio", Actual: ratio, Operator: "<", Threshold: threshold, Passed: ratio < threshold},
+		}
+	}
 	e := rules.NewEngine()
 	add := func(pred string, args ...string) { e.AddFact(rules.Fact{Pred: pred, Args: args}) }
 	add("command_count", thread, strconv.Itoa(m.Commands))

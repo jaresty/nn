@@ -188,6 +188,21 @@ func legacyAttentionResult(s attentionSignal) attention.Result {
 	return r
 }
 
+func attentionFailedCheck(s attentionSignal) string {
+	for _, check := range s.Condition.Checks {
+		if check.Passed {
+			continue
+		}
+		switch check.Name {
+		case "minimum_commands":
+			return fmt.Sprintf("only %g of the required %g commands were observed", check.Actual, check.Threshold)
+		case "maximum_edit_ratio":
+			return fmt.Sprintf("the edit ratio was %g; triggering requires less than %g", check.Actual, check.Threshold)
+		}
+	}
+	return ""
+}
+
 func attentionHypothetical(s attentionSignal) string {
 	if s.Applicability.Status != "unknown" || s.Scope == "" {
 		return ""
@@ -201,6 +216,9 @@ func attentionHypothetical(s attentionSignal) string {
 	case "match":
 		return fmt.Sprintf("If this is %s %s task, this signal would trigger.", article, scope)
 	case "no_match":
+		if reason := attentionFailedCheck(s); reason != "" {
+			return fmt.Sprintf("If this is %s %s task, this signal would not trigger because %s.", article, scope, reason)
+		}
 		return fmt.Sprintf("If this is %s %s task, this signal would not trigger.", article, scope)
 	case "indeterminate":
 		return fmt.Sprintf("If this is %s %s task, available evidence is insufficient.", article, scope)
@@ -232,6 +250,13 @@ func renderAttentionSignals(w io.Writer, p attentionPage) error {
 				ratio = fmt.Sprintf("%.5g", *s.Condition.Ratio)
 			}
 			fmt.Fprintf(&b, "Signal: %s v%d · scope: %s · %s\nApplicability: %s · task=%s · source=%s — %s\nCondition: %s — %s\n", s.ID, s.Version, cleanBundleText(s.Scope), s.Digest, s.Applicability.Status, cleanBundleText(s.Applicability.Task), s.Applicability.Source, s.Applicability.Reason, s.Condition.Status, cleanBundleText(s.Condition.Reason))
+			for _, check := range s.Condition.Checks {
+				verdict := "failed"
+				if check.Passed {
+					verdict = "passed"
+				}
+				fmt.Fprintf(&b, "Check: %s · %g %s %g — %s\n", check.Name, check.Actual, check.Operator, check.Threshold, verdict)
+			}
 			if hypothetical := attentionHypothetical(s); hypothetical != "" {
 				fmt.Fprintf(&b, "Hypothetical: %s\n", hypothetical)
 			}

@@ -68,6 +68,44 @@ func TestPolicyOutcomes(t *testing.T) {
 	t.Log("P3_OUTCOMES PASS")
 }
 
+func TestBuiltinConditionChecks(t *testing.T) {
+	p, err := Builtin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name    string
+		metrics Metrics
+		status  string
+		passed  []bool
+	}{
+		{"small-sample", Metrics{Commands: 15, Available: true}, "no_match", []bool{false, true}},
+		{"high-ratio", Metrics{Commands: 40, Edits: 5, Available: true}, "no_match", []bool{true, false}},
+		{"match", Metrics{Commands: 40, Available: true}, "match", []bool{true, true}},
+		{"indeterminate", Metrics{Commands: 0, Available: true}, "indeterminate", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r, err := p.Evaluate("t", "implementation", tc.metrics)
+			if err != nil || r.Status != tc.status || len(r.Checks) != len(tc.passed) {
+				t.Fatalf("CONDITION_CHECKS FAIL: %+v %v", r, err)
+			}
+			for i, passed := range tc.passed {
+				if r.Checks[i].Passed != passed {
+					t.Fatalf("CONDITION_CHECKS FAIL: %+v", r.Checks)
+				}
+			}
+		})
+	}
+	variant, err := parse(strings.Replace(builtin, "Ratio < Threshold", "Ratio >= Threshold", 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := variant.Evaluate("t", "implementation", Metrics{Commands: 40, Edits: 5, Available: true})
+	if err != nil || len(r.Checks) != 0 {
+		t.Fatalf("VARIANT_DIAGNOSTICS FAIL: %+v %v", r, err)
+	}
+}
+
 func TestPolicyRejectsInvalid(t *testing.T) {
 	t.Log("procedure: TestPolicyRejectsInvalid; assertion: P6_LIMITS")
 	for _, src := range []string{

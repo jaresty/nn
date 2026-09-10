@@ -54,7 +54,7 @@ The native condition remains match/no_match/indeterminate. Outcomes are:
 
 - triggered: applicable and measured condition matched.
 - not_triggered: applicable and measured condition did not match.
-- needs_context: sufficient measurements, but applicability unknown; relay the mechanical scope/condition hypothetical without inferring the task.
+- needs_context: sufficient measurements, but applicability unknown; relay the mechanical scope/condition hypothetical and failed checks without inferring the task.
 - not_applicable: established task outside the signal's scope.
 - insufficient_evidence: measurements unavailable/unknown/undefined.
 - error: acquisition or evaluation error; not a quiet result.

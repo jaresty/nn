@@ -41,8 +41,11 @@ func TestAttentionCollapsedSignalExplainsHypothetical(t *testing.T) {
 		ID: "low-edit-ratio", Version: 1, Digest: "digest", Scope: "implementation",
 		SignalResult: attention.SignalResult{
 			Applicability: attention.Applicability{Status: "unknown", Source: "not_established", Reason: "Task classification not established; condition measured independently"},
-			Condition:     attention.Result{Status: "no_match", Reason: "Rule did not match"},
-			Outcome:       "needs_context",
+			Condition: attention.Result{Status: "no_match", Reason: "Rule did not match", Checks: []attention.ConditionCheck{
+				{Name: "minimum_commands", Actual: 15, Operator: ">=", Threshold: 30},
+				{Name: "maximum_edit_ratio", Actual: 0, Operator: "<", Threshold: 0.05, Passed: true},
+			}},
+			Outcome: "needs_context",
 		},
 	}
 	p := attentionPage{Version: 2, MetricVersion: 2, Rooms: []attentionRoom{{ID: "A", Signals: []attentionSignal{signal}}}}
@@ -54,12 +57,32 @@ func TestAttentionCollapsedSignalExplainsHypothetical(t *testing.T) {
 		"Signal: low-edit-ratio v1 · scope: implementation",
 		"Applicability: unknown",
 		"Condition: no_match",
-		"Hypothetical: If this is an implementation task, this signal would not trigger.",
+		"Check: minimum_commands · 15 >= 30 — failed",
+		"Check: maximum_edit_ratio · 0 < 0.05 — passed",
+		"Hypothetical: If this is an implementation task, this signal would not trigger because only 15 of the required 30 commands were observed.",
 		"Outcome: needs_context",
 	} {
 		if !strings.Contains(out.String(), want) {
 			t.Fatalf("COLLAPSED_HYPOTHETICAL FAIL: missing %q\n%s", want, out.String())
 		}
+	}
+}
+
+func TestAttentionHypotheticalExplainsFailedCheck(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		check attention.ConditionCheck
+		want  string
+	}{
+		{"commands", attention.ConditionCheck{Name: "minimum_commands", Actual: 15, Operator: ">=", Threshold: 30}, "because only 15 of the required 30 commands were observed."},
+		{"ratio", attention.ConditionCheck{Name: "maximum_edit_ratio", Actual: 0.125, Operator: "<", Threshold: 0.05}, "because the edit ratio was 0.125; triggering requires less than 0.05."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := attentionSignal{Scope: "implementation", SignalResult: attention.SignalResult{Applicability: attention.Applicability{Status: "unknown"}, Condition: attention.Result{Status: "no_match", Checks: []attention.ConditionCheck{tc.check}}}}
+			if got := attentionHypothetical(s); !strings.Contains(got, tc.want) {
+				t.Fatalf("FAILED_CHECK_EXPLANATION FAIL: %q", got)
+			}
+		})
 	}
 }
 
