@@ -13,14 +13,14 @@ import (
 
 // DefSite is a located symbol definition extracted from a source file.
 type DefSite struct {
-	Name      string
-	Kind      string
-	File      string
-	StartLine int
-	EndLine   int
-	StartByte uint32
-	EndByte   uint32
-	Source    []byte
+	Name        string
+	Kind        string
+	File        string
+	StartLine   int
+	EndLine     int
+	StartByte   uint32
+	EndByte     uint32
+	Source      []byte
 	CycleMarker string
 }
 
@@ -53,14 +53,23 @@ type Edge struct {
 
 // Result is the full call-graph output of a Trace call.
 type Result struct {
-	Nodes []Node `json:"nodes"`
-	Edges []Edge `json:"edges"`
+	Nodes  []Node `json:"nodes"`
+	Edges  []Edge `json:"edges"`
+	Intent string `json:"intent,omitempty"`
+}
+
+// RankContribution identifies one query channel's contribution to a note rank.
+type RankContribution struct {
+	Channel string  `json:"channel"`
+	Rank    int     `json:"rank"`
+	Weight  float64 `json:"weight"`
 }
 
 // NoteRef is a reference to an nn note attached to a resolved node.
 type NoteRef struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
+	ID         string             `json:"id"`
+	Title      string             `json:"title"`
+	Provenance []RankContribution `json:"ranking_provenance,omitempty"`
 }
 
 // DefaultParseTimeoutMicros bounds each per-file gotreesitter parse. A single

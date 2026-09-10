@@ -17,6 +17,7 @@ func newTraceCmd(state *rootState) *cobra.Command {
 	var asJSON bool
 	var showUnresolved bool
 	var indexRoot string
+	var intent string
 
 	cmd := &cobra.Command{
 		Use:   "trace <root-dir>",
@@ -52,7 +53,15 @@ func newTraceCmd(state *rootState) *cobra.Command {
 			notes, _ := state.backend.List()
 
 			prepared := prepareCorpus(notes, state.notebookDir)
-			result := trace.Trace(idx, symbols, depth, traceAnnotator(prepared, 2))
+			trimmedIntent := strings.TrimSpace(intent)
+			var result *trace.Result
+			if trimmedIntent == "" {
+				result = trace.Trace(idx, symbols, depth, traceAnnotator(prepared, 2))
+			} else {
+				result = trace.Trace(idx, symbols, depth, nil)
+				result.Intent = trimmedIntent
+				enrichTraceResult(result, idx, prepared, trimmedIntent, 2)
+			}
 
 			w := outWriter(cmd)
 
@@ -99,7 +108,7 @@ func newTraceCmd(state *rootState) *cobra.Command {
 				}
 				fmt.Fprintf(w, "%s%s (%s) [%s:%d]%s\n", prefix, n.Name, n.Kind, n.File, n.Line, marker)
 				for _, ref := range n.NNNotes {
-					fmt.Fprintf(w, "%s  note: [[%s|%s]]\n", prefix, ref.ID, ref.Title)
+					fmt.Fprintf(w, "%s  note: [[%s|%s]]%s\n", prefix, ref.ID, ref.Title, formatRankProvenance(ref.Provenance))
 				}
 				if printed[nodeID] || n.CycleMarker != "" {
 					return
@@ -159,7 +168,71 @@ func newTraceCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Emit JSON graph")
 	cmd.Flags().BoolVar(&showUnresolved, "show-unresolved", false, "Show unresolved (stdlib/external) leaves")
 	cmd.Flags().StringVar(&indexRoot, "root", "", "Index this directory instead of the target dir, so calls to definitions elsewhere in the project resolve (language-agnostic)")
+	cmd.Flags().StringVar(&intent, "intent", "", "Investigation intent used only for related-note retrieval")
 	return cmd
+}
+
+func traceDiagnosticQuery(result *trace.Result) string {
+	unresolved, ambiguous, cycle := false, false, false
+	for _, edge := range result.Edges {
+		unresolved = unresolved || !edge.Resolved
+	}
+	for _, node := range result.Nodes {
+		ambiguous = ambiguous || node.AmbiguousReceiver
+		cycle = cycle || node.CycleMarker != ""
+	}
+	var diagnostics []string
+	if unresolved {
+		diagnostics = append(diagnostics, "unresolved call", "external definition unavailable")
+	}
+	if ambiguous {
+		diagnostics = append(diagnostics, "ambiguous receiver", "multiple name-matched candidates")
+	}
+	if cycle {
+		diagnostics = append(diagnostics, "cycle detected")
+	}
+	return strings.Join(diagnostics, " ")
+}
+
+func enrichTraceResult(result *trace.Result, idx *trace.Index, prepared preparedCorpus, intent string, limit int) {
+	diagnostic := traceDiagnosticQuery(result)
+	for i := range result.Nodes {
+		node := &result.Nodes[i]
+		var source string
+		for _, def := range idx.ByName[node.Name] {
+			if def.File == node.File && def.StartLine == node.Line {
+				source = string(def.Source[def.StartByte:def.EndByte])
+				break
+			}
+		}
+		ranked := prepared.rankedByQueries(prepared.corpus, []rankingQuery{
+			{Name: "source", Text: source, Weight: 1},
+			{Name: "intent", Text: "nn trace " + intent, Weight: 5},
+			{Name: "diagnostic", Text: diagnostic, Weight: 1},
+		})
+		if len(ranked) > limit {
+			ranked = ranked[:limit]
+		}
+		node.NNNotes = make([]trace.NoteRef, 0, len(ranked))
+		for _, item := range ranked {
+			ref := trace.NoteRef{ID: item.Note.ID, Title: item.Note.Title}
+			for _, contribution := range item.Provenance {
+				ref.Provenance = append(ref.Provenance, trace.RankContribution(contribution))
+			}
+			node.NNNotes = append(node.NNNotes, ref)
+		}
+	}
+}
+
+func formatRankProvenance(provenance []trace.RankContribution) string {
+	if len(provenance) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(provenance))
+	for _, contribution := range provenance {
+		parts = append(parts, fmt.Sprintf("%s #%d", contribution.Channel, contribution.Rank))
+	}
+	return " [" + strings.Join(parts, ", ") + "]"
 }
 
 // resolveFileLineSymbol detects "file:line" format in arg, builds an AST index

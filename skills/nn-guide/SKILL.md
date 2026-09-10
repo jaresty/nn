@@ -586,7 +586,7 @@ Resolve each related note before the next action...
 ## nn grep
 
 ```
-nn grep <pattern> [path...] [-i|--ignore-case] [--context N] [--notes-per-match K] [--max-matches N] [--trace] [--context-report]
+nn grep <pattern> [path...] [-i|--ignore-case] [--context N] [--notes-per-match K] [--max-matches N] [--trace [--intent TEXT]] [--context-report]
 ```
 
 Search files for a regular-expression pattern and annotate each retained match with related nn notes. `-i`/`--ignore-case` makes matching case-insensitive. `--context N` controls the source window around each match; `--max-matches N` limits the retained windows.
@@ -596,12 +596,12 @@ Search files for a regular-expression pattern and annotate each retained match w
 ## nn trace
 
 ```
-nn trace <root-dir> --symbol <name> [--symbol <name> ...] [--depth N] [--json] [--show-unresolved] [--root <dir>]
+nn trace <root-dir> --symbol <name> [--symbol <name> ...] [--depth N] [--json] [--show-unresolved] [--root <dir>] [--intent TEXT]
 ```
 
 Syntax-aware call graph from one or more entry-point symbols. Uses gotreesitter to index all definitions in `<root-dir>` (or `--root <dir>` if given), then DFS-traces calls from each `--symbol` up to `--depth` hops (default 3).
 
-Use a call-graph tool rather than `nn grep` when you need caller or callee relationships instead of text matches. `nn trace` provides an offline, syntax-aware graph with notebook annotations; its project-local name resolution may leave external calls unresolved or produce ambiguous targets.
+Use a call-graph tool rather than `nn grep` when you need caller or callee relationships instead of text matches. `nn trace` provides an offline, syntax-aware graph with notebook annotations; its project-local name resolution may leave external calls unresolved or produce ambiguous targets. `--intent` affects related-note ranking only. Purposeful agent investigations should supply a concise intent; omit it for source-only structural exploration. With `nn grep`, `--intent` requires `--trace`.
 
 Each resolved node is annotated with related nn notes via BM25 (same mechanism as `nn grep`). After the tree, a `## Related notes` section lists all surfaced notes with the standard resolution instruction.
 

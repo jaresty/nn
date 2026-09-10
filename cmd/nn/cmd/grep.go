@@ -20,6 +20,7 @@ import (
 // traceBuildIndex indirects trace.BuildIndex so tests can observe how often the
 // index is built per grep --trace invocation.
 var traceBuildIndex = trace.BuildIndex
+var traceRun = trace.Trace
 
 func newGrepCmd(state *rootState) *cobra.Command {
 	var contextLines int
@@ -28,12 +29,17 @@ func newGrepCmd(state *rootState) *cobra.Command {
 	var maxMatches int
 	var contextReport bool
 	var ignoreCase bool
+	var intent string
 
 	cmd := &cobra.Command{
 		Use:   "grep <pattern> [path...]",
 		Short: "Search files for pattern and annotate matches with related nn notes",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("intent") && !traceFlag {
+				return fmt.Errorf("--intent requires --trace")
+			}
+			trimmedIntent := strings.TrimSpace(intent)
 			pattern := args[0]
 			if ignoreCase {
 				pattern = "(?i)" + pattern
@@ -158,6 +164,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 			}
 
 			traceSuggested := map[string]bool{}
+			traceDiagnostics := map[string]string{}
 			// dirIndex memoizes the trace index per directory across the whole
 			// invocation so BuildIndex parses each directory tree at most once,
 			// rather than once per matched file. dirIndexErr records a build
@@ -222,7 +229,8 @@ func newGrepCmd(state *rootState) *cobra.Command {
 								// Inline grep traces print structural nodes only; related notes
 								// are ranked once below from the match context. Avoid computing
 								// and discarding BM25 annotations for every traced node.
-								result := trace.Trace(idx, []string{sym}, 3, nil)
+								result := traceRun(idx, []string{sym}, 3, nil)
+								traceDiagnostics[m.file] = traceDiagnosticQuery(result)
 								fmt.Fprintf(w, "  [trace: %s --symbol %s]\n", dir, sym)
 								// Count how many resolved nodes share each name so
 								// name-only resolution ambiguity can be surfaced.
@@ -261,32 +269,53 @@ func newGrepCmd(state *rootState) *cobra.Command {
 				if strings.TrimSpace(query) == "" {
 					continue
 				}
-				scores := prepared.rankedByQuery(notes, query)
-
-				type scored struct {
-					n     *note.Note
-					score float64
-				}
-				var ranked []scored
-				for _, n := range notes {
-					if s := scores[n.ID]; s > 0 {
-						ranked = append(ranked, scored{n, s})
+				if trimmedIntent != "" {
+					ranked := prepared.rankedByQueries(notes, []rankingQuery{
+						{Name: "source", Text: query, Weight: 1},
+						{Name: "intent", Text: "nn grep trace " + trimmedIntent, Weight: 5},
+						{Name: "diagnostic", Text: traceDiagnostics[m.file], Weight: 1},
+					})
+					if len(ranked) > k {
+						ranked = ranked[:k]
 					}
-				}
-				sort.Slice(ranked, func(i, j int) bool {
-					return ranked[i].score > ranked[j].score
-				})
-				if len(ranked) > k {
-					ranked = ranked[:k]
-				}
-				for _, r := range ranked {
-					readMarker := ""
-					if sessionReads[r.n.ID] {
-						readMarker = " [read]"
-					} else {
-						hasUnread = true
+					for _, r := range ranked {
+						readMarker := ""
+						if sessionReads[r.Note.ID] {
+							readMarker = " [read]"
+						} else {
+							hasUnread = true
+						}
+						provenance := make([]trace.RankContribution, 0, len(r.Provenance))
+						for _, contribution := range r.Provenance {
+							provenance = append(provenance, trace.RankContribution(contribution))
+						}
+						fmt.Fprintf(w, "  → [[%s|%s]] [fused relevant]%s%s\n", r.Note.ID, r.Note.Title, formatRankProvenance(provenance), readMarker)
 					}
-					fmt.Fprintf(w, "  → [[%s|%s]] %s%s\n", r.n.ID, r.n.Title, scoreLabel(r.score), readMarker)
+				} else {
+					scores := prepared.rankedByQuery(notes, query)
+					type scored struct {
+						n     *note.Note
+						score float64
+					}
+					var ranked []scored
+					for _, n := range notes {
+						if s := scores[n.ID]; s > 0 {
+							ranked = append(ranked, scored{n, s})
+						}
+					}
+					sort.Slice(ranked, func(i, j int) bool { return ranked[i].score > ranked[j].score })
+					if len(ranked) > k {
+						ranked = ranked[:k]
+					}
+					for _, r := range ranked {
+						readMarker := ""
+						if sessionReads[r.n.ID] {
+							readMarker = " [read]"
+						} else {
+							hasUnread = true
+						}
+						fmt.Fprintf(w, "  → [[%s|%s]] %s%s\n", r.n.ID, r.n.Title, scoreLabel(r.score), readMarker)
+					}
 				}
 			}
 			if truncated > 0 {
@@ -318,6 +347,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&traceFlag, "trace", false, "Invoke nn trace inline for each traceable matched file")
 	cmd.Flags().BoolVar(&contextReport, "context-report", false, "Report source context block and overlap metrics")
 	cmd.Flags().BoolVarP(&ignoreCase, "ignore-case", "i", false, "Case-insensitive matching")
+	cmd.Flags().StringVar(&intent, "intent", "", "Investigation intent used with --trace for related-note retrieval")
 	return cmd
 }
 
