@@ -37,7 +37,7 @@ func TestObserveAttentionIndependentScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err, text)
 	}
-	for _, s := range []string{"Selected attention IDs: ROOT, A, B, C", "triggered=2; not_triggered=0; needs_context=0; not_applicable=0; insufficient_evidence=2", "Metric version: 2", "Inspect evidence: nn transcript attention inspect", "## ROOT —", "## A —", "## B —"} {
+	for _, s := range []string{"Coverage: population=4", "triggered=2; not_triggered=0; needs_context=0; not_applicable=0; insufficient_evidence=2", "Metric version: 2", "Inspect evidence: nn transcript attention inspect", "## ROOT —", "## A —", "## B —"} {
 		if !strings.Contains(text, s) {
 			t.Fatalf("OBSERVE_ATTENTION_SCOPE FAIL: missing %q", s)
 		}
@@ -117,7 +117,7 @@ func TestObserveAttentionSelection(t *testing.T) {
 	}
 	p := observeAttentionFixture(t)
 	text, err := contextCommand(t, "observe", p, "--task", "implementation", "--attention-limit", "1")
-	if err != nil || !strings.Contains(text, "selected 1 of 4; outside attention cohort: 3") || !strings.Contains(text, "1 selected · 3 omitted") {
+	if err != nil || !strings.Contains(text, "Evaluations attempted: 4 agents") || !strings.Contains(text, "1 selected · 3 omitted") {
 		t.Fatal(err, text)
 	}
 	for _, flags := range [][]string{{"--attention-limit", "0"}, {"--attention-limit", "21"}, {"--attention-agent", "A", "--attention-limit", "2"}, {"--attention-agent", "missing"}, {"--attention-agent", "A", "--attention-agent", "A"}, {"--attention-agent", ""}, {"--task", ""}} {

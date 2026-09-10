@@ -303,6 +303,11 @@ func buildAttentionPolicies(session string, ids []string, task string, overrides
 		retained.Evidence[id] = evidence
 	}
 	retained.Page = p
+	return retainAttention(retained)
+}
+
+func retainAttention(retained attentionRetention) (attentionRetention, error) {
+	var empty attentionRetention
 	b, e := json.Marshal(retained)
 	if e != nil {
 		return empty, e

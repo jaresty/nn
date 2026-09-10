@@ -21,14 +21,15 @@ limitations; bind **Inspect evidence** to the exact retained attention snapshot 
 
 ## Initial room entry
 
-Choose the initial evidence from the active question/action. For assignment alignment, load **context**
-and use `nn transcript context <session> <agent-id> --last 5 --format text` first, budgeting assignments
-as initial evidence. Do not always infer alignment from 'inspect recent work'. For neutral activity
-orientation, retrieve a bounded readable tail within actual resource restrictions:
+For normal worker inspection, load **events** and acquire recent work with its assignment:
 
 ```bash
-nn transcript events <session> <agent-id> --last 5 --format text --max-text-chars 1000
+nn transcript events <session> --agent <agent-id> --last 5 --include-assignment --format text --max-text-chars 1000
 ```
+
+Carry assignment evidence without inferring alignment or a governing attempt. Add --include-errors N
+when inspecting failures alongside recent work. Omit assignment only for explicit event-only reads.
+Standalone **context** remains a compatible assignment/recent-work bundle, not a required extra read.
 
 State the room identity, snapshot, matching and returned event counts, and whether older matching
 events exist. Initial entry shows a **neutral five-event orientation** in canonical ledger order; it
@@ -87,7 +88,7 @@ claim qualifications across rearrangements.
 Offer **Expand recent window**, not “older page” or stable continuation:
 
 ```bash
-nn transcript events <session> <agent-id> --last 20 --json
+nn transcript events <session> --agent <agent-id> --last 20 --include-assignment --json
 ```
 
 This creates a **replacement snapshot**. Say that it replaces the prior `--last 5` view and is

@@ -58,9 +58,20 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 	var payload, asJSON, all, errorsOnly bool
 	var page, bucketSize, resultLimit, last int
 	var format string
-	var maxTextChars, includeErrors int
+	var maxTextChars, includeErrors, assignmentChars int
+	var namedAgent string
+	var includeAssignment bool
 	var window ledgerWindowOptions
-	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound event ledger (JSON) or bounded readable tail", Args: cobra.ExactArgs(2), RunE: func(c *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound event ledger (JSON) or bounded readable tail", Args: cobra.RangeArgs(1, 2), RunE: func(c *cobra.Command, args []string) error {
+		if c.Flags().Changed("agent") {
+			if len(args) != 1 || strings.TrimSpace(namedAgent) == "" {
+				return fmt.Errorf("events: supply either positional agent-id or nonempty --agent, never both")
+			}
+			args = append(args, namedAgent)
+		}
+		if len(args) != 2 {
+			return fmt.Errorf("events: agent-id or --agent is required")
+		}
 		summaryMode := c.Flags().Changed("summary")
 		if err := window.configure(c, eventFilter, format); err != nil {
 			return err
@@ -78,7 +89,7 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 				return fmt.Errorf("events: text requires --last 1..200 and --max-text-chars 1..10000")
 			}
 			for _, flag := range []string{"json", "all", "page", "snapshot", "event", "at", "summary", "select", "payload"} {
-				if flag == "event" && window.Enabled {
+				if (flag == "event" && window.Enabled) || (flag == "snapshot" && includeAssignment) {
 					continue
 				}
 				if c.Flags().Changed(flag) {
@@ -188,6 +199,20 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 		if err != nil {
 			return err
 		}
+		if includeAssignment {
+			for _, flag := range []string{"summary", "at", "all"} {
+				if c.Flags().Changed(flag) {
+					return fmt.Errorf("events: --include-assignment cannot combine with --%s", flag)
+				}
+			}
+			if assignmentChars < 1 || assignmentChars > 100000 {
+				return fmt.Errorf("events: --max-assignment-chars requires 1..100000")
+			}
+			return executeAssignedEvents(c.OutOrStdout(), args[0], args[1], selectFields, payload, query, window, eventFilter, includeErrors, page, snapshot, format, maxTextChars, assignmentChars)
+		}
+		if c.Flags().Changed("max-assignment-chars") {
+			return fmt.Errorf("events: --max-assignment-chars requires --include-assignment")
+		}
 		if at != "" {
 			result, err := buildHandoffPage(args[0], args[1], at, selectFields, payload, page, snapshot, eventFilter, all)
 			if err != nil {
@@ -263,6 +288,9 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 		_, err = c.OutOrStdout().Write(append(b, '\n'))
 		return err
 	}}
+	c.Flags().StringVar(&namedAgent, "agent", "", "exact agent ID instead of the positional agent-id")
+	c.Flags().BoolVar(&includeAssignment, "include-assignment", false, "include recorded launch assignments in a retained event bundle")
+	c.Flags().IntVar(&assignmentChars, "max-assignment-chars", 8000, "independent assignment text budget, 1..100000")
 	window.flags(c)
 	c.Flags().StringVar(&format, "format", "json", "json or bounded readable text (requires --last, --event, or search/context options)")
 	c.Flags().IntVar(&includeErrors, "include-errors", 0, "also show the last 1..200 explicit failure events from the same acquisition (text tail only)")

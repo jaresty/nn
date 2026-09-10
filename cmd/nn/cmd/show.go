@@ -52,6 +52,7 @@ func buildLinkTypeProtocolText() string {
 // virtualGlobalProtocols are hardcoded protocols always included in nn show --global output.
 // Add entries here to register additional tool-level meta-protocols.
 var virtualGlobalProtocols = []virtualProtocol{
+	delegatedProcessProtocol,
 	{
 		ID:          "virtual-nn-capture-discipline",
 		Title:       "Protocol: nn-capture-discipline",

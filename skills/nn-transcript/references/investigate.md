@@ -18,7 +18,7 @@ Choose the smallest evidence set capable of answering the question:
 | Question | Owner |
 |---|---|
 | Find a conversation, launched task, or description | `nn skills get nn-transcript --reference discovery`, then `nn skills get nn-transcript --reference navigate` |
-| What was assigned versus done? | `nn skills get nn-transcript --reference context` |
+| What was assigned versus done / inspect recent worker activity? | `nn skills get nn-transcript --reference events` (include assignment) |
 | What failed / changed / followed this event? | `nn skills get nn-transcript --reference events` |
 | Was a handoff returned to its parent? | `nn skills get nn-transcript --reference handoffs` |
 | Does a literal phrase or regex occur? | `nn skills get nn-transcript --reference search` |

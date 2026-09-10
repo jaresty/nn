@@ -21,6 +21,30 @@ response. Both reject explicit --page/--snapshot flags, and show --all requires 
 is the same as the equivalent bounded projection. --all changes transport, not source completeness.
 Default bounded modes remain unchanged and omit the all field.
 
+## Agent selection and assignment-inclusive inspection
+
+Use `events <session> --agent <id>` or the compatible positional `events <session> <id>`;
+never both. Missing or empty agent selectors fail. Both forms bind the same identity and snapshot.
+For ordinary worker inspection, include its recorded assignment in the initial acquisition:
+
+```bash
+nn transcript events <session> --agent <id> --last 10 --include-assignment --format text
+nn transcript events <session> --agent <id> --last 10 --include-errors 10 --include-assignment --format text
+nn transcript events <session> --agent <id> --search 'preparation' -C 3 --include-assignment --format text
+```
+
+`--include-assignment` leaves event filters/limits unchanged. Launch occurrences are a separate
+section with authenticated joins, never an inferred governing task. Pi uses one shared sequential
+source-prefix capture. Unsupported adapters disclose assignment support as unavailable without
+suppressing event evidence. Assignment text has an independent --max-assignment-chars budget
+(default 8000); clipping/omitted records are explicit. Combined text stays within 200,000 bytes.
+The opt-in JSON bundle starts with an `nn.transcript.assignment-events/v1` receipt and section-tagged
+events; normal 48KB pages and ordered segmentation remain lossless. Retrieve every required page.
+--snapshot replays retained pages without reopening sources; preserve selection/payload options.
+Omit snapshot for Refresh. Assignment inclusion rejects summary, handoff --at and --all; existing
+include-errors/search incompatibilities remain. Bare events and standalone context remain supported.
+Use bare events for deliberately event-only inspection, not as a prerequisite to getting assignments.
+
 ## Compact readable tails
 
 ```bash
@@ -42,7 +66,7 @@ not a paging interface; refresh reruns the command.
 ## Recent events and failures in one acquisition
 
 ```bash
-nn transcript events <session> <agent-id> --last 10 --include-errors 10 --format text --max-text-chars 1400
+nn transcript events <session> --agent <agent-id> --last 10 --include-errors 10 --include-assignment --format text --max-text-chars 1400
 ```
 
 When Refresh needs both recent activity and explicit failures, use this combined command instead

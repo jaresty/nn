@@ -91,7 +91,7 @@ func TestTranscriptInteractionSingleOwnerRules(t *testing.T) {
 		{"NoManualPersistence", "interaction", "Do not create temporary files or serialize view JSON for navigation.", "`mktemp -d`"},
 		{"NoDeterministicProse", "interaction", "LLM rerendering is not deterministic", "exact rendered response"},
 		{"ScopeRestriction", "interaction", "Respect a concrete user restriction:", "Target resolution is not acquisition permission."},
-		{"RoomEntry", "rooms", "--last 5 --format text --max-text-chars 1000", "Retrieve a metadata-oriented bounded tail"},
+		{"RoomEntry", "rooms", "--last 5 --include-assignment --format text --max-text-chars 1000", "Retrieve a metadata-oriented bounded tail"},
 		{"ActionCount", "actions", "Promote up to three useful next actions", "Promote two or three useful next actions"},
 		{"BoundComparison", "lenses", "Operands already bound", "never authorize the LLM to supply missing"},
 		{"FindIntent", "review", "Find is an intent, not a compulsory filter chooser.", "Find always opens the filter chooser"},

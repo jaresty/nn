@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -337,16 +338,17 @@ func readRecords(path string) ([]rawRecord, error) {
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
 	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
-		if line == "" {
+		line := bytes.TrimSpace(sc.Bytes())
+		if len(line) == 0 {
 			continue
 		}
 		var r rawRecord
-		if json.Unmarshal([]byte(line), &r) == nil {
+		if json.Unmarshal(line, &r) == nil {
 			r.RecordOrdinal = len(recs) + 1
 			recs = append(recs, r)
 		}
 	}
+	transcriptDecodeCount.Add(uint64(len(recs)))
 	return recs, sc.Err()
 }
 

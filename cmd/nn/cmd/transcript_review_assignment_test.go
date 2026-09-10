@@ -128,9 +128,9 @@ func TestReviewAssignmentParityMissingAndDefault(t *testing.T) {
 func TestAssignmentQuestionRoutesInitialRetrieval(t *testing.T) {
 	_, execute := setupNotebook(t)
 	for owner, terms := range map[string][]string{
-		"context":     {"initial", "single-room", "initial inspection envelope"},
+		"context":     {"initial", "--include-assignment", "initial inspection envelope"},
 		"review":      {"--include-assignment", "selected_assignments", "recent events only"},
-		"rooms":       {"For assignment alignment", "nn transcript context"},
+		"rooms":       {"normal worker inspection", "--include-assignment"},
 		"interaction": {"not a rigid", "necessary bounded evidence directly", "not simply because another read follows"},
 	} {
 		text, e := execute("skills", "get", "nn-transcript", "--reference", owner)

@@ -26,8 +26,10 @@ Do not carry assistant-added classification flags from older recipes into ordina
 
 A request for attention across a named cohort retains that cohort, filters and canonical paths rather
 than substituting a remembered room. An empty filter stays empty. Preserve exact paths and IDs. ROOT is eligible. Review queues exclude ROOT and do not define attention scope; never
-substitute ROOT for unavailable child work. Observe's attention cohort is independent of its two
-readable children: ROOT-first canonical agents including descendants, bounded to 20, not importance.
+substitute ROOT for unavailable child work. Observe considers recently changed agents conversation-wide,
+independent of its two readable children; its 20-agent default limits displayed details, not evaluations.
+Use its retained observation snapshot for Refresh, replay and paginated coverage. Explicit worker
+restrictions are advanced human choices, never inherited from prior worker inspection.
 
 ```bash
 nn transcript attention <session> --agent <id>

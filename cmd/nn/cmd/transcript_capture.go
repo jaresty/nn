@@ -18,10 +18,11 @@ import (
 // Each source is an independently captured complete-record prefix. This is not
 // a simultaneous filesystem snapshot. Append-only producers may keep writing.
 type capturedTranscriptSource struct {
-	PrefixBytes int64       `json:"prefix_bytes"`
-	Digest      string      `json:"sha256"`
-	Records     []rawRecord `json:"-"`
-	Raw         []byte      `json:"bytes"`
+	ObservationStamp *observeSourceStamp `json:"-"`
+	PrefixBytes      int64               `json:"prefix_bytes"`
+	Digest           string              `json:"sha256"`
+	Records          []rawRecord         `json:"-"`
+	Raw              []byte              `json:"bytes"`
 }
 type transcriptCapture struct {
 	Ledgers        map[string][]ledgerRecord           `json:"-"`
@@ -116,6 +117,7 @@ func captureTranscriptSource(path string) (capturedTranscriptSource, error) {
 	if !info.Mode().IsRegular() {
 		return source, fmt.Errorf("capture source must be regular")
 	}
+	before := stampObserveSource(path, info)
 	b, e := io.ReadAll(io.LimitReader(f, info.Size()))
 	if e != nil {
 		return source, e
@@ -130,6 +132,11 @@ func captureTranscriptSource(path string) (capturedTranscriptSource, error) {
 	source.Digest = captureHash(b)
 	source.Raw = b
 	source.Records, e = parseCapturedRecords(b)
+	after, statErr := currentObserveStamp(path)
+	if statErr != nil || !sameObserveStamp(before, after) {
+		before.Stable = false
+	}
+	source.ObservationStamp = &before
 	return source, e
 }
 
@@ -144,6 +151,7 @@ func parseCapturedRecords(b []byte) ([]rawRecord, error) {
 			records = append(records, r)
 		}
 	}
+	transcriptDecodeCount.Add(uint64(len(records)))
 	return records, sc.Err()
 }
 

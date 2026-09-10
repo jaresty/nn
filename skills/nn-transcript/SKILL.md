@@ -15,7 +15,7 @@ not an interactive CLI or a persistent monitoring UI. Use the co-versioned nativ
 ## Observe or investigate
 
 - **Bare invocation / what is happening:** load **observe** and execute its bounded recipe.
-  One `observe` call measures all bundled signals; normal recipes select work without task classification.
+  One `observe` call checks recently changed agents conversation-wide; normal recipes never inherit worker focus.
   Interpret included task evidence and conditions before requesting more context; do not rerun a detector
   merely to attach an applicability interpretation.
   Do not open an enablement wizard or require a conversation picker before useful observation.
@@ -53,7 +53,8 @@ Discover applicability with `nn skills get nn-transcript --list-references`.
 | Selected stream orientation / window expansion | `nn skills get nn-transcript --reference rooms` |
 | Optional user-defined visual lenses | `nn skills get nn-transcript --reference lenses` |
 | Multi-stream review queues and bundles | `nn skills get nn-transcript --reference review` |
-| Assignment versus work | `nn skills get nn-transcript --reference context` |
+| Worker inspection with assignments | `nn skills get nn-transcript --reference events` (`--include-assignment`) |
+| Standalone context compatibility | `nn skills get nn-transcript --reference context` |
 | Literal/regex content lookup | `nn skills get nn-transcript --reference search` |
 | Events, payloads, windows, exports | `nn skills get nn-transcript --reference events` |
 | Usage / tool volume / timing summaries | `nn skills get nn-transcript --reference summaries` |
