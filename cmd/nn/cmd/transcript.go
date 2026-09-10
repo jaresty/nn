@@ -27,7 +27,7 @@ const (
 const transcriptJobHelp = `nn transcript — explore agent execution transcripts (ADR-0042)
 
 Start here:
-  observe   ROOT plus two canonical direct children, five readable events each
+  observe   bounded ROOT/child streams plus separately scoped attention signals
   ls        browse recent sessions, most-recent-first, each with a mini subagent-tree
 
 Navigate one session:

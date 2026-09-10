@@ -7,7 +7,7 @@ applies_when: "Before a bare invocation, an open-ended what-is-happening request
 # Observe recorded work
 
 This reference is sufficient for the initial bounded read. Do **not** load interaction, navigate,
-or events merely because this shortcut internally selects children and reads event tails.
+events, or attention merely because this shortcut internally selects children, reads tails and reports signals.
 Read-only observation executes directly; no standing approval, picker, or invented question first.
 
 ## Resolve scope
@@ -41,7 +41,17 @@ The command includes ROOT plus up to two canonical direct children, five ledger 
 and unavailable detail. Canonical children are **not** ranked by recency, importance or usefulness.
 Other branches, older work and unselected conversations remain uninspected. Independent stream reads
 are not an atomic capture. A roomless conversation still receives ROOT inspection. No background
-monitor, retained capture, notebook write or guarantee of bounded source-processing cost is implied.
+monitor, notebook write or guarantee of bounded source-processing cost is implied.
+
+Attention signals use a separate ROOT-first canonical cohort across the conversation, including
+descendants: up to 20 agents, reducible with `--attention-limit 1..20`. Repeat `--attention-agent ID`
+for an exact cohort instead; do not combine it with --attention-limit. Neither cohort is importance-ranked.
+Supply `--task implementation` only when that classification is established for the whole attention
+cohort; for mixed tasks, use explicit IDs or separate invocations. Never infer task scope from labels.
+Without --task, attention says **not evaluated**, not no findings. Native match/no_match/indeterminate/
+inapplicable states, errors and omitted scope stay separate; no-match is not health. Evaluated signals
+retain native expiring evidence with Inspect commands. Load attention only for detailed inspection,
+classification guidance or policy interpretation, not to run this documented initial recipe.
 
 ## Explain and continue
 

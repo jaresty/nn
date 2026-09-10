@@ -11,14 +11,24 @@ import (
 )
 
 // Compose the native selectors/renderers. No shell, alternate ownership resolver,
-// persistent state, or claim of an atomic snapshot across independently read streams.
+// alternate detector, or claim of an atomic snapshot across independently read streams.
 func newTranscriptObserveCmd() *cobra.Command {
-	return &cobra.Command{
+	var attention observeAttentionOptions
+	command := &cobra.Command{
 		Use:   "observe <session>",
-		Short: "Read ROOT plus two canonical direct children (five events each)",
-		Long:  "One-shot readable observation: ROOT plus up to two canonical direct children, five ledger events each, 1000 readable characters per event. Canonical sampling is not recency or importance ranking. Independent reads; no monitor or retained capture. Output bounds do not bound source processing.",
+		Short: "Read bounded streams and qualified attention signals",
+		Long:  "One-shot readable observation: ROOT plus up to two canonical direct children, five ledger events each, 1000 readable characters per event. Canonical sampling is not recency or importance ranking. Independent reads; no monitor. Attention uses an independent bounded cohort and needs --task classification; evaluated signals retain native evidence. Output bounds do not bound source processing.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			if attention.Limit < 1 || attention.Limit > 20 {
+				return fmt.Errorf("observe: --attention-limit requires 1..20")
+			}
+			if c.Flags().Changed("attention-agent") && c.Flags().Changed("attention-limit") {
+				return fmt.Errorf("observe: --attention-agent cannot combine with --attention-limit")
+			}
+			if len(attention.Task) > 80 || (c.Flags().Changed("task") && strings.TrimSpace(attention.Task) == "") {
+				return fmt.Errorf("observe: --task must be nonempty and at most 80 bytes")
+			}
 			run := func(command *cobra.Command, argv ...string) ([]byte, error) {
 				var out bytes.Buffer
 				command.SetOut(&out)
@@ -45,6 +55,11 @@ func newTranscriptObserveCmd() *cobra.Command {
 			fmt.Fprintf(&out, "tree snapshot: %s\n", tree.Snapshot)
 			fmt.Fprintln(&out, "Canonical order is not recency or importance. Other branches and older events remain uninspected.")
 			fmt.Fprintln(&out, "Independent stream reads, not an atomic capture. Unavailable detail is unknown, not inactivity or success.")
+			signals, err := observeAttentionSection(args[0], attention)
+			if err != nil {
+				return err
+			}
+			out.WriteString(signals)
 			streams := []treeChildRow{{ID: "ROOT", Description: "orchestration stream"}}
 			streams = append(streams, tree.Children...)
 			for _, stream := range streams {
@@ -62,6 +77,10 @@ func newTranscriptObserveCmd() *cobra.Command {
 			return err
 		},
 	}
+	command.Flags().StringVar(&attention.Task, "task", "", "established task for the attention cohort; implementation enables the bundled policy")
+	command.Flags().StringArrayVar(&attention.IDs, "attention-agent", nil, "exact attention agent ID; repeat up to 20 (independent of readable sample)")
+	command.Flags().IntVar(&attention.Limit, "attention-limit", 20, "ROOT-first canonical attention population bound, 1..20; incompatible with explicit IDs")
+	return command
 }
 
 func observeLabel(s string) string {

@@ -5,11 +5,19 @@ applies_when: "Before evaluating the defined attention policy, comparing signals
 
 # Attention — an optional bounded detector
 
-Load `nn skills get nn-transcript --reference interaction` for direct requests, exact targets and scope.
+The self-contained `observe` reference owns initial `transcript observe` attention integration;
+no extra reference loading is needed for that recipe. For standalone attention requests, load
+`nn skills get nn-transcript --reference interaction` for exact targets and scope.
 One bundled policy evaluates a low recognized edit-to-command ratio through nn's existing Datalog
 parser/evaluator. It is not a health, productivity, liveness, success or failure assessment. No notebook
 policy activation, standing-approval wizard, background monitoring, timers or new engine is involved.
 Open-ended observation uses `nn skills get nn-transcript --reference observe`, not this detector alone.
+
+`observe` adds a separately bounded ROOT-first canonical attention cohort (up to 20 across the
+conversation, including descendants), not just its two displayed children. --attention-agent overrides
+that cohort; --attention-limit reduces the default bound. Its --task is caller-supplied for that cohort;
+absence means not evaluated. Native policy results and expiring inspection evidence remain unchanged.
+An observe batch error is explicitly displayed without discarding readable stream output.
 
 ## Select and classify
 
