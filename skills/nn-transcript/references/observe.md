@@ -46,12 +46,14 @@ monitor, notebook write or guarantee of bounded source-processing cost is implie
 Attention signals use a separate ROOT-first canonical cohort across the conversation, including
 descendants: up to 20 agents, reducible with `--attention-limit 1..20`. Repeat `--attention-agent ID`
 for an exact cohort instead; do not combine it with --attention-limit. Neither cohort is importance-ranked.
-Supply `--task implementation` only when that classification is established for the whole attention
-cohort; for mixed tasks, use explicit IDs or separate invocations. Never infer task scope from labels.
-Without --task, attention says **not evaluated**, not no findings. Native match/no_match/indeterminate/
-inapplicable states, errors and omitted scope stay separate; no-match is not health. Evaluated signals
-retain native expiring evidence with Inspect commands. Load attention only for detailed inspection,
-classification guidance or policy interpretation, not to run this documented initial recipe.
+Reuse an established task classification for its exact agents: pass `--task implementation` with
+`--attention-agent ID` when supported; never classify the default cohort from one worker or a label.
+Without --task, **not evaluated** means no classification was supplied, not that none can be established.
+Do not stop there: after the initial read, load attention for its bounded classification follow-up.
+It reuses applicable assignment evidence or acquires it for one relevant candidate, then evaluates
+classified implementation work. Do not repeat a bare Refresh indefinitely without attempting this step.
+Native match/no_match/indeterminate/inapplicable, errors and omissions stay distinct; no-match is not
+health. Evaluated signals retain expiring Inspect evidence. No speculative reference preload is needed.
 
 ## Explain and continue
 
