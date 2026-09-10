@@ -19,23 +19,26 @@ that cohort; --attention-limit reduces the default bound. Its --task is caller-s
 absence means not evaluated. Native policy results and expiring inspection evidence remain unchanged.
 An observe batch error is explicitly displayed without discarding readable stream output.
 
-## Follow through after observation
+## Conditional follow-up after unclassified observation
 
 A missing --task flag is not evidence that task scope is unknowable. Do not repeatedly relay
 `not evaluated` from bare observe/Refresh without trying to establish an applicable classification.
 Reuse human-supplied or previously inspected authenticated assignment evidence for the exact agent;
 retain its provenance, and revalidate when the governing task changes or conflicting evidence appears.
-Pass established classification and exact IDs into observe when available before the initial read.
+When classification and exact IDs are already established, use one combined observe invocation
+with --attention-agent and --task, including on Refresh. Do not load this reference or run standalone
+attention merely because that combined command evaluates the policy; observe owns that fast path.
 
-Otherwise, after that read, make one bounded classification follow-up: prefer an attributable worker
+Only when classification was genuinely missing at the initial read, make one bounded follow-up: prefer an attributable worker
 in a relevant retained lead within the observation scope, else the first returned attention candidate.
 State the selected ID and why; this selection is independent of the two displayed children. Attempt
 at most one candidate by default, with the two-page assignment bound below. Do not scan all 20,
 replace a failed/unknown candidate, or silently reduce an explicitly requested cohort to one agent.
 For a larger explicit request, retain its scope and agree only a concrete resource bound if needed.
 
-If implementation is established, run standalone `attention <session> --agent <id> --task implementation`
-and append its qualified result to the observation; no need to reread every displayed stream. Known
+If implementation is newly established after that unclassified observation, run standalone
+`attention <session> --agent <id> --task implementation` and append its qualified result; no need to
+reread displayed streams. This is a fallback, not a mandatory second command for known tasks. Known
 other work is outside policy scope. Missing, conflicting or incomplete assignment evidence stays
 not evaluated with the concrete reason. Candidates never attempted are unassessed, not failed
 classification attempts. Do not re-fetch unchanged known blockers on every Refresh; retain the reason
