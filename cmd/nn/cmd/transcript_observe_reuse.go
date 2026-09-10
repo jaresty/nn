@@ -136,7 +136,7 @@ func tryObserveUnchanged(session string, o observeAttentionOptions, recent time.
 		}
 		counts[a.State]++
 	}
-	prefix := fmt.Sprintf("Observation: %s\nMetadata-checked unchanged Refresh: zero transcript records decoded. Readable samples and signal evidence retained, not reacquired.\nCoverage: population=%d; evaluated=0; unchanged=%d; outside_window=%d; unavailable=0; error=0; deferred=0\nRetained prior signal outcomes (not re-evaluated): %v\nNo resolution, health or current-activity inference. Metadata continuity is not cryptographic content verification.\n", observeLabel(session), len(old.Agents), counts["unchanged"], counts["outside_window"], outcomes)
+	prefix := fmt.Sprintf("Observation: %s\nMetadata-checked unchanged Refresh: zero transcript records decoded. Readable samples and signal evidence retained, not reacquired.\nCoverage: population=%d; evaluated=0; unchanged=%d; outside_window=%d; unavailable=0; error=0; deferred=%d\nRetained prior signal outcomes (not re-evaluated): %v\nNo resolution, health or current-activity inference. Metadata continuity is not cryptographic content verification.\n", observeLabel(session), len(old.Agents), counts["unchanged"], counts["outside_window"], counts["deferred"], outcomes)
 	old.Text = prefix + old.Text[cut:]
 	old.ReadableOffset = len(prefix)
 	return &old, true, nil

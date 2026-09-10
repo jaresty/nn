@@ -8,7 +8,6 @@ applies_when: "Before a bare invocation, an open-ended what-is-happening request
 
 Self-contained initial bounded read: do not preload interaction, navigate, events, or attention.
 Read directly without a standing approval, picker, or invented question.
-
 ## Resolve scope
 
 Inspect every explicitly named conversation; a named project remains a project scope, not a sample.
@@ -32,10 +31,11 @@ Always include ROOT in the initial selected-conversation sample.
 nn transcript observe <session>
 ```
 
-Readable sampling stays ROOT plus two canonical direct children (five events each, 1000 characters).
-Attention casts a conversation-wide net: initially evaluate agents with evidence in the last five minutes,
-plus unknown recency. --recent DURATION changes that initial window. No first-20 evaluation cap.
---attention-limit 1..20 bounds displayed detail only; retained coverage pages expose all agents.
+Sample ROOT plus two canonical children (five events each, 1000 characters); excluded Pi histories stay unopened.
+Initial Pi selection uses worker mtime and attributed parent timestamps within five minutes; --recent changes it.
+Unknown worker recency gets 20 canonical-order history inspections; the remainder is explicitly deferred.
+No first-20 evaluation cap on recent candidates. --attention-limit 1..20 bounds displayed detail only.
+Coverage pages expose all agents; other schemas retain evidence-time selection. Source changes are not activity proof.
 Unchanged Refresh can reuse metadata-checked evidence; that is not a fresh content inspection.
 
 Refresh: `nn transcript observe <session> --refresh <observation-snapshot>`

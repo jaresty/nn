@@ -134,7 +134,7 @@ func observeEligible(prior *observeLiveAgent, fingerprint string, latest time.Ti
 	return unknown || !latest.Before(cutoff)
 }
 
-func observeLiveSection(session string, o observeAttentionOptions, recent time.Duration, previous string) (string, *observeLiveState, error) {
+func observeLiveSection(session string, o observeAttentionOptions, recent time.Duration, previous string, sharedParent ...*transcriptCapture) (string, *observeLiveState, error) {
 	path, err := filepath.Abs(session)
 	if err != nil {
 		return "", nil, err
@@ -176,7 +176,14 @@ func observeLiveSection(session string, o observeAttentionOptions, recent time.D
 	state.CanonicalPath = canonical
 	schema := classifyTranscript(canonical)
 	if schema == schemaPi {
-		capture, err = observeParentCapture(session, canonical)
+		if len(sharedParent) > 0 && sharedParent[0] != nil {
+			capture = sharedParent[0]
+			if capture.Path != canonical {
+				return "", nil, fmt.Errorf("observe: shared parent scope mismatch")
+			}
+		} else {
+			capture, err = observeParentCapture(session, canonical)
+		}
 		if err != nil {
 			return "", nil, err
 		}
@@ -267,6 +274,7 @@ func observeLiveSection(session string, o observeAttentionOptions, recent time.D
 		}
 	}
 	state.WorkerScans = map[string]int{}
+	unknownInspections := 0
 agentsLoop:
 	for _, a := range agents {
 		old, exists := prior[a.ID]
@@ -282,10 +290,20 @@ agentsLoop:
 		var records []ledgerRecord
 		var detail string
 		var acquisitionErr error
+		metadataRecent := false
 		if capture != nil {
 			records, detail = capture.ledger(a.ID)
 			parentRecords = append([]ledgerRecord{}, records...)
-			metadataKey, _, _, err = observeAgentEvidence(a, records, handoffs, "parent-metadata:"+source, task, policies)
+			var parentLatest time.Time
+			var parentUnknown bool
+			parentEvidence := len(records) > 0
+			for _, h := range handoffs {
+				if h.Child == a.ID {
+					parentEvidence = true
+					break
+				}
+			}
+			metadataKey, parentLatest, parentUnknown, err = observeAgentEvidence(a, records, handoffs, "parent-metadata:"+source, task, policies, parentEvidence)
 			if err != nil {
 				return "", nil, err
 			}
@@ -310,6 +328,30 @@ agentsLoop:
 							counts[old.State]++
 							state.Agents = append(state.Agents, old)
 							continue agentsLoop
+						}
+						if previous == "" {
+							clock := observeWorkerRecency(stamp, stampErr, parentLatest, parentUnknown, state.At.Add(-recent))
+							metadataRecent = clock == "recent"
+							deferred := clock == "unknown" && unknownInspections >= observeUnknownHistoryLimit
+							if clock == "old" || deferred {
+								status := "outside_window"
+								if deferred {
+									status = "deferred"
+								}
+								entry := observeLiveAgent{ID: a.ID, MetadataKey: metadataKey, State: status}
+								if stampErr == nil {
+									copy := stamp
+									entry.SourceStamp = &copy
+									state.Sources = append(state.Sources, stamp)
+								}
+								state.Agents = append(state.Agents, entry)
+								counts[status]++
+								state.WorkerScans["metadata_"+clock]++
+								continue agentsLoop
+							}
+							if clock == "unknown" {
+								unknownInspections++
+							}
 						}
 						priorTail := loadObserveTail(old.TailSnapshot, safe, a.ID, workLimit)
 						owned, incremental, e := scanObserveTail(safe, a.ID, workLimit, priorTail)
@@ -369,7 +411,7 @@ agentsLoop:
 			oldPtr = &old
 		}
 		entry := observeLiveAgent{ID: a.ID, Fingerprint: fingerprint, State: "outside_window", MetadataKey: metadataKey, SourceStamp: sourceStamp, TailSnapshot: tailSnapshot}
-		if observeEligible(oldPtr, fingerprint, latest, unknown, state.At.Add(-recent), previous != "") {
+		if metadataRecent || observeEligible(oldPtr, fingerprint, latest, unknown, state.At.Add(-recent), previous != "") {
 			windowRecords, earlier := observeWorkWindow(records, workLimit)
 			signals, evidence := collectAttentionSignals(policies, windowRecords, detail, a.ID, task, source, acquisitionErr)
 			for i := range signals {
@@ -438,7 +480,8 @@ agentsLoop:
 		}
 	}
 	var out bytes.Buffer
-	fmt.Fprintf(&out, "\nAttention signals — conversation-wide recent-change coverage\nInitial window: %s; unknown recency included. Refresh baseline: %s\nCoverage: population=%d; evaluated=%d; unchanged=%d; outside_window=%d; unavailable=%d; error=%d; deferred=0; removed_since_prior=%d\n", recent, previous, len(agents), counts["evaluated"], counts["unchanged"], counts["outside_window"], counts["unavailable"], counts["error"], removed)
+	fmt.Fprintf(&out, "\nAttention signals — conversation-wide recent-change coverage\nInitial window: %s; unknown recency accounted for. Refresh baseline: %s\nCoverage: population=%d; evaluated=%d; unchanged=%d; outside_window=%d; unavailable=%d; error=%d; deferred=%d; removed_since_prior=%d\n", recent, previous, len(agents), counts["evaluated"], counts["unchanged"], counts["outside_window"], counts["unavailable"], counts["error"], counts["deferred"], removed)
+	fmt.Fprintf(&out, "Initial worker acquisition uses source mtime plus attributed parent timestamps, not the parent file mtime. Unknown worker history inspection limit: %d; used: %d. Deferred histories remain uninspected. Source changes are not proof of activity.\n", observeUnknownHistoryLimit, unknownInspections)
 	fmt.Fprintf(&out, "Evaluations attempted: %d agents; %d signals. Coverage outcomes: %v\nDetail sample: %d of %d newly evaluated agents; detail omissions do not reduce evaluation coverage.\n", evaluated, evaluated*len(policies), outcomes, displayed, evaluated)
 	fmt.Fprintln(&out, "Unchanged results retain their prior attention snapshot and are not re-evaluated, resolved, or healthy. Use retained coverage pages for every agent and its evidence reference.")
 	for _, p := range details {

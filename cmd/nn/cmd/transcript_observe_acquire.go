@@ -17,6 +17,30 @@ func observeParentCapture(session, canonical string) (*transcriptCapture, error)
 	return c, nil
 }
 
+// Roster selection needs parent topology, not hydrated worker usage.
+func observeRoster(session string) (treeChildPage, *transcriptCapture, error) {
+	canonical, err := contextPath(session)
+	if err != nil {
+		return treeChildPage{}, nil, err
+	}
+	var parent *transcriptCapture
+	var agents []agent
+	if classifyTranscript(canonical) == schemaPi {
+		parent, err = observeParentCapture(session, canonical)
+		if err == nil {
+			agents, err = buildPiTreeUsing(canonical, parent.read, parent.resolve)
+		}
+	} else {
+		agents, err = buildTree(session)
+	}
+	if err != nil {
+		return treeChildPage{}, nil, err
+	}
+	sort.Slice(agents, func(i, j int) bool { return agents[i].ID < agents[j].ID })
+	page, err := buildTreeChildPage(agents, "ROOT", 2, "")
+	return page, parent, err
+}
+
 // Bounding the detector input must preserve its exact work-message suffix,
 // including intervening non-work records and candidate-size validation.
 func observeWorkWindow(records []ledgerRecord, n int) ([]ledgerRecord, int) {

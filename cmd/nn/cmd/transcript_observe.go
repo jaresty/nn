@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -113,18 +112,18 @@ func newTranscriptObserveCmd() *cobra.Command {
 				}
 				return out.Bytes(), nil
 			}
-			raw, err := run(newTranscriptTreeCmd(), args[0], "--parent", "ROOT", "--limit", "2", "--json")
+			tree, parent, err := observeRoster(args[0])
 			if err != nil {
 				return err
 			}
-			var tree treeChildPage
-			if err = json.Unmarshal(raw, &tree); err != nil {
-				return err
-			}
+			var raw []byte
 			var out bytes.Buffer
 			fmt.Fprintf(&out, "Observation: %s\n", observeLabel(args[0]))
 			fmt.Fprintf(&out, "sample: ROOT + %d of %d canonical direct children; omitted direct children: %d\n", tree.Returned, tree.TotalChildren, tree.Omitted)
 			fmt.Fprintf(&out, "tree snapshot: %s\n", tree.Snapshot)
+			if parent != nil {
+				fmt.Fprintln(&out, "Roster: parent metadata only; worker usage not hydrated.")
+			}
 			fmt.Fprintln(&out, "Canonical order is not recency or importance. Other branches and older events remain uninspected.")
 			fmt.Fprintln(&out, "Independent stream reads, not an atomic capture. Unavailable detail is unknown, not inactivity or success.")
 			var signals string
@@ -132,7 +131,7 @@ func newTranscriptObserveCmd() *cobra.Command {
 			if len(attention.IDs) > 0 {
 				signals, err = observeAttentionSection(args[0], attention)
 			} else {
-				signals, live, err = observeLiveSection(args[0], attention, recent, refresh)
+				signals, live, err = observeLiveSection(args[0], attention, recent, refresh, parent)
 			}
 			if err != nil {
 				return err
@@ -144,6 +143,19 @@ func newTranscriptObserveCmd() *cobra.Command {
 			streams := []treeChildRow{{ID: "ROOT", Description: "orchestration stream"}}
 			streams = append(streams, tree.Children...)
 			for _, stream := range streams {
+				if live != nil && stream.ID != "ROOT" {
+					skipped := ""
+					for _, a := range live.Agents {
+						if a.ID == stream.ID && a.Fingerprint == "" && (a.State == "outside_window" || a.State == "deferred") {
+							skipped = a.State
+							break
+						}
+					}
+					if skipped != "" {
+						fmt.Fprintf(&out, "\n## %s — %s\nHistory not inspected: %s; use explicit agent events to inspect.\n", observeLabel(stream.ID), observeLabel(stream.Description), skipped)
+						continue
+					}
+				}
 				raw, err = run(newTranscriptEventsCmd(), args[0], stream.ID, "--last", "5", "--format", "text", "--max-text-chars", "1000")
 				if err != nil {
 					return fmt.Errorf("observe %s: %w", stream.ID, err)
