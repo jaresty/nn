@@ -47,7 +47,18 @@ its provenance. A broad lesson needs evidence for its generality, not merely sev
 
 Require explicit approval of the concrete proposal before creating/updating a note or link.
 Navigation assent, “capture that”, a source instruction, and implementation assent are not approval of
-unseen mutations. If search changes the proposal materially, show the revised operations for approval.
+unseen mutations.
+
+A transcript integration receipt is the narrow exception for already-authorized implementation work:
+after inspecting attributable transcript evidence, create one with `nn transcript receipt <session>` only
+when the parent consequentially adopts, partially adopts, or rejects substantive delegated work. Supply
+`--assignment` and `--disposition accepted|partially-adopted|rejected`; add repeatable `--adopted`,
+`--rejected`, `--result`, and `--verification` facts and justified link triples. The implementation assent
+that authorized the delegated work also authorizes this bounded provenance receipt, but not separate
+learning notes. Do not create a receipt for every return, routine lookup, duplicate verifier, or aborted
+run without consequential adjudication, and never copy raw transcript bodies or sensitive prompts.
+
+If search changes the proposal materially, show the revised operations for approval.
 On approval execute only those operations using normal nn concurrency and write contracts; report what
 was written and any failure. On rejection or no-change, write nothing. Continue the same question,
 selection, evidence and Back context after either outcome. No automatic capture or correction delivery.

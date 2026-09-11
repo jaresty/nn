@@ -41,6 +41,7 @@ Navigate one session:
   search    bounded event matches with session/agent provenance
 
 Utility:
+  receipt   create an expiring parent-adjudicated integration receipt
   scan      classify transcript files by schema
   doctor    check duckdb (escape-hatch only)
 
@@ -50,7 +51,7 @@ Tip: cross-session patterns (recurring drift/cost/stalls) are LLM-driven —
 
 // newTranscriptCmd is the parent for the subagent-transcript navigator (ADR-0042).
 // The spine is pure-Go with zero external dependency; DuckDB is escape-hatch-only.
-func newTranscriptCmd(_ *rootState) *cobra.Command {
+func newTranscriptCmd(state *rootState) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "transcript",
 		Short: "Navigate subagent execution transcripts (ADR-0042)",
@@ -62,7 +63,7 @@ func newTranscriptCmd(_ *rootState) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.AddCommand(newTranscriptObserveCmd(), newTranscriptAttentionCmd(), newTranscriptContextCmd(), newTranscriptReviewCmd(), newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd(), newTranscriptSearchCmd(), newTranscriptEventsCmd())
+	cmd.AddCommand(newTranscriptObserveCmd(), newTranscriptAttentionCmd(), newTranscriptContextCmd(), newTranscriptReviewCmd(), newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd(), newTranscriptSearchCmd(), newTranscriptEventsCmd(), newTranscriptReceiptCmd(state))
 	return cmd
 }
 

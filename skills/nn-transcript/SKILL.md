@@ -47,7 +47,7 @@ Discover applicability with `nn skills get nn-transcript --list-references`.
 | Open-ended observation / self-contained default recipe | `nn skills get nn-transcript --reference observe` |
 | Question-driven evidence selection | `nn skills get nn-transcript --reference investigate` |
 | Targets, scope, Back, Refresh, pickers | `nn skills get nn-transcript --reference interaction` |
-| Learning and capture proposals | `nn skills get nn-transcript --reference actions` |
+| Learning, capture proposals, and integration receipts | `nn skills get nn-transcript --reference actions` |
 | Conversation metadata / labels / cursors | `nn skills get nn-transcript --reference discovery` |
 | Optional hierarchy and parentage | `nn skills get nn-transcript --reference navigate` |
 | Selected stream orientation / window expansion | `nn skills get nn-transcript --reference rooms` |
