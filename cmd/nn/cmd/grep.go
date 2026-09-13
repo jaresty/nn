@@ -77,6 +77,7 @@ func newGrepCmd(state *rootState) *cobra.Command {
 					files = append(files, searchPath)
 				}
 			}
+			files = uniqueFilePaths(files)
 
 			// fileStartIdx maps file path → first index in allLines for that file.
 			fileStartIdx := make(map[string]int)
@@ -349,6 +350,25 @@ func newGrepCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVarP(&ignoreCase, "ignore-case", "i", false, "Case-insensitive matching")
 	cmd.Flags().StringVar(&intent, "intent", "", "Investigation intent used with --trace for related-note retrieval")
 	return cmd
+}
+
+func uniqueFilePaths(paths []string) []string {
+	unique := make([]string, 0, len(paths))
+	seen := make(map[string]struct{}, len(paths))
+	for _, path := range paths {
+		key, err := filepath.Abs(path)
+		if err != nil {
+			key = filepath.Clean(path)
+		} else if resolved, resolveErr := filepath.EvalSymlinks(key); resolveErr == nil {
+			key = resolved
+		}
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		unique = append(unique, path)
+	}
+	return unique
 }
 
 func gitTrackedFiles(dir string, out *[]string) error {

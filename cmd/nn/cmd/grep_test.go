@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -167,6 +168,34 @@ func TestGrepCmdNoMatch(t *testing.T) {
 	}
 	if strings.TrimSpace(out) != "" {
 		t.Errorf("expected empty output for no match; got:\n%s", out)
+	}
+}
+
+// Assertion: TestGrepCmdOverlappingPathsRenderFileOnce — overlapping file and directory operands are deduplicated before context indexing.
+func TestGrepCmdOverlappingPathsRenderFileOnce(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	dir := t.TempDir()
+	f := filepath.Join(dir, "sample.txt")
+	var content strings.Builder
+	content.WriteString("MATCH\n")
+	for i := 0; i < 100; i++ {
+		fmt.Fprintf(&content, "line %d\n", i)
+	}
+	if err := os.WriteFile(f, []byte(content.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	want, err := execute("grep", "MATCH", f, "--context", "1")
+	if err != nil {
+		t.Fatalf("unique path grep: %v", err)
+	}
+	got, err := execute("grep", "MATCH", f, dir, "--context", "1")
+	if err != nil {
+		t.Fatalf("ASSERT_GREP_OVERLAPPING_PATHS_RENDER_FILE_ONCE: %v", err)
+	}
+	if got != want {
+		t.Fatalf("ASSERT_GREP_OVERLAPPING_PATHS_RENDER_FILE_ONCE: overlapping output differs\nwant:\n%s\ngot:\n%s", want, got)
 	}
 }
 
