@@ -130,9 +130,10 @@ func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, c
 		absoluteDirs = append(absoluteDirs, absoluteDir)
 	}
 	type disc struct {
-		path string
-		mod  time.Time
-		size int64
+		path     string
+		mod      time.Time
+		size     int64
+		relation transcriptRelation
 	}
 	var found []disc
 	for _, dir := range dirs {
@@ -154,7 +155,12 @@ func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, c
 			if err != nil {
 				return err
 			}
-			found = append(found, disc{path: path, mod: info.ModTime(), size: info.Size()})
+			found = append(found, disc{
+				path:     path,
+				mod:      info.ModTime(),
+				size:     info.Size(),
+				relation: relationForTranscript(path),
+			})
 			return nil
 		})
 		if err != nil {
@@ -187,6 +193,13 @@ func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, c
 		writeSnapshotPart(h, []byte(path))
 		writeSnapshotPart(h, []byte(f.mod.UTC().Format(time.RFC3339Nano)))
 		writeSnapshotPart(h, []byte(strconv.FormatInt(f.size, 10)))
+		writeSnapshotPart(h, []byte(f.relation.ConversationKind))
+		writeSnapshotPart(h, []byte(f.relation.Authority))
+		if f.relation.OwnerSession != nil {
+			writeSnapshotPart(h, []byte(*f.relation.OwnerSession))
+		} else {
+			writeSnapshotPart(h, nil)
+		}
 	}
 	snapshot := hex.EncodeToString(h.Sum(nil))
 	after := -1
@@ -212,7 +225,7 @@ func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, c
 		if !before.IsZero() && !found[after].mod.Before(before) {
 			return nil, fmt.Errorf("invalid cursor position: outside --before filter")
 		}
-		if conversationKind != "" && transcriptConversationKind(found[after].path) != conversationKind {
+		if conversationKind != "" && found[after].relation.ConversationKind != conversationKind {
 			return nil, fmt.Errorf("invalid cursor position: outside --conversation-kind filter")
 		}
 	}
@@ -225,8 +238,7 @@ func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, c
 		if !before.IsZero() && !f.mod.Before(before) {
 			continue
 		}
-		kind := transcriptConversationKind(f.path)
-		if conversationKind != "" && kind != conversationKind {
+		if conversationKind != "" && f.relation.ConversationKind != conversationKind {
 			continue
 		}
 		position := i
@@ -244,7 +256,8 @@ func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, c
 			Label:            label,
 			OpeningLabel:     openingLabel,
 			LabelProvenance:  provenance,
-			ConversationKind: kind,
+			ConversationKind: f.relation.ConversationKind,
+			OwnerSession:     f.relation.OwnerSession,
 			OpenWindowStatus: "unavailable",
 		}
 		// agent count, cost, and mini-tree from the spine (best-effort; a
@@ -265,19 +278,6 @@ func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, c
 		}
 	}
 	return rows, nil
-}
-
-func transcriptConversationKind(path string) string {
-	for dir := filepath.Dir(path); dir != "." && dir != string(filepath.Separator); dir = filepath.Dir(dir) {
-		if strings.Contains(filepath.Base(dir), "pi-agent-") {
-			return "sidechain"
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-	}
-	return "conversation"
 }
 
 func transcriptLabels(path string) (label, opening, provenance string) {

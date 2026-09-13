@@ -266,6 +266,55 @@ func TestTranscriptLsClassifiesPiAgentExecutionAsSidechain(t *testing.T) {
 	}
 }
 
+func TestTranscriptLsUsesRecordedCrossSessionParentage(t *testing.T) {
+	const assertion = "ASSERT_TRANSCRIPT_LS_USES_RECORDED_CROSS_SESSION_PARENTAGE"
+	dir := t.TempDir()
+	parentPath := filepath.Join(dir, "parent.jsonl")
+	childPath := filepath.Join(dir, "child.jsonl")
+	writeTranscriptFile(t, parentPath, `{"type":"session","version":3,"id":"parent","cwd":"/workspace"}`+"\n")
+	writeTranscriptFile(t, childPath, `{"type":"session","version":3,"id":"child","cwd":"/workspace","parentSession":"`+parentPath+`"}`+"\n")
+
+	rows, err := listSessions(dir, 0, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var child *sessionRow
+	for i := range rows {
+		if rows[i].Session == "child" {
+			child = &rows[i]
+			break
+		}
+	}
+	if child == nil || child.ConversationKind != "sidechain" || child.OwnerSession == nil || *child.OwnerSession != "parent" {
+		t.Fatalf("%s: child=%+v", assertion, child)
+	}
+
+	sidechains, err := listSessionsPage(dir, 0, time.Time{}, "", "sidechain")
+	if err != nil || len(sidechains) != 1 || sidechains[0].Session != "child" {
+		t.Fatalf("%s: sidechains=%+v error=%v", assertion, sidechains, err)
+	}
+	conversations, err := listSessionsPage(dir, 0, time.Time{}, "", "conversation")
+	if err != nil || len(conversations) != 1 || conversations[0].Session != "parent" {
+		t.Fatalf("%s: conversations=%+v error=%v", assertion, conversations, err)
+	}
+}
+
+func TestTranscriptLsDoesNotAuthenticateMissingRecordedParent(t *testing.T) {
+	const assertion = "ASSERT_TRANSCRIPT_LS_REJECTS_UNRESOLVED_RECORDED_PARENTAGE"
+	dir := t.TempDir()
+	childPath := filepath.Join(dir, "child.jsonl")
+	missingParent := filepath.Join(dir, "missing-parent.jsonl")
+	writeTranscriptFile(t, childPath, `{"type":"session","version":3,"id":"child","cwd":"/workspace","parentSession":"`+missingParent+`"}`+"\n")
+
+	rows, err := listSessions(dir, 0, time.Time{})
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("%s: rows=%+v error=%v", assertion, rows, err)
+	}
+	if rows[0].ConversationKind != "conversation" || rows[0].OwnerSession != nil {
+		t.Fatalf("%s: kind=%q owner=%v", assertion, rows[0].ConversationKind, rows[0].OwnerSession)
+	}
+}
+
 func TestTranscriptLsJSON(t *testing.T) {
 	dir := twoSessionDir(t)
 	_, execute := setupNotebook(t)
