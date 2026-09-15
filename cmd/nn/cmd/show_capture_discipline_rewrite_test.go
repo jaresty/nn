@@ -45,6 +45,20 @@ func TestVirtualCaptureDisciplineStructuralTrigger(t *testing.T) {
 	if strings.Contains(out, "not authored this session") {
 		t.Errorf("body must not contain semantic session-provenance trigger; got:\n%s", out)
 	}
+	if !strings.Contains(out, "does not govern direct structured tools that do not perform those actions") {
+		t.Errorf("ASSERT_CAPTURE_DISCIPLINE_STRUCTURAL_SCOPE: expected direct structured-tool exclusion; got:\n%s", out)
+	}
+}
+
+func TestVirtualCaptureDisciplineDoesNotDisplaceSemanticTools(t *testing.T) {
+	_, execute := setupNotebook(t)
+	out, err := execute("show", "virtual-nn-capture-discipline")
+	if err != nil {
+		t.Fatalf("nn show virtual-nn-capture-discipline: %v", err)
+	}
+	if !strings.Contains(out, "Do not substitute an nn retrieval command for another available tool that directly observes the requested relation") {
+		t.Errorf("ASSERT_CAPTURE_DISCIPLINE_NO_SEMANTIC_DISPLACEMENT: missing tool-neutral routing boundary; got:\n%s", out)
+	}
 }
 
 // Assertion D6: body requires explicit Gate: line before every gated tool call.

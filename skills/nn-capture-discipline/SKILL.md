@@ -6,17 +6,19 @@ when_to_use: Before any action that introduces new information not already prese
 
 # nn-capture-discipline
 
-The workflow below is not optional. Before consulting any source you did not author this session, Step 1 is required. The gate is the `nn list --search` tool result in the transcript, not a judgment that the search is unnecessary.
+The workflow below is not optional for the file-reading and external-service actions named here. Before one of those actions consults a source you did not author this session, Step 1 is required. The gate is the `nn list --search` tool result in the transcript, not a judgment that the search is unnecessary.
 
-**Gate applies (you did not author it):** web search, URL fetch, documentation, library source, third-party CLI output, spawning an agent to gather facts from external sources, reading memory files. nn is the canonical memory store — search it before reading memory files.
+**Gate applies (you did not author it):** file reads, web search, URL fetch, documentation, library source, third-party CLI output, spawning an agent to gather facts from external sources, and reading memory files. nn is the canonical memory store — search it before reading memory files.
 
 **Gate does not apply (you authored it this session):** running your own tests, building your own code, reading files you wrote or edited this session.
 
+This workflow governs only the file-reading and external-service actions named above. It does not govern direct structured tools that obtain evidence without performing those actions. Do not substitute an nn retrieval command for another available tool that directly observes the requested relation; choose the tool whose contract supplies the requested evidence.
+
 ## Workflow
 
-**Step 1 — Search nn (required; blocks all external actions)**
+**Step 1 — Search nn (required; blocks each governed action)**
 
-Before planning any external action, run `nn list --search "<topic>" --json` in its own message. The external action is not permitted until this tool result exists in the transcript above it.
+Before planning a governed action named above, run `nn list --search "<topic>" --json` in its own message. That action is not permitted until this tool result exists in the transcript above it.
 
 This step is not skippable by predicting the result. The only valid basis for proceeding to Step 2 or Step 3 is the actual tool result from this call. "I already know nn won't have this" is not a valid basis — the search must run and return.
 
@@ -67,7 +69,7 @@ nn link <from> <to> --annotation "..." --type <type>
 
 ## Success criteria
 
-- Every external action has a `nn list --search` tool result above it in the transcript
+- Every governed action has a `nn list --search` tool result above it in the transcript
 - Step 1 answer names a specific result title or states "zero results returned" — not a prediction
 - Step 2 answer names the specific sentence in a note that covers the question — not a label
 - Step 3 external action result is visible before any capture/skip decision
