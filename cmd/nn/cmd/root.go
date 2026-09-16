@@ -39,6 +39,14 @@ Workflow guidance is embedded in the binary:
 		},
 	}
 
+	registerNoteCommands(root, state, cfgFile)
+	registerGraphCommands(root, state)
+	registerWorkflowCommands(root, state)
+	registerIntegrationCommands(root, state)
+	return root
+}
+
+func registerNoteCommands(root *cobra.Command, state *rootState, cfgFile string) {
 	root.AddCommand(
 		newInitCmd(cfgFile),
 		newNewCmd(state),
@@ -55,6 +63,11 @@ Workflow guidance is embedded in the binary:
 		newUpdateLinkCmd(state),
 		newBulkUpdateLinkCmd(state),
 		newUnlinkCmd(state),
+	)
+}
+
+func registerGraphCommands(root *cobra.Command, state *rootState) {
+	root.AddCommand(
 		newGraphCmd(state),
 		newLinksCmd(state),
 		newBacklinksCmd(state),
@@ -65,6 +78,11 @@ Workflow guidance is embedded in the binary:
 		newTeeCmd(state),
 		newShufCmd(state),
 		newTraceCmd(state),
+	)
+}
+
+func registerWorkflowCommands(root *cobra.Command, state *rootState) {
+	root.AddCommand(
 		newTodoCmd(state),
 		newRemindCmd(state),
 		newUpdateCmd(state),
@@ -81,6 +99,11 @@ Workflow guidance is embedded in the binary:
 		newGapCmd(state),
 		newIndexCmd(state),
 		newCaptureCmd(state),
+	)
+}
+
+func registerIntegrationCommands(root *cobra.Command, state *rootState) {
+	root.AddCommand(
 		newMediaCmd(state, newProductionMediaService()),
 		newTranscriptCmd(state),
 		newSkillsCmd(),
@@ -94,7 +117,6 @@ Workflow guidance is embedded in the binary:
 		newSearchWebCmd(state),
 		newAskCmd(state),
 	)
-	return root
 }
 
 // NewRootCmdForTest creates a root command wired to the given config file path.
