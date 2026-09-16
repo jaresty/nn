@@ -198,58 +198,87 @@ func buildAttentionWithTasks(session string, ids []string, task string, override
 }
 
 func buildAttentionPolicies(session string, ids []string, task string, overrides map[string]string, policies []*attention.Policy) (attentionRetention, error) {
-	var empty attentionRetention
+	seen, err := validateAttentionRequest(ids, task, overrides, policies)
+	if err != nil {
+		return attentionRetention{}, err
+	}
+	prepared, err := prepareAttentionSession(session, ids, seen)
+	if err != nil {
+		return attentionRetention{}, err
+	}
+	retained, err := evaluateAttentionRooms(prepared, ids, task, overrides, policies)
+	if err != nil {
+		return attentionRetention{}, err
+	}
+	return retainAttention(retained)
+}
+
+func validateAttentionRequest(ids []string, task string, overrides map[string]string, policies []*attention.Policy) (map[string]bool, error) {
 	if len(ids) < 1 || len(ids) > 20 {
-		return empty, fmt.Errorf("attention: select 1–20 exact --agent IDs; no implicit office-wide scan")
+		return nil, fmt.Errorf("attention: select 1–20 exact --agent IDs; no implicit office-wide scan")
 	}
 	seen := map[string]bool{}
 	for _, id := range ids {
 		if id == "" || seen[id] {
-			return empty, fmt.Errorf("attention: empty or duplicate agent ID")
+			return nil, fmt.Errorf("attention: empty or duplicate agent ID")
 		}
 		seen[id] = true
 	}
 	if len(task) > 80 || (task != "" && strings.TrimSpace(task) == "") {
-		return empty, fmt.Errorf("attention: task scope exceeds 80 bytes")
+		return nil, fmt.Errorf("attention: task scope exceeds 80 bytes")
 	}
 	for id, value := range overrides {
 		if !seen[id] || strings.TrimSpace(value) == "" || len(value) > 80 {
-			return empty, fmt.Errorf("attention: agent-task must name a selected agent and a nonempty task of at most 80 bytes")
+			return nil, fmt.Errorf("attention: agent-task must name a selected agent and a nonempty task of at most 80 bytes")
 		}
 	}
 	if len(policies) == 0 || len(policies) > 20 {
-		return empty, fmt.Errorf("attention: expected 1–20 bundled signals")
+		return nil, fmt.Errorf("attention: expected 1–20 bundled signals")
 	}
 	policyIDs := map[string]bool{}
-	for _, p := range policies {
-		if p == nil || p.ID == "" || policyIDs[p.ID] {
-			return empty, fmt.Errorf("attention: invalid or duplicate bundled signal")
+	for _, policy := range policies {
+		if policy == nil || policy.ID == "" || policyIDs[policy.ID] {
+			return nil, fmt.Errorf("attention: invalid or duplicate bundled signal")
 		}
-		policyIDs[p.ID] = true
+		policyIDs[policy.ID] = true
 	}
-	policy := policies[0] // First-signal compatibility fields; plural fields are authoritative.
-	input, e := filepath.Abs(session)
-	if e != nil {
-		return empty, e
+	return seen, nil
+}
+
+type preparedAttentionSession struct {
+	input    string
+	path     string
+	schema   string
+	agents   []agent
+	byID     map[string]agent
+	capture  *transcriptCapture
+	handoffs []piHandoff
+}
+
+func prepareAttentionSession(session string, ids []string, seen map[string]bool) (preparedAttentionSession, error) {
+	var prepared preparedAttentionSession
+	input, err := filepath.Abs(session)
+	if err != nil {
+		return prepared, err
 	}
-	path, e := filepath.EvalSymlinks(input)
-	if e != nil {
-		return empty, e
+	path, err := filepath.EvalSymlinks(input)
+	if err != nil {
+		return prepared, err
 	}
 	schema := classifyTranscript(path)
 	var agents []agent
 	var capture *transcriptCapture
 	if schema == schemaPi {
-		capture, e = newTranscriptCaptureForAgents(path, seen)
-		if e != nil {
-			return empty, e
+		capture, err = newTranscriptCaptureForAgents(path, seen)
+		if err != nil {
+			return prepared, err
 		}
-		agents, e = buildPiTreeUsing(capture.Path, capture.read, capture.resolve)
+		agents, err = buildPiTreeUsing(capture.Path, capture.read, capture.resolve)
 	} else {
-		agents, e = buildTree(path)
+		agents, err = buildTree(path)
 	}
-	if e != nil {
-		return empty, e
+	if err != nil {
+		return prepared, err
 	}
 	byID := map[string]agent{}
 	for _, a := range agents {
@@ -257,53 +286,58 @@ func buildAttentionPolicies(session string, ids []string, task string, overrides
 	}
 	for _, id := range ids {
 		if _, ok := byID[id]; !ok {
-			return empty, fmt.Errorf("attention: unknown agent %q", id)
+			return prepared, fmt.Errorf("attention: unknown agent %q", id)
 		}
 	}
-	p := attentionPage{Version: 2, MetricVersion: 2, SelectedAgents: len(ids), Policies: policies, AgentTasks: overrides, Path: path, Schema: schema, Task: task, Policy: policy, Population: len(agents), Evaluated: len(ids), Unevaluated: len(agents) - len(ids), Limitations: attentionLimitations, CaptureMode: "sequential retained owned-record projections", Rooms: []attentionRoom{}}
-	if capture != nil {
-		p.CaptureID = capture.ID
-		p.CaptureMode = "root plus selected sidechain complete-record prefixes"
-	}
-	retained := attentionRetention{InputPath: input, Evidence: map[string][]attentionEvidence{}}
 	var handoffs []piHandoff
 	if capture != nil {
-		parent, err := capture.read(path)
-		if err != nil {
-			return empty, err
+		parent, readErr := capture.read(path)
+		if readErr != nil {
+			return prepared, readErr
 		}
 		handoffs = piHandoffs(parent)
 	}
+	return preparedAttentionSession{input: input, path: path, schema: schema, agents: agents, byID: byID, capture: capture, handoffs: handoffs}, nil
+}
+
+func evaluateAttentionRooms(prepared preparedAttentionSession, ids []string, task string, overrides map[string]string, policies []*attention.Policy) (attentionRetention, error) {
+	policy := policies[0] // First-signal compatibility fields; plural fields are authoritative.
+	page := attentionPage{Version: 2, MetricVersion: 2, SelectedAgents: len(ids), Policies: policies, AgentTasks: overrides, Path: prepared.path, Schema: prepared.schema, Task: task, Policy: policy, Population: len(prepared.agents), Evaluated: len(ids), Unevaluated: len(prepared.agents) - len(ids), Limitations: attentionLimitations, CaptureMode: "sequential retained owned-record projections", Rooms: []attentionRoom{}}
+	if prepared.capture != nil {
+		page.CaptureID = prepared.capture.ID
+		page.CaptureMode = "root plus selected sidechain complete-record prefixes"
+	}
+	retained := attentionRetention{InputPath: prepared.input, Evidence: map[string][]attentionEvidence{}}
 	for _, id := range ids {
 		var records []ledgerRecord
 		var status string
 		var acquisitionErr error
-		if capture != nil {
-			records, status = capture.ledger(id)
+		if prepared.capture != nil {
+			records, status = prepared.capture.ledger(id)
 		} else {
-			records, _, status, acquisitionErr = ledgerRecords(path, id)
+			records, _, status, acquisitionErr = ledgerRecords(prepared.path, id)
 		}
 		classification, source := task, "cohort_override"
-		if v, ok := overrides[id]; ok {
-			classification, source = v, "agent_override"
+		if override, ok := overrides[id]; ok {
+			classification, source = override, "agent_override"
 		}
 		signals, evidence := collectAttentionSignals(policies, records, status, id, classification, source, acquisitionErr)
-		context := attentionTaskContextFor(id, path, records, handoffs)
+		context := attentionTaskContextFor(id, prepared.path, records, prepared.handoffs)
 		if acquisitionErr != nil {
 			context.Status = "error"
 		}
 		first := signals[0]
-		p.SignalEvaluations += len(signals)
-		label := byID[id].Description
+		page.SignalEvaluations += len(signals)
+		label := prepared.byID[id].Description
 		if label == "" {
 			label = "Room " + id
 		}
 		label = reviewLabel(cleanBundleText(label))
-		p.Rooms = append(p.Rooms, attentionRoom{ID: id, Label: label, Metrics: first.Metrics, Window: first.Window, Result: legacyAttentionResult(first), Signals: signals, TaskContext: &context})
+		page.Rooms = append(page.Rooms, attentionRoom{ID: id, Label: label, Metrics: first.Metrics, Window: first.Window, Result: legacyAttentionResult(first), Signals: signals, TaskContext: &context})
 		retained.Evidence[id] = evidence
 	}
-	retained.Page = p
-	return retainAttention(retained)
+	retained.Page = page
+	return retained, nil
 }
 
 func retainAttention(retained attentionRetention) (attentionRetention, error) {
