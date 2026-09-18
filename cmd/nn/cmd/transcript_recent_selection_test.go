@@ -88,6 +88,40 @@ func descriptionFixture(t *testing.T) string {
 	return session
 }
 
+func TestTranscriptTreeDescriptionSelectsForegroundCompletion(t *testing.T) {
+	const assertion = "ASSERT_TRANSCRIPT_TREE_DESCRIPTION_SELECTS_FOREGROUND_COMPLETION"
+	_, execute := setupNotebook(t)
+	session := filepath.Join(t.TempDir(), "pi-foreground-description.jsonl")
+	writeTranscriptFile(t, session,
+		`{"type":"session","version":3,"id":"01a","cwd":"/x"}`+"\n"+
+			`{"type":"message","id":"call","message":{"role":"assistant","content":[{"type":"toolCall","id":"agent-call","name":"Agent","arguments":{"description":"Map lifecycle seams","subagent_type":"lsp-trace-investigator"}}]}}`+"\n"+
+			`{"type":"message","id":"result","parentId":"call","message":{"role":"toolResult","toolCallId":"agent-call","toolName":"Agent","details":{"status":"completed","agentId":"agent-a","description":"Map lifecycle seams","subagentType":"lsp-trace-investigator"},"content":[{"type":"text","text":"Agent completed"}]}}`+"\n"+
+			`{"type":"custom","customType":"subagents:record","id":"done","data":{"id":"agent-a","type":"lsp-trace-investigator","status":"completed","result":"done"}}`+"\n"+
+			`{"type":"message","id":"call-fallback","message":{"role":"assistant","content":[{"type":"toolCall","id":"agent-call-fallback","name":"Agent","arguments":{"description":"Map fallback seams","subagent_type":"lsp-trace-investigator"}}]}}`+"\n"+
+			`{"type":"message","id":"result-fallback","parentId":"call-fallback","message":{"role":"toolResult","toolCallId":"agent-call-fallback","toolName":"Agent","details":{"status":"completed","agentId":"agent-b","subagentType":"lsp-trace-investigator"},"content":[{"type":"text","text":"Agent completed"}]}}`+"\n"+
+			`{"type":"custom","customType":"subagents:record","id":"done-fallback","data":{"id":"agent-b","type":"lsp-trace-investigator","status":"completed","result":"done"}}`+"\n")
+
+	out, err := execute("transcript", "tree", session, "--json", "--agent", "agent-a", "--fields", "id,description")
+	var rows []map[string]any
+	if decodeErr := json.Unmarshal([]byte(out), &rows); err != nil || decodeErr != nil || len(rows) != 1 || rows[0]["description"] != "Map lifecycle seams" {
+		t.Fatalf("%s projection: execute=%v decode=%v %s", assertion, err, decodeErr, out)
+	}
+	out, err = execute("transcript", "tree", session, "--json", "--description", "Map lifecycle seams", "--fields", "id,description")
+	rows = nil
+	if decodeErr := json.Unmarshal([]byte(out), &rows); err != nil || decodeErr != nil || len(rows) != 1 || rows[0]["id"] != "agent-a" {
+		t.Fatalf("%s lookup: execute=%v decode=%v %s", assertion, err, decodeErr, out)
+	}
+	out, err = execute("transcript", "tree", session, "--json", "--description", "Map fallback seams", "--fields", "id,description")
+	rows = nil
+	if decodeErr := json.Unmarshal([]byte(out), &rows); err != nil || decodeErr != nil || len(rows) != 1 || rows[0]["id"] != "agent-b" || rows[0]["description"] != "Map fallback seams" {
+		t.Fatalf("%s fallback: execute=%v decode=%v %s", assertion, err, decodeErr, out)
+	}
+	out, err = execute("transcript", "events", session, "agent-a", "--at", "launch")
+	if err != nil || !strings.Contains(out, `"status":"not_observed"`) || strings.Contains(out, `"kind":"launch"`) {
+		t.Fatalf("%s handoff: %v %s", assertion, err, out)
+	}
+}
+
 func TestTranscriptTreeDescriptionSelectsAllExactMatches(t *testing.T) {
 	const assertion = "ASSERT_TRANSCRIPT_TREE_DESCRIPTION_SELECTS_ALL_EXACT_METADATA_MATCHES"
 	_, execute := setupNotebook(t)

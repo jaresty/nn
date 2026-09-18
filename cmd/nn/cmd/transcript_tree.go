@@ -781,11 +781,11 @@ func buildPiTreeUsing(session string, read func(string) ([]rawRecord, error), re
 		}
 	}
 
-	// Launch descriptions survive terminal-state replacement. A resumed launch
-	// may supply a newer label, but never changes the established topology.
-	for _, h := range piHandoffs(recs) {
-		if a := agents[h.Child]; a != nil && h.Kind == "launch" && h.Description != "" {
-			a.Description = h.Description
+	// Agent descriptions survive terminal-state replacement. Foreground results
+	// also carry launch metadata, but do not become background handoffs.
+	for _, d := range piAgentDescriptions(recs) {
+		if a := agents[d.Child]; a != nil {
+			a.Description = d.Description
 		}
 	}
 

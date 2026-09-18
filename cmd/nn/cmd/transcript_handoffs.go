@@ -36,6 +36,71 @@ func handoffOwner(r rawRecord) string {
 	return "ROOT"
 }
 
+type piAgentDescription struct {
+	Child       string
+	Description string
+}
+
+// Attribute Agent descriptions by exact call ID within the same recorded owner
+// scope. Unlike handoffs, foreground Agent results are eligible metadata sources.
+func piAgentDescriptions(recs []rawRecord) []piAgentDescription {
+	calls := map[[2]string][]string{}
+	out := []piAgentDescription{}
+	for _, r := range recs {
+		if !isPiEventRecord(r) {
+			continue
+		}
+		owner := handoffOwner(r)
+		var m map[string]json.RawMessage
+		if json.Unmarshal(r.Message, &m) != nil {
+			continue
+		}
+		switch ledgerString(m, "role") {
+		case "assistant":
+			var blocks []json.RawMessage
+			_ = json.Unmarshal(m["content"], &blocks)
+			for _, raw := range blocks {
+				var b map[string]json.RawMessage
+				_ = json.Unmarshal(raw, &b)
+				kind := ledgerString(b, "type")
+				if (kind != "toolCall" && kind != "tool_use") || ledgerString(b, "name") != "Agent" {
+					continue
+				}
+				id := ledgerString(b, "id")
+				if id == "" {
+					continue
+				}
+				args := b["arguments"]
+				if len(args) == 0 {
+					args = b["input"]
+				}
+				var a map[string]json.RawMessage
+				_ = json.Unmarshal(args, &a)
+				calls[[2]string{owner, id}] = append(calls[[2]string{owner, id}], ledgerString(a, "description"))
+			}
+		case "toolResult":
+			if ledgerString(m, "toolName") != "Agent" {
+				continue
+			}
+			var details map[string]json.RawMessage
+			_ = json.Unmarshal(m["details"], &details)
+			child := ledgerString(details, "agentId")
+			if child == "" {
+				continue
+			}
+			description := ledgerString(details, "description")
+			matches := calls[[2]string{owner, ledgerString(m, "toolCallId")}]
+			if description == "" && len(matches) == 1 {
+				description = matches[0]
+			}
+			if description != "" {
+				out = append(out, piAgentDescription{Child: child, Description: description})
+			}
+		}
+	}
+	return out
+}
+
 // Join only exact, unique Agent call IDs in the same recorded owner scope.
 // ParentId is event sequencing, not a substitute for call identity.
 func piHandoffs(recs []rawRecord) []piHandoff {
