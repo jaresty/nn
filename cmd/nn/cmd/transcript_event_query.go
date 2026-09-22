@@ -48,9 +48,10 @@ func parseLedgerBound(value string) (*time.Time, error) {
 	return &t, nil
 }
 
-func buildQueriedLedgerPage(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string, all bool, q ledgerQuery) (ledgerPage, error) {
+func buildQueriedLedgerPage(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string, all bool, q ledgerQuery, diagnostics ...bool) (ledgerPage, error) {
+	diagnosticMode := len(diagnostics) > 0 && diagnostics[0]
 	if !q.active() {
-		return buildLedgerPage(session, id, schema, detail, selection, payload, events, page, supplied, eventFilter, all)
+		return buildLedgerPageUsing(session, id, schema, detail, selection, payload, events, page, supplied, eventFilter, all, nil, nil, diagnosticMode)
 	}
 	if eventFilter != "" {
 		return ledgerPage{}, fmt.Errorf("events: --event cannot be combined with window or error filters")
@@ -141,5 +142,5 @@ func buildQueriedLedgerPage(session, id, schema, detail string, selection []stri
 		receipt.First = endpoint(selected[0])
 		receipt.Last = endpoint(selected[len(selected)-1])
 	}
-	return buildLedgerPage(session, id, schema, detail, selection, payload, selected, page, supplied, "", all, receipt)
+	return buildLedgerPageUsing(session, id, schema, detail, selection, payload, selected, page, supplied, "", all, nil, []*ledgerQueryReceipt{receipt}, diagnosticMode)
 }

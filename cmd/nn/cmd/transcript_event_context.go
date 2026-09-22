@@ -159,7 +159,8 @@ func ledgerArgumentText(v any) string {
 	}
 }
 
-func buildWindowLedgerPage(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, event string, all bool, q ledgerQuery, o ledgerWindowOptions) (ledgerPage, error) {
+func buildWindowLedgerPage(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, event string, all bool, q ledgerQuery, o ledgerWindowOptions, diagnostics ...bool) (ledgerPage, error) {
+	diagnosticMode := len(diagnostics) > 0 && diagnostics[0]
 	// Bind all evidence used for matching, even when callers hide payload/facets.
 	full, err := buildLedgerPage(session, id, schema, detail, []string{"identity", "message", "usage", "tools", "lifecycle"}, true, events, 1, "", "", true)
 	if err != nil {
@@ -298,7 +299,7 @@ func buildWindowLedgerPage(session, id, schema, detail string, selection []strin
 					delete(out, f)
 				}
 			}
-			if !payload {
+			if !payload && !diagnosticMode {
 				delete(out, "payload")
 			}
 			out["window_match"] = anchors[i]
@@ -317,5 +318,5 @@ func buildWindowLedgerPage(session, id, schema, detail string, selection []strin
 		receipt.First = map[string]any{"event_id": selected[0]["event_id"], "ordinal": selected[0]["ordinal"]}
 		receipt.Last = map[string]any{"event_id": selected[len(selected)-1]["event_id"], "ordinal": selected[len(selected)-1]["ordinal"]}
 	}
-	return buildLedgerPage(session, id, schema, detail, selection, payload, selected, page, supplied, "", all, receipt)
+	return buildLedgerPageUsing(session, id, schema, detail, selection, payload, selected, page, supplied, "", all, nil, []*ledgerQueryReceipt{receipt}, diagnosticMode)
 }

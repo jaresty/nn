@@ -124,6 +124,20 @@ selects facets; available facets are identity/message/usage/tools/lifecycle (all
 identity always included). `--payload` opts into native payloads; `--event <event-id>` retrieves
 one exact event while preserving its full-ledger ordinal. Unknown event IDs fail.
 
+`--diagnostics` opts into bounded recorded-artifact diagnostics on ordinary JSON events,
+including filtered/windowed pages, exact events, and `--all`. Each complete event has a
+`diagnostics` object (`version`, `event_id`, `status`, `findings`, `inspection_complete`,
+`issues`). `detected` reports a recognized upstream elision or truncation signal;
+`not_detected` is **not** a completeness claim, and `uninspected` discloses material
+that could not be checked within the recognizer's limits. Artifact paths in findings
+are verbatim, unverified recorded references, not opened or verified files. This flag
+never reads artifacts or changes native payloads. Payload remains hidden unless
+`--payload` is separately supplied. Diagnostic snapshots bind the recognizer version
+and inspected retained payload even when hidden; continue with the same flag/options.
+Fragments must be reassembled before interpreting diagnostics. `--diagnostics` rejects
+text, summaries, handoffs (`--at`), assignment bundles, and combined-error tails.
+`--all` remains explicitly unbounded. Artifact reading is not a shipped operation.
+
 Pages expose `version`, `snapshot`, `page`, `pages`, `next_page`, `select`, `payload`, `schema`,
 `detail_status`, `event_filter`, and `events`. Retrieve every page with the same options and the
 page-1 `--snapshot`. Normal entries are directly usable event objects. An oversized event instead
@@ -143,8 +157,9 @@ Message/result text bytes and Unicode characters, and serialized argument/conten
 Pi shares show's authenticated selection and also exposes matching producer terminal records.
 SDK file ownership is confined; Claude Code inline child execution remains unavailable. `detail_status`
 is unavailable when there are no usable selected messages, even if terminal records exist. Snapshots
-bind selected projection/options, not unselected payload or original-source completeness. Payload and
-arguments are omitted by default. Use event-specific payload retrieval to inspect a standout; behavioral
+bind selected projection/options; diagnostic snapshots additionally bind the inspected
+retained payload even when hidden. Neither establishes original-source completeness.
+Payload and arguments are omitted by default. Use event-specific payload retrieval to inspect a standout; behavioral
 claims still require complete relevant evidence, not usage magnitude, result size, or producer status.
 
 ## Recorded failures and timestamp windows

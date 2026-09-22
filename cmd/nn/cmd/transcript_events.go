@@ -55,7 +55,7 @@ func newTranscriptEventsCmd() *cobra.Command {
 
 func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, string, string, error)) *cobra.Command {
 	var selection, snapshot, eventFilter, summary, groupBy, since, until, at string
-	var payload, asJSON, all, errorsOnly bool
+	var payload, asJSON, all, errorsOnly, diagnostics bool
 	var page, bucketSize, resultLimit, last int
 	var format string
 	var maxTextChars, includeErrors, assignmentChars int
@@ -73,6 +73,13 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 			return fmt.Errorf("events: agent-id or --agent is required")
 		}
 		summaryMode := c.Flags().Changed("summary")
+		if diagnostics {
+			for _, flag := range []string{"format", "summary", "at", "include-assignment", "include-errors"} {
+				if c.Flags().Changed(flag) && ((flag == "format" && format != "json") || flag != "format") {
+					return fmt.Errorf("events: --diagnostics cannot be combined with --%s", flag)
+				}
+			}
+		}
 		if err := window.configure(c, eventFilter, format); err != nil {
 			return err
 		}
@@ -236,7 +243,7 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 		if window.Enabled {
 			projectionFields, _ = ledgerSelect("identity,message,usage,tools,lifecycle")
 		}
-		events, err := projectLedger(records, args[1], projectionFields, payload || summary == "tools" || window.Enabled)
+		events, err := projectLedger(records, args[1], projectionFields, payload || diagnostics || summary == "tools" || window.Enabled)
 		if err != nil {
 			return err
 		}
@@ -260,9 +267,9 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 		}
 		var result ledgerPage
 		if window.Enabled {
-			result, err = buildWindowLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all || format == "text", query, window)
+			result, err = buildWindowLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all || format == "text", query, window, diagnostics)
 		} else {
-			result, err = buildQueriedLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all || format == "text", query)
+			result, err = buildQueriedLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all || format == "text", query, diagnostics)
 		}
 		if err != nil {
 			return err
@@ -308,6 +315,7 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 	c.Flags().StringVar(&eventFilter, "event", "", "retrieve one exact event id, preserving its ledger ordinal")
 	c.Flags().StringVar(&selection, "select", "identity,message,usage,tools,lifecycle", "comma-separated facets; identity is always included")
 	c.Flags().BoolVar(&payload, "payload", false, "include native payloads (oversized events are fragmented)")
+	c.Flags().BoolVar(&diagnostics, "diagnostics", false, "attach bounded recorded-artifact diagnostics to selected events")
 	c.Flags().BoolVar(&asJSON, "json", true, "emit bounded JSON (default; use --format text for readable tails)")
 	c.Flags().IntVar(&page, "page", 1, "one-based page")
 	c.Flags().StringVar(&snapshot, "snapshot", "", "page-1 SHA-256; required for every later page")
@@ -315,10 +323,14 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 }
 
 func buildLedgerPage(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string, all bool, queries ...*ledgerQueryReceipt) (ledgerPage, error) {
-	return buildLedgerPageWithHandoff(session, id, schema, detail, selection, payload, events, page, supplied, eventFilter, all, nil, queries...)
+	return buildLedgerPageUsing(session, id, schema, detail, selection, payload, events, page, supplied, eventFilter, all, nil, queries, false)
 }
 
 func buildLedgerPageWithHandoff(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string, all bool, handoff *handoffReceipt, queries ...*ledgerQueryReceipt) (ledgerPage, error) {
+	return buildLedgerPageUsing(session, id, schema, detail, selection, payload, events, page, supplied, eventFilter, all, handoff, queries, false)
+}
+
+func buildLedgerPageUsing(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string, all bool, handoff *handoffReceipt, queries []*ledgerQueryReceipt, diagnostics bool) (ledgerPage, error) {
 	if page < 1 || (page > 1 && supplied == "") {
 		return ledgerPage{}, fmt.Errorf("events: invalid page or missing snapshot")
 	}
@@ -346,11 +358,32 @@ func buildLedgerPageWithHandoff(session, id, schema, detail string, selection []
 	result.Handoff = handoff
 	header, _ := json.Marshal(result)
 	h := sha256.New()
-	writeSnapshotPart(h, []byte("nn transcript events snapshot v1"))
+	if diagnostics {
+		writeSnapshotPart(h, []byte("nn transcript events diagnostics snapshot v1"))
+		options, _ := json.Marshal([]any{transcriptArtifactVersion, diagnostics, payload, selection, eventFilter})
+		writeSnapshotPart(h, options)
+	} else {
+		writeSnapshotPart(h, []byte("nn transcript events snapshot v1"))
+	}
 	writeSnapshotPart(h, request)
 	writeSnapshotPart(h, header)
 	encoded := make([]json.RawMessage, len(events))
-	for i, e := range events {
+	for i, original := range events {
+		e := original
+		if diagnostics {
+			e = ledgerEvent{}
+			for k, v := range original {
+				e[k] = v
+			}
+			if raw, err := json.Marshal(original["payload"]); err == nil {
+				writeSnapshotPart(h, []byte("hidden-payload-evidence/v1"))
+				writeSnapshotPart(h, raw)
+			}
+			e["diagnostics"] = diagnoseTranscriptArtifactEvent(original)
+			if !payload {
+				delete(e, "payload")
+			}
+		}
 		b, err := json.Marshal(e)
 		if err != nil {
 			return ledgerPage{}, err
