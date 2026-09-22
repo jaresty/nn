@@ -2,8 +2,9 @@
 
 ## Status
 
-Proposed — recognition and opt-in JSON `events --diagnostics` are implemented;
-the explicit artifact reader and final security/interface acceptance remain proposed.
+Accepted — bounded recognition, opt-in JSON `events --diagnostics`, and the
+separate explicit artifact reader are implemented with the admission and
+provenance constraints below.
 
 ## Context and evidence
 
@@ -71,21 +72,26 @@ a transcript-provided path as an executable shell command.
 
 ### 4. Make artifact reading a separate explicit operation
 
-Proposed interface: `transcript artifact read` identifies the session, agent,
-exact event, diagnostic snapshot, and reference, and requires a caller-supplied
-absolute `--allow-root`. Reading is never triggered by listing, search, export,
-or diagnostic enrichment. No editor, browser, shell execution, network fetch,
-or recursive artifact-following occurs.
+Implemented interface: `transcript artifact read <session> <agent-id> --event
+<id> --snapshot <hash> --finding <one-based-index> --allow-root <absolute-root>`.
+The snapshot must come from the default-facet, no-payload `events --diagnostics
+--event <id>` projection, not a filtered or payload projection. The selected
+finding must carry a recorded artifact path; callers never supply a path as
+authority. Reading is never triggered by listing, search, export, or diagnostic
+enrichment. No editor, browser, shell execution, network fetch, or recursive
+artifact-following occurs.
 
-Only absolute local paths resolving beneath the explicitly approved root are
+Only absolute local paths lexically beneath the explicitly approved root are
 eligible. Reject parent traversal, unsupported URI schemes, non-regular files,
-and symlink traversal for the initial implementation. Use descriptor-relative,
-no-follow traversal/opening so a path swap cannot escape the approved root between
-validation and reading. A filename prefix alone is not an authorization boundary.
-Fail closed where this admission contract cannot be implemented.
+and symlink traversal in the root, intermediate components, or leaf. Darwin/Linux
+use descriptor-relative no-follow traversal/opening so a path swap cannot escape
+the approved descriptor chain. A filename prefix alone is not an authorization
+boundary. Other platforms fail closed; a symlinked root spelling must be replaced
+with an explicitly approved symlink-free spelling.
 
-Return bounded bytes plus event/snapshot/reference provenance, recorded path,
-measured byte count, digest of acquired bytes, and explicit coverage. Do not splice
+Return at most 16,384 acquired bytes as base64 plus event/snapshot/reference
+provenance, recorded path, measured byte count, digest of acquired bytes, and
+explicit `complete`, `partial`, or `unstable` coverage. Do not splice
 artifact content into the original event or overwrite the retained payload. A
 successful read is a new acquisition of current artifact bytes: without a recorded
 digest it is not proof of identity with historical output. Oversized reads disclose
@@ -124,11 +130,15 @@ The artifact reader must be separate from the Pi sidechain resolver.
 
 ## Delivery and verification
 
-Opt-in diagnostic recognition and JSON event reporting are implemented and covered
-by focused and owning-package tests. The reader remains unimplemented: require its
-admission and provenance tests before implementation. Keep this ADR Proposed until
-the reader's interface and safety contract are accepted. Diagnostic listing has no
-artifact reader; static review supports no artifact I/O, but no dynamic artifact-open
-spy has been run for the listing path.
+Recognition, JSON diagnostics and the separate reader are implemented. Focused
+security tests cover snapshot-before-open, root/path denial, symlink components,
+FIFO, bounded bytes, acquired-prefix digest, detectable change and a swap adversary;
+reader tests and the owning-package suite passed on Darwin, with Linux/Windows
+cross-compilation. Tests do not prove every concurrent race absent or historical
+artifact identity. Diagnostic listing still has no artifact reader; no dynamic
+artifact-open spy has been run for the listing path. The delegated reader writer
+missed its child-local Bar sequencing gate; parent review retained its code as
+bounded evidence, corrected typed unsupported-platform behavior under a new phase,
+and independently verified the integrated implementation.
 
 See [regression-test plan](../transcript-artifact-diagnostics-test-plan.md).

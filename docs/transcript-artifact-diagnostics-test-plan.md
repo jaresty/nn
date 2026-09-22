@@ -1,6 +1,6 @@
 # Transcript artifact diagnostics: regression-test plan
 
-Status: recognition and opt-in JSON CLI tests implemented; explicit reader tests remain proposed. This matrix includes deferred cases, not a claim that every row has a test.
+Status: recognition, opt-in JSON CLI and explicit reader tests implemented. This matrix includes residual limits, not a claim that every row has a separately witnessed RED.
 Owner: [ADR 0068](adr/0068-transcript-upstream-elision-and-artifact-references.md).
 
 ## Evidence-derived fixture
@@ -93,30 +93,34 @@ path equality. A path-layout match is not a substitute for explicit root admissi
   readable diagnostics are explicitly unsupported in this increment.
 - Keep `TestTranscriptPiRawPreservesMessagesInEveryRoute` as a compatibility guard;
   it exercises subagent resolution, not generic artifact recovery.
-- New artifact reader tests with an injected opener for denied-path/no-I/O checks
-  and real temporary directories for descriptor/no-follow integration tests.
-- The embedded `nn-transcript` events reference documents the shipped JSON flag;
-  proposed artifact-reader commands must not appear as available capabilities.
+- Reader tests in `transcript_artifact_read_test.go` and the Unix-tagged test file
+  use an injected opener for denied-path/no-I/O checks and real temporary
+  directories for descriptor/no-follow integration tests.
+- The embedded `nn-transcript` events reference documents both shipped commands,
+  including the exact-event snapshot and explicit-root requirement.
 
-Remaining reader test locations are proposed, not claims of existing tests or call topology.
+Test locations do not establish call topology or historical artifact identity.
 
 ## Verification order
 
 1. Recognizer tests and assertion-specific CLI REDs precede the implemented JSON projection.
 2. Run focused recognition, JSON projection, pagination and compatibility tests.
-3. Add explicit-reader admission/provenance tests before its implementation.
+3. Explicit-reader admission/provenance tests preceded or counterfactually guarded implementation.
 4. Run targeted artifact tests plus existing raw/meaningful projection, exports,
    paging, and Pi sidechain ownership compatibility tests.
 5. Run the owning Go package suite once, then broader checks required by the eventual
    diff. Record actual commands and results in the implementation handoff.
 
 Do not accept a feature solely because a fixture exists: verify its assertions and results.
-No dynamic artifact-open spy has run for diagnostics listing; the reader's injected
-opener and denied-path tests must establish that boundary before reader acceptance.
+No dynamic artifact-open spy has run for diagnostics listing. The reader's injected
+opener tests establish no opener call on invalid root, missing reference, wrong event,
+stale snapshot, and rejected recorded path; this does not cover every possible I/O path.
 
 ## Open acceptance decisions
 
 - JSON `events --diagnostics` and recognizer v1 are implemented; text mode is rejected.
-- Explicit artifact-reader command, admission policy, and provenance schema remain open.
-- Supported platforms for descriptor-relative no-follow acquisition; fail closed on
-  unsupported platforms rather than silently substituting check-then-open.
+- `transcript artifact read` uses an exact-event snapshot, one-based finding, explicit
+  symlink-free root, and a 16,384-byte bound; Darwin/Linux use descriptor-relative
+  no-follow opens and other platforms fail closed.
+- Source evidence and focused tests cannot prove absence of every filesystem race
+  or identity with the historical producer artifact.

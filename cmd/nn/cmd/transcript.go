@@ -63,7 +63,7 @@ func newTranscriptCmd(state *rootState) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.AddCommand(newTranscriptObserveCmd(), newTranscriptAttentionCmd(), newTranscriptContextCmd(), newTranscriptReviewCmd(), newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd(), newTranscriptSearchCmd(), newTranscriptEventsCmd(), newTranscriptReceiptCmd(state))
+	cmd.AddCommand(newTranscriptObserveCmd(), newTranscriptAttentionCmd(), newTranscriptContextCmd(), newTranscriptReviewCmd(), newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd(), newTranscriptSearchCmd(), newTranscriptEventsCmd(), newTranscriptArtifactCmd(), newTranscriptReceiptCmd(state))
 	return cmd
 }
 

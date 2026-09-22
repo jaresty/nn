@@ -136,7 +136,33 @@ never reads artifacts or changes native payloads. Payload remains hidden unless
 and inspected retained payload even when hidden; continue with the same flag/options.
 Fragments must be reassembled before interpreting diagnostics. `--diagnostics` rejects
 text, summaries, handoffs (`--at`), assignment bundles, and combined-error tails.
-`--all` remains explicitly unbounded. Artifact reading is not a shipped operation.
+`--all` remains explicitly unbounded. Reading a recorded artifact requires the separate,
+explicit operation below; listing diagnostics never opens it.
+
+### Explicit artifact acquisition
+
+Obtain an exact-event snapshot first:
+
+```bash
+nn transcript events <session> <agent-id> --diagnostics --event <event-id>
+nn transcript artifact read <session> <agent-id> --event <event-id> --snapshot <exact-event-diagnostic-snapshot> --finding 1 --allow-root <absolute-symlink-free-directory>
+```
+
+`--finding` is **one-based** in the diagnostic's ordered findings; it must carry a
+recorded artifact reference. The reader recomputes the *default-facet, no-`--payload`*
+exact-event diagnostic snapshot before touching an artifact path. A window, `--last`,
+custom-facet, or payload snapshot is not interchangeable: rerun the exact-event
+command above. The caller must explicitly approve an absolute local root; the
+recorded path must be lexically beneath it. The reader rejects symlink components
+(including within the approved root), missing or nonregular files, and unsupported
+platforms rather than following paths. On Darwin/Linux it walks descriptors with
+no-follow opens; other platforms fail closed. A macOS `/var` spelling may be a
+symlink—approve an explicit symlink-free spelling instead. The result is bounded to
+16,384 acquired bytes, base64-encoded with a digest of **only those bytes** and
+`complete`, `partial`, or `unstable` coverage. It describes a new acquisition of
+present bytes; neither path nor snapshot proves historical artifact identity.
+Do not run this operation merely to browse diagnostics, and do not publish sensitive
+acquired bytes without the user's authorization.
 
 Pages expose `version`, `snapshot`, `page`, `pages`, `next_page`, `select`, `payload`, `schema`,
 `detail_status`, `event_filter`, and `events`. Retrieve every page with the same options and the
