@@ -21,6 +21,8 @@ not an interactive CLI or a persistent monitoring UI. Use the co-versioned nativ
   Do not open an enablement wizard or require a conversation picker before useful observation.
 - **Question / explicit action:** load **investigate**, resolve the target, and answer directly.
   Let the question choose evidence; a thread tree is not a mandatory navigation journey.
+- **Overall-goal progress or course correction:** load **integration-review** to compare cumulative work
+  with an accepted plan, identify the first missing integration edge, and define one bounded next checkpoint.
 - **Explicit browsing or hierarchy (Transcript Office):** load **discovery** or **navigate**. Queues and hierarchy are
   optional views, not the default observation population.
 - **Learning:** proactively suggest a useful source-qualified capture through **actions**.
@@ -46,6 +48,7 @@ Discover applicability with `nn skills get nn-transcript --list-references`.
 |---|---|
 | Open-ended observation / self-contained default recipe | `nn skills get nn-transcript --reference observe` |
 | Question-driven evidence selection | `nn skills get nn-transcript --reference investigate` |
+| Overall-goal trajectory, completion-path assessment, and integration course correction | `nn skills get nn-transcript --reference integration-review` |
 | Targets, scope, Back, Refresh, pickers | `nn skills get nn-transcript --reference interaction` |
 | Learning, capture proposals, and integration receipts | `nn skills get nn-transcript --reference actions` |
 | Conversation metadata / labels / cursors | `nn skills get nn-transcript --reference discovery` |
