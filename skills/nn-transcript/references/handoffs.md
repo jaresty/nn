@@ -31,11 +31,14 @@ nn transcript events <parent-session> <agent-id> --at return --payload
 ```
 
 These shortcuts currently support Pi. They read only the supplied canonical parent file—no inferred
-sidechain or parent discovery. Launches are structured Agent background acknowledgments; return events
-are exact matching `subagents:record` producer terminal records, not inferred text notifications or
-proof of task success. Launch invocation matching requires a unique Agent call ID and unique
-acknowledgment within the same recorded owner scope. Duplicate IDs are ambiguous, absent candidates
-missing, absent IDs unavailable; never use `parentId` sequencing or adjacent text to guess a join.
+sidechain or parent discovery. Launches are structured Agent tool results carrying an exact child ID,
+including background acknowledgments and foreground completions; return events are exact matching
+`subagents:record` producer terminal records, not inferred text notifications or proof of task success.
+Launch invocation matching requires a unique Agent call ID and unique tool result within the same
+recorded owner scope. Duplicate IDs are ambiguous, absent candidates missing, absent IDs unavailable;
+never use `parentId` sequencing or adjacent text to guess a join. A foreground completion with no
+retained child messages or sidechain locator recovers assignment custody but leaves event detail
+explicitly unavailable; it never establishes the child's tool-level process.
 
 The normal bounded ledger envelope adds `handoff` with `at`, `status`, `launches`, `returns`,
 `occurrences` (all occurrences of the requested kind, before an optional exact-event filter), and

@@ -117,7 +117,7 @@ func TestTranscriptTreeDescriptionSelectsForegroundCompletion(t *testing.T) {
 		t.Fatalf("%s fallback: execute=%v decode=%v %s", assertion, err, decodeErr, out)
 	}
 	out, err = execute("transcript", "events", session, "agent-a", "--at", "launch")
-	if err != nil || !strings.Contains(out, `"status":"not_observed"`) || strings.Contains(out, `"kind":"launch"`) {
+	if err != nil || !strings.Contains(out, `"status":"observed"`) || !strings.Contains(out, `"kind":"launch"`) {
 		t.Fatalf("%s handoff: %v %s", assertion, err, out)
 	}
 }

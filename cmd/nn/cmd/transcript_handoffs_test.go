@@ -134,6 +134,38 @@ func TestTranscriptHandoffSelection(t *testing.T) {
 	t.Log(a + ": PASS")
 }
 
+func TestTranscriptForegroundHandoffSelection(t *testing.T) {
+	const a = "ASSERT_FOREGROUND_HANDOFF_SELECTION"
+	path := filepath.Join(t.TempDir(), "foreground.jsonl")
+	writeTranscriptFile(t, path, strings.Join([]string{
+		`{"type":"session"}`,
+		`{"type":"message","id":"invoke","message":{"role":"assistant","content":[{"type":"toolCall","id":"fg-call","name":"Agent","arguments":{"description":"Inspect foreground evidence","prompt":"FOREGROUND ASSIGNMENT"}}]}}`,
+		`{"type":"message","id":"result","parentId":"invoke","message":{"role":"toolResult","toolName":"Agent","toolCallId":"fg-call","details":{"status":"completed","agentId":"FG","description":"Inspect foreground evidence","subagentType":"integration-planner","toolUses":7}}}`,
+		`{"type":"custom","id":"done","customType":"subagents:record","data":{"id":"FG","type":"integration-planner","status":"completed","result":"foreground return"}}`,
+	}, "\n")+"\n")
+	_, execute := setupNotebook(t)
+	launch, err := execute("transcript", "events", path, "FG", "--at", "launch", "--payload")
+	if err != nil || !strings.Contains(launch, `"status":"observed"`) || !strings.Contains(launch, "FOREGROUND ASSIGNMENT") {
+		t.Fatalf("%s: foreground launch unavailable: %v %s", a, err, launch)
+	}
+	if strings.Count(launch, `"kind":"launch"`) != 1 || !strings.Contains(launch, `"match_status":"matched"`) {
+		t.Fatalf("%s: foreground launch identity: %s", a, launch)
+	}
+	returned, err := execute("transcript", "events", path, "FG", "--at", "return", "--payload")
+	if err != nil || !strings.Contains(returned, `"status":"observed"`) || !strings.Contains(returned, "foreground return") {
+		t.Fatalf("%s: distinct return unavailable: %v %s", a, err, returned)
+	}
+	events, err := execute("transcript", "events", path, "FG")
+	if err != nil || !strings.Contains(events, `"detail_status":"unavailable"`) {
+		t.Fatalf("%s: missing honest detail ceiling: %v %s", a, err, events)
+	}
+	assignment, err := execute("transcript", "events", path, "FG", "--last", "10", "--include-assignment", "--format", "text")
+	if err != nil || !strings.Contains(assignment, "FOREGROUND ASSIGNMENT") || !strings.Contains(assignment, "detail: unavailable") {
+		t.Fatalf("%s: foreground assignment/detail ceiling: %v %s", a, err, assignment)
+	}
+	t.Log(a + ": PASS")
+}
+
 func TestTranscriptHandoffTransport(t *testing.T) {
 	const a = "ASSERT_HANDOFF_TRANSPORT"
 	path := handoffFixture(t)

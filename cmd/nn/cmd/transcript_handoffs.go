@@ -102,6 +102,8 @@ func piAgentDescriptions(recs []rawRecord) []piAgentDescription {
 }
 
 // Join only exact, unique Agent call IDs in the same recorded owner scope.
+// Both background acknowledgments and foreground completions are invocation
+// occurrences when their Agent tool result carries an exact child ID.
 // ParentId is event sequencing, not a substitute for call identity.
 func piHandoffs(recs []rawRecord) []piHandoff {
 	calls := map[[2]string][]piInvocation{}
@@ -157,7 +159,7 @@ func piHandoffs(recs []rawRecord) []piHandoff {
 		var details map[string]json.RawMessage
 		_ = json.Unmarshal(m["details"], &details)
 		child := ledgerString(details, "agentId")
-		if ledgerString(details, "status") != "background" || child == "" {
+		if child == "" {
 			continue
 		}
 		callID := ledgerString(m, "toolCallId")
