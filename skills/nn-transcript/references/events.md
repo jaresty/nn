@@ -165,7 +165,7 @@ Do not run this operation merely to browse diagnostics, and do not publish sensi
 acquired bytes without the user's authorization.
 
 Pages expose `version`, `snapshot`, `page`, `pages`, `next_page`, `select`, `payload`, `schema`,
-`detail_status`, `event_filter`, and `events`. Retrieve every page with the same options and the
+`detail_status`, optional `detail_reason`, `event_filter`, and `events`. The reason `producer_child_transcript_locator_unavailable` means an exact Pi child launch is attributable but no usable child-owned messages or authenticated sidechain locator were retained; it does not establish that the child performed no tool work. Retrieve every page with the same options and the
 page-1 `--snapshot`. Normal entries are directly usable event objects. An oversized event instead
 has `event_id`, `ordinal`, `segment`, `segments`, and `text`: concatenate its ordered text fragments
 and JSON-decode before interpreting or counting it. Pages including newline are at most 48,000 bytes.
@@ -182,7 +182,7 @@ Message/result text bytes and Unicode characters, and serialized argument/conten
 
 Pi shares show's authenticated selection and also exposes matching producer terminal records.
 SDK file ownership is confined; Claude Code inline child execution remains unavailable. `detail_status`
-is unavailable when there are no usable selected messages, even if terminal records exist. Snapshots
+is unavailable when there are no usable selected messages, even if terminal records exist. For an attributable Pi child with no usable authenticated sidechain locator, additive `detail_reason=producer_child_transcript_locator_unavailable` identifies the producer custody gap without fabricating child events. Snapshots
 bind selected projection/options; diagnostic snapshots additionally bind the inspected
 retained payload even when hidden. Neither establishes original-source completeness.
 Payload and arguments are omitted by default. Use event-specific payload retrieval to inspect a standout; behavioral

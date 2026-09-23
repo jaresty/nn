@@ -25,7 +25,7 @@ background room. For a question, discovery is a means of locating evidence, not 
 ## Find an agent by launch name
 
 Use `nn transcript ls --json` to select the parent session from the bounded Claude, Codex, and Pi default roots (or `nn transcript ls <root> --json` for an explicit scope), then
-`nn transcript tree <session> --description "<exact launch name>" --json`. This filters authenticated
+`nn transcript tree <session> --description "<exact launch name>" --json`. Discovery returns at most 50 newest matching sessions by default; use a positive `--limit` for a smaller page, its row cursor to continue, or explicit `--limit 0` only for intentionally exhaustive output. This filters authenticated
 launch metadata after complete tree validation and rollup, returns every exact case-sensitive match in
 canonical tree order, and returns `[]` when there are none; descriptions are not unique identities.
 It composes with `--fields` and rejects combination with `--agent`. Keep the selected agent ID for
@@ -60,7 +60,7 @@ nn transcript ls --json --conversation-kind conversation --limit <N>         # b
 nn transcript ls <dir> --json --conversation-kind conversation --limit <N>   # explicit bounded scope
 ```
 
-With no `<dir>`, discovery checks only the registered Claude, Codex, and Pi roots and reports unavailable roots on stderr. An explicit `<dir>` remains the highest-priority scope and is never combined with defaults.
+With no `<dir>`, discovery checks only the registered Claude, Codex, and Pi roots and reports unavailable roots on stderr. An explicit `<dir>` remains the highest-priority scope and is never combined with defaults. Bare discovery is capped at 50 rows; `--limit 0` is the explicit unbounded escape hatch and should not be used for ordinary parent selection.
 Use native `--conversation-kind conversation` for a conversation lobby or
 `--conversation-kind sidechain` for a sidechain-only cohort; do not pipe through `jq` merely to remove
 the other kind. The filter is applied before pagination, and its value is bound into the cursor

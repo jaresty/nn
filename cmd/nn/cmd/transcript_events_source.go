@@ -39,6 +39,50 @@ func readOwnedPiSidechain(path, id string) ([]rawRecord, string) {
 	return ownedPiRecords(recs, id, true), safe
 }
 
+func transcriptDetailReason(path, id, schema, detail string) string {
+	if schema != schemaPi || detail != "unavailable" || id == "" || id == "ROOT" {
+		return ""
+	}
+	recs, err := readRecords(path)
+	if err != nil {
+		return ""
+	}
+	hasLaunch := false
+	for _, handoff := range piHandoffs(recs) {
+		if handoff.Kind == "launch" && handoff.Child == id {
+			hasLaunch = true
+			break
+		}
+	}
+	if !hasLaunch {
+		return ""
+	}
+	for _, r := range recs {
+		if r.Type != "message" {
+			continue
+		}
+		var msg message
+		if json.Unmarshal(r.Message, &msg) != nil || msg.Details.AgentID != id {
+			continue
+		}
+		path := msg.Details.FullOutputPath
+		if path == "" {
+			var blocks []contentBlock
+			_ = json.Unmarshal(msg.Content, &blocks)
+			for _, block := range blocks {
+				if candidate := parseOutputFileLocator(block.Text); candidate != "" {
+					path = candidate
+					break
+				}
+			}
+		}
+		if validatePiSidechainPath(path, id) != "" {
+			return ""
+		}
+	}
+	return "producer_child_transcript_locator_unavailable"
+}
+
 type ledgerRecord struct {
 	Record    rawRecord
 	Path      string

@@ -37,8 +37,8 @@ including background acknowledgments and foreground completions; return events a
 Launch invocation matching requires a unique Agent call ID and unique tool result within the same
 recorded owner scope. Duplicate IDs are ambiguous, absent candidates missing, absent IDs unavailable;
 never use `parentId` sequencing or adjacent text to guess a join. A foreground completion with no
-retained child messages or sidechain locator recovers assignment custody but leaves event detail
-explicitly unavailable; it never establishes the child's tool-level process.
+retained child messages or authenticated sidechain locator recovers assignment custody but leaves event detail
+explicitly unavailable with `detail_reason=producer_child_transcript_locator_unavailable`; it never establishes the child's tool-level process.
 
 The normal bounded ledger envelope adds `handoff` with `at`, `status`, `launches`, `returns`,
 `occurrences` (all occurrences of the requested kind, before an optional exact-event filter), and

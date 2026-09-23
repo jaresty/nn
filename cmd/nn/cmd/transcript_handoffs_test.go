@@ -156,11 +156,11 @@ func TestTranscriptForegroundHandoffSelection(t *testing.T) {
 		t.Fatalf("%s: distinct return unavailable: %v %s", a, err, returned)
 	}
 	events, err := execute("transcript", "events", path, "FG")
-	if err != nil || !strings.Contains(events, `"detail_status":"unavailable"`) {
+	if err != nil || !strings.Contains(events, `"detail_status":"unavailable"`) || !strings.Contains(events, `"detail_reason":"producer_child_transcript_locator_unavailable"`) {
 		t.Fatalf("%s: missing honest detail ceiling: %v %s", a, err, events)
 	}
 	assignment, err := execute("transcript", "events", path, "FG", "--last", "10", "--include-assignment", "--format", "text")
-	if err != nil || !strings.Contains(assignment, "FOREGROUND ASSIGNMENT") || !strings.Contains(assignment, "detail: unavailable") {
+	if err != nil || !strings.Contains(assignment, "FOREGROUND ASSIGNMENT") || !strings.Contains(assignment, "detail: unavailable (producer_child_transcript_locator_unavailable)") {
 		t.Fatalf("%s: foreground assignment/detail ceiling: %v %s", a, err, assignment)
 	}
 	t.Log(a + ": PASS")
@@ -169,9 +169,17 @@ func TestTranscriptForegroundHandoffSelection(t *testing.T) {
 func TestTranscriptHandoffTransport(t *testing.T) {
 	const a = "ASSERT_HANDOFF_TRANSPORT"
 	path := handoffFixture(t)
+	side := filepath.Join(t.TempDir(), "pi-subagents-test", "session", "tasks", "AAA.output")
+	writeTranscriptFile(t, side, `{"type":"message","agentId":"AAA","message":{"role":"assistant","content":"child detail"}}`+"\n")
 	b, _ := os.ReadFile(path)
-	writeTranscriptFile(t, path, strings.Replace(string(b), "EXACT ASSIGNMENT", strings.Repeat("α😀", 16000), 1))
+	content := strings.Replace(string(b), "EXACT ASSIGNMENT", strings.Repeat("α😀", 16000), 1)
+	content = strings.Replace(content, `"details":{"status":"background","agentId":"AAA"`, `"content":[{"type":"text","text":"Output file: `+side+`"}],"details":{"status":"background","agentId":"AAA"`, 1)
+	writeTranscriptFile(t, path, content)
 	_, execute := setupNotebook(t)
+	detail, err := execute("transcript", "events", path, "AAA")
+	if err != nil || !strings.Contains(detail, `"detail_status":"available"`) || strings.Contains(detail, `"detail_reason"`) {
+		t.Fatalf("%s: background sidechain detail changed: %v %s", a, err, detail)
+	}
 	flags := []string{"transcript", "events", path, "AAA", "--at", "launch", "--payload"}
 	out, err := execute(flags...)
 	if err != nil {

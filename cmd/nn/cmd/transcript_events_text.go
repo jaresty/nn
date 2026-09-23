@@ -14,7 +14,15 @@ func renderLedgerText(w io.Writer, p ledgerPage, maxChars int) error {
 	if p.Query != nil {
 		omitted = p.Query.Total - len(p.Events)
 	}
-	if _, e := fmt.Fprintf(w, "snapshot: %s\nreturned: %d · omitted: %d · detail: %s\n", p.Snapshot, len(p.Events), omitted, p.DetailStatus); e != nil {
+	if _, e := fmt.Fprintf(w, "snapshot: %s\nreturned: %d · omitted: %d · detail: %s", p.Snapshot, len(p.Events), omitted, p.DetailStatus); e != nil {
+		return e
+	}
+	if p.DetailReason != "" {
+		if _, e := fmt.Fprintf(w, " (%s)", p.DetailReason); e != nil {
+			return e
+		}
+	}
+	if _, e := fmt.Fprintln(w); e != nil {
 		return e
 	}
 	windowed := p.Query != nil && p.Query.Window != nil

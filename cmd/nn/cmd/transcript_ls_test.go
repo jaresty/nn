@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,6 +102,38 @@ func TestTranscriptLsListsRecentFirst(t *testing.T) {
 	if !strings.Contains(out, "sdk-cli") {
 		t.Errorf("expected schema label in ls output:\n%s", out)
 	}
+}
+
+func TestTranscriptLsDefaultIsBoundedAndExplicitZeroIsExhaustive(t *testing.T) {
+	const a = "ASSERT_TRANSCRIPT_LS_DEFAULT_BOUND_EXPLICIT_EXHAUSTIVE"
+	dir := t.TempDir()
+	base := time.Now().Add(-time.Hour)
+	for i := 0; i < 51; i++ {
+		path := filepath.Join(dir, fmt.Sprintf("session-%02d.jsonl", i))
+		writeTranscriptFile(t, path, `{"type":"session","version":3,"id":"session"}`+"\n")
+		stamp := base.Add(time.Duration(i) * time.Second)
+		if err := os.Chtimes(path, stamp, stamp); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, execute := setupNotebook(t)
+	bounded, err := execute("transcript", "ls", dir, "--json")
+	if err != nil {
+		t.Fatalf("%s: bounded execution: %v", a, err)
+	}
+	var boundedRows []sessionRow
+	if err := json.Unmarshal([]byte(bounded), &boundedRows); err != nil || len(boundedRows) != 50 {
+		t.Fatalf("%s: default rows=%d decode=%v", a, len(boundedRows), err)
+	}
+	exhaustive, err := execute("transcript", "ls", dir, "--json", "--limit", "0")
+	if err != nil {
+		t.Fatalf("%s: exhaustive execution: %v", a, err)
+	}
+	var exhaustiveRows []sessionRow
+	if err := json.Unmarshal([]byte(exhaustive), &exhaustiveRows); err != nil || len(exhaustiveRows) != 51 {
+		t.Fatalf("%s: explicit zero rows=%d decode=%v", a, len(exhaustiveRows), err)
+	}
+	t.Log(a + ": PASS")
 }
 
 // Assertion [15]: each row includes a compact inline mini-tree preview.

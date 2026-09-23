@@ -94,7 +94,7 @@ func newTranscriptLsCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().IntVar(&limit, "limit", 0, "list at most N sessions (0 = all)")
+	cmd.Flags().IntVar(&limit, "limit", 50, "list at most N sessions (default 50; explicit 0 = all)")
 	cmd.Flags().StringVar(&before, "before", "", "only sessions modified strictly before this RFC3339 timestamp (repeat with --cursor)")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "continue after a row cursor from the same inventory and filters")
 	cmd.Flags().StringVar(&conversationKind, "conversation-kind", "", "filter to conversation or sidechain rows")

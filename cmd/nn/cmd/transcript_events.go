@@ -27,6 +27,7 @@ type ledgerPage struct {
 	Payload      bool                `json:"payload"`
 	Schema       string              `json:"schema"`
 	DetailStatus string              `json:"detail_status"`
+	DetailReason string              `json:"detail_reason,omitempty"`
 	Events       []json.RawMessage   `json:"events"`
 }
 
@@ -351,7 +352,7 @@ func buildLedgerPageUsing(session, id, schema, detail string, selection []string
 		return ledgerPage{}, err
 	}
 	request, _ := json.Marshal([]any{filepath.Clean(absolute), id, selection, payload})
-	result := ledgerPage{Version: "nn.transcript.events/v1", EventFilter: eventFilter, Select: selection, Payload: payload, Schema: schema, DetailStatus: detail, Events: []json.RawMessage{}}
+	result := ledgerPage{Version: "nn.transcript.events/v1", EventFilter: eventFilter, Select: selection, Payload: payload, Schema: schema, DetailStatus: detail, DetailReason: transcriptDetailReason(absolute, id, schema, detail), Events: []json.RawMessage{}}
 	if len(queries) > 0 {
 		result.Query = queries[0]
 	}
