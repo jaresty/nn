@@ -55,6 +55,28 @@ func TestTranscriptReceiptCreatesBoundedExpiringNote(t *testing.T) {
 	}
 }
 
+func TestTranscriptReceiptAcceptsDayAndStandardDurations(t *testing.T) {
+	fixed := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	orig := transcriptReceiptNow
+	transcriptReceiptNow = func() time.Time { return fixed }
+	defer func() { transcriptReceiptNow = orig }()
+
+	for _, duration := range []string{"14d", "336h"} {
+		t.Run(duration, func(t *testing.T) {
+			_, execute := setupNotebook(t)
+			transcript := writePiReceiptTranscript(t, t.TempDir(), "session-duration")
+			out, err := execute("transcript", "receipt", transcript,
+				"--assignment", "Accept duration", "--disposition", "accepted", "--expires-in", duration)
+			if err != nil {
+				t.Fatalf("receipt with duration %s: %v", duration, err)
+			}
+			if !strings.Contains(out, "expires: 2026-09-25") {
+				t.Fatalf("receipt output:\n%s", out)
+			}
+		})
+	}
+}
+
 func TestTranscriptReceiptResolvesDiscoveredSessionID(t *testing.T) {
 	_, execute := setupNotebook(t)
 	home := t.TempDir()

@@ -16,7 +16,7 @@ var transcriptReceiptNow = func() time.Time { return time.Now().UTC() }
 func newTranscriptReceiptCmd(state *rootState) *cobra.Command {
 	var assignment, disposition, parentSession string
 	var adopted, rejected, results, verification []string
-	var expiresIn time.Duration
+	var expiresInValue string
 	var linkTos, linkTypes, annotations []string
 
 	cmd := &cobra.Command{
@@ -24,6 +24,10 @@ func newTranscriptReceiptCmd(state *rootState) *cobra.Command {
 		Short: "Create an expiring parent-adjudicated transcript integration receipt",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			expiresIn, err := parseReceiptDuration(expiresInValue)
+			if err != nil {
+				return fmt.Errorf("invalid --expires-in %q: %w", expiresInValue, err)
+			}
 			assignment = strings.TrimSpace(assignment)
 			if assignment == "" {
 				return fmt.Errorf("--assignment is required")
@@ -106,11 +110,23 @@ func newTranscriptReceiptCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringArrayVar(&results, "result", nil, "Resulting artifact, decision, or commit (repeatable)")
 	cmd.Flags().StringArrayVar(&verification, "verification", nil, "Parent verification result (repeatable)")
 	cmd.Flags().StringVar(&parentSession, "parent-session", "", "Parent session ID when known")
-	cmd.Flags().DurationVar(&expiresIn, "expires-in", 14*24*time.Hour, "Receipt lifetime (default 336h)")
+	cmd.Flags().StringVar(&expiresInValue, "expires-in", "14d", "Receipt lifetime, including day units such as 14d (default 14d)")
 	cmd.Flags().StringArrayVar(&linkTos, "link-to", nil, "Link receipt to an existing note ID (repeatable)")
 	cmd.Flags().StringArrayVar(&linkTypes, "link-type", nil, "Known link type paired with --link-to")
 	cmd.Flags().StringArrayVar(&annotations, "annotation", nil, "Link annotation paired with --link-to")
 	return cmd
+}
+
+func parseReceiptDuration(value string) (time.Duration, error) {
+	value = strings.TrimSpace(value)
+	if strings.HasSuffix(value, "d") {
+		days, err := time.ParseDuration(strings.TrimSuffix(value, "d") + "h")
+		if err != nil {
+			return 0, err
+		}
+		return days * 24, nil
+	}
+	return time.ParseDuration(value)
 }
 
 func writeReceiptSection(body *strings.Builder, title string, values []string) {
