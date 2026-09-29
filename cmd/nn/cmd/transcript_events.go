@@ -60,18 +60,48 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 	var page, bucketSize, resultLimit, last int
 	var format string
 	var maxTextChars, includeErrors, assignmentChars int
-	var namedAgent string
+	var namedAgent, description string
 	var includeAssignment bool
 	var window ledgerWindowOptions
-	c := &cobra.Command{Use: "events <session> <agent-id>", Short: "Snapshot-bound event ledger (JSON) or bounded readable tail", Args: transcriptSessionArgs(cobra.RangeArgs(1, 2)), RunE: func(c *cobra.Command, args []string) error {
-		if c.Flags().Changed("agent") {
+	c := &cobra.Command{Use: "events <session> [agent-id]", Short: "Snapshot-bound event ledger (JSON) or bounded readable tail", Args: transcriptSessionArgs(cobra.RangeArgs(1, 2)), RunE: func(c *cobra.Command, args []string) error {
+		agentFlag := c.Flags().Changed("agent")
+		descriptionFlag := c.Flags().Changed("description")
+		if agentFlag && descriptionFlag {
+			return fmt.Errorf("events: --agent cannot be combined with --description")
+		}
+		if agentFlag {
 			if len(args) != 1 || strings.TrimSpace(namedAgent) == "" {
 				return fmt.Errorf("events: supply either positional agent-id or nonempty --agent, never both")
 			}
 			args = append(args, namedAgent)
 		}
+		if descriptionFlag {
+			if len(args) != 1 {
+				return fmt.Errorf("events: --description cannot be combined with positional agent-id")
+			}
+			if description == "" {
+				return fmt.Errorf("events: --description must not be empty")
+			}
+			agents, err := buildTree(args[0])
+			if err != nil {
+				return err
+			}
+			matches := make([]string, 0, 1)
+			for _, agent := range agents {
+				if agent.Description == description {
+					matches = append(matches, agent.ID)
+				}
+			}
+			if len(matches) == 0 {
+				return fmt.Errorf("events: no agent has exact description %q", description)
+			}
+			if len(matches) > 1 {
+				return fmt.Errorf("events: description %q is ambiguous (%d agents)", description, len(matches))
+			}
+			args = append(args, matches[0])
+		}
 		if len(args) != 2 {
-			return fmt.Errorf("events: agent-id or --agent is required")
+			return fmt.Errorf("events: agent-id, --agent, or --description is required")
 		}
 		summaryMode := c.Flags().Changed("summary")
 		if diagnostics {
@@ -297,6 +327,7 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 		return err
 	}}
 	c.Flags().StringVar(&namedAgent, "agent", "", "exact agent ID instead of the positional agent-id")
+	c.Flags().StringVar(&description, "description", "", "select one agent by unique exact launch-description match")
 	c.Flags().BoolVar(&includeAssignment, "include-assignment", false, "include recorded launch assignments in a retained event bundle")
 	c.Flags().IntVar(&assignmentChars, "max-assignment-chars", 8000, "independent assignment text budget, 1..100000")
 	window.flags(c)

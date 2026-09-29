@@ -23,12 +23,15 @@ Default bounded modes remain unchanged and omit the all field.
 
 ## Agent selection and assignment-inclusive inspection
 
-Use `events <session> --agent <id>` or the compatible positional `events <session> <id>`;
-never both. Missing or empty agent selectors fail. Both forms bind the same identity and snapshot.
-For ordinary worker inspection, include its recorded assignment in the initial acquisition:
+Use `events <session> --description "<exact launch description>"` when the launch description
+uniquely identifies one agent. Matching is exact and case-sensitive; zero or multiple matches fail
+rather than selecting by order. Alternatively use `events <session> --agent <id>` or the compatible
+positional `events <session> <id>`. These selectors are mutually exclusive, and every successful form
+binds the same resolved agent identity and snapshot. For ordinary worker inspection, include its
+recorded assignment in the initial acquisition:
 
 ```bash
-nn transcript events <session> --agent <id> --last 10 --include-assignment --format text
+nn transcript events <session> --description "Draft V4 exchange contract" --last 10 --include-assignment --format text
 nn transcript events <session> --agent <id> --last 10 --include-errors 10 --include-assignment --format text
 nn transcript events <session> --agent <id> --search 'preparation' -C 3 --include-assignment --format text
 ```
