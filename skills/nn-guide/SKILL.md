@@ -729,12 +729,45 @@ nn log <id-or-title> [--since DATE]
 |---|---|
 | `--since DATE` | Limit history to commits after this date (e.g. `2025-01-01`); passed directly to `git log --since=` |
 
-Output is raw `git log -p --follow` for the note's filename. Use to audit what changed and when.
+Output is raw `git log -p --follow` for the note's filename. Use it to identify the revision whose body you want, then preview or apply that body with `nn restore`.
 
 ```bash
 nn log <id>                         # full diff history
 nn log <id> --since 2026-01-01      # only changes since Jan 2026
 ```
+
+## nn restore
+
+```
+nn restore <id-or-title> --from <git-revision> --body --since <RFC3339>
+nn restore <id-or-title> --from <git-revision> --body --dry-run
+```
+
+Restores only the structurally parsed body from one historical Git revision. Current title, type,
+status, tags, aliases, protocol fields, timestamps other than the new modification time, and links
+remain authoritative and are preserved. The historical file is resolved by note ID within the selected
+Git tree, so title/filename renames after that revision do not prevent restoration. Zero or multiple
+historical ID matches fail; invalid revisions and malformed historical notes also fail.
+
+| Flag | Effect |
+|---|---|
+| `--from REV` | Required Git revision containing the historical note |
+| `--body` | Required safety selector; whole-note restoration is not supported |
+| `--since RFC3339` | Required for writes; rejects a concurrent current-note change |
+| `--dry-run` | Show the proposed current-to-historical body diff without writing or committing; `--since` is not required |
+
+Recommended workflow:
+
+```bash
+nn log <id>                                  # find the desired revision
+nn show <id>                                 # read the current modified: value
+nn restore <id> --from <rev> --body --dry-run
+nn restore <id> --from <rev> --body --since <modified>
+```
+
+A successful write uses the normal backend update path and creates one semantic Git commit. Use
+`--dry-run` first when restoring substantial content. `nn restore` does not restore historical
+frontmatter, links, filenames, or arbitrary repository files.
 
 ## nn delete
 

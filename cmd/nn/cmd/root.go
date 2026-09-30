@@ -113,6 +113,7 @@ func registerIntegrationCommands(root *cobra.Command, state *rootState) {
 		newInstallExtensionsCmd(),
 		newGuideCmd(),
 		newLogCmd(state),
+		newRestoreCmd(state),
 		newFetchCmd(state),
 		newSearchWebCmd(state),
 		newAskCmd(state),

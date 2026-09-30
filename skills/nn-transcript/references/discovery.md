@@ -63,7 +63,23 @@ nn transcript ls <dir> --json --conversation-kind conversation --limit <N>   # e
 With no `<dir>`, discovery checks only the registered Claude, Codex, and Pi roots and reports unavailable roots on stderr. An explicit `<dir>` remains the highest-priority scope and is never combined with defaults. Bare discovery is capped at 50 rows; `--limit 0` is the explicit unbounded escape hatch and should not be used for ordinary parent selection.
 Use native `--conversation-kind conversation` for a conversation lobby or
 `--conversation-kind sidechain` for a sidechain-only cohort; do not pipe through `jq` merely to remove
-the other kind. The filter is applied before pagination, and its value is bound into the cursor
+the other kind. Use `--owner-session <exact-session-id>` to select only rows whose cross-session owner
+is authenticated as that exact ID. Owner filtering occurs before `--limit`, preserves the existing
+most-recent-first order, is bound into cursor snapshots, and returns JSON `[]` when no rows match.
+A blank owner selector fails rather than matching rows whose ownership is unavailable.
+
+For bounded machine consumption, `--fields` projects known top-level row fields and requires `--json`:
+
+```bash
+nn transcript ls --owner-session <id> --fields session,modified,owner_session,label --json
+```
+
+Unknown, duplicate, or empty field names fail. Requested optional fields remain present with JSON
+`null` when unavailable; unrequested fields are omitted. Filtering precedes projection, so projection
+never changes cohort membership, ordering, or cursor selection. Do not retrieve the complete inventory
+and write a Python or `jq` filter when these native selectors express the intended cohort.
+
+The conversation-kind filter is applied before pagination, and its value is bound into the cursor
 snapshot. Draw an **LLM-composed** standout view from the JSON (never a fixed template), then present
 the picker. Each picker option label must exactly equal the corresponding displayed lobby `label`;
 put provenance and exact session ID in secondary text rather than replacing the label with generic

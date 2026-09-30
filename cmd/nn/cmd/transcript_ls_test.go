@@ -283,6 +283,68 @@ func TestTranscriptLsConversationKindFilterPrecedesPagination(t *testing.T) {
 	}
 }
 
+func TestTranscriptLsOwnerSessionFilterAndFields(t *testing.T) {
+	const assertion = "ASSERT_TRANSCRIPT_LS_OWNER_FILTER_AND_FIELDS"
+	dir := t.TempDir()
+	parentPath := filepath.Join(dir, "parent.jsonl")
+	otherPath := filepath.Join(dir, "other.jsonl")
+	writeTranscriptFile(t, parentPath, `{"type":"session","version":3,"id":"parent","cwd":"/workspace"}`+"\n")
+	writeTranscriptFile(t, otherPath, `{"type":"session","version":3,"id":"other","cwd":"/workspace"}`+"\n")
+	writeTranscriptFile(t, filepath.Join(dir, "older-child.jsonl"), `{"type":"session","version":3,"id":"older-child","cwd":"/workspace","parentSession":"`+parentPath+`"}`+"\n")
+	writeTranscriptFile(t, filepath.Join(dir, "newer-child.jsonl"), `{"type":"session","version":3,"id":"newer-child","cwd":"/workspace","parentSession":"`+parentPath+`"}`+"\n")
+	writeTranscriptFile(t, filepath.Join(dir, "other-child.jsonl"), `{"type":"session","version":3,"id":"other-child","cwd":"/workspace","parentSession":"`+otherPath+`"}`+"\n")
+	base := time.Now().Add(-time.Hour)
+	for i, name := range []string{"older-child.jsonl", "other-child.jsonl", "newer-child.jsonl"} {
+		when := base.Add(time.Duration(i) * time.Minute)
+		if err := os.Chtimes(filepath.Join(dir, name), when, when); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	_, execute := setupNotebook(t)
+	out, err := execute("transcript", "ls", dir, "--json", "--owner-session", "parent", "--fields", "session,modified,owner_session,label", "--limit", "2")
+	if err != nil {
+		t.Fatalf("%s: %v", assertion, err)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatalf("%s decode: %v\n%s", assertion, err, out)
+	}
+	if len(rows) != 2 || rows[0]["session"] != "newer-child" || rows[1]["session"] != "older-child" {
+		t.Fatalf("%s stable filtered rows=%v", assertion, rows)
+	}
+	for _, row := range rows {
+		if len(row) != 4 || row["owner_session"] != "parent" {
+			t.Fatalf("%s projection=%v", assertion, row)
+		}
+	}
+	page, err := execute("transcript", "ls", dir, "--json", "--owner-session", "parent", "--limit", "1")
+	var cursorRows []sessionRow
+	if err != nil || json.Unmarshal([]byte(page), &cursorRows) != nil || len(cursorRows) != 1 {
+		t.Fatalf("%s cursor page: output=%q error=%v", assertion, page, err)
+	}
+	if _, err := execute("transcript", "ls", dir, "--json", "--owner-session", "other", "--cursor", cursorRows[0].Cursor); err == nil || !strings.Contains(err.Error(), "stale or mismatched cursor") {
+		t.Fatalf("%s cursor owner mismatch: %v", assertion, err)
+	}
+	empty, err := execute("transcript", "ls", dir, "--json", "--owner-session", "missing", "--fields", "session")
+	if err != nil || strings.TrimSpace(empty) != "[]" {
+		t.Fatalf("%s empty: output=%q error=%v", assertion, empty, err)
+	}
+	for name, args := range map[string][]string{
+		"blank-owner":   {"transcript", "ls", dir, "--json", "--owner-session", ""},
+		"unknown-field": {"transcript", "ls", dir, "--json", "--fields", "session,nope"},
+		"non-json":      {"transcript", "ls", dir, "--fields", "session"},
+	} {
+		if _, err := execute(args...); err == nil {
+			t.Errorf("%s %s accepted", assertion, name)
+		}
+	}
+	if t.Failed() {
+		return
+	}
+	t.Log(assertion + ": pass")
+}
+
 func TestTranscriptLsClassifiesPiAgentExecutionAsSidechain(t *testing.T) {
 	const assertion = "ASSERT_TRANSCRIPT_LS_PI_AGENT_EXECUTION_IS_QUALIFIED_SIDECHAIN"
 	dir := filepath.Join(t.TempDir(), "pi-agent-child-id")

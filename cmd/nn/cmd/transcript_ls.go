@@ -41,6 +41,8 @@ func newTranscriptLsCmd() *cobra.Command {
 		before           string
 		cursor           string
 		conversationKind string
+		ownerSession     string
+		fields           string
 		asJSON           bool
 	)
 	cmd := &cobra.Command{
@@ -73,13 +75,29 @@ func newTranscriptLsCmd() *cobra.Command {
 			if conversationKind != "" && conversationKind != "conversation" && conversationKind != "sidechain" {
 				return fmt.Errorf("--conversation-kind must be conversation or sidechain")
 			}
-			rows, err := listSessionsRootsPage(dirs, limit, beforeTime, cursor, conversationKind)
+			if cmd.Flags().Changed("owner-session") && ownerSession == "" {
+				return fmt.Errorf("--owner-session must not be empty")
+			}
+			if cmd.Flags().Changed("fields") && fields == "" {
+				return fmt.Errorf("--fields must not be empty")
+			}
+			if fields != "" && !asJSON {
+				return fmt.Errorf("--fields requires --json")
+			}
+			rows, err := listSessionsRootsPageFiltered(dirs, limit, beforeTime, cursor, conversationKind, ownerSession)
 			if err != nil {
 				return err
 			}
 			if asJSON {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
+				if fields != "" {
+					projected, err := projectSessionRows(rows, fields)
+					if err != nil {
+						return err
+					}
+					return enc.Encode(projected)
+				}
 				return enc.Encode(rows)
 			}
 			out := cmd.OutOrStdout()
@@ -98,6 +116,8 @@ func newTranscriptLsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&before, "before", "", "only sessions modified strictly before this RFC3339 timestamp (repeat with --cursor)")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "continue after a row cursor from the same inventory and filters")
 	cmd.Flags().StringVar(&conversationKind, "conversation-kind", "", "filter to conversation or sidechain rows")
+	cmd.Flags().StringVar(&ownerSession, "owner-session", "", "filter to rows with this exact authenticated owner session")
+	cmd.Flags().StringVar(&fields, "fields", "", "comma-separated JSON fields to emit (requires --json)")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit structured session rows as JSON")
 	return cmd
 }
@@ -121,6 +141,10 @@ func listSessionsPage(dir string, limit int, before time.Time, cursor, conversat
 }
 
 func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, conversationKind string) ([]sessionRow, error) {
+	return listSessionsRootsPageFiltered(dirs, limit, before, cursor, conversationKind, "")
+}
+
+func listSessionsRootsPageFiltered(dirs []string, limit int, before time.Time, cursor, conversationKind, ownerSession string) ([]sessionRow, error) {
 	absoluteDirs := make([]string, 0, len(dirs))
 	for _, dir := range dirs {
 		absoluteDir, err := filepath.Abs(dir)
@@ -185,6 +209,7 @@ func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, c
 	}
 	writeSnapshotPart(h, []byte(filter))
 	writeSnapshotPart(h, []byte(conversationKind))
+	writeSnapshotPart(h, []byte(ownerSession))
 	for _, f := range found {
 		path, err := filepath.Abs(f.path)
 		if err != nil {
@@ -216,7 +241,7 @@ func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, c
 			return nil, fmt.Errorf("unsupported cursor version: %d", c.Version)
 		}
 		if c.Snapshot != snapshot {
-			return nil, fmt.Errorf("stale or mismatched cursor: inventory, directory, --before, or --conversation-kind changed")
+			return nil, fmt.Errorf("stale or mismatched cursor: inventory, directory, --before, --conversation-kind, or --owner-session changed")
 		}
 		if c.After == nil || *c.After < 0 || *c.After >= len(found) {
 			return nil, fmt.Errorf("invalid cursor position")
@@ -227,6 +252,9 @@ func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, c
 		}
 		if conversationKind != "" && found[after].relation.ConversationKind != conversationKind {
 			return nil, fmt.Errorf("invalid cursor position: outside --conversation-kind filter")
+		}
+		if ownerSession != "" && (found[after].relation.OwnerSession == nil || *found[after].relation.OwnerSession != ownerSession) {
+			return nil, fmt.Errorf("invalid cursor position: outside --owner-session filter")
 		}
 	}
 
@@ -239,6 +267,9 @@ func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, c
 			continue
 		}
 		if conversationKind != "" && f.relation.ConversationKind != conversationKind {
+			continue
+		}
+		if ownerSession != "" && (f.relation.OwnerSession == nil || *f.relation.OwnerSession != ownerSession) {
 			continue
 		}
 		position := i
@@ -278,6 +309,48 @@ func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, c
 		}
 	}
 	return rows, nil
+}
+
+func projectSessionRows(rows []sessionRow, fields string) ([]map[string]any, error) {
+	known := map[string]bool{
+		"cursor": true, "session": true, "path": true, "modified": true, "schema": true,
+		"label": true, "opening_label": true, "label_provenance": true,
+		"conversation_kind": true, "owner_session": true, "open_window_status": true,
+		"agent_count": true, "total_cost": true, "tree_preview": true, "summary": true,
+	}
+	selected := make([]string, 0)
+	seen := map[string]bool{}
+	for _, field := range strings.Split(fields, ",") {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			return nil, fmt.Errorf("--fields contains an empty field")
+		}
+		if !known[field] {
+			return nil, fmt.Errorf("--fields: unknown field %q", field)
+		}
+		if seen[field] {
+			return nil, fmt.Errorf("--fields: duplicate field %q", field)
+		}
+		seen[field] = true
+		selected = append(selected, field)
+	}
+	projected := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		data, err := json.Marshal(row)
+		if err != nil {
+			return nil, err
+		}
+		var source map[string]any
+		if err := json.Unmarshal(data, &source); err != nil {
+			return nil, err
+		}
+		out := make(map[string]any, len(selected))
+		for _, field := range selected {
+			out[field] = source[field]
+		}
+		projected = append(projected, out)
+	}
+	return projected, nil
 }
 
 func transcriptLabels(path string) (label, opening, provenance string) {
