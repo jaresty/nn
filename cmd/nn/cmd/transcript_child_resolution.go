@@ -21,7 +21,7 @@ type piOwnedSessionCandidate struct {
 	Records []rawRecord
 }
 
-func piLaunchForChild(recs []rawRecord, id string) (piHandoff, string, string, bool) {
+func piLaunchForChild(recs []rawRecord, id string) (piHandoff, string, string, string, bool) {
 	for _, h := range piHandoffs(recs) {
 		if h.Kind != "launch" || h.Child != id || h.Match != "matched" || h.Invocation == nil {
 			continue
@@ -40,19 +40,16 @@ func piLaunchForChild(recs []rawRecord, id string) (piHandoff, string, string, b
 		if typ == "" {
 			typ = ledgerString(fields, "subagentType")
 		}
-		return h, typ, h.Invocation.Record.Timestamp, typ != "" && h.Description != ""
+		assignment := ledgerString(fields, "prompt")
+		return h, typ, assignment, h.Invocation.Record.Timestamp, typ != "" && assignment != ""
 	}
-	return piHandoff{}, "", "", false
+	return piHandoff{}, "", "", "", false
 }
 
 func piSessionName(recs []rawRecord) string {
 	for _, r := range recs {
-		if r.Type != "custom" || r.CustomType != "session_info" {
-			continue
-		}
-		var fields map[string]json.RawMessage
-		if json.Unmarshal(r.Data, &fields) == nil {
-			return ledgerString(fields, "name")
+		if r.Type == "session_info" && r.Name != "" {
+			return r.Name
 		}
 	}
 	return ""
@@ -84,7 +81,7 @@ func canonicalPath(path string) string {
 }
 
 func piOwnedSessionCandidates(parent string, recs []rawRecord, id string) ([]piOwnedSessionCandidate, map[string]bool) {
-	handoff, agentType, launched, ok := piLaunchForChild(recs, id)
+	_, agentType, assignment, launched, ok := piLaunchForChild(recs, id)
 	evidence := map[string]bool{"parent_session": false, "agent_type": false, "agent_id_prefix": false, "assignment": false, "launch_time": false}
 	if !ok {
 		return nil, evidence
@@ -116,7 +113,7 @@ func piOwnedSessionCandidates(parent string, recs []rawRecord, id string) ([]piO
 		if !strings.HasPrefix(name, prefix) || !strings.HasPrefix(id, strings.TrimPrefix(name, prefix)) {
 			return nil
 		}
-		if piOpeningAssignment(rows) != handoff.Description {
+		if piOpeningAssignment(rows) != assignment {
 			return nil
 		}
 		if launchErr == nil {

@@ -71,6 +71,7 @@ type rawRecord struct {
 	ParentID      string          `json:"parentId"`
 	AgentID       string          `json:"agentId"`
 	CustomType    string          `json:"customType"`
+	Name          string          `json:"name"`
 	Timestamp     string          `json:"timestamp"`
 	Message       json.RawMessage `json:"message"`
 	Data          json.RawMessage `json:"data"`
