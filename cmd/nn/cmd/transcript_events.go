@@ -388,7 +388,7 @@ func buildLedgerPageUsing(session, id, schema, detail string, selection []string
 		return ledgerPage{}, err
 	}
 	request, _ := json.Marshal([]any{filepath.Clean(absolute), id, selection, payload})
-	resolution := transcriptChildDetailResolution(absolute, id, schema, detail)
+	resolution := transcriptChildDetailResolution(absolute, id, schema, detail, selectedLedgerSourcePath(absolute, events))
 	result := ledgerPage{Version: "nn.transcript.events/v1", EventFilter: eventFilter, Select: selection, Payload: payload, Schema: schema, DetailStatus: detail, DetailReason: transcriptDetailReason(absolute, id, schema, detail), DetailSource: resolution.DetailSource, Custody: resolution.Custody, JoinEvidence: resolution.JoinEvidence, CandidateCount: resolution.CandidateCount, ResolvedPath: resolution.ResolvedPath, Events: []json.RawMessage{}}
 	if len(queries) > 0 {
 		result.Query = queries[0]

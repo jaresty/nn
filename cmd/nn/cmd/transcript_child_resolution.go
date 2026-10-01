@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bufio"
 	"encoding/json"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -68,6 +70,50 @@ func piOpeningAssignment(recs []rawRecord) string {
 	return ""
 }
 
+type piOwnedSessionIdentity struct {
+	Header         piSessionHeader
+	Name           string
+	Assignment     string
+	FirstTimestamp string
+}
+
+func readPiOwnedSessionIdentity(path string) (piOwnedSessionIdentity, bool) {
+	file, err := os.Open(path)
+	if err != nil {
+		return piOwnedSessionIdentity{}, false
+	}
+	defer file.Close()
+	var identity piOwnedSessionIdentity
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		var record rawRecord
+		if json.Unmarshal(line, &record) != nil {
+			return piOwnedSessionIdentity{}, false
+		}
+		if identity.Header.ID == "" {
+			if json.Unmarshal(line, &identity.Header) != nil || identity.Header.Type != "session" || identity.Header.ID == "" {
+				return piOwnedSessionIdentity{}, false
+			}
+		}
+		if identity.FirstTimestamp == "" && record.Timestamp != "" {
+			identity.FirstTimestamp = record.Timestamp
+		}
+		if record.Type == "session_info" && record.Name != "" {
+			identity.Name = record.Name
+		}
+		if record.Type == "message" {
+			var msg map[string]json.RawMessage
+			if json.Unmarshal(record.Message, &msg) == nil && ledgerString(msg, "role") == "user" {
+				identity.Assignment = strings.TrimSpace(ledgerText(msg["content"]))
+				return identity, identity.Name != ""
+			}
+		}
+	}
+	return identity, false
+}
+
 func canonicalPath(path string) string {
 	absolute, err := filepath.Abs(path)
 	if err != nil {
@@ -93,42 +139,34 @@ func piOwnedSessionCandidates(parent string, recs []rawRecord, id string) ([]piO
 		if err != nil || entry.IsDir() || filepath.Ext(path) != ".jsonl" || canonicalPath(path) == parent {
 			return nil
 		}
-		header, headerOK := readPiSessionHeader(path)
-		if !headerOK || header.ParentSession == "" {
+		identity, identityOK := readPiOwnedSessionIdentity(path)
+		if !identityOK || identity.Header.ParentSession == "" {
 			return nil
 		}
-		recorded := header.ParentSession
+		recorded := identity.Header.ParentSession
 		if !filepath.IsAbs(recorded) {
 			recorded = filepath.Join(filepath.Dir(path), recorded)
 		}
 		if canonicalPath(recorded) != parent {
 			return nil
 		}
-		rows, readErr := readRecords(path)
-		if readErr != nil {
-			return nil
-		}
-		name := piSessionName(rows)
 		prefix := agentType + "#"
-		if !strings.HasPrefix(name, prefix) || !strings.HasPrefix(id, strings.TrimPrefix(name, prefix)) {
+		if !strings.HasPrefix(identity.Name, prefix) || !strings.HasPrefix(id, strings.TrimPrefix(identity.Name, prefix)) {
 			return nil
 		}
-		if piOpeningAssignment(rows) != assignment {
+		if identity.Assignment != assignment {
 			return nil
 		}
 		if launchErr == nil {
-			first := ""
-			for _, row := range rows {
-				if row.Timestamp != "" {
-					first = row.Timestamp
-					break
-				}
-			}
-			candidateTime, candidateErr := time.Parse(time.RFC3339Nano, first)
+			candidateTime, candidateErr := time.Parse(time.RFC3339Nano, identity.FirstTimestamp)
 			if candidateErr != nil || candidateTime.Before(launchTime) {
 				return nil
 			}
 		} else {
+			return nil
+		}
+		rows, readErr := readRecords(path)
+		if readErr != nil {
 			return nil
 		}
 		candidates = append(candidates, piOwnedSessionCandidate{Path: canonicalPath(path), Records: ownedPiRecords(rows, "ROOT", false)})
@@ -142,11 +180,23 @@ func piOwnedSessionCandidates(parent string, recs []rawRecord, id string) ([]piO
 	return candidates, evidence
 }
 
-func transcriptChildDetailResolution(path, id, schema, detail string) childDetailResolution {
+func transcriptChildDetailResolution(path, id, schema, detail string, selectedPaths ...string) childDetailResolution {
 	if schema != schemaPi || id == "" || id == "ROOT" {
 		return childDetailResolution{}
 	}
 	canonical := canonicalPath(path)
+	if detail == "available" && len(selectedPaths) > 0 {
+		selected := canonicalPath(selectedPaths[0])
+		switch {
+		case selected == canonical:
+			return childDetailResolution{DetailSource: "inline_detail", Custody: "producer_owned", CandidateCount: 1, ResolvedPath: canonical}
+		case validatePiSidechainPath(selected, id) == selected:
+			return childDetailResolution{DetailSource: "producer_locator", Custody: "producer_owned", CandidateCount: 1, ResolvedPath: selected}
+		case filepath.Ext(selected) == ".jsonl":
+			evidence := map[string]bool{"parent_session": true, "agent_type": true, "agent_id_prefix": true, "assignment": true, "launch_time": true}
+			return childDetailResolution{DetailSource: "owned_session_fallback", Custody: "qualified_unique_join", JoinEvidence: evidence, CandidateCount: 1, ResolvedPath: selected}
+		}
+	}
 	recs, err := readRecords(canonical)
 	if err != nil {
 		return childDetailResolution{DetailSource: "unavailable"}
@@ -166,4 +216,23 @@ func transcriptChildDetailResolution(path, id, schema, detail string) childDetai
 		return childDetailResolution{DetailSource: "owned_session_fallback", Custody: "qualified_unique_join", JoinEvidence: evidence, CandidateCount: 1, ResolvedPath: candidates[0].Path}
 	}
 	return childDetailResolution{DetailSource: "unavailable", JoinEvidence: evidence, CandidateCount: len(candidates)}
+}
+
+func selectedLedgerSourcePath(session string, events []ledgerEvent) string {
+	parent := canonicalPath(session)
+	fallback := ""
+	for _, event := range events {
+		source, _ := event["source"].(map[string]any)
+		path, _ := source["path"].(string)
+		if path == "" {
+			continue
+		}
+		if fallback == "" {
+			fallback = path
+		}
+		if canonicalPath(path) != parent {
+			return path
+		}
+	}
+	return fallback
 }
