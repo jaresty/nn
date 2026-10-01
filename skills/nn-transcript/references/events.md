@@ -90,7 +90,18 @@ identifies evidence, not retained replay; Back uses retained output and Refresh 
 nn transcript events <session> <agent-id> --kind tool_call --search 'bar build' -B 2 -A 8 --format text
 nn transcript events <session> <agent-id> --event <event-id> -C 5 --format text
 nn transcript events <session> <agent-id> --role assistant --search 'decision' --last 5 --format text
+nn transcript events <session> --description "Review frozen proof candidate" \
+  --search 'Route:|bar build|Loaded:|CALL|ACCEPT_CONDITIONAL' --regex --last 65 --format text
 ```
+
+For evidence retrieval, prefer native `--search` and `--regex` over downstream grep-like filters
+such as `rg`, `grep`, `awk`, or equivalent line filtering. Native selection preserves event identity,
+canonical order, joins, query receipts, and context semantics; filtering rendered text does not.
+`--last` applies after native filtering, so it returns the most recent matching event anchors rather
+than searching only within an unfiltered recent tail. Use a downstream filter only when intentionally
+filtering an already-rendered presentation; that is presentation processing, not structured event
+selection, and matching lines no longer represent complete event records. Structured JSON consumers
+performing analysis rather than grep-like text filtering remain appropriate.
 
 `--kind` selects message/tool_call/tool_result/lifecycle. `--role` matches the native role of
 **message events only**. `--search` matches case-insensitive literal readable text, tool names and

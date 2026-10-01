@@ -38,6 +38,29 @@ func TestTranscriptSkillDescriptionLookupRouting(t *testing.T) {
 	t.Log(a + ": PASS")
 }
 
+func TestTranscriptSkillPrefersNativeEventFiltering(t *testing.T) {
+	const a = "ASSERT_TRANSCRIPT_NATIVE_EVENT_FILTERING_GUIDANCE"
+	_, execute := setupNotebook(t)
+	events, err := execute("skills", "get", "nn-transcript", "--reference", "events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, phrase := range []string{
+		"downstream grep-like filters",
+		"--search 'Route:|bar build|Loaded:|CALL|ACCEPT_CONDITIONAL'",
+		"`--last` applies after native filtering",
+		"already-rendered presentation",
+	} {
+		if !strings.Contains(events, phrase) {
+			t.Errorf("%s: events guidance lacks %q", a, phrase)
+		}
+	}
+	if t.Failed() {
+		return
+	}
+	t.Log(a + ": PASS")
+}
+
 func TestTranscriptTracerEntryAndOptionalLensDispatch(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "skills", "nn-transcript")
 	read := func(name string) string {
