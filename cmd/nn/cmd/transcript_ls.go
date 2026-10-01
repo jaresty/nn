@@ -42,6 +42,7 @@ func newTranscriptLsCmd() *cobra.Command {
 		cursor           string
 		conversationKind string
 		ownerSession     string
+		labelContains    string
 		fields           string
 		asJSON           bool
 	)
@@ -78,13 +79,16 @@ func newTranscriptLsCmd() *cobra.Command {
 			if cmd.Flags().Changed("owner-session") && ownerSession == "" {
 				return fmt.Errorf("--owner-session must not be empty")
 			}
+			if cmd.Flags().Changed("label-contains") && labelContains == "" {
+				return fmt.Errorf("--label-contains must not be empty")
+			}
 			if cmd.Flags().Changed("fields") && fields == "" {
 				return fmt.Errorf("--fields must not be empty")
 			}
 			if fields != "" && !asJSON {
 				return fmt.Errorf("--fields requires --json")
 			}
-			rows, err := listSessionsRootsPageFiltered(dirs, limit, beforeTime, cursor, conversationKind, ownerSession)
+			rows, err := listSessionsRootsPageFiltered(dirs, limit, beforeTime, cursor, conversationKind, ownerSession, labelContains)
 			if err != nil {
 				return err
 			}
@@ -117,6 +121,7 @@ func newTranscriptLsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&cursor, "cursor", "", "continue after a row cursor from the same inventory and filters")
 	cmd.Flags().StringVar(&conversationKind, "conversation-kind", "", "filter to conversation or sidechain rows")
 	cmd.Flags().StringVar(&ownerSession, "owner-session", "", "filter to rows with this exact authenticated owner session")
+	cmd.Flags().StringVar(&labelContains, "label-contains", "", "filter to rows whose full selected label source contains this case-sensitive text")
 	cmd.Flags().StringVar(&fields, "fields", "", "comma-separated JSON fields to emit (requires --json)")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "emit structured session rows as JSON")
 	return cmd
@@ -141,10 +146,10 @@ func listSessionsPage(dir string, limit int, before time.Time, cursor, conversat
 }
 
 func listSessionsRootsPage(dirs []string, limit int, before time.Time, cursor, conversationKind string) ([]sessionRow, error) {
-	return listSessionsRootsPageFiltered(dirs, limit, before, cursor, conversationKind, "")
+	return listSessionsRootsPageFiltered(dirs, limit, before, cursor, conversationKind, "", "")
 }
 
-func listSessionsRootsPageFiltered(dirs []string, limit int, before time.Time, cursor, conversationKind, ownerSession string) ([]sessionRow, error) {
+func listSessionsRootsPageFiltered(dirs []string, limit int, before time.Time, cursor, conversationKind, ownerSession, labelContains string) ([]sessionRow, error) {
 	absoluteDirs := make([]string, 0, len(dirs))
 	for _, dir := range dirs {
 		absoluteDir, err := filepath.Abs(dir)
@@ -210,6 +215,7 @@ func listSessionsRootsPageFiltered(dirs []string, limit int, before time.Time, c
 	writeSnapshotPart(h, []byte(filter))
 	writeSnapshotPart(h, []byte(conversationKind))
 	writeSnapshotPart(h, []byte(ownerSession))
+	writeSnapshotPart(h, []byte(labelContains))
 	for _, f := range found {
 		path, err := filepath.Abs(f.path)
 		if err != nil {
@@ -241,7 +247,7 @@ func listSessionsRootsPageFiltered(dirs []string, limit int, before time.Time, c
 			return nil, fmt.Errorf("unsupported cursor version: %d", c.Version)
 		}
 		if c.Snapshot != snapshot {
-			return nil, fmt.Errorf("stale or mismatched cursor: inventory, directory, --before, --conversation-kind, or --owner-session changed")
+			return nil, fmt.Errorf("stale or mismatched cursor: inventory, directory, --before, --conversation-kind, --owner-session, or --label-contains changed")
 		}
 		if c.After == nil || *c.After < 0 || *c.After >= len(found) {
 			return nil, fmt.Errorf("invalid cursor position")
@@ -255,6 +261,12 @@ func listSessionsRootsPageFiltered(dirs []string, limit int, before time.Time, c
 		}
 		if ownerSession != "" && (found[after].relation.OwnerSession == nil || *found[after].relation.OwnerSession != ownerSession) {
 			return nil, fmt.Errorf("invalid cursor position: outside --owner-session filter")
+		}
+		if labelContains != "" {
+			_, _, _, fullLabel := transcriptLabels(found[after].path)
+			if !strings.Contains(fullLabel, labelContains) {
+				return nil, fmt.Errorf("invalid cursor position: outside --label-contains filter")
+			}
 		}
 	}
 
@@ -272,12 +284,15 @@ func listSessionsRootsPageFiltered(dirs []string, limit int, before time.Time, c
 		if ownerSession != "" && (f.relation.OwnerSession == nil || *f.relation.OwnerSession != ownerSession) {
 			continue
 		}
+		label, openingLabel, provenance, fullLabel := transcriptLabels(f.path)
+		if labelContains != "" && !strings.Contains(fullLabel, labelContains) {
+			continue
+		}
 		position := i
 		encoded, err := json.Marshal(transcriptLsCursor{Version: 1, Snapshot: snapshot, After: &position})
 		if err != nil {
 			return nil, err
 		}
-		label, openingLabel, provenance := transcriptLabels(f.path)
 		row := sessionRow{
 			Cursor:           base64.RawURLEncoding.EncodeToString(encoded),
 			Session:          strings.TrimSuffix(filepath.Base(f.path), ".jsonl"),
@@ -353,10 +368,10 @@ func projectSessionRows(rows []sessionRow, fields string) ([]map[string]any, err
 	return projected, nil
 }
 
-func transcriptLabels(path string) (label, opening, provenance string) {
+func transcriptLabels(path string) (label, opening, provenance, fullLabel string) {
 	records, _, _, err := ledgerRecords(path, "ROOT")
 	if err != nil {
-		return "Untitled session", "Untitled session", "untitled"
+		return "Untitled session", "Untitled session", "untitled", "Untitled session"
 	}
 	var messages []string
 	for _, src := range records {
@@ -373,7 +388,7 @@ func transcriptLabels(path string) (label, opening, provenance string) {
 		}
 	}
 	if len(messages) == 0 {
-		return "Untitled session", "Untitled session", "untitled"
+		return "Untitled session", "Untitled session", "untitled", "Untitled session"
 	}
 	opening, _ = transcriptDisplayLabel(messages[0])
 	selected := 0
@@ -383,14 +398,15 @@ func transcriptLabels(path string) (label, opening, provenance string) {
 			break
 		}
 	}
-	label, shortened := transcriptDisplayLabel(messages[selected])
+	fullLabel = messages[selected]
+	label, shortened := transcriptDisplayLabel(fullLabel)
 	if shortened {
-		return label, opening, "interpreted"
+		return label, opening, "interpreted", fullLabel
 	}
 	if selected == 0 {
-		return label, opening, "opening"
+		return label, opening, "opening", fullLabel
 	}
-	return label, opening, "recent"
+	return label, opening, "recent", fullLabel
 }
 
 func transcriptDisplayLabel(text string) (string, bool) {

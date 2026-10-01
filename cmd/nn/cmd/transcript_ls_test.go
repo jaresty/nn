@@ -345,6 +345,61 @@ func TestTranscriptLsOwnerSessionFilterAndFields(t *testing.T) {
 	t.Log(assertion + ": pass")
 }
 
+func TestTranscriptLsLabelContainsFiltersBeforePaginationAndBindsCursor(t *testing.T) {
+	const assertion = "ASSERT_TRANSCRIPT_LS_LABEL_CONTAINS_PRECEDES_PAGINATION"
+	dir := t.TempDir()
+	base := time.Now().Add(-time.Hour)
+	for i := 0; i < 51; i++ {
+		path := filepath.Join(dir, fmt.Sprintf("distractor-%02d.jsonl", i))
+		writeTranscriptFile(t, path,
+			`{"type":"session","version":3,"id":"distractor"}`+"\n"+
+				`{"type":"message","id":"opening","message":{"role":"user","content":[{"type":"text","text":"Unrelated transcript"}]}}`+"\n")
+		stamp := base.Add(time.Duration(i+2) * time.Second)
+		if err := os.Chtimes(path, stamp, stamp); err != nil {
+			t.Fatal(err)
+		}
+	}
+	prefix := strings.Repeat("x", 120)
+	for i, name := range []string{"older-match.jsonl", "newer-match.jsonl"} {
+		path := filepath.Join(dir, name)
+		writeTranscriptFile(t, path,
+			`{"type":"session","version":3,"id":"match"}`+"\n"+
+				`{"type":"message","id":"opening","message":{"role":"user","content":[{"type":"text","text":"`+prefix+` Stage-B test packet review"}]}}`+"\n")
+		stamp := base.Add(time.Duration(i) * time.Second)
+		if err := os.Chtimes(path, stamp, stamp); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	_, execute := setupNotebook(t)
+	out, err := execute("transcript", "ls", dir, "--json", "--label-contains", "Stage-B test packet review", "--fields", "session,label", "--limit", "1")
+	var projected []map[string]any
+	if err != nil || json.Unmarshal([]byte(out), &projected) != nil || len(projected) != 1 || projected[0]["session"] != "newer-match" {
+		t.Fatalf("%s: pre-limit full-label match output=%q rows=%v error=%v", assertion, out, projected, err)
+	}
+
+	page, err := execute("transcript", "ls", dir, "--json", "--label-contains", "Stage-B test packet review", "--limit", "1")
+	var rows []sessionRow
+	if err != nil || json.Unmarshal([]byte(page), &rows) != nil || len(rows) != 1 {
+		t.Fatalf("%s: first page output=%q error=%v", assertion, page, err)
+	}
+	next, err := execute("transcript", "ls", dir, "--json", "--label-contains", "Stage-B test packet review", "--limit", "1", "--cursor", rows[0].Cursor)
+	rows = nil
+	if err != nil || json.Unmarshal([]byte(next), &rows) != nil || len(rows) != 1 || rows[0].Session != "older-match" {
+		t.Fatalf("%s: continuation output=%q rows=%v error=%v", assertion, next, rows, err)
+	}
+	if _, err := execute("transcript", "ls", dir, "--json", "--label-contains", "stage-b test packet review", "--cursor", rows[0].Cursor); err == nil || !strings.Contains(err.Error(), "stale or mismatched cursor") {
+		t.Fatalf("%s: selector cursor mismatch error=%v", assertion, err)
+	}
+	if _, err := execute("transcript", "ls", dir, "--label-contains", ""); err == nil || !strings.Contains(err.Error(), "--label-contains must not be empty") {
+		t.Fatalf("%s: empty selector error=%v", assertion, err)
+	}
+	empty, err := execute("transcript", "ls", dir, "--json", "--label-contains", "missing", "--fields", "session")
+	if err != nil || strings.TrimSpace(empty) != "[]" {
+		t.Fatalf("%s: empty projection output=%q error=%v", assertion, empty, err)
+	}
+}
+
 func TestTranscriptLsClassifiesPiAgentExecutionAsSidechain(t *testing.T) {
 	const assertion = "ASSERT_TRANSCRIPT_LS_PI_AGENT_EXECUTION_IS_QUALIFIED_SIDECHAIN"
 	dir := filepath.Join(t.TempDir(), "pi-agent-child-id")

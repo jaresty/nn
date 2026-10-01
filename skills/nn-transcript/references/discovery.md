@@ -67,6 +67,17 @@ the other kind. Use `--owner-session <exact-session-id>` to select only rows who
 is authenticated as that exact ID. Owner filtering occurs before `--limit`, preserves the existing
 most-recent-first order, is bound into cursor snapshots, and returns JSON `[]` when no rows match.
 A blank owner selector fails rather than matching rows whose ownership is unavailable.
+Use `--label-contains <text>` for case-sensitive substring matching against the complete selected
+label source rather than the possibly shortened display label:
+
+```bash
+nn transcript ls --owner-session <id> --label-contains "Stage-B test packet review" --json
+```
+
+Label filtering occurs before `--limit`, preserves most-recent-first ordering, composes with the other
+native selectors, and is bound into cursor snapshots. A blank selector fails and zero matches return
+JSON `[]`. Continue pagination with the identical selector; changing it makes the cursor mismatched.
+Prefer this native selector over downstream Python or `jq` filtering, which sees only the returned page.
 
 For bounded machine consumption, `--fields` projects known top-level row fields and requires `--json`:
 
