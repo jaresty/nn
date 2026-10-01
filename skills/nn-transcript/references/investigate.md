@@ -17,8 +17,8 @@ Choose the smallest evidence set capable of answering the question:
 
 | Question | Owner |
 |---|---|
-| Find a conversation, launched task, or description | `nn skills get nn-transcript --reference discovery`, then `nn skills get nn-transcript --reference navigate` |
-| What was assigned versus done / inspect recent worker activity? | `nn skills get nn-transcript --reference events` (include assignment) |
+| Find a conversation, or inspect launch metadata/parentage/topology/description ambiguity | `nn skills get nn-transcript --reference discovery`, then `nn skills get nn-transcript --reference navigate` |
+| What was assigned versus done / inspect recent worker activity? | `nn skills get nn-transcript --reference events` (include assignment; a known exact launch description may select the worker directly) |
 | What failed / changed / followed this event? | `nn skills get nn-transcript --reference events` |
 | Was a handoff returned to its parent? | `nn skills get nn-transcript --reference handoffs` |
 | Does a literal phrase or regex occur? | `nn skills get nn-transcript --reference search` |
@@ -26,7 +26,7 @@ Choose the smallest evidence set capable of answering the question:
 | Evaluate or explain the defined attention policy | `nn skills get nn-transcript --reference attention` |
 | Is this recurrent across inspected sources? | `nn skills get nn-transcript --reference patterns` |
 
-A tree is appropriate evidence for parentage, not a requirement for a text question. A search hit is a
+A tree is appropriate evidence for parentage, topology, agent metadata, or displaying ambiguous launch-description matches—not a prerequisite for an assignment or recent-activity question. When the parent session and exact launch description are already known, use `events <session> --description "<name>" --include-assignment` directly; add tree only if the question independently needs tree-owned evidence or events reports ambiguity. A search hit is a
 lead, not a complete explanation. Retrieve relevant surrounding evidence, every required page, and
 ordered payload segments before claims depending on them. Do not read every whole session when a
 bounded exact window answers the question; do not call a sampled recurrence an exhaustive one.

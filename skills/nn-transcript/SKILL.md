@@ -66,8 +66,13 @@ Discover applicability with `nn skills get nn-transcript --list-references`.
 | Recurrence across evidence sets | `nn skills get nn-transcript --reference patterns` |
 | Unsupported schema diagnosis | `nn skills get nn-transcript --reference recovery` |
 
-A launch name or description is metadata: use `nn transcript ls` to select its parent, then
-`tree <session> --description "<name>" --json`; do not use `nn transcript search` for that lookup.
+A launch name or description is an exact, case-sensitive metadata selector, not transcript content.
+After `nn transcript ls` selects its parent, route by the evidence needed: assignment or recent-worker
+activity goes directly to `events <session> --description "<name>" --include-assignment`; do not run a
+redundant tree lookup first. Use `tree <session> --description "<name>" --json` when the question needs
+agent metadata, parentage, topology, every ambiguous match, or an explicit agent-ID lookup. Zero or
+multiple `events --description` matches fail rather than guessing; use tree to display those matches
+when ambiguity itself must be resolved; do not use `nn transcript search` for launch-description lookup.
 Preserve the selected row's exact `path`; never reconstruct it from a session ID or project name.
 Use a selected row's `session` ID for ordinary transcript commands and retain its exact `path` as the ambiguity fallback; never reconstruct either value. Show the readable `label` with source qualifications; discovery owns opening_label, label_provenance,
 conversation_kind, owner_session, and open_window_status. Labels may be recent, opening, interpreted
