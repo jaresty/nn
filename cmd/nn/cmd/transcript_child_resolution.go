@@ -6,16 +6,30 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
 
 type childDetailResolution struct {
-	DetailSource   string          `json:"detail_source,omitempty"`
-	Custody        string          `json:"custody,omitempty"`
-	JoinEvidence   map[string]bool `json:"join_evidence,omitempty"`
-	CandidateCount int             `json:"candidate_count,omitempty"`
-	ResolvedPath   string          `json:"resolved_path,omitempty"`
+	DetailSource                  string                     `json:"detail_source,omitempty"`
+	Custody                       string                     `json:"custody,omitempty"`
+	JoinEvidence                  map[string]bool            `json:"join_evidence,omitempty"`
+	CandidateCount                int                        `json:"candidate_count,omitempty"`
+	ResolvedPath                  string                     `json:"resolved_path,omitempty"`
+	ResolutionCandidates          []childResolutionCandidate `json:"resolution_candidates,omitempty"`
+	ResolutionCandidateTotal      int                        `json:"resolution_candidate_total,omitempty"`
+	ResolutionCandidatesTruncated bool                       `json:"resolution_candidates_truncated,omitempty"`
+}
+
+type childResolutionCandidate struct {
+	Session      string          `json:"session"`
+	Path         string          `json:"path"`
+	Timestamp    string          `json:"timestamp,omitempty"`
+	Label        string          `json:"label"`
+	Status       string          `json:"status"`
+	Checks       map[string]bool `json:"checks"`
+	FailedChecks []string        `json:"failed_checks"`
 }
 
 type piOwnedSessionCandidate struct {
@@ -164,25 +178,17 @@ func piOwnedSessionCandidates(parent string, recs []rawRecord, id string) ([]piO
 			return nil
 		}
 		prefix := agentType + "#"
-		if !strings.HasPrefix(identity.Name, prefix) || !strings.HasPrefix(id, strings.TrimPrefix(identity.Name, prefix)) {
+		if !strings.HasPrefix(identity.Name, prefix) || !strings.HasPrefix(id, strings.TrimPrefix(identity.Name, prefix)) || identity.Assignment != assignment || launchErr != nil {
 			return nil
 		}
-		if identity.Assignment != assignment {
-			return nil
-		}
-		if launchErr == nil {
-			candidateTime, candidateErr := time.Parse(time.RFC3339Nano, identity.FirstTimestamp)
-			if candidateErr != nil || candidateTime.Before(launchTime) {
-				return nil
-			}
-		} else {
+		candidateTime, candidateErr := time.Parse(time.RFC3339Nano, identity.FirstTimestamp)
+		if candidateErr != nil || candidateTime.Before(launchTime) {
 			return nil
 		}
 		rows, readErr := readRecords(path)
-		if readErr != nil {
-			return nil
+		if readErr == nil {
+			candidates = append(candidates, piOwnedSessionCandidate{Path: canonicalPath(path), Records: ownedPiRecords(rows, "ROOT", false)})
 		}
-		candidates = append(candidates, piOwnedSessionCandidate{Path: canonicalPath(path), Records: ownedPiRecords(rows, "ROOT", false)})
 		return nil
 	})
 	if len(candidates) > 0 {
@@ -191,6 +197,83 @@ func piOwnedSessionCandidates(parent string, recs []rawRecord, id string) ([]piO
 		}
 	}
 	return candidates, evidence
+}
+
+func piOwnedSessionScan(parent string, recs []rawRecord, id string) ([]piOwnedSessionCandidate, map[string]bool, []childResolutionCandidate) {
+	_, agentType, assignment, launched, ok := piLaunchForChild(recs, id)
+	evidence := map[string]bool{"parent_session": false, "agent_type": false, "agent_id_prefix": false, "assignment": false, "launch_time": false}
+	if !ok {
+		return nil, evidence, nil
+	}
+	parent = canonicalPath(parent)
+	launchTime, launchErr := time.Parse(time.RFC3339Nano, launched)
+	var qualified []piOwnedSessionCandidate
+	var diagnostics []childResolutionCandidate
+	_ = filepath.WalkDir(filepath.Dir(parent), func(path string, entry fs.DirEntry, err error) error {
+		canonical := canonicalPath(path)
+		if err != nil || entry.IsDir() || filepath.Ext(path) != ".jsonl" || canonical == parent {
+			return nil
+		}
+		identity, identityOK := readPiOwnedSessionIdentity(path)
+		if !identityOK || identity.Header.ParentSession == "" {
+			return nil
+		}
+		recorded := identity.Header.ParentSession
+		if !filepath.IsAbs(recorded) {
+			recorded = filepath.Join(filepath.Dir(path), recorded)
+		}
+		checks := map[string]bool{"parent_session": canonicalPath(recorded) == parent, "agent_type": false, "agent_id_prefix": false, "assignment": false, "launch_time": false}
+		if !checks["parent_session"] {
+			return nil
+		}
+		prefix := agentType + "#"
+		checks["agent_type"] = strings.HasPrefix(identity.Name, prefix)
+		candidateID := strings.TrimPrefix(identity.Name, prefix)
+		checks["agent_id_prefix"] = checks["agent_type"] && strings.HasPrefix(id, candidateID)
+		checks["assignment"] = identity.Assignment == assignment
+		if launchErr == nil {
+			candidateTime, candidateErr := time.Parse(time.RFC3339Nano, identity.FirstTimestamp)
+			checks["launch_time"] = candidateErr == nil && !candidateTime.Before(launchTime)
+		}
+		failed := make([]string, 0, len(checks))
+		for _, key := range []string{"agent_type", "agent_id_prefix", "assignment", "launch_time"} {
+			if !checks[key] {
+				failed = append(failed, key)
+			}
+		}
+		status := "unqualified"
+		if len(failed) == 0 {
+			status = "qualified"
+			rows, readErr := readRecords(path)
+			if readErr == nil {
+				qualified = append(qualified, piOwnedSessionCandidate{Path: canonical, Records: ownedPiRecords(rows, "ROOT", false)})
+			}
+		}
+		label, _ := transcriptDisplayLabel(identity.Assignment)
+		diagnostics = append(diagnostics, childResolutionCandidate{Session: strings.TrimSuffix(filepath.Base(path), ".jsonl"), Path: canonical, Timestamp: identity.FirstTimestamp, Label: label, Status: status, Checks: checks, FailedChecks: failed})
+		return nil
+	})
+	if len(qualified) > 0 {
+		for key := range evidence {
+			evidence[key] = true
+		}
+	}
+	return qualified, evidence, diagnostics
+}
+
+func boundResolutionCandidates(candidates []childResolutionCandidate) ([]childResolutionCandidate, int, bool) {
+	total := len(candidates)
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].Timestamp != candidates[j].Timestamp {
+			return candidates[i].Timestamp > candidates[j].Timestamp
+		}
+		return candidates[i].Session < candidates[j].Session
+	})
+	const limit = 10
+	if len(candidates) > limit {
+		return candidates[:limit], total, true
+	}
+	return candidates, total, false
 }
 
 func transcriptChildDetailResolution(path, id, schema, detail string, selectedPaths ...string) childDetailResolution {
@@ -229,6 +312,21 @@ func transcriptChildDetailResolution(path, id, schema, detail string, selectedPa
 		return childDetailResolution{DetailSource: "owned_session_fallback", Custody: "qualified_unique_join", JoinEvidence: evidence, CandidateCount: 1, ResolvedPath: candidates[0].Path}
 	}
 	return childDetailResolution{DetailSource: "unavailable", JoinEvidence: evidence, CandidateCount: len(candidates)}
+}
+
+func transcriptChildDetailResolutionWithCandidates(path, id, schema, detail string, selectedPaths ...string) childDetailResolution {
+	resolution := transcriptChildDetailResolution(path, id, schema, detail, selectedPaths...)
+	if schema != schemaPi || id == "" || id == "ROOT" {
+		return resolution
+	}
+	canonical := canonicalPath(path)
+	recs, err := readRecords(canonical)
+	if err != nil {
+		return resolution
+	}
+	_, _, diagnostics := piOwnedSessionScan(canonical, recs, id)
+	resolution.ResolutionCandidates, resolution.ResolutionCandidateTotal, resolution.ResolutionCandidatesTruncated = boundResolutionCandidates(diagnostics)
+	return resolution
 }
 
 func selectedLedgerSourcePath(session string, events []ledgerEvent) string {

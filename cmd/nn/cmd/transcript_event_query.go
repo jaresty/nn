@@ -49,9 +49,13 @@ func parseLedgerBound(value string) (*time.Time, error) {
 }
 
 func buildQueriedLedgerPage(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string, all bool, q ledgerQuery, diagnostics ...bool) (ledgerPage, error) {
+	return buildQueriedLedgerPageWithResolution(session, id, schema, detail, selection, payload, events, page, supplied, eventFilter, all, q, nil, diagnostics...)
+}
+
+func buildQueriedLedgerPageWithResolution(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string, all bool, q ledgerQuery, resolution *childDetailResolution, diagnostics ...bool) (ledgerPage, error) {
 	diagnosticMode := len(diagnostics) > 0 && diagnostics[0]
 	if !q.active() {
-		return buildLedgerPageUsing(session, id, schema, detail, selection, payload, events, page, supplied, eventFilter, all, nil, nil, diagnosticMode)
+		return buildLedgerPageUsing(session, id, schema, detail, selection, payload, events, page, supplied, eventFilter, all, nil, nil, diagnosticMode, resolution)
 	}
 	if eventFilter != "" {
 		return ledgerPage{}, fmt.Errorf("events: --event cannot be combined with window or error filters")
@@ -70,7 +74,7 @@ func buildQueriedLedgerPage(session, id, schema, detail string, selection []stri
 	if err != nil {
 		return ledgerPage{}, err
 	}
-	full, err := buildLedgerPage(session, id, schema, detail, canonical, payload, events, 1, "", "", true)
+	full, err := buildLedgerPageUsing(session, id, schema, detail, canonical, payload, events, 1, "", "", true, nil, nil, false, resolution)
 	if err != nil {
 		return ledgerPage{}, err
 	}
@@ -142,5 +146,5 @@ func buildQueriedLedgerPage(session, id, schema, detail string, selection []stri
 		receipt.First = endpoint(selected[0])
 		receipt.Last = endpoint(selected[len(selected)-1])
 	}
-	return buildLedgerPageUsing(session, id, schema, detail, selection, payload, selected, page, supplied, "", all, nil, []*ledgerQueryReceipt{receipt}, diagnosticMode)
+	return buildLedgerPageUsing(session, id, schema, detail, selection, payload, selected, page, supplied, "", all, nil, []*ledgerQueryReceipt{receipt}, diagnosticMode, resolution)
 }

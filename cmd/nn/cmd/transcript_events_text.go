@@ -30,6 +30,34 @@ func renderLedgerText(w io.Writer, p ledgerPage, maxChars int) error {
 			return e
 		}
 	}
+	if len(p.ResolutionCandidates) > 0 {
+		if _, e := fmt.Fprintf(w, "## Resolution candidates (%d of %d; truncated: %t)\n", len(p.ResolutionCandidates), p.ResolutionCandidateTotal, p.ResolutionCandidatesTruncated); e != nil {
+			return e
+		}
+		for _, candidate := range p.ResolutionCandidates {
+			safe := func(value string) string {
+				return strings.Map(func(r rune) rune {
+					if unicode.IsControl(r) {
+						return ' '
+					}
+					return r
+				}, value)
+			}
+			passed := []string{}
+			for _, key := range []string{"parent_session", "agent_type", "agent_id_prefix", "assignment", "launch_time"} {
+				if candidate.Checks[key] {
+					passed = append(passed, key)
+				}
+			}
+			failed := strings.Join(candidate.FailedChecks, ",")
+			if failed == "" {
+				failed = "none"
+			}
+			if _, e := fmt.Fprintf(w, "candidate: %s · status: %s · timestamp: %s\npath: %s\nlabel: %s\npassed: %s · failed: %s\n", safe(candidate.Session), candidate.Status, safe(candidate.Timestamp), safe(candidate.Path), safe(candidate.Label), strings.Join(passed, ","), failed); e != nil {
+				return e
+			}
+		}
+	}
 	windowed := p.Query != nil && p.Query.Window != nil
 	if windowed {
 		r := p.Query.Window

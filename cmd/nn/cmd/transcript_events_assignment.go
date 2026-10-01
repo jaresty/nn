@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-func executeAssignedEvents(w io.Writer, session, id string, fields []string, payload bool, q ledgerQuery, window ledgerWindowOptions, anchor string, failures, page int, snapshot, format string, maxChars, assignmentChars int) error {
-	request, err := captureRequest(session, "events-assignment-v1", id, fields, payload, q, window, window.Enabled, anchor, failures)
+func executeAssignedEvents(w io.Writer, session, id string, fields []string, payload bool, q ledgerQuery, window ledgerWindowOptions, anchor string, failures, page int, snapshot, format string, maxChars, assignmentChars int, includeResolutionCandidates bool) error {
+	request, err := captureRequest(session, "events-assignment-v1", id, fields, payload, q, window, window.Enabled, anchor, failures, includeResolutionCandidates)
 	if err != nil {
 		return err
 	}
@@ -17,7 +17,7 @@ func executeAssignedEvents(w io.Writer, session, id string, fields []string, pay
 	if snapshot != "" {
 		first, err = loadCapturedPage(snapshot, request, page)
 	} else {
-		first, err = buildAssignedEvents(session, id, fields, payload, q, window, anchor, failures, request)
+		first, err = buildAssignedEvents(session, id, fields, payload, q, window, anchor, failures, request, includeResolutionCandidates)
 	}
 	if err != nil {
 		return err
@@ -28,7 +28,7 @@ func executeAssignedEvents(w io.Writer, session, id string, fields []string, pay
 	return renderAssignedEvents(w, first, func(n int) (ledgerPage, error) { return loadCapturedPage(first.Snapshot, request, n) }, maxChars, assignmentChars)
 }
 
-func buildAssignedEvents(session, id string, fields []string, payload bool, q ledgerQuery, window ledgerWindowOptions, anchor string, failures int, request string) (ledgerPage, error) {
+func buildAssignedEvents(session, id string, fields []string, payload bool, q ledgerQuery, window ledgerWindowOptions, anchor string, failures int, request string, includeResolutionCandidates bool) (ledgerPage, error) {
 	var empty ledgerPage
 	path, err := contextPath(session)
 	if err != nil {
@@ -67,11 +67,17 @@ func buildAssignedEvents(session, id string, fields []string, payload bool, q le
 	if err != nil {
 		return empty, err
 	}
+	var resolution childDetailResolution
+	if includeResolutionCandidates {
+		resolution = transcriptChildDetailResolutionWithCandidates(path, id, schema, detail, selectedLedgerSourcePath(path, events))
+	} else {
+		resolution = transcriptChildDetailResolution(path, id, schema, detail, selectedLedgerSourcePath(path, events))
+	}
 	var selected ledgerPage
 	if window.Enabled {
 		selected, err = buildWindowLedgerPage(path, id, schema, detail, fields, payload, events, 1, "", anchor, true, q, window)
 	} else {
-		selected, err = buildQueriedLedgerPage(path, id, schema, detail, fields, payload, events, 1, "", anchor, true, q)
+		selected, err = buildQueriedLedgerPageWithResolution(path, id, schema, detail, fields, payload, events, 1, "", anchor, true, q, &resolution)
 	}
 	if err != nil {
 		return empty, err
@@ -81,7 +87,7 @@ func buildAssignedEvents(session, id string, fields []string, payload bool, q le
 		fq := q
 		fq.ErrorsOnly = true
 		fq.Last = failures
-		failurePage, err = buildQueriedLedgerPage(path, id, schema, detail, fields, payload, events, 1, "", "", true, fq)
+		failurePage, err = buildQueriedLedgerPageWithResolution(path, id, schema, detail, fields, payload, events, 1, "", "", true, fq, &resolution)
 		if err != nil {
 			return empty, err
 		}
@@ -98,7 +104,7 @@ func buildAssignedEvents(session, id string, fields []string, payload bool, q le
 		}
 	}
 	build := func(n int, s string) (ledgerPage, error) {
-		return buildLedgerPage(path, id, schema, detail, fields, payload, bundle, n, s, "", false)
+		return buildLedgerPageUsing(path, id, schema, detail, fields, payload, bundle, n, s, "", false, nil, nil, false, &resolution)
 	}
 	first, err := build(1, "")
 	if err != nil {

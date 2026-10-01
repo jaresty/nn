@@ -93,6 +93,56 @@ func TestPiForegroundOwnedSessionFallbackWithInheritedContext(t *testing.T) {
 	}
 }
 
+func TestTranscriptEventsResolutionCandidatesAreFailClosed(t *testing.T) {
+	const assertion = "ASSERT_TRANSCRIPT_EVENTS_RESOLUTION_CANDIDATES_FAIL_CLOSED"
+	dir := t.TempDir()
+	parent := piForegroundParentFixture(t, dir)
+	candidate := writePiForegroundFixture(t, dir, "candidate", parent, "integration-planner#1ccf743f", "different assignment", "2026-09-18T17:02:00Z")
+
+	_, execute := setupNotebook(t)
+	text, err := execute("transcript", "events", parent, "1ccf743f-67ee-476", "--last", "1", "--format", "text", "--include-resolution-candidates")
+	if err != nil || !strings.Contains(text, "## Resolution candidates") || !strings.Contains(text, "status: unqualified") || !strings.Contains(text, "failed: assignment") || !strings.Contains(text, canonicalPath(candidate)) {
+		t.Fatalf("%s text=%q err=%v", assertion, text, err)
+	}
+	out, err := execute("transcript", "events", parent, "1ccf743f-67ee-476", "--include-resolution-candidates")
+	var page map[string]any
+	if err != nil || json.Unmarshal([]byte(out), &page) != nil {
+		t.Fatalf("%s json=%q err=%v", assertion, out, err)
+	}
+	candidates, _ := page["resolution_candidates"].([]any)
+	if len(candidates) != 1 || page["detail_status"] != "unavailable" {
+		t.Fatalf("%s page=%v", assertion, page)
+	}
+	candidateJSON, _ := candidates[0].(map[string]any)
+	if candidateJSON["status"] != "unqualified" || candidateJSON["path"] != canonicalPath(candidate) {
+		t.Fatalf("%s candidate=%v", assertion, candidateJSON)
+	}
+	without, err := execute("transcript", "events", parent, "1ccf743f-67ee-476", "--last", "1")
+	if err != nil || strings.Contains(without, "resolution_candidates") {
+		t.Fatalf("%s default output changed: %q err=%v", assertion, without, err)
+	}
+}
+
+func TestLedgerPageReusesSuppliedChildResolution(t *testing.T) {
+	const assertion = "ASSERT_TRANSCRIPT_EVENTS_REUSES_RESOLUTION_RECEIPT"
+	original := resolveChildDetailForLedgerPage
+	calls := 0
+	resolveChildDetailForLedgerPage = func(path, id, schema, detail string, selectedPaths ...string) childDetailResolution {
+		calls++
+		return childDetailResolution{DetailSource: "unexpected"}
+	}
+	defer func() { resolveChildDetailForLedgerPage = original }()
+
+	provided := childDetailResolution{DetailSource: "unavailable", CandidateCount: 1}
+	page, err := buildLedgerPageUsing(filepath.Join(t.TempDir(), "parent.jsonl"), "child", schemaPi, "unavailable", []string{"identity"}, false, nil, 1, "", "", true, nil, nil, false, &provided)
+	if err != nil || calls != 0 || page.DetailSource != "unavailable" || page.CandidateCount != 1 {
+		t.Fatalf("%s provided: calls=%d page=%+v err=%v", assertion, calls, page, err)
+	}
+	if _, err := buildLedgerPageUsing(filepath.Join(t.TempDir(), "parent.jsonl"), "child", schemaPi, "unavailable", []string{"identity"}, false, nil, 1, "", "", true, nil, nil, false); err != nil || calls != 1 {
+		t.Fatalf("%s fallback: calls=%d err=%v", assertion, calls, err)
+	}
+}
+
 func TestPiForegroundOwnedSessionFallbackRejectsMismatches(t *testing.T) {
 	const assertion = "ASSERT_PI_FOREGROUND_FALLBACK_REJECTS_MISMATCHES"
 	for _, tc := range []struct{ name, sessionName, assignment, stamp string }{

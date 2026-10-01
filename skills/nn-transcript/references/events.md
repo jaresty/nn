@@ -150,11 +150,29 @@ time. JSON discloses `detail_source`, `custody`, `join_evidence`, `candidate_cou
 `qualified_unique_join` custody. Unsupported adapters remain unavailable rather than inheriting Pi's
 proof rules.
 
-For manual inspection when automatic qualification fails, locate owned sessions without inferring a
-join, then inspect the selected standalone root:
+When automatic qualification fails, request bounded resolution candidates from the same acquisition
+before launching a separate inventory scan:
 
 ```bash
-nn transcript ls --owner-session <parent-session-id> --fields session,modified,owner_session,label,path --json
+nn transcript events <parent-session-id> --description "<exact launch description>" \
+  --last 30 --include-assignment --include-resolution-candidates --format text
+```
+
+`--include-resolution-candidates` is opt-in. It returns at most the 10 most recent sessions whose
+authenticated `parentSession` names the selected parent, plus the exhaustive candidate total and a
+truncation flag. Each row carries session, canonical path, timestamp, bounded label, explicit
+`qualified` or `unqualified` status, and pass/fail values for agent type, agent-ID prefix, exact
+assignment, and launch timing. These diagnostics never supply events, change `detail_status`, set a
+resolved path, or relax unique-join custody. The flag is snapshot-bound and cannot combine with
+summary, handoff `--at`, unbounded `--all`, artifact diagnostics, combined error tails, exact-event,
+or search/context modes.
+
+Only when broader manual inventory is still needed, use native owner and label filtering rather than
+post-page Python or `jq` filtering:
+
+```bash
+nn transcript ls --owner-session <parent-session-id> --label-contains "<assignment fragment>" \
+  --fields session,modified,owner_session,label,path --json
 nn transcript events <selected-owned-session> ROOT --last 30 --format text
 ```
 

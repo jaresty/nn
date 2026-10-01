@@ -13,27 +13,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var resolveChildDetailForLedgerPage = transcriptChildDetailResolution
+
 type ledgerPage struct {
-	All            bool                `json:"all,omitempty"`
-	Query          *ledgerQueryReceipt `json:"query,omitempty"`
-	Handoff        *handoffReceipt     `json:"handoff,omitempty"`
-	Version        string              `json:"version"`
-	EventFilter    string              `json:"event_filter"`
-	Snapshot       string              `json:"snapshot"`
-	Page           int                 `json:"page"`
-	Pages          int                 `json:"pages"`
-	NextPage       int                 `json:"next_page"`
-	Select         []string            `json:"select"`
-	Payload        bool                `json:"payload"`
-	Schema         string              `json:"schema"`
-	DetailStatus   string              `json:"detail_status"`
-	DetailReason   string              `json:"detail_reason,omitempty"`
-	DetailSource   string              `json:"detail_source,omitempty"`
-	Custody        string              `json:"custody,omitempty"`
-	JoinEvidence   map[string]bool     `json:"join_evidence,omitempty"`
-	CandidateCount int                 `json:"candidate_count,omitempty"`
-	ResolvedPath   string              `json:"resolved_path,omitempty"`
-	Events         []json.RawMessage   `json:"events"`
+	All                           bool                       `json:"all,omitempty"`
+	Query                         *ledgerQueryReceipt        `json:"query,omitempty"`
+	Handoff                       *handoffReceipt            `json:"handoff,omitempty"`
+	Version                       string                     `json:"version"`
+	EventFilter                   string                     `json:"event_filter"`
+	Snapshot                      string                     `json:"snapshot"`
+	Page                          int                        `json:"page"`
+	Pages                         int                        `json:"pages"`
+	NextPage                      int                        `json:"next_page"`
+	Select                        []string                   `json:"select"`
+	Payload                       bool                       `json:"payload"`
+	Schema                        string                     `json:"schema"`
+	DetailStatus                  string                     `json:"detail_status"`
+	DetailReason                  string                     `json:"detail_reason,omitempty"`
+	DetailSource                  string                     `json:"detail_source,omitempty"`
+	Custody                       string                     `json:"custody,omitempty"`
+	JoinEvidence                  map[string]bool            `json:"join_evidence,omitempty"`
+	CandidateCount                int                        `json:"candidate_count,omitempty"`
+	ResolvedPath                  string                     `json:"resolved_path,omitempty"`
+	ResolutionCandidates          []childResolutionCandidate `json:"resolution_candidates,omitempty"`
+	ResolutionCandidateTotal      int                        `json:"resolution_candidate_total,omitempty"`
+	ResolutionCandidatesTruncated bool                       `json:"resolution_candidates_truncated,omitempty"`
+	Events                        []json.RawMessage          `json:"events"`
 }
 
 func ledgerSelect(s string) ([]string, error) {
@@ -61,7 +66,7 @@ func newTranscriptEventsCmd() *cobra.Command {
 
 func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, string, string, error)) *cobra.Command {
 	var selection, snapshot, eventFilter, summary, groupBy, since, until, at string
-	var payload, asJSON, all, errorsOnly, diagnostics bool
+	var payload, asJSON, all, errorsOnly, diagnostics, includeResolutionCandidates bool
 	var page, bucketSize, resultLimit, last int
 	var format string
 	var maxTextChars, includeErrors, assignmentChars int
@@ -122,6 +127,16 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 		if c.Flags().Changed("include-errors") {
 			if format != "text" || last < 1 || includeErrors < 1 || includeErrors > 200 || window.Enabled || c.Flags().Changed("errors-only") {
 				return fmt.Errorf("events: --include-errors requires --format text, --last 1..200 and a failure limit 1..200; cannot combine with errors-only or search/context")
+			}
+		}
+		if includeResolutionCandidates {
+			for _, flag := range []string{"summary", "at", "all", "diagnostics", "include-errors", "event"} {
+				if c.Flags().Changed(flag) {
+					return fmt.Errorf("events: --include-resolution-candidates cannot be combined with --%s", flag)
+				}
+			}
+			if window.Enabled {
+				return fmt.Errorf("events: --include-resolution-candidates cannot be combined with search/context")
 			}
 		}
 		if format != "json" && format != "text" {
@@ -251,7 +266,7 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 			if assignmentChars < 1 || assignmentChars > 100000 {
 				return fmt.Errorf("events: --max-assignment-chars requires 1..100000")
 			}
-			return executeAssignedEvents(c.OutOrStdout(), args[0], args[1], selectFields, payload, query, window, eventFilter, includeErrors, page, snapshot, format, maxTextChars, assignmentChars)
+			return executeAssignedEvents(c.OutOrStdout(), args[0], args[1], selectFields, payload, query, window, eventFilter, includeErrors, page, snapshot, format, maxTextChars, assignmentChars, includeResolutionCandidates)
 		}
 		if c.Flags().Changed("max-assignment-chars") {
 			return fmt.Errorf("events: --max-assignment-chars requires --include-assignment")
@@ -301,11 +316,16 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 			_, err = c.OutOrStdout().Write(body)
 			return err
 		}
+		var resolution *childDetailResolution
+		if includeResolutionCandidates {
+			r := transcriptChildDetailResolutionWithCandidates(args[0], args[1], schema, detail, selectedLedgerSourcePath(args[0], events))
+			resolution = &r
+		}
 		var result ledgerPage
 		if window.Enabled {
 			result, err = buildWindowLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all || format == "text", query, window, diagnostics)
 		} else {
-			result, err = buildQueriedLedgerPage(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all || format == "text", query, diagnostics)
+			result, err = buildQueriedLedgerPageWithResolution(args[0], args[1], schema, detail, selectFields, payload, events, page, snapshot, eventFilter, all || format == "text", query, resolution, diagnostics)
 		}
 		if err != nil {
 			return err
@@ -353,6 +373,7 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 	c.Flags().StringVar(&selection, "select", "identity,message,usage,tools,lifecycle", "comma-separated facets; identity is always included")
 	c.Flags().BoolVar(&payload, "payload", false, "include native payloads (oversized events are fragmented)")
 	c.Flags().BoolVar(&diagnostics, "diagnostics", false, "attach bounded recorded-artifact diagnostics to selected events")
+	c.Flags().BoolVar(&includeResolutionCandidates, "include-resolution-candidates", false, "include bounded fail-closed owned-session candidate diagnostics")
 	c.Flags().BoolVar(&asJSON, "json", true, "emit bounded JSON (default; use --format text for readable tails)")
 	c.Flags().IntVar(&page, "page", 1, "one-based page")
 	c.Flags().StringVar(&snapshot, "snapshot", "", "page-1 SHA-256; required for every later page")
@@ -364,10 +385,11 @@ func buildLedgerPage(session, id, schema, detail string, selection []string, pay
 }
 
 func buildLedgerPageWithHandoff(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string, all bool, handoff *handoffReceipt, queries ...*ledgerQueryReceipt) (ledgerPage, error) {
-	return buildLedgerPageUsing(session, id, schema, detail, selection, payload, events, page, supplied, eventFilter, all, handoff, queries, false)
+	emptyResolution := childDetailResolution{}
+	return buildLedgerPageUsing(session, id, schema, detail, selection, payload, events, page, supplied, eventFilter, all, handoff, queries, false, &emptyResolution)
 }
 
-func buildLedgerPageUsing(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string, all bool, handoff *handoffReceipt, queries []*ledgerQueryReceipt, diagnostics bool) (ledgerPage, error) {
+func buildLedgerPageUsing(session, id, schema, detail string, selection []string, payload bool, events []ledgerEvent, page int, supplied, eventFilter string, all bool, handoff *handoffReceipt, queries []*ledgerQueryReceipt, diagnostics bool, provided ...*childDetailResolution) (ledgerPage, error) {
 	if page < 1 || (page > 1 && supplied == "") {
 		return ledgerPage{}, fmt.Errorf("events: invalid page or missing snapshot")
 	}
@@ -388,8 +410,14 @@ func buildLedgerPageUsing(session, id, schema, detail string, selection []string
 		return ledgerPage{}, err
 	}
 	request, _ := json.Marshal([]any{filepath.Clean(absolute), id, selection, payload})
-	resolution := transcriptChildDetailResolution(absolute, id, schema, detail, selectedLedgerSourcePath(absolute, events))
-	result := ledgerPage{Version: "nn.transcript.events/v1", EventFilter: eventFilter, Select: selection, Payload: payload, Schema: schema, DetailStatus: detail, DetailReason: transcriptDetailReason(absolute, id, schema, detail), DetailSource: resolution.DetailSource, Custody: resolution.Custody, JoinEvidence: resolution.JoinEvidence, CandidateCount: resolution.CandidateCount, ResolvedPath: resolution.ResolvedPath, Events: []json.RawMessage{}}
+	var resolution childDetailResolution
+	if len(provided) > 0 && provided[0] != nil {
+		resolution = *provided[0]
+	} else {
+		resolution = resolveChildDetailForLedgerPage(absolute, id, schema, detail, selectedLedgerSourcePath(absolute, events))
+		resolution.ResolutionCandidates = nil
+	}
+	result := ledgerPage{Version: "nn.transcript.events/v1", EventFilter: eventFilter, Select: selection, Payload: payload, Schema: schema, DetailStatus: detail, DetailReason: transcriptDetailReason(absolute, id, schema, detail), DetailSource: resolution.DetailSource, Custody: resolution.Custody, JoinEvidence: resolution.JoinEvidence, CandidateCount: resolution.CandidateCount, ResolvedPath: resolution.ResolvedPath, ResolutionCandidates: resolution.ResolutionCandidates, ResolutionCandidateTotal: resolution.ResolutionCandidateTotal, ResolutionCandidatesTruncated: resolution.ResolutionCandidatesTruncated, Events: []json.RawMessage{}}
 	if len(queries) > 0 {
 		result.Query = queries[0]
 	}
