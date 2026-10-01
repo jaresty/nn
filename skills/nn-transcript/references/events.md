@@ -138,6 +138,26 @@ selects facets; available facets are identity/message/usage/tools/lifecycle (all
 identity always included). `--payload` opts into native payloads; `--event <event-id>` retrieves
 one exact event while preserving its full-ledger ordinal. Unknown event IDs fail.
 
+Child detail resolves in custody order: inline retained detail, an authenticated producer locator,
+a provider-owned child-session relation, an explicit caller path, then unavailable. Pi foreground
+children may use the provider-owned-session fallback only when exactly one canonical sibling session
+has all of: the exact recorded `parentSession`, matching agent type and agent-ID prefix in
+`session_info.name`, the exact initial assignment, and a start timestamp no earlier than launch.
+Zero or multiple qualified candidates remain unavailable; never guess by content similarity or nearest
+time. JSON discloses `detail_source`, `custody`, `join_evidence`, `candidate_count`, and
+`resolved_path`, and the event snapshot binds those fields. Existing producer sidechains report
+`producer_locator`; successful foreground joins report `owned_session_fallback` with
+`qualified_unique_join` custody. Unsupported adapters remain unavailable rather than inheriting Pi's
+proof rules.
+
+For manual inspection when automatic qualification fails, locate owned sessions without inferring a
+join, then inspect the selected standalone root:
+
+```bash
+nn transcript ls --owner-session <parent-session-id> --fields session,modified,owner_session,label,path --json
+nn transcript events <selected-owned-session> ROOT --last 30 --format text
+```
+
 `--diagnostics` opts into bounded recorded-artifact diagnostics on ordinary JSON events,
 including filtered/windowed pages, exact events, and `--all`. Each complete event has a
 `diagnostics` object (`version`, `event_id`, `status`, `findings`, `inspection_complete`,

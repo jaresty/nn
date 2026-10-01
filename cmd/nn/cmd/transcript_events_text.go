@@ -25,6 +25,11 @@ func renderLedgerText(w io.Writer, p ledgerPage, maxChars int) error {
 	if _, e := fmt.Fprintln(w); e != nil {
 		return e
 	}
+	if p.DetailSource != "" {
+		if _, e := fmt.Fprintf(w, "detail source: %s · custody: %s · candidates: %d\n", p.DetailSource, p.Custody, p.CandidateCount); e != nil {
+			return e
+		}
+	}
 	windowed := p.Query != nil && p.Query.Window != nil
 	if windowed {
 		r := p.Query.Window

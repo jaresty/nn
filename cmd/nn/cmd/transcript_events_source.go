@@ -117,6 +117,11 @@ func ledgerRecords(session, id string) ([]ledgerRecord, string, string, error) {
 				}
 			}
 		}
+		if len(selected) == 0 {
+			if candidates, _ := piOwnedSessionCandidates(path, recs, id); len(candidates) == 1 {
+				selected, selectedPath = candidates[0].Records, candidates[0].Path
+			}
+		}
 		for _, r := range recs {
 			if r.Type != "custom" || r.CustomType != "subagents:record" {
 				continue

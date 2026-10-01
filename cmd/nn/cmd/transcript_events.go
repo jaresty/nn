@@ -14,21 +14,26 @@ import (
 )
 
 type ledgerPage struct {
-	All          bool                `json:"all,omitempty"`
-	Query        *ledgerQueryReceipt `json:"query,omitempty"`
-	Handoff      *handoffReceipt     `json:"handoff,omitempty"`
-	Version      string              `json:"version"`
-	EventFilter  string              `json:"event_filter"`
-	Snapshot     string              `json:"snapshot"`
-	Page         int                 `json:"page"`
-	Pages        int                 `json:"pages"`
-	NextPage     int                 `json:"next_page"`
-	Select       []string            `json:"select"`
-	Payload      bool                `json:"payload"`
-	Schema       string              `json:"schema"`
-	DetailStatus string              `json:"detail_status"`
-	DetailReason string              `json:"detail_reason,omitempty"`
-	Events       []json.RawMessage   `json:"events"`
+	All            bool                `json:"all,omitempty"`
+	Query          *ledgerQueryReceipt `json:"query,omitempty"`
+	Handoff        *handoffReceipt     `json:"handoff,omitempty"`
+	Version        string              `json:"version"`
+	EventFilter    string              `json:"event_filter"`
+	Snapshot       string              `json:"snapshot"`
+	Page           int                 `json:"page"`
+	Pages          int                 `json:"pages"`
+	NextPage       int                 `json:"next_page"`
+	Select         []string            `json:"select"`
+	Payload        bool                `json:"payload"`
+	Schema         string              `json:"schema"`
+	DetailStatus   string              `json:"detail_status"`
+	DetailReason   string              `json:"detail_reason,omitempty"`
+	DetailSource   string              `json:"detail_source,omitempty"`
+	Custody        string              `json:"custody,omitempty"`
+	JoinEvidence   map[string]bool     `json:"join_evidence,omitempty"`
+	CandidateCount int                 `json:"candidate_count,omitempty"`
+	ResolvedPath   string              `json:"resolved_path,omitempty"`
+	Events         []json.RawMessage   `json:"events"`
 }
 
 func ledgerSelect(s string) ([]string, error) {
@@ -383,7 +388,8 @@ func buildLedgerPageUsing(session, id, schema, detail string, selection []string
 		return ledgerPage{}, err
 	}
 	request, _ := json.Marshal([]any{filepath.Clean(absolute), id, selection, payload})
-	result := ledgerPage{Version: "nn.transcript.events/v1", EventFilter: eventFilter, Select: selection, Payload: payload, Schema: schema, DetailStatus: detail, DetailReason: transcriptDetailReason(absolute, id, schema, detail), Events: []json.RawMessage{}}
+	resolution := transcriptChildDetailResolution(absolute, id, schema, detail)
+	result := ledgerPage{Version: "nn.transcript.events/v1", EventFilter: eventFilter, Select: selection, Payload: payload, Schema: schema, DetailStatus: detail, DetailReason: transcriptDetailReason(absolute, id, schema, detail), DetailSource: resolution.DetailSource, Custody: resolution.Custody, JoinEvidence: resolution.JoinEvidence, CandidateCount: resolution.CandidateCount, ResolvedPath: resolution.ResolvedPath, Events: []json.RawMessage{}}
 	if len(queries) > 0 {
 		result.Query = queries[0]
 	}
