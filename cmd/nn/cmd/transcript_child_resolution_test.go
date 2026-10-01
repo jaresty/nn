@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -13,7 +14,7 @@ func writePiForegroundFixture(t *testing.T, dir, name, parent, sessionName, assi
 	writeTranscriptFile(t, path,
 		`{"type":"session","version":3,"id":"`+name+`","parentSession":"`+parent+`","timestamp":"`+stamp+`"}`+"\n"+
 			`{"type":"session_info","name":"`+sessionName+`","timestamp":"`+stamp+`"}`+"\n"+
-			`{"type":"message","timestamp":"`+stamp+`","message":{"role":"user","content":[{"type":"text","text":"`+assignment+`"}]}}`+"\n"+
+			`{"type":"message","timestamp":"`+stamp+`","message":{"role":"user","content":[{"type":"text","text":`+strconv.Quote(assignment)+`}]}}`+"\n"+
 			`{"type":"message","timestamp":"`+stamp+`","message":{"role":"assistant","content":[{"type":"text","text":"done"}]}}`+"\n")
 	return path
 }
@@ -65,6 +66,30 @@ func TestPiForegroundOwnedSessionFallback(t *testing.T) {
 	resolution = transcriptChildDetailResolution(parent, "1ccf743f-67ee-476", schemaPi, detail)
 	if err != nil || detail != "unavailable" || len(records) != 0 || resolution.CandidateCount != 2 || resolution.DetailSource != "unavailable" {
 		t.Fatalf("%s ambiguity records=%d detail=%q resolution=%+v err=%v", assertion, len(records), detail, resolution, err)
+	}
+}
+
+func TestPiForegroundOwnedSessionFallbackWithInheritedContext(t *testing.T) {
+	const assertion = "ASSERT_PI_FOREGROUND_OWNED_SESSION_INHERITED_CONTEXT"
+	dir := t.TempDir()
+	parent := piForegroundParentFixture(t, dir)
+	assignment := "# Parent Conversation Context\n\n[User]: prior discussion\n\n---\n# Your Task (below)\nFull planner assignment"
+	child := writePiForegroundFixture(t, dir, "child", parent, "integration-planner#1ccf743f", assignment, "2026-09-18T17:02:00Z")
+	if got := piDelegatedAssignment(assignment); got != "Full planner assignment" {
+		t.Fatalf("%s extracted assignment=%q", assertion, got)
+	}
+	identity, ok := readPiOwnedSessionIdentity(child)
+	if !ok || identity.Assignment != "Full planner assignment" {
+		t.Fatalf("%s identity=%+v ok=%v", assertion, identity, ok)
+	}
+
+	records, schema, detail, err := ledgerRecords(parent, "1ccf743f-67ee-476")
+	if err != nil || schema != schemaPi || detail != "available" || len(records) != 2 {
+		t.Fatalf("%s records=%d schema=%q detail=%q err=%v", assertion, len(records), schema, detail, err)
+	}
+	resolution := transcriptChildDetailResolution(parent, "1ccf743f-67ee-476", schema, detail)
+	if resolution.DetailSource != "owned_session_fallback" || resolution.CandidateCount != 1 {
+		t.Fatalf("%s resolution=%+v", assertion, resolution)
 	}
 }
 

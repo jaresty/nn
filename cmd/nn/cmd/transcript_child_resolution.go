@@ -64,10 +64,23 @@ func piOpeningAssignment(recs []rawRecord) string {
 		}
 		var msg map[string]json.RawMessage
 		if json.Unmarshal(r.Message, &msg) == nil && ledgerString(msg, "role") == "user" {
-			return strings.TrimSpace(ledgerText(msg["content"]))
+			return piDelegatedAssignment(strings.TrimSpace(ledgerText(msg["content"])))
 		}
 	}
 	return ""
+}
+
+func piDelegatedAssignment(text string) string {
+	const contextHeader = "# Parent Conversation Context\n"
+	const taskBoundary = "\n---\n# Your Task (below)\n"
+	if !strings.HasPrefix(text, contextHeader) {
+		return text
+	}
+	boundary := strings.LastIndex(text, taskBoundary)
+	if boundary < 0 {
+		return text
+	}
+	return strings.TrimSpace(text[boundary+len(taskBoundary):])
 }
 
 type piOwnedSessionIdentity struct {
@@ -106,7 +119,7 @@ func readPiOwnedSessionIdentity(path string) (piOwnedSessionIdentity, bool) {
 		if record.Type == "message" {
 			var msg map[string]json.RawMessage
 			if json.Unmarshal(record.Message, &msg) == nil && ledgerString(msg, "role") == "user" {
-				identity.Assignment = strings.TrimSpace(ledgerText(msg["content"]))
+				identity.Assignment = piDelegatedAssignment(strings.TrimSpace(ledgerText(msg["content"])))
 				return identity, identity.Name != ""
 			}
 		}
