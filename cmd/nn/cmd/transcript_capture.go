@@ -32,6 +32,7 @@ type transcriptCapture struct {
 	Path           string                              `json:"path"`
 	Sources        map[string]capturedTranscriptSource `json:"sources"`
 	AuthPaths      map[string]string                   `json:"authenticated_paths"`
+	OwnedPaths     map[string]string                   `json:"owned_session_paths,omitempty"`
 	AgentSelection []string                            `json:"agent_selection,omitempty"` // nil retains the legacy full capture
 }
 type captureBinding struct {
@@ -173,13 +174,17 @@ func newTranscriptCaptureForAgents(session string, selected map[string]bool) (*t
 		return nil, e
 	}
 	input, _ := filepath.Abs(session)
-	c := &transcriptCapture{InputPath: input, Path: path, Sources: map[string]capturedTranscriptSource{path: root}, AuthPaths: map[string]string{}}
+	c := &transcriptCapture{InputPath: input, Path: path, Sources: map[string]capturedTranscriptSource{path: root}, AuthPaths: map[string]string{}, OwnedPaths: map[string]string{}}
 	for id, include := range selected {
 		if include {
 			c.AgentSelection = append(c.AgentSelection, id)
 		}
 	}
 	sort.Strings(c.AgentSelection)
+	resolved := map[string]bool{}
+	for id := range selected {
+		resolved[id] = len(ownedPiRecords(root.Records, id, false)) > 0
+	}
 	for _, loc := range piBackgroundLocators(root.Records) {
 		if selected != nil && !selected[loc.AgentID] {
 			continue
@@ -196,6 +201,23 @@ func newTranscriptCaptureForAgents(session string, selected map[string]bool) (*t
 			c.Sources[safe] = source
 		}
 		c.AuthPaths[loc.Path+"\x00"+loc.AgentID] = safe
+		resolved[loc.AgentID] = true
+	}
+	for id, include := range selected {
+		if !include || resolved[id] {
+			continue
+		}
+		candidates, _ := piOwnedSessionCandidates(path, root.Records, id)
+		if len(candidates) != 1 {
+			continue
+		}
+		safe := candidates[0].Path
+		source, captureErr := captureTranscriptSource(safe)
+		if captureErr != nil {
+			continue
+		}
+		c.Sources[safe] = source
+		c.OwnedPaths[id] = safe
 	}
 	if e = saveTranscriptCapture(c); e != nil {
 		return nil, e
@@ -288,6 +310,13 @@ func (c *transcriptCapture) indexLedgers() {
 		source := c.resolve(loc.Path, loc.AgentID)
 		owned[loc.AgentID] = ownedPiRecords(c.Sources[source].Records, loc.AgentID, true)
 		paths[loc.AgentID] = source
+	}
+	for id, source := range c.OwnedPaths {
+		if len(owned[id]) > 0 || source == "" {
+			continue
+		}
+		owned[id] = ownedPiRecords(c.Sources[source].Records, "ROOT", false)
+		paths[id] = source
 	}
 	for id, rs := range lifecycle {
 		c.Ledgers[id] = append([]ledgerRecord{}, rs...)

@@ -123,6 +123,31 @@ func TestTranscriptEventsResolutionCandidatesAreFailClosed(t *testing.T) {
 	}
 }
 
+func TestAssignedEventsCapturesQualifiedForegroundOwnedSession(t *testing.T) {
+	const assertion = "ASSERT_ASSIGNED_EVENTS_CAPTURE_QUALIFIED_FOREGROUND_SESSION"
+	t.Run("unique", func(t *testing.T) {
+		dir := t.TempDir()
+		parent := piForegroundParentFixture(t, dir)
+		writePiForegroundFixture(t, dir, "child", parent, "integration-planner#1ccf743f", "Full planner assignment", "2026-09-18T17:02:00Z")
+		_, execute := setupNotebook(t)
+		out, err := execute("transcript", "events", parent, "1ccf743f-67ee-476", "--last", "3", "--include-assignment", "--format", "text")
+		if err != nil || !strings.Contains(out, "detail: available") || !strings.Contains(out, "ASSISTANT") || !strings.Contains(out, "done") || !strings.Contains(out, "detail source: owned_session_fallback") {
+			t.Fatalf("%s unique output=%q err=%v", assertion, out, err)
+		}
+	})
+	t.Run("ambiguous", func(t *testing.T) {
+		dir := t.TempDir()
+		parent := piForegroundParentFixture(t, dir)
+		writePiForegroundFixture(t, dir, "child-a", parent, "integration-planner#1ccf743f", "Full planner assignment", "2026-09-18T17:02:00Z")
+		writePiForegroundFixture(t, dir, "child-b", parent, "integration-planner#1ccf743f", "Full planner assignment", "2026-09-18T17:03:00Z")
+		_, execute := setupNotebook(t)
+		out, err := execute("transcript", "events", parent, "1ccf743f-67ee-476", "--last", "3", "--include-assignment", "--format", "text")
+		if err != nil || !strings.Contains(out, "detail: unavailable") || strings.Contains(out, "ASSISTANT") || strings.Contains(out, ": done") {
+			t.Fatalf("%s ambiguous output=%q err=%v", assertion, out, err)
+		}
+	})
+}
+
 func TestLedgerPageReusesSuppliedChildResolution(t *testing.T) {
 	const assertion = "ASSERT_TRANSCRIPT_EVENTS_REUSES_RESOLUTION_RECEIPT"
 	original := resolveChildDetailForLedgerPage

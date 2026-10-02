@@ -144,7 +144,9 @@ children may use the provider-owned-session fallback only when exactly one canon
 has all of: the exact recorded `parentSession`, matching agent type and agent-ID prefix in
 `session_info.name`, the exact initial assignment, and a start timestamp no earlier than launch.
 Zero or multiple qualified candidates remain unavailable; never guess by content similarity or nearest
-time. JSON discloses `detail_source`, `custody`, `join_evidence`, `candidate_count`, and
+time. Assignment-inclusive capture persists and indexes the uniquely qualified owned session so its ROOT
+records are returned under the selected child ID; capture does not admit zero, ambiguous, or partially
+qualified candidates. JSON discloses `detail_source`, `custody`, `join_evidence`, `candidate_count`, and
 `resolved_path`, and the event snapshot binds those fields. Existing producer sidechains report
 `producer_locator`; successful foreground joins report `owned_session_fallback` with
 `qualified_unique_join` custody. Unsupported adapters remain unavailable rather than inheriting Pi's
