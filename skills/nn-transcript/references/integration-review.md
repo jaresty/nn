@@ -67,7 +67,7 @@ Do not assign percentages unless the request supplies a weighted rubric. If a di
    - What bounded claim is newly supported?
    - Did it preserve compatibility and claim ceilings?
    - Is current work attacking the first missing edge?
-6. Stop when the trajectory decision and first blocker are supported. Do not read every room merely because it exists.
+6. Stop evidence collection for this review when the trajectory decision and first missing edge per independent track are supported. This bounds the review, not authorized implementation. Do not read every room merely because it exists.
 
 Preserve source qualifications: producer completion is not task success; missing return is not proof of activity; focused tests are not end-to-end qualification; static source is not runtime execution; bounded evidence is not completeness; commit count and token volume are not progress measures.
 
@@ -92,11 +92,15 @@ Do not diagnose drift merely because careful investigation is lengthy. Distingui
 
 ## Decision
 
+Distinguish evidence boundaries from execution boundaries. Missing verification limits completion claims; it does not automatically prohibit diagnosis, repair, or integration under standing authorization. A failed attempt normally calls for investigating its cause and re-verifying, not an arbitrary retry limit or another approval request. Bound checkpoints by observable outcomes, not invented attempt counts; preserve actual user-imposed budgets, safety limits, and stop conditions. Keep independent authorized tracks moving.
+
+The reviewer's advisory/read-only restriction governs the reviewer, not implementation workers. Before recommending a pause, identify the concrete missing authority, material decision, contract, or safety constraint, the affected scope, and why further authorized investigation cannot resolve it. Do not weaken admission, custody, qualification, disclosure, or enablement gates: 'not yet established' and 'not authorized to proceed' are different conclusions.
+
 Return exactly one trajectory recommendation:
 
-- `CONTINUE` — current work advances the first missing edge with a bounded stopping condition and preserved contracts;
+- `CONTINUE` — current work advances the first missing edge with an observable completion checkpoint and preserved contracts;
 - `COURSE_CORRECT` — useful work exists, but the next phase should change to restore the critical path;
-- `PAUSE` — a missing contract, authority decision, source of truth, or qualification criterion makes further implementation speculative;
+- `PAUSE` — a concrete missing contract, authority decision, source of truth, qualification criterion, or safety constraint prevents further authorized work in the named scope and cannot be resolved by ordinary authorized investigation;
 - `REPLAN` — inspected evidence falsifies the accepted completion path or architecture.
 
 Every recommendation must name:
@@ -105,7 +109,8 @@ Every recommendation must name:
 2. the first missing integration edge;
 3. the smallest next milestone;
 4. the observable evidence required to call that milestone complete;
-5. work that must not happen yet.
+5. work that can continue under existing authorization, including independent tracks;
+6. claims or actions that must remain withheld, with the specific evidence or authorization boundary for each. Distinguish sequencing advice from a mandatory stop.
 
 Recommendations are proposals, not authenticated steering or acceptance. Do not send, stop, resume, or redirect a worker. Load **actions** before proposing notebook mutation or after consequentially adopting, partially adopting, or rejecting substantive delegated work; integration receipts remain owned by **actions** and the parent-side adjudicator.
 
@@ -119,8 +124,9 @@ Lead with the useful answer, then provide concise Markdown:
 4. **First missing edge** — the critical blocker, not every open issue.
 5. **Process diagnosis** — healthy correction or one or more supported labels.
 6. **Recommendation** — `CONTINUE`, `COURSE_CORRECT`, `PAUSE`, or `REPLAN`.
-7. **Next checkpoint** — one bounded milestone and its exact completion evidence.
-8. **Do not do yet** — work that would skip gates or distract from integration.
-9. **Evidence limits** — unavailable transcript detail, omitted history, bounded source coverage, unexecuted tests, or other unknowns.
+7. **Next checkpoint** — one outcome-bounded milestone per independent track and its exact completion evidence; no invented retry cap or mandatory approval stop.
+8. **Can continue** — authorized diagnosis, repair, integration, and independent work that advances those checkpoints.
+9. **Withhold / defer** — distinguish claims not yet supported, actions not authorized, and work merely deferred for sequencing. Name the relevant boundary; do not turn every missing check into a work prohibition.
+10. **Evidence limits** — unavailable transcript detail, omitted history, bounded source coverage, unexecuted tests, or other unknowns.
 
 When no correction is needed, say so directly. When progress is real but far from the overall goal, state both without conflating them.
