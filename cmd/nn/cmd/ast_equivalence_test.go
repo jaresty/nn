@@ -34,10 +34,8 @@ func astEquivFixture(t *testing.T) (func(...string) (string, error), string) {
 	return execute, f
 }
 
-// TestAstOutputEquivalence pins nn ast's complete stdout for a fixed input. It is
-// the regression guard for the per-symbol ranking hoist:
-//
-//	∀ input i: stdout_after(i) == stdout_before(i)
+// TestAstOutputEquivalence pins nn ast's complete stdout for a fixed input,
+// including symbol positions and per-symbol related-note ranking.
 func TestAstOutputEquivalence(t *testing.T) {
 	execute, f := astEquivFixture(t)
 	out, err := execute("ast", f)
@@ -49,13 +47,13 @@ func TestAstOutputEquivalence(t *testing.T) {
 	}
 }
 
-// wantAstOutput is the golden stdout captured from the pre-hoist nn ast for the
-// astEquivFixture, parameterized by the temp file path. Any change to symbol
-// printing, ranking, ordering, or labels breaks the equality assertion.
+// wantAstOutput is the golden stdout for astEquivFixture, parameterized by the
+// temp file path. Any change to symbol printing, ranking, ordering, or labels
+// breaks the equality assertion.
 func wantAstOutput(f string) string {
 	return "file: " + f + "  language: go\n" +
 		"imports: \n" +
-		"func handleAuth() { validateToken() }\n" +
+		"4:6  func handleAuth() { validateToken() }\n" +
 		"\n## Related notes\n" +
 		"- [[20260101000000-2001|Auth token validation]] [likely relevant]\n" +
 		"- [[20260101000000-2002|Session middleware]] [likely relevant]\n" +

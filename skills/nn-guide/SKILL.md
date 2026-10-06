@@ -536,14 +536,14 @@ Print a compact structural outline of a source file (imports, types, functions, 
 
 Supported languages: Go, Python, JavaScript, TypeScript, Rust, Java.
 
-Text output always appends a `## Related notes` section with BM25-matched nn notes per symbol and the standard resolution instruction. Use `--json` for symbol-array-only output without the footer.
+Text output prefixes every non-import symbol with its 1-indexed `line:column` position and always appends a `## Related notes` section with BM25-matched nn notes per symbol and the standard resolution instruction. Use `--json` for symbol-array-only output without the footer.
 
 Text output:
 ```
 file: src/backend/gitlocal.go  language: go
 imports: fmt, os, path/filepath, ...
-type Backend struct {
-func (b *Backend) Write(n *note.Note) error {
+18:6  type Backend struct {
+42:19  func (b *Backend) Write(n *note.Note) error {
 ...
 
 ## Related notes
@@ -551,7 +551,7 @@ func (b *Backend) Write(n *note.Note) error {
 Resolve each related note before the next action — run `nn show <id>` to open...
 ```
 
-`--json` output: `[{"kind": "...", "name": "...", "signature": "...", "line": N}]` (no footer)
+`--json` output: `[{"kind": "...", "name": "...", "signature": "...", "line": N, "column": N}]` (no footer; symbol positions are 1-indexed)
 
 `--refs` searches for name-match references to every symbol in the outline across the codebase rooted at `--root` (default: `.`). Emits one `references to "X"` section per symbol. Name-match only — not symbol-resolved, may include false positives. Use a call-graph tool when you need call traversal rather than name-match references; `nn trace` is the notebook-enriched offline option.
 

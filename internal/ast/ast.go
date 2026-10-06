@@ -19,8 +19,9 @@ type Symbol struct {
 	Kind      string `json:"kind"`
 	Name      string `json:"name"`
 	Signature string `json:"signature"`
-	Line      int    `json:"line"` // 1-indexed
-	Body      string `json:"-"`    // full source text of the definition span; not serialized
+	Line      int    `json:"line"`   // 1-indexed
+	Column    int    `json:"column"` // 1-indexed
+	Body      string `json:"-"`      // full source text of the definition span; not serialized
 }
 
 // File holds the parsed outline of a source file.
@@ -163,7 +164,7 @@ var langConfigs = map[string]langConfig{
 `,
 	},
 	".ex": {
-		name: "elixir",
+		name:        "elixir",
 		importQuery: `(call target: (identifier) @_kw (arguments (alias) @import) (#any-of? @_kw "alias" "import" "use" "require"))`,
 		symbolQuery: `
 (call target: (identifier) @_kw (arguments (alias) @name) (#eq? @_kw "defmodule")) @module
@@ -171,7 +172,7 @@ var langConfigs = map[string]langConfig{
 `,
 	},
 	".exs": {
-		name: "elixir",
+		name:        "elixir",
 		importQuery: `(call target: (identifier) @_kw (arguments (alias) @import) (#any-of? @_kw "alias" "import" "use" "require"))`,
 		symbolQuery: `
 (call target: (identifier) @_kw (arguments (alias) @name) (#eq? @_kw "defmodule")) @module
@@ -285,12 +286,13 @@ func extractSymbols(lang *gotreesitter.Language, root *gotreesitter.Node, src []
 			break
 		}
 		var kind, name, body string
-		var line uint32
-		// The first non-@name capture gives us the kind; @name gives name and line.
+		var line, column uint32
+		// The first non-@name capture gives us the kind; @name gives name and position.
 		for _, cap := range match.Captures {
 			if cap.Name == "name" {
 				name = cap.Node.Text(src)
 				line = cap.Node.StartPoint().Row
+				column = cap.Node.StartPoint().Column
 			} else if !strings.HasPrefix(cap.Name, "_") {
 				// The capture name is the kind (function, method, type, etc.)
 				// Captures prefixed with _ are predicate-only and not structural kinds.
@@ -310,6 +312,7 @@ func extractSymbols(lang *gotreesitter.Language, root *gotreesitter.Node, src []
 			Name:      name,
 			Signature: sig,
 			Line:      int(line) + 1,
+			Column:    int(column) + 1,
 			Body:      body,
 		})
 	}

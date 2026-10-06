@@ -39,12 +39,30 @@ func TestAstJSON(t *testing.T) {
 		Name      string `json:"name"`
 		Signature string `json:"signature"`
 		Line      int    `json:"line"`
+		Column    int    `json:"column"`
 	}
 	if err := json.Unmarshal([]byte(out), &symbols); err != nil {
 		t.Fatalf("invalid JSON: %v\n%s", err, out)
 	}
 	if len(symbols) == 0 {
 		t.Error("expected at least one symbol in JSON output")
+	}
+	for _, sym := range symbols {
+		if sym.Kind != "import" && (sym.Line < 1 || sym.Column < 1) {
+			t.Errorf("symbol %q has invalid position %d:%d", sym.Name, sym.Line, sym.Column)
+		}
+	}
+}
+
+func TestAstTextShowsSymbolPositions(t *testing.T) {
+	_, execute := setupNotebook(t)
+
+	out, err := execute("ast", noteGoFile)
+	if err != nil {
+		t.Fatalf("nn ast: %v", err)
+	}
+	if !regexp.MustCompile(`(?m)^\d+:\d+\s+`).MatchString(out) {
+		t.Errorf("ast output missing line:column symbol position:\n%s", out)
 	}
 }
 

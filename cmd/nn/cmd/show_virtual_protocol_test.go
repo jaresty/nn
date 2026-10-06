@@ -369,6 +369,9 @@ func TestShowVirtualCLIReferenceAst(t *testing.T) {
 	if !strings.Contains(out, "--refs") {
 		t.Errorf("expected --refs flag documented in virtual-nn-cli-reference body:\n%s", out)
 	}
+	if !strings.Contains(out, "line and column") {
+		t.Errorf("expected symbol positions documented in virtual-nn-cli-reference body:\n%s", out)
+	}
 }
 
 // Assertion: virtual-nn-capture-discipline allow-list includes nn ast.

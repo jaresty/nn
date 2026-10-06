@@ -55,7 +55,7 @@ func newAstCmd(state *rootState) *cobra.Command {
 					fmt.Fprintf(w, "imports: %s\n", sym.Name)
 					continue
 				}
-				fmt.Fprintf(w, "%s\n", sym.Signature)
+				fmt.Fprintf(w, "%d:%d  %s\n", sym.Line, sym.Column, sym.Signature)
 			}
 
 			// BM25 annotation: query each non-import symbol name against nn notes.

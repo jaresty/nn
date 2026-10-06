@@ -65,6 +65,9 @@ func HelloWorld() {
 	if helloSym == nil {
 		t.Fatal("HelloWorld symbol not found")
 	}
+	if helloSym.Line != 3 || helloSym.Column != 6 {
+		t.Errorf("symbol position = %d:%d, want 3:6", helloSym.Line, helloSym.Column)
+	}
 	if helloSym.Body == "" {
 		t.Errorf("FAIL: TestSymbolBodyPopulated: expected Symbol.Body to be populated with function source, got empty string")
 	}
