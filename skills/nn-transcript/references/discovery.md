@@ -51,7 +51,14 @@ and cursor/scope provenance. Prefer the exact `path` as the downstream command a
 byte-for-byte to `tree`, `events`, and `show`; never rebuild it from `session`, cwd, current project,
 or a guessed directory slug. For direct CLI use when no selected row is retained, those commands may
 accept a unique filename/session-metadata ID and resolve it to the exact discovered inventory path;
-zero or ambiguous matches fail rather than guessing.
+zero or ambiguous matches fail rather than guessing. To retrieve that canonical path directly, use:
+
+```bash
+nn transcript resolve <exact-session-id> --json
+```
+
+This returns one `{session,path}` object and searches the complete registered provider roots rather than
+a bounded `ls` page. Prefer it over `nn transcript ls --limit <N> | jq ...` for exact identity lookup.
 
 Sweep the selected cohort and draw what stands out:
 

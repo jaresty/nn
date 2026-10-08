@@ -41,6 +41,7 @@ Navigate one session:
   search    bounded event matches with session/agent provenance
 
 Utility:
+  resolve   map an exact session ID to its canonical transcript path
   receipt   create an expiring parent-adjudicated integration receipt
   scan      classify transcript files by schema
   doctor    check duckdb (escape-hatch only)
@@ -63,7 +64,7 @@ func newTranscriptCmd(state *rootState) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.AddCommand(newTranscriptObserveCmd(), newTranscriptAttentionCmd(), newTranscriptContextCmd(), newTranscriptReviewCmd(), newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd(), newTranscriptSearchCmd(), newTranscriptEventsCmd(), newTranscriptArtifactCmd(), newTranscriptReceiptCmd(state))
+	cmd.AddCommand(newTranscriptObserveCmd(), newTranscriptAttentionCmd(), newTranscriptContextCmd(), newTranscriptReviewCmd(), newTranscriptScanCmd(), newTranscriptDoctorCmd(), newTranscriptLsCmd(), newTranscriptResolveCmd(), newTranscriptTreeCmd(), newTranscriptShowCmd(), newTranscriptSearchCmd(), newTranscriptEventsCmd(), newTranscriptArtifactCmd(), newTranscriptReceiptCmd(state))
 	return cmd
 }
 

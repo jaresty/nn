@@ -74,6 +74,7 @@ agent metadata, parentage, topology, every ambiguous match, or an explicit agent
 multiple `events --description` matches fail rather than guessing; use tree to display those matches
 when ambiguity itself must be resolved; do not use `nn transcript search` for launch-description lookup.
 Preserve the selected row's exact `path`; never reconstruct it from a session ID or project name.
+Use `nn transcript resolve <session> --json` when an exact session ID is known but its canonical path is needed; do not scan a bounded `ls` page and filter it client-side.
 Use a selected row's `session` ID for ordinary transcript commands and retain its exact `path` as the ambiguity fallback; never reconstruct either value. Show the readable `label` with source qualifications; discovery owns opening_label, label_provenance,
 conversation_kind, owner_session, and open_window_status. Labels may be recent, opening, interpreted
 or untitled; interpreted labels are not recorded metadata.
