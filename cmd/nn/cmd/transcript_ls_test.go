@@ -81,6 +81,35 @@ func TestTranscriptLsErrorsAreNotEmptyDiscovery(t *testing.T) {
 	}
 }
 
+func TestTranscriptLsErrorsExplainRecovery(t *testing.T) {
+	t.Run("missing explicit directory", func(t *testing.T) {
+		_, execute := setupNotebook(t)
+		missing := filepath.Join(t.TempDir(), "missing")
+		_, err := execute("transcript", "ls", missing)
+		if err == nil {
+			t.Fatal("expected missing-directory error")
+		}
+		for _, want := range []string{missing, "does not exist", "omit [dir]", "Claude, Codex, and Pi"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("missing-directory error %q does not contain %q", err, want)
+			}
+		}
+	})
+
+	t.Run("unsupported all flag", func(t *testing.T) {
+		_, execute := setupNotebook(t)
+		_, err := execute("transcript", "ls", "--all")
+		if err == nil {
+			t.Fatal("expected unknown-flag error")
+		}
+		for _, want := range []string{"unknown flag: --all", "--limit 0", "exhaustive"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("unknown-flag error %q does not contain %q", err, want)
+			}
+		}
+	})
+}
+
 // Assertion [14]: ls lists sessions most-recent-first with schema, agent count, cost.
 func TestTranscriptLsListsRecentFirst(t *testing.T) {
 	dir := twoSessionDir(t)

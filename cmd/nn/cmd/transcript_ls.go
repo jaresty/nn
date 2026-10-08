@@ -49,7 +49,14 @@ func newTranscriptLsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ls [dir]",
 		Short: "List recent sessions from Claude, Codex, and Pi defaults or an explicit directory",
-		Args:  cobra.MaximumNArgs(1),
+		Long: `List recent transcript sessions.
+
+Omit [dir] to search the registered Claude, Codex, and Pi transcript roots.
+Pass one directory positionally to restrict discovery to that explicit root.`,
+		Example: `  nn transcript ls --limit 20 --json
+  nn transcript ls /path/to/transcripts --limit 20 --json
+  nn transcript ls --limit 0 --json`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var dirs []string
 			if len(args) == 1 {
@@ -90,6 +97,9 @@ func newTranscriptLsCmd() *cobra.Command {
 			}
 			rows, err := listSessionsRootsPageFiltered(dirs, limit, beforeTime, cursor, conversationKind, ownerSession, labelContains)
 			if err != nil {
+				if len(args) == 1 && os.IsNotExist(err) {
+					return fmt.Errorf("transcript directory %q does not exist; omit [dir] to search registered Claude, Codex, and Pi roots: %w", args[0], err)
+				}
 				return err
 			}
 			if asJSON {
@@ -116,6 +126,12 @@ func newTranscriptLsCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
+		if strings.Contains(err.Error(), "unknown flag: --all") {
+			return fmt.Errorf("%w; use --limit 0 for intentionally exhaustive output", err)
+		}
+		return fmt.Errorf("%w; usage: nn transcript ls [dir] [flags]", err)
+	})
 	cmd.Flags().IntVar(&limit, "limit", 50, "list at most N sessions (default 50; explicit 0 = all)")
 	cmd.Flags().StringVar(&before, "before", "", "only sessions modified strictly before this RFC3339 timestamp (repeat with --cursor)")
 	cmd.Flags().StringVar(&cursor, "cursor", "", "continue after a row cursor from the same inventory and filters")
