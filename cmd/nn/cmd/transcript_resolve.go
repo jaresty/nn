@@ -146,8 +146,7 @@ func resolveTranscriptSession(session, home string, getenv func(string) string) 
 	if err != nil {
 		return "", err
 	}
-	matches := make([]string, 0, 1)
-	seen := map[string]bool{}
+	var files, filenameMatches []string
 	for _, root := range roots {
 		err = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
@@ -156,22 +155,11 @@ func resolveTranscriptSession(session, home string, getenv func(string) string) 
 			if d.IsDir() || (!strings.HasSuffix(path, ".jsonl") && !strings.HasSuffix(path, ".output")) {
 				return nil
 			}
+			files = append(files, path)
 			base := filepath.Base(path)
 			id := strings.TrimSuffix(strings.TrimSuffix(base, ".jsonl"), ".output")
-			if id != session && base != session && transcriptMetadataID(path) != session {
-				return nil
-			}
-			canonical, err := filepath.EvalSymlinks(path)
-			if err != nil {
-				return err
-			}
-			canonical, err = filepath.Abs(canonical)
-			if err != nil {
-				return err
-			}
-			if !seen[canonical] {
-				seen[canonical] = true
-				matches = append(matches, canonical)
+			if id == session || strings.HasSuffix(id, "_"+session) || base == session {
+				filenameMatches = append(filenameMatches, path)
 			}
 			return nil
 		})
@@ -179,7 +167,44 @@ func resolveTranscriptSession(session, home string, getenv func(string) string) 
 			return "", err
 		}
 	}
-	sort.Strings(matches)
+
+	canonicalize := func(paths []string) ([]string, error) {
+		matches := make([]string, 0, len(paths))
+		seen := map[string]bool{}
+		for _, path := range paths {
+			canonical, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				return nil, err
+			}
+			canonical, err = filepath.Abs(canonical)
+			if err != nil {
+				return nil, err
+			}
+			if !seen[canonical] {
+				seen[canonical] = true
+				matches = append(matches, canonical)
+			}
+		}
+		sort.Strings(matches)
+		return matches, nil
+	}
+
+	matches, err := canonicalize(filenameMatches)
+	if err != nil {
+		return "", err
+	}
+	if len(matches) == 0 {
+		var metadataMatches []string
+		for _, path := range files {
+			if transcriptMetadataID(path) == session {
+				metadataMatches = append(metadataMatches, path)
+			}
+		}
+		matches, err = canonicalize(metadataMatches)
+		if err != nil {
+			return "", err
+		}
+	}
 	switch len(matches) {
 	case 1:
 		return matches[0], nil

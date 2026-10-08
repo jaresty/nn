@@ -111,7 +111,7 @@ func newTranscriptEventsCmdUsing(acquire func(string, string) ([]ledgerRecord, s
 			args = append(args, matches[0])
 		}
 		if len(args) != 2 {
-			return fmt.Errorf("events: agent-id, --agent, or --description is required")
+			return fmt.Errorf("events: select an agent with positional ROOT, --agent <id>, or --description <exact description>; discover agents with nn transcript tree %s", args[0])
 		}
 		summaryMode := c.Flags().Changed("summary")
 		if diagnostics {

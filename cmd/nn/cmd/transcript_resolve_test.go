@@ -63,6 +63,24 @@ func TestResolveTranscriptSessionUniqueIDUsesExactDiscoveredPath(t *testing.T) {
 	}
 }
 
+func TestResolveTranscriptSessionTimestampPrefixedFilenamePrecedesMetadataAlias(t *testing.T) {
+	home := t.TempDir()
+	exact := filepath.Join(home, ".pi", "agent", "sessions", "project", "2026-10-03T06-24-14-821Z_target.jsonl")
+	alias := filepath.Join(home, ".codex", "sessions", "2026", "09", "10", "rollout.jsonl")
+	writeTranscriptFile(t, exact, `{"type":"session","version":3,"id":"target"}`+"\n")
+	writeTranscriptFile(t, alias, `{"type":"session_meta","payload":{"session_id":"target","id":"target"}}`+"\n")
+
+	got, err := resolveTranscriptSession("target", home, func(string) string { return "" })
+	if err != nil {
+		t.Fatalf("ASSERT_TRANSCRIPT_EXACT_FILENAME_PRECEDES_METADATA_ALIAS: %v", err)
+	}
+	canonical, _ := filepath.EvalSymlinks(exact)
+	canonical, _ = filepath.Abs(canonical)
+	if got != canonical {
+		t.Fatalf("ASSERT_TRANSCRIPT_EXACT_FILENAME_RETURNS_INVENTORY_PATH: got=%q want=%q", got, canonical)
+	}
+}
+
 func TestResolveTranscriptSessionAmbiguousIDFailsWithStableCandidates(t *testing.T) {
 	home := t.TempDir()
 	claude := filepath.Join(home, ".claude", "projects", "a", "duplicate.jsonl")
@@ -80,6 +98,43 @@ func TestResolveTranscriptSessionAmbiguousIDFailsWithStableCandidates(t *testing
 	}
 	if strings.Index(message, claude) > strings.Index(message, pi) {
 		t.Fatalf("ASSERT_TRANSCRIPT_AMBIGUITY_IS_STABLE: %v", err)
+	}
+}
+
+func TestResolveTranscriptSessionMetadataAmbiguityRemainsStable(t *testing.T) {
+	home := t.TempDir()
+	first := filepath.Join(home, ".codex", "sessions", "a.jsonl")
+	second := filepath.Join(home, ".codex", "archived_sessions", "b.jsonl")
+	metadata := `{"type":"session_meta","payload":{"session_id":"metadata-id","id":"metadata-id"}}` + "\n"
+	writeTranscriptFile(t, first, metadata)
+	writeTranscriptFile(t, second, metadata)
+
+	_, err := resolveTranscriptSession("metadata-id", home, func(string) string { return "" })
+	if err == nil {
+		t.Fatal("ASSERT_TRANSCRIPT_METADATA_AMBIGUITY_IS_REJECTED: expected error")
+	}
+	message := err.Error()
+	if !strings.Contains(message, "ambiguous") || !strings.Contains(message, first) || !strings.Contains(message, second) {
+		t.Fatalf("ASSERT_TRANSCRIPT_METADATA_AMBIGUITY_LISTS_CANDIDATES: %v", err)
+	}
+	if strings.Index(message, second) > strings.Index(message, first) {
+		t.Fatalf("ASSERT_TRANSCRIPT_METADATA_AMBIGUITY_IS_STABLE: %v", err)
+	}
+}
+
+func TestResolveTranscriptSessionNotFoundDiagnosticIsPreserved(t *testing.T) {
+	home := t.TempDir()
+	writeTranscriptFile(t, filepath.Join(home, ".pi", "agent", "sessions", "project", "other.jsonl"), `{"type":"session","version":3,"id":"other"}`+"\n")
+
+	_, err := resolveTranscriptSession("missing", home, func(string) string { return "" })
+	if err == nil {
+		t.Fatal("ASSERT_TRANSCRIPT_NOT_FOUND_IS_REJECTED: expected error")
+	}
+	message := err.Error()
+	for _, want := range []string{`transcript session "missing" not found`, "searched:", "unavailable roots: 3"} {
+		if !strings.Contains(message, want) {
+			t.Fatalf("ASSERT_TRANSCRIPT_NOT_FOUND_DIAGNOSTIC_IS_PRESERVED: missing %q in %q", want, message)
+		}
 	}
 }
 

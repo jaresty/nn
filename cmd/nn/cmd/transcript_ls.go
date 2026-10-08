@@ -47,8 +47,9 @@ func newTranscriptLsCmd() *cobra.Command {
 		asJSON           bool
 	)
 	cmd := &cobra.Command{
-		Use:   "ls [dir]",
-		Short: "List recent sessions from Claude, Codex, and Pi defaults or an explicit directory",
+		Use:     "ls [dir]",
+		Aliases: []string{"recent"},
+		Short:   "List recent sessions from Claude, Codex, and Pi defaults or an explicit directory",
 		Long: `List recent transcript sessions.
 
 Omit [dir] to search the registered Claude, Codex, and Pi transcript roots.
