@@ -24,7 +24,7 @@ Invoke with `--partial` for a lightweight mid-session capture pass:
 - Use when context is filling and you want to capture findings without the full debrief overhead
 - After completing steps, emit to the user: "Relay block not updated — run /nn-session-debrief to complete handoff."
 
-**Full debrief behaviour when `--partial` runs occurred:** skip notes already tagged `partial-debrief` in steps 1 and 2; still run steps 3, 3b, 3c, 6, and 7 in full.
+**Full debrief behaviour when `--partial` runs occurred:** skip notes already tagged `partial-debrief` in steps 1 and 2; still run steps 3, 3a, 3b, 3c, 6, and 7 in full.
 
 Invoke with `--weekly` for a broader review pass:
 - Sweep drafts modified in the past 7 days
@@ -40,8 +40,8 @@ Invoke with `--weekly` for a broader review pass:
 > silent omission is a violation).
 >
 > Mode skip tables — each skipped step still requires a `Skipped:` checkpoint:
-> - `--daily`: skips steps 1, 1b, 2, 3, 3b, 3c, 4, 5, and 7
-> - `--partial`: skips steps 3, 3b, 3c, 4, 5, 6, and 7
+> - `--daily`: skips steps 1, 1b, 2, 3, 3a, 3b, 3c, 4, 5, and 7
+> - `--partial`: skips steps 3, 3a, 3b, 3c, 4, 5, 6, and 7
 > - `--weekly`: skips step 7
 >
 > Example checkpoint after step 1:
@@ -178,6 +178,31 @@ nn list --search "friction" --status draft --json
 For each: is it resolved? Promote to `reviewed` with a note on what changed, or update the body with new evidence.
 
 **Completion:** emit each friction note ID created, or `"no friction identified"` with a reason.
+
+### 3a. Audit late process corrections
+
+Ask: **"What did we correct later than necessary? What evidence was already available, and what check would have surfaced it at the earliest actionable moment?"**
+
+Scan the conversation transcript for process corrections, reversals, avoidable rework, and user steering. This audit is distinct from friction: a confidently executed mistake may produce little immediate friction while still being detectable earlier.
+
+For each correction:
+1. State the initial mistaken assumption, decision, or action.
+2. Identify the earliest evidence already available that contradicted it.
+3. Name the missed check, protocol, or decision point where that evidence should have changed the work.
+4. Classify the correction:
+   - **Preventable** — existing evidence could have changed the work at an earlier actionable moment. Propose the smallest guard: update an existing protocol, add an automated rule/check, or capture a friction hypothesis when the remedy is uncertain.
+   - **Not preventable** — the correction depended on genuinely new information. Do not manufacture a guard from hindsight.
+
+Capture only recurring or actionable lessons. Ordinary iteration, preference changes, and corrections that required newly available information do not warrant notes or protocol changes.
+
+When updating a protocol, preserve its scope and add the guard at the earliest decision point that would have prevented the error. When automation is feasible, prefer an executable rule or check over reminder prose.
+
+**Completion:** emit one line per correction using exactly one of these forms, or `"no late corrections identified"` with a reason:
+
+```
+preventable correction: <summary> — earliest signal: <signal> — proposed guard: <guard>
+not preventable: <summary> — required newly available information: <information>
+```
 
 ### 3b. Flag retrieved notes as potentially stale
 
@@ -397,6 +422,7 @@ nn update <daily-id> --replace-section "Relay" --content "..." --since <modified
 - All captures from the session have been reviewed for accuracy
 - Promotion-eligible drafts have been promoted or a reason given for deferral
 - Friction points from the session have been captured as `hypothesis` or `observation` notes tagged `friction`
+- Late process corrections have been classified as preventable or dependent on new information; preventable corrections have the earliest signal and a concrete guard recorded
 - Knowledge transmission opportunities have been proposed to the user; accepted ones captured as `question` notes tagged `quiz`
 - Today's daily page exists and has been updated with Done/Open/Relay reflecting the current session
 - A session summary note exists linking the key captures, or a reason given for skipping it
