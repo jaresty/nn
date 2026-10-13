@@ -1,5 +1,5 @@
-// Package ast provides a lightweight structural outline of source files for LLM consumption.
-// It uses gotreesitter (pure Go, no CGo) to parse source files and extract symbols.
+// Package ast provides lightweight structural outlines of source files and Markdown documents.
+// It uses gotreesitter (pure Go, no CGo) for source files and extracts Markdown headings directly.
 // This package is isolated so the gotreesitter dependency can be replaced without
 // affecting the rest of the codebase.
 package ast
@@ -184,9 +184,12 @@ var langConfigs = map[string]langConfig{
 // Parse reads filePath, detects its language, and returns a structural outline.
 func Parse(filePath string) (*File, error) {
 	ext := strings.ToLower(filepath.Ext(filePath))
+	if ext == ".md" || ext == ".markdown" {
+		return parseMarkdown(filePath)
+	}
+
 	cfg, ok := langConfigs[ext]
 	if !ok {
-		// Try gotreesitter language detection as fallback.
 		return nil, fmt.Errorf("ast: unsupported file type %q", ext)
 	}
 
@@ -247,6 +250,115 @@ func Parse(filePath string) (*File, error) {
 		Language: cfg.name,
 		Symbols:  symbols,
 	}, nil
+}
+
+// parseMarkdown extracts ATX and Setext headings as structural symbols. A
+// heading's body extends to the next heading so related-note matching receives
+// the section context rather than only the title.
+func parseMarkdown(filePath string) (*File, error) {
+	src, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("ast: read %s: %w", filePath, err)
+	}
+
+	lines := strings.Split(string(src), "\n")
+	var symbols []Symbol
+	inFence := false
+	fenceChar := byte(0)
+	fenceLen := 0
+
+	for i, line := range lines {
+		trimmed := strings.TrimLeft(line, " \t")
+		if marker, length, rest, ok := markdownFence(trimmed); ok {
+			if !inFence {
+				inFence, fenceChar, fenceLen = true, marker, length
+			} else if marker == fenceChar && length >= fenceLen && strings.TrimSpace(rest) == "" {
+				inFence = false
+			}
+			continue
+		}
+		if inFence {
+			continue
+		}
+
+		if name, column, ok := atxHeading(line); ok {
+			symbols = append(symbols, Symbol{Kind: "heading", Name: name, Signature: strings.TrimSpace(line), Line: i + 1, Column: column})
+			continue
+		}
+		if i > 0 && isSetextUnderline(trimmed) {
+			name := strings.TrimSpace(lines[i-1])
+			if name != "" && !strings.HasPrefix(name, "#") {
+				symbols = append(symbols, Symbol{Kind: "heading", Name: name, Signature: name, Line: i, Column: firstNonSpaceColumn(lines[i-1])})
+			}
+		}
+	}
+
+	for i := range symbols {
+		start := symbols[i].Line - 1
+		end := len(lines)
+		if i+1 < len(symbols) {
+			end = symbols[i+1].Line - 1
+		}
+		symbols[i].Body = strings.Join(lines[start:end], "\n")
+	}
+
+	return &File{Path: filePath, Language: "markdown", Symbols: symbols}, nil
+}
+
+func markdownFence(line string) (marker byte, length int, rest string, ok bool) {
+	if len(line) < 3 || (line[0] != '`' && line[0] != '~') {
+		return 0, 0, "", false
+	}
+	marker = line[0]
+	length = 1
+	for length < len(line) && line[length] == marker {
+		length++
+	}
+	return marker, length, line[length:], length >= 3
+}
+
+func atxHeading(line string) (string, int, bool) {
+	trimmed := strings.TrimLeft(line, " \t")
+	indent := len(line) - len(trimmed)
+	if len(trimmed) < 2 || trimmed[0] != '#' {
+		return "", 0, false
+	}
+	i := 0
+	for i < len(trimmed) && trimmed[i] == '#' {
+		i++
+	}
+	if i > 6 || i == len(trimmed) || (trimmed[i] != ' ' && trimmed[i] != '\t') {
+		return "", 0, false
+	}
+	name := strings.TrimSpace(trimmed[i:])
+	end := len(name)
+	for end > 0 && name[end-1] == '#' {
+		end--
+	}
+	if end > 0 && end < len(name) && (name[end-1] == ' ' || name[end-1] == '\t') {
+		name = strings.TrimSpace(name[:end])
+	}
+	if name == "" {
+		return "", 0, false
+	}
+	return name, indent + i + 2, true
+}
+
+func isSetextUnderline(line string) bool {
+	if len(line) < 1 || (line[0] != '=' && line[0] != '-') {
+		return false
+	}
+	marker := line[0]
+	for _, r := range line {
+		if byte(r) != marker {
+			return false
+		}
+	}
+	return true
+}
+
+func firstNonSpaceColumn(line string) int {
+	return len(line) - len(strings.TrimLeft(line, " \t")) + 1
 }
 
 // runQuery executes a query and returns all text captures named captureName.

@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -24,6 +25,30 @@ func TestAstGoFile(t *testing.T) {
 	// Should show the Note type or Parse function.
 	if !strings.Contains(out, "Note") && !strings.Contains(out, "Parse") {
 		t.Errorf("ast output missing expected symbols:\n%s", out)
+	}
+}
+
+func TestAstMarkdownJSON(t *testing.T) {
+	_, execute := setupNotebook(t)
+	path := filepath.Join(t.TempDir(), "guide.md")
+	if err := os.WriteFile(path, []byte("# Overview\n\n## Usage\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("ast", "--json", path)
+	if err != nil {
+		t.Fatalf("nn ast --json markdown: %v", err)
+	}
+	var symbols []struct {
+		Kind string `json:"kind"`
+		Name string `json:"name"`
+		Line int    `json:"line"`
+	}
+	if err := json.Unmarshal([]byte(out), &symbols); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	if len(symbols) != 2 || symbols[0].Kind != "heading" || symbols[0].Name != "Overview" || symbols[0].Line != 1 {
+		t.Fatalf("unexpected markdown symbols: %#v", symbols)
 	}
 }
 

@@ -23,7 +23,7 @@ func newAstCmd(state *rootState) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "ast <file>",
-		Short: "Print a compact structural outline of a source file",
+		Short: "Print a compact structural outline of source code or Markdown",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filePath := args[0]
