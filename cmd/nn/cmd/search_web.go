@@ -51,6 +51,13 @@ func newSearchWebCmd(state *rootState) *cobra.Command {
 	return cmd
 }
 
+func prepareSearchWebCorpus(notesCorpus []*note.Note, state *rootState) preparedCorpus {
+	if state == nil {
+		return prepareCorpusUncached(notesCorpus)
+	}
+	return prepareCorpus(notesCorpus, state.notebookDir)
+}
+
 func runSearchWebBatch(queries []string, maxResults, parallel int, endpointFmt string, stdout, stderr io.Writer, state *rootState, listOnly bool) error {
 	if stdout == nil {
 		stdout = io.Discard
@@ -63,7 +70,7 @@ func runSearchWebBatch(queries []string, maxResults, parallel int, endpointFmt s
 	if state != nil && state.backend != nil {
 		notesCorpus, _ = state.backend.List()
 	}
-	prepared := prepareCorpus(notesCorpus, "")
+	prepared := prepareSearchWebCorpus(notesCorpus, state)
 	var rankMu sync.Mutex
 
 	outputs := make([]bytes.Buffer, len(queries))
@@ -103,7 +110,7 @@ func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stde
 	if state != nil && state.backend != nil {
 		notesCorpus, _ = state.backend.List()
 	}
-	prepared := prepareCorpus(notesCorpus, "")
+	prepared := prepareSearchWebCorpus(notesCorpus, state)
 	var rankMu sync.Mutex
 	return runSearchWebQuery(query, maxResults, endpointFmt, stdout, notesCorpus, prepared, &rankMu, listOnly)
 }

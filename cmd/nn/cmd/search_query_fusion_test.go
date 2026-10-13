@@ -13,7 +13,7 @@ func TestRankedByQueriesUsesWeightedReciprocalRanks(t *testing.T) {
 		{ID: "intent", Title: "intentonly"},
 		{ID: "both", Title: "sourceonly intentonly"},
 	}
-	prepared := prepareCorpus(corpus, "")
+	prepared := prepareCorpusUncached(corpus)
 	got := prepared.rankedByQueries(corpus, []rankingQuery{
 		{Name: "source", Text: "sourceonly", Weight: 1},
 		{Name: "intent", Text: "intentonly", Weight: 2},
@@ -43,7 +43,7 @@ func TestRankedByQueriesOmitsBlankChannelsAndPreservesCandidateTies(t *testing.T
 		{ID: "first", Title: "shared"},
 		{ID: "second", Title: "shared"},
 	}
-	prepared := prepareCorpus(corpus, "")
+	prepared := prepareCorpusUncached(corpus)
 	got := prepared.rankedByQueries(corpus, []rankingQuery{
 		{Name: "blank", Text: "  ", Weight: 100},
 		{Name: "source", Text: "shared", Weight: 1},

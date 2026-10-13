@@ -362,7 +362,7 @@ func (b *orderedRoutesBackend) List() ([]*note.Note, error) { return b.notes, ni
 
 func executeRoutesWithNotes(t *testing.T, notes []*note.Note) string {
 	t.Helper()
-	state := &rootState{backend: &orderedRoutesBackend{notes: notes}}
+	state := &rootState{notebookDir: ".", backend: &orderedRoutesBackend{notes: notes}}
 	cmd := newGraphRoutesCmd(state)
 	var stdout bytes.Buffer
 	cmd.SetOut(&stdout)

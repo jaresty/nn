@@ -77,12 +77,21 @@ type fusedRanking struct {
 	Provenance []rankingContribution
 }
 
-// prepareCorpus computes the query-invariant BM25 inputs for a corpus once. It
-// performs the expensive work — link-map projection, plus fieldIDF resolution
-// which opens the SQLite cache, runs git rev-parse, and hashes the whole corpus
-// for the cache key. Pass an empty repoDir to skip caching (for example, in
-// tests without a git repository).
+// prepareCorpus computes query-invariant BM25 inputs using the persistent,
+// repository-scoped field-IDF cache. Callers without a repository must use
+// prepareCorpusUncached explicitly.
 func prepareCorpus(corpus []*note.Note, repoDir string) preparedCorpus {
+	if strings.TrimSpace(repoDir) == "" {
+		panic("prepareCorpus: repository path is required; use prepareCorpusUncached for isolated callers")
+	}
+	return prepareCorpusWithRepository(corpus, repoDir)
+}
+
+func prepareCorpusUncached(corpus []*note.Note) preparedCorpus {
+	return prepareCorpusWithRepository(corpus, "")
+}
+
+func prepareCorpusWithRepository(corpus []*note.Note, repoDir string) preparedCorpus {
 	channels := make(note.AnnotationChannels)
 	for _, n := range corpus {
 		for _, lnk := range n.Links {
@@ -179,9 +188,8 @@ func (p preparedCorpus) rankedByQueries(candidates []*note.Note, queries []ranki
 }
 
 // RankedByQuery returns positive per-field BM25 RRF scores for candidates.
-// Field statistics and annotation projections come from the full corpus. It uses
-// a commit-hash-keyed SQLite cache for established field IDF; pass an empty
-// repoDir to skip caching (for example, in tests without a git repository).
+// Field statistics and annotation projections come from the full corpus and use
+// the repository-scoped, content-sensitive SQLite cache.
 //
 // This is the single-call convenience wrapper: it prepares the corpus and ranks
 // one query. Callers ranking many queries against the same corpus should call
@@ -189,4 +197,8 @@ func (p preparedCorpus) rankedByQueries(candidates []*note.Note, queries []ranki
 // corpus work per query.
 func RankedByQuery(corpus, candidates []*note.Note, query, repoDir string) map[string]float64 {
 	return prepareCorpus(corpus, repoDir).rankedByQuery(candidates, query)
+}
+
+func rankedByQueryUncached(corpus, candidates []*note.Note, query string) map[string]float64 {
+	return prepareCorpusUncached(corpus).rankedByQuery(candidates, query)
 }

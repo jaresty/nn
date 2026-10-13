@@ -7,6 +7,16 @@ import (
 )
 
 // property [1]: the shared ranker uses the full corpus while scoring only candidates.
+func TestPrepareCorpusRejectsBlankRepository(t *testing.T) {
+	const assertion = "property [1]: cached corpus preparation rejects a blank repository path"
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("%s: no panic", assertion)
+		}
+	}()
+	prepareCorpus(nil, "")
+}
+
 func TestRankedByQuery_UsesCorpusAndCandidateSubset(t *testing.T) {
 	corpus := []*note.Note{
 		{ID: "candidate", Title: "alpha"},
@@ -15,7 +25,7 @@ func TestRankedByQuery_UsesCorpusAndCandidateSubset(t *testing.T) {
 	}
 	candidates := []*note.Note{corpus[0]}
 
-	scores := RankedByQuery(corpus, candidates, "alpha", "")
+	scores := rankedByQueryUncached(corpus, candidates, "alpha")
 
 	if scores["candidate"] <= 0 {
 		t.Fatal("candidate should have a positive score")
@@ -33,14 +43,14 @@ func TestRankedByQuery_OutboundOnlyAndUnknownEligibility(t *testing.T) {
 		{ID: "other", Title: "ordinary note"},
 	}
 
-	scores := RankedByQuery(corpus, corpus, "quasar", "")
+	scores := rankedByQueryUncached(corpus, corpus, "quasar")
 	if scores["source"] <= 0 {
 		t.Fatal("outbound-only source note should have a positive score")
 	}
 	if scores["target"] > 0 {
 		t.Fatal("inbound annotation must not contribute when inbound weight is zero")
 	}
-	if got := RankedByQuery(corpus, corpus, "xylophone-unknown", ""); len(got) != 0 {
+	if got := rankedByQueryUncached(corpus, corpus, "xylophone-unknown"); len(got) != 0 {
 		t.Fatalf("unknown query returned %d scores, want 0", len(got))
 	}
 }

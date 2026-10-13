@@ -40,7 +40,7 @@ type orderedClusterBackend struct {
 func (b *orderedClusterBackend) List() ([]*note.Note, error) { return b.notes, nil }
 
 func executeClustersWithNotesResult(notes []*note.Note, args ...string) (string, error) {
-	state := &rootState{backend: &orderedClusterBackend{notes: notes}}
+	state := &rootState{notebookDir: ".", backend: &orderedClusterBackend{notes: notes}}
 	cmd := newClustersCmd(state)
 	var stdout bytes.Buffer
 	cmd.SetOut(&stdout)
@@ -375,7 +375,7 @@ func TestClustersSearchIncludesMatchingSingletonWhenRequested(t *testing.T) {
 	unrelated2 := newTestNoteForCLI("20260101000000-0003", "Other beta", note.TypeConcept)
 	unrelated1.Links = []note.Link{{TargetID: unrelated2.ID, Type: "supports"}}
 	notes := []*note.Note{isolated, unrelated1, unrelated2}
-	if score := RankedByQuery(notes, notes, "needle", "")[isolated.ID]; score <= 0 {
+	if score := rankedByQueryUncached(notes, notes, "needle")[isolated.ID]; score <= 0 {
 		t.Fatalf("singleton fixture is not a positive search hit: score=%v", score)
 	}
 	out := executeClustersWithNotes(t, notes, "--search", "needle", "--json", "--singletons")

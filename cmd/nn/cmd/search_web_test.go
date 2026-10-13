@@ -21,7 +21,7 @@ func TestSearchWebPreparesCorpusOnce(t *testing.T) {
 	}
 	text := string(source)
 	loopAt := strings.Index(text, "for i, u := range urls")
-	prepareAt := strings.Index(text, "prepared := prepareCorpus(")
+	prepareAt := strings.Index(text, "prepared := prepareSearchWebCorpus(")
 	if loopAt < 0 {
 		t.Fatalf("%s: result loop not found", assertion)
 	}
@@ -79,7 +79,7 @@ func TestSearchWebBatchPreparesCorpusOnce(t *testing.T) {
 	text := string(source)
 	batchAt := strings.Index(text, "func runSearchWebBatch(")
 	singleAt := strings.Index(text, "func runSearchWeb(query string")
-	prepareAt := strings.Index(text, "prepared := prepareCorpus(")
+	prepareAt := strings.Index(text, "prepared := prepareSearchWebCorpus(")
 	if batchAt < 0 || singleAt < 0 || prepareAt < batchAt || prepareAt > singleAt {
 		t.Fatalf("%s: preparation is not owned by the batch scope", assertion)
 	}
@@ -88,6 +88,9 @@ func TestSearchWebBatchPreparesCorpusOnce(t *testing.T) {
 	unlockAt := strings.Index(text, "rankMu.Unlock()")
 	if lockAt < singleAt || rankAt < lockAt || unlockAt < rankAt {
 		t.Fatalf("%s: shared ranking cache is not protected by the batch mutex", assertion)
+	}
+	if !strings.Contains(text, "return prepareCorpus(notesCorpus, state.notebookDir)") {
+		t.Fatalf("property [3]: production search-web preparation does not use state.notebookDir")
 	}
 	t.Log(assertion + ": PASS")
 }

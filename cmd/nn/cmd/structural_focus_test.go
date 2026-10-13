@@ -39,7 +39,7 @@ func installFocusFlagForRedPhase(cmd *cobra.Command) {
 }
 
 func executeClustersFocusContract(notes []*note.Note, args ...string) (string, error) {
-	state := &rootState{backend: &orderedClusterBackend{notes: notes}}
+	state := &rootState{notebookDir: ".", backend: &orderedClusterBackend{notes: notes}}
 	cmd := newClustersCmd(state)
 	installFocusFlagForRedPhase(cmd)
 	var stdout bytes.Buffer
@@ -51,7 +51,7 @@ func executeClustersFocusContract(notes []*note.Note, args ...string) (string, e
 }
 
 func executeBridgesFocusContract(notes []*note.Note, args ...string) (string, error) {
-	state := &rootState{backend: &orderedBridgesBackend{notes: notes}}
+	state := &rootState{notebookDir: ".", backend: &orderedBridgesBackend{notes: notes}}
 	cmd := newGraphBridgesCmd(state)
 	installFocusFlagForRedPhase(cmd)
 	var stdout bytes.Buffer

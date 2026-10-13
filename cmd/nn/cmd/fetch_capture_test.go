@@ -17,17 +17,19 @@ type stubBackend struct {
 	written []*note.Note
 }
 
-func (s *stubBackend) Write(n *note.Note) error                                           { s.written = append(s.written, n); return nil }
-func (s *stubBackend) List() ([]*note.Note, error)                                        { return nil, nil }
-func (s *stubBackend) Read(id string) (*note.Note, error)                                 { return nil, nil }
-func (s *stubBackend) Delete(id string) error                                             { return nil }
-func (s *stubBackend) BulkWrite(notes []*note.Note) error                                 { return nil }
-func (s *stubBackend) AddLink(fromID, toID, annotation, linkType, linkStatus string) error { return nil }
-func (s *stubBackend) AddLinks(fromID string, targets []backend.LinkTarget) error          { return nil }
-func (s *stubBackend) SetLinkType(fromID, toID, annotationMatches, linkType string) error  { return nil }
+func (s *stubBackend) Write(n *note.Note) error           { s.written = append(s.written, n); return nil }
+func (s *stubBackend) List() ([]*note.Note, error)        { return nil, nil }
+func (s *stubBackend) Read(id string) (*note.Note, error) { return nil, nil }
+func (s *stubBackend) Delete(id string) error             { return nil }
+func (s *stubBackend) BulkWrite(notes []*note.Note) error { return nil }
+func (s *stubBackend) AddLink(fromID, toID, annotation, linkType, linkStatus string) error {
+	return nil
+}
+func (s *stubBackend) AddLinks(fromID string, targets []backend.LinkTarget) error         { return nil }
+func (s *stubBackend) SetLinkType(fromID, toID, annotationMatches, linkType string) error { return nil }
 func (s *stubBackend) RemoveLink(fromID, toID string) error                               { return nil }
 func (s *stubBackend) RemoveLinkByType(fromID, toID, linkType string) error               { return nil }
-func (s *stubBackend) RemoveLinks(fromID string, removals []backend.LinkRemoval) error     { return nil }
+func (s *stubBackend) RemoveLinks(fromID string, removals []backend.LinkRemoval) error    { return nil }
 func (s *stubBackend) Promote(id string, from time.Time, to note.Status) error            { return nil }
 func (s *stubBackend) Update(n *note.Note, since *time.Time) error                        { return nil }
 func (s *stubBackend) UpdateLink(fromID, toID string, annotation, linkType, linkStatus *string) error {
@@ -45,7 +47,7 @@ func TestFetchCaptureCreatesNote(t *testing.T) {
 	defer srv.Close()
 
 	stub := &stubBackend{}
-	state := &rootState{backend: stub, notebookDir: ""}
+	state := &rootState{backend: stub, notebookDir: "."}
 
 	var stdout, stderr bytes.Buffer
 	err := runFetch(srv.URL, true, &stdout, &stderr, state)

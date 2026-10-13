@@ -27,7 +27,7 @@ func TestPrepareCorpusUsesTypedOutboundAnnotationChannels(t *testing.T) {
 	}
 	corpus := []*note.Note{one, two, target}
 
-	scores := prepareCorpus(corpus, "").rankedByQuery(corpus, "productionnonce")
+	scores := prepareCorpusUncached(corpus).rankedByQuery(corpus, "productionnonce")
 	if scores[one.ID] == 0 || scores[two.ID] == 0 {
 		t.Fatalf("typed production annotation matches missing: one=%.12f two=%.12f", scores[one.ID], scores[two.ID])
 	}
@@ -47,7 +47,7 @@ func TestPrepareCorpusMapsLegacyEmptyTypeToUnclassifiedScoringChannel(t *testing
 	}
 	corpus := []*note.Note{legacy, target}
 
-	scores := prepareCorpus(corpus, "").rankedByQuery(corpus, "legacynonce")
+	scores := prepareCorpusUncached(corpus).rankedByQuery(corpus, "legacynonce")
 	if scores[legacy.ID] == 0 {
 		t.Fatal("legacy empty-type outbound annotation was not scored through UNCLASSIFIED")
 	}

@@ -55,7 +55,7 @@ func (b *orderedBridgesBackend) List() ([]*note.Note, error) { return b.notes, n
 
 func executeBridgesWithNotes(t *testing.T, notes []*note.Note, args ...string) string {
 	t.Helper()
-	state := &rootState{backend: &orderedBridgesBackend{notes: notes}}
+	state := &rootState{notebookDir: ".", backend: &orderedBridgesBackend{notes: notes}}
 	cmd := newGraphBridgesCmd(state)
 	var stdout bytes.Buffer
 	cmd.SetOut(&stdout)
