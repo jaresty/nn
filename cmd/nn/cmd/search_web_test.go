@@ -4,8 +4,32 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 )
+
+func TestSearchWebPreparesCorpusOnce(t *testing.T) {
+	const assertion = "property [1]: search-web prepares the notebook corpus once before processing result pages"
+
+	source, err := os.ReadFile("search_web.go")
+	if err != nil {
+		t.Fatalf("%s: read source: %v", assertion, err)
+	}
+	text := string(source)
+	loopAt := strings.Index(text, "for i, u := range urls")
+	prepareAt := strings.Index(text, "prepared := prepareCorpus(")
+	if loopAt < 0 {
+		t.Fatalf("%s: result loop not found", assertion)
+	}
+	if prepareAt < 0 || prepareAt > loopAt {
+		t.Fatalf("%s: corpus preparation must occur before the result loop", assertion)
+	}
+	if strings.Contains(text[loopAt:], "RankedByQuery(") {
+		t.Fatalf("%s: result loop rebuilds the prepared corpus", assertion)
+	}
+	t.Log(assertion + ": PASS")
+}
 
 func TestSearchWebCommandRegistered(t *testing.T) {
 	state := &rootState{}

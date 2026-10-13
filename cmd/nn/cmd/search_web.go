@@ -75,6 +75,8 @@ func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stde
 		notesCorpus, _ = state.backend.List()
 	}
 
+	prepared := prepareCorpus(notesCorpus, "")
+
 	for i, u := range urls {
 		if !robotsAllowed(u, nnUserAgent) {
 			continue
@@ -110,7 +112,7 @@ func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stde
 		if len(notesCorpus) == 0 {
 			continue
 		}
-		scores := RankedByQuery(notesCorpus, notesCorpus, plain, "")
+		scores := prepared.rankedByQuery(notesCorpus, plain)
 		type scored struct {
 			n     *note.Note
 			score float64
