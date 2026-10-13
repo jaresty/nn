@@ -1068,12 +1068,26 @@ Fetches a URL via HTTP GET, strips HTML to plaintext, and prints the result to s
 
 ```
 nn search-web <query> [--results N]
+nn search-web --query "<query-1>" --query "<query-2>" [--results N] [--parallel N]
 ```
 
-Best-effort web search via DuckDuckGo. Fetches the top N result pages, strips HTML, and prints a `## Result N:` header + 500-character preview + `## Related notes` from your notebook for each result.
+Best-effort web search via DuckDuckGo. Fetches the top N result pages per query, strips HTML, and prints a `## Result N:` header + 500-character preview + `## Related notes` from your notebook for each result.
+
+Repeat `--query` to run a batch of searches concurrently. The notebook corpus is prepared once for the batch, query concurrency is bounded, and buffered output is emitted deterministically in query-input order. Existing positional arguments remain one joined query; they may also be combined with repeated `--query` values.
 
 **Flags:**
-- `--results N` — number of results to fetch and display (default 3)
+- `--results N` — number of results to fetch and display per query (default 3)
+- `--query "<query>"` — search query; repeat for parallel batch search
+- `--parallel N` — maximum concurrent queries (default 4; must be at least 1)
+
+**Example:**
+```bash
+nn search-web \
+  --query "Flagsmith kill switches" \
+  --query "Flagsmith segment precedence" \
+  --results 5 \
+  --parallel 2
+```
 
 **Use `nn search-web` when:**
 - You want to surface external context on a topic and compare it against your existing notes
