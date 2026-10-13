@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/spf13/cobra"
 
@@ -21,22 +23,92 @@ var reAnchorHref = regexp.MustCompile(`(?i)<a[^>]+href=["']([^"']+)["'][^>]*>`)
 func newSearchWebCmd(state *rootState) *cobra.Command {
 	var results int
 	var listOnly bool
+	var queries []string
+	var parallel int
 
 	cmd := &cobra.Command{
 		Use:   "search-web <query>",
 		Short: "Search the web via DuckDuckGo and annotate results with related notes",
-		Args:  cobra.MinimumNArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 && len(queries) == 0 {
+				return fmt.Errorf("requires a positional query or at least one --query")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			query := strings.Join(args, " ")
-			return runSearchWeb(query, results, ddgEndpoint, cmd.OutOrStdout(), cmd.ErrOrStderr(), state, listOnly)
+			allQueries := make([]string, 0, len(queries)+1)
+			if len(args) > 0 {
+				allQueries = append(allQueries, strings.Join(args, " "))
+			}
+			allQueries = append(allQueries, queries...)
+			return runSearchWebBatch(allQueries, results, parallel, ddgEndpoint, cmd.OutOrStdout(), cmd.ErrOrStderr(), state, listOnly)
 		},
 	}
-	cmd.Flags().IntVar(&results, "results", 3, "Number of results to fetch and display")
+	cmd.Flags().IntVar(&results, "results", 3, "Number of results to fetch and display per query")
 	cmd.Flags().BoolVar(&listOnly, "list", false, "Print result URLs only, one per line (no fetching)")
+	cmd.Flags().StringArrayVar(&queries, "query", nil, "Search query; repeat for parallel batch search")
+	cmd.Flags().IntVar(&parallel, "parallel", 4, "Maximum concurrent queries")
 	return cmd
 }
 
+func runSearchWebBatch(queries []string, maxResults, parallel int, endpointFmt string, stdout, stderr io.Writer, state *rootState, listOnly bool) error {
+	if stdout == nil {
+		stdout = io.Discard
+	}
+	if parallel < 1 {
+		return fmt.Errorf("search-web: parallel must be at least 1")
+	}
+
+	var notesCorpus []*note.Note
+	if state != nil && state.backend != nil {
+		notesCorpus, _ = state.backend.List()
+	}
+	prepared := prepareCorpus(notesCorpus, "")
+	var rankMu sync.Mutex
+
+	outputs := make([]bytes.Buffer, len(queries))
+	errs := make([]error, len(queries))
+	jobs := make(chan int)
+	var workers sync.WaitGroup
+	workerCount := min(parallel, len(queries))
+	workers.Add(workerCount)
+	for range workerCount {
+		go func() {
+			defer workers.Done()
+			for i := range jobs {
+				errs[i] = runSearchWebQuery(queries[i], maxResults, endpointFmt, &outputs[i], notesCorpus, prepared, &rankMu, listOnly)
+			}
+		}()
+	}
+	for i := range queries {
+		jobs <- i
+	}
+	close(jobs)
+	workers.Wait()
+
+	for i, query := range queries {
+		if len(queries) > 1 {
+			fmt.Fprintf(stdout, "## Query %d: %s\n", i+1, query)
+		}
+		_, _ = io.Copy(stdout, &outputs[i])
+		if errs[i] != nil {
+			return fmt.Errorf("search-web query %q: %w", query, errs[i])
+		}
+	}
+	return nil
+}
+
 func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stderr io.Writer, state *rootState, listOnly bool) error {
+	var notesCorpus []*note.Note
+	if state != nil && state.backend != nil {
+		notesCorpus, _ = state.backend.List()
+	}
+	prepared := prepareCorpus(notesCorpus, "")
+	var rankMu sync.Mutex
+	return runSearchWebQuery(query, maxResults, endpointFmt, stdout, notesCorpus, prepared, &rankMu, listOnly)
+}
+
+func runSearchWebQuery(query string, maxResults int, endpointFmt string, stdout io.Writer, notesCorpus []*note.Note, prepared preparedCorpus, rankMu *sync.Mutex, listOnly bool) error {
 	if stdout == nil {
 		stdout = io.Discard
 	}
@@ -69,13 +141,6 @@ func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stde
 		}
 		return nil
 	}
-
-	var notesCorpus []*note.Note
-	if state != nil && state.backend != nil {
-		notesCorpus, _ = state.backend.List()
-	}
-
-	prepared := prepareCorpus(notesCorpus, "")
 
 	for i, u := range urls {
 		if !robotsAllowed(u, nnUserAgent) {
@@ -112,7 +177,9 @@ func runSearchWeb(query string, maxResults int, endpointFmt string, stdout, stde
 		if len(notesCorpus) == 0 {
 			continue
 		}
+		rankMu.Lock()
 		scores := prepared.rankedByQuery(notesCorpus, plain)
+		rankMu.Unlock()
 		type scored struct {
 			n     *note.Note
 			score float64

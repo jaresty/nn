@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestSearchWebPreparesCorpusOnce(t *testing.T) {
@@ -31,12 +34,86 @@ func TestSearchWebPreparesCorpusOnce(t *testing.T) {
 	t.Log(assertion + ": PASS")
 }
 
+func TestSearchWebBatchOverlapsQueriesWithinBound(t *testing.T) {
+	const assertion = "property [1]: search-web batch overlaps queries within the parallel bound"
+	var active atomic.Int32
+	var maximum atomic.Int32
+
+	ddgSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		current := active.Add(1)
+		defer active.Add(-1)
+		for {
+			observed := maximum.Load()
+			if current <= observed || maximum.CompareAndSwap(observed, current) {
+				break
+			}
+		}
+		time.Sleep(75 * time.Millisecond)
+		_, _ = w.Write([]byte("<html><body></body></html>"))
+	}))
+	defer ddgSrv.Close()
+
+	var out bytes.Buffer
+	err := runSearchWebBatch([]string{"alpha", "beta", "gamma"}, 1, 2, ddgSrv.URL+"?q=%s", &out, nil, nil, false)
+	if err != nil {
+		t.Fatalf("%s: %v", assertion, err)
+	}
+	if got := maximum.Load(); got < 2 || got > 2 {
+		t.Fatalf("%s: maximum active queries = %d, want 2", assertion, got)
+	}
+	first := strings.Index(out.String(), "## Query 1: alpha")
+	second := strings.Index(out.String(), "## Query 2: beta")
+	third := strings.Index(out.String(), "## Query 3: gamma")
+	if first < 0 || second <= first || third <= second {
+		t.Fatalf("property [3a]: batch output order = %q", out.String())
+	}
+	t.Log(assertion + ": PASS")
+}
+
+func TestSearchWebBatchPreparesCorpusOnce(t *testing.T) {
+	const assertion = "property [2]: search-web batch prepares one corpus before launching query workers"
+	source, err := os.ReadFile("search_web.go")
+	if err != nil {
+		t.Fatalf("%s: read source: %v", assertion, err)
+	}
+	text := string(source)
+	batchAt := strings.Index(text, "func runSearchWebBatch(")
+	singleAt := strings.Index(text, "func runSearchWeb(query string")
+	prepareAt := strings.Index(text, "prepared := prepareCorpus(")
+	if batchAt < 0 || singleAt < 0 || prepareAt < batchAt || prepareAt > singleAt {
+		t.Fatalf("%s: preparation is not owned by the batch scope", assertion)
+	}
+	lockAt := strings.Index(text, "rankMu.Lock()")
+	rankAt := strings.Index(text, "prepared.rankedByQuery(")
+	unlockAt := strings.Index(text, "rankMu.Unlock()")
+	if lockAt < singleAt || rankAt < lockAt || unlockAt < rankAt {
+		t.Fatalf("%s: shared ranking cache is not protected by the batch mutex", assertion)
+	}
+	t.Log(assertion + ": PASS")
+}
+
 func TestSearchWebCommandRegistered(t *testing.T) {
 	state := &rootState{}
 	cmd := newSearchWebCmd(state)
 	if cmd.Use != "search-web <query>" {
 		t.Fatalf("expected Use=search-web <query>, got %q", cmd.Use)
 	}
+	if err := cmd.Args(cmd, []string{"legacy", "query"}); err != nil {
+		t.Fatalf("property [4]: positional query rejected: %v", err)
+	}
+	if err := cmd.Flags().Set("query", "first batch query"); err != nil {
+		t.Fatalf("property [4]: set --query: %v", err)
+	}
+	if err := cmd.Flags().Set("query", "second batch query"); err != nil {
+		t.Fatalf("property [4]: repeat --query: %v", err)
+	}
+	if err := cmd.Args(cmd, nil); err != nil {
+		t.Fatalf("property [4]: repeated --query rejected without positional query: %v", err)
+	}
+	if got, err := cmd.Flags().GetInt("parallel"); err != nil || got != 4 {
+		t.Fatalf("property [1b]: --parallel default = %d, %v; want 4", got, err)
+	}
+	t.Log("property [4]: legacy positional and repeated --query interfaces are accepted: PASS")
 }
 
 func TestDDGExtractURLs(t *testing.T) {
