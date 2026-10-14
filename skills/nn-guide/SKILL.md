@@ -108,7 +108,8 @@ nn list [--tag TEXT] [--type TYPE] [--status STATUS] [--representation ontology|
         [--linked-from ID] [--linked-to ID] [--orphan] [--global] [--long]
         [--has-url] [--url-contains STRING]
         [--search TEXT] [--boost-recent] [--similar ID] [--sort FIELD] [--limit N] [--json]
-        [--before DATE] [--rich] [--full] [--envelope]
+        [--before DATE] [--rich] [--full] [--envelope] [--count]
+        [--page N] [--snapshot SHA256]
 ```
 
 `--boost-recent` boosts recently-modified notes in search result ranking. Requires `--search`. Use to surface recently-touched notes above older equally-relevant ones.
@@ -117,7 +118,20 @@ nn list [--tag TEXT] [--type TYPE] [--status STATUS] [--representation ontology|
 
 `--full` disables truncation of `excerpt` and `annotation` in JSON output. Requires `--json`. Use when full note body context is needed for downstream processing.
 
-`--envelope` wraps search JSON output in a metadata envelope containing `query`, `result_count`, and `total_matching`. Requires `--json --search`. Use when the consumer needs result-set metadata alongside the notes.
+`--envelope` wraps any JSON list output in metadata containing `result_count`, `total_matching`, and `results`; search envelopes also include `query`. Use when the consumer needs result-set metadata alongside notes.
+
+`--count` prints only the cardinality after every active filter. Prefer it before committing to load a large semantic set.
+
+`--page N` activates stable, lossless JSON-envelope pagination and requires `--json --envelope`. Fetch page 1 first; each later page requires its repeated `--snapshot SHA256`. Every encoded page is at most 48,000 bytes. The snapshot binds the complete serialized result projection and normalized query options, so notebook, filter, sort, search, field, or output-shape changes reject continuation. `--page` cannot be combined with `--limit`, `--count`, or `--show-first`.
+
+Filters compose. Preserve every selected predicate in later commands instead of querying a broader superset and recovering scope with `jq`:
+
+```bash
+nn list --expired --tag daily --count
+nn list --expired --tag daily --json --envelope --fields id,title,modified,backlink_count
+nn show <id1> <id2> <id3>             # batch read selected notes
+nn delete --from-stdin --confirm       # confirmation is required for batch deletion
+```
 
 `--before DATE` filters to notes modified before the given date (ISO 8601). Composes with `--since` to define a modification date range.
 
@@ -360,10 +374,10 @@ With `--focus`, renders a subgraph centered on `<id>`; BFS depth defaults to 2 a
 ### nn graph bodies (lossless paginated body transport)
 
 ```
-nn graph bodies [--focus <id>] [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--page N] [--snapshot SHA256]
+nn graph bodies [--focus <id> | --ids ID,...] [--depth N] [--direction outgoing|incoming|both] [--links TYPE,...] [--status STATUS,...] [--representation VALUE] [--page N] [--snapshot SHA256]
 ```
 
-Returns JSON body segments for exactly the same filtered traversal set as `nn graph show`. Selection has identical focus/depth/direction/link/status/representation semantics; without `--focus` it selects the full graph, while explicitly supplied traversal flags require `--focus`. Notes are ordered by ID. Fetch page 1 first. Its compact envelope is `{"snapshot":"…","page":1,"pages":N,"next_page":2,"segments":[…]}`; page and segment ordinals are one-based, and `next_page` is `0` on the final page. Every later page requires `--snapshot <value-from-page-1>`, and every response repeats the same snapshot and page count. A stale or mismatched snapshot is rejected after any notebook or normalized traversal change.
+Returns JSON body segments for exactly the same filtered traversal set as `nn graph show`, or for an arbitrary explicit set selected with `--ids ID,...`. Explicit IDs are mutually exclusive with focus and traversal flags; unknown IDs fail rather than being omitted. Traversal selection has identical focus/depth/direction/link/status/representation semantics; without `--focus` it selects the full graph, while explicitly supplied traversal flags require `--focus`. Notes are ordered by ID. Fetch page 1 first. Its compact envelope is `{"snapshot":"…","page":1,"pages":N,"next_page":2,"segments":[…]}`; page and segment ordinals are one-based, and `next_page` is `0` on the final page. Every later page requires `--snapshot <value-from-page-1>`, and every response repeats the same snapshot and page count. A stale or mismatched snapshot is rejected after any notebook or normalized traversal change.
 
 Every encoded page, including JSON overhead and its final newline, is at most 48,000 bytes. A record is `{"id":"…","segment":1,"segments":K,"body":"…"}`. Large bodies span ordered UTF-8-safe segments; concatenate each note's decoded `body` values in segment order for byte-for-byte reconstruction. An empty body is explicit as one segment whose `body` is `""`. Retrieve every page and verify the repeated snapshot, page count, and complete segment ordinals before making body-derived claims.
 

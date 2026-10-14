@@ -89,6 +89,23 @@ nn link set-type <from> <to> --type supports  # migrate one legacy untyped link
 nn list --json
 ```
 
+### Bounded filtered-set transport
+
+Preview a composable filtered set with `--count`, then retrieve its exact JSON projection as stable pages:
+
+```sh
+nn list --expired --tag daily --count
+nn list --expired --tag daily --json --envelope \
+  --fields id,title,modified,backlink_count --page 1
+nn list --expired --tag daily --json --envelope \
+  --fields id,title,modified,backlink_count --page 2 \
+  --snapshot <sha256-from-page-1>
+```
+
+Page 1 returns `snapshot`, `page`, `pages`, `next_page`, `result_count`, `total_matching`, and `results`. Every encoded page is at most 48,000 bytes. Pass the page-1 snapshot to every later page while keeping every filter, sort, search, field, and output option identical. A changed result projection or request rejects continuation. Pagination requires `--json --envelope` and cannot be combined with `--limit`, `--count`, or `--show-first`; invocations without `--page` retain their existing output.
+
+To retrieve complete bodies for an arbitrary selected set, use `nn graph bodies --ids ID1,ID2 --page 1`, then follow `next_page` with the returned snapshot. Explicit IDs are mutually exclusive with graph traversal selection.
+
 Install guided LLM workflows:
 
 ```sh

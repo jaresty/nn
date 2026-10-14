@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -24,39 +27,66 @@ func newListCmd(state *rootState) *cobra.Command {
 		filterType           string
 		filterStatus         string
 		filterRepresentation string
-		linkedFrom   string
-		linkedTo     string
-		orphan       bool
-		global       bool
-		long         bool
-		unactioned   bool
-		olderThan    int
-		noInbound    bool
-		expired      bool
-		hasExpires   bool
-		hasURL       bool
-		urlContains  string
-		hasOpenItems bool
-		unblocked    bool
-		limit        int
-		jsonOut      bool
-		rich         bool
-		fullOutput   bool
-		showFirst    bool
-		search       string
-		sortBy       string
-		since        string
-		before       string
-		similarTo    string
-		envelope     bool
-		boostRecent  bool
-		fields       string
+		linkedFrom           string
+		linkedTo             string
+		orphan               bool
+		global               bool
+		long                 bool
+		unactioned           bool
+		olderThan            int
+		noInbound            bool
+		expired              bool
+		hasExpires           bool
+		hasURL               bool
+		urlContains          string
+		hasOpenItems         bool
+		unblocked            bool
+		limit                int
+		jsonOut              bool
+		rich                 bool
+		fullOutput           bool
+		showFirst            bool
+		search               string
+		sortBy               string
+		since                string
+		before               string
+		similarTo            string
+		envelope             bool
+		boostRecent          bool
+		fields               string
+		countOnly            bool
+		page                 int
+		snapshot             string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List and filter notes; --similar <id> ranks by BM25 similarity",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			pagination := cmd.Flags().Changed("page") || snapshot != ""
+			if pagination {
+				if !cmd.Flags().Changed("page") {
+					return fmt.Errorf("list: --snapshot requires --page")
+				}
+				if page < 1 {
+					return fmt.Errorf("list: --page must be at least 1")
+				}
+				if !jsonOut || !envelope {
+					return fmt.Errorf("list: --page requires --json --envelope")
+				}
+				if limit > 0 || countOnly || showFirst {
+					return fmt.Errorf("list: --page cannot be combined with --limit, --count, or --show-first")
+				}
+				if page > 1 && snapshot == "" {
+					return fmt.Errorf("list: --snapshot is required for page %d", page)
+				}
+			}
+			if countOnly && (jsonOut || envelope || rich || fullOutput || showFirst || fields != "") {
+				return fmt.Errorf("list: --count cannot be combined with --json, --envelope, --rich, --full, --show-first, or --fields")
+			}
+			if envelope && !jsonOut {
+				return fmt.Errorf("list: --envelope requires --json")
+			}
 			if global && filterType != "" && filterType != "protocol" {
 				return fmt.Errorf("list: --global only applies to protocol notes; --type %q is incompatible", filterType)
 			}
@@ -261,10 +291,14 @@ func newListCmd(state *rootState) *cobra.Command {
 				}
 			}
 
-			if search != "" && limit == 0 {
+			if search != "" && limit == 0 && !pagination {
 				limit = 5
 			}
 			totalMatching := len(filtered)
+			if countOnly {
+				fmt.Fprintln(outWriter(cmd), totalMatching)
+				return nil
+			}
 			if limit > 0 && len(filtered) > limit {
 				filtered = filtered[:limit]
 			}
@@ -280,7 +314,14 @@ func newListCmd(state *rootState) *cobra.Command {
 						return err
 					}
 				}
+				if pagination {
+					key := fmt.Sprintf("tag=%q|type=%q|status=%q|representation=%q|linked-from=%q|linked-to=%q|orphan=%t|global=%t|long=%t|unactioned=%t|older-than=%d|no-inbound=%t|expired=%t|has-expires=%t|has-url=%t|url-contains=%q|has-open-items=%t|unblocked=%t|search=%q|sort=%q|since=%q|before=%q|similar=%q|boost-recent=%t|rich=%t|full=%t|fields=%q", filterTag, filterType, filterStatus, filterRepresentation, linkedFrom, linkedTo, orphan, global, long, unactioned, olderThan, noInbound, expired, hasExpires, hasURL, urlContains, hasOpenItems, unblocked, search, sortBy, since, before, similarTo, boostRecent, rich, fullOutput, fields)
+					return printPaginatedListJSON(cmd, filtered, notes, search, normalizedSearchScores, allInbound, requestedFields, fullOutput, rich, totalMatching, page, snapshot, key)
+				}
 				if rich {
+					if envelope {
+						return printListEnvelopeJSON(cmd, filtered, requestedFields, totalMatching, true)
+					}
 					return printNotesRichJSON(cmd, filtered, requestedFields)
 				}
 				if search != "" {
@@ -291,6 +332,9 @@ func newListCmd(state *rootState) *cobra.Command {
 						return err
 					}
 				} else {
+					if envelope {
+						return printListEnvelopeJSON(cmd, filtered, requestedFields, totalMatching, false)
+					}
 					if err := printNotesJSON(cmd, filtered, requestedFields); err != nil {
 						return err
 					}
@@ -364,7 +408,10 @@ func newListCmd(state *rootState) *cobra.Command {
 	cmd.Flags().BoolVar(&fullOutput, "full", false, "Disable truncation of excerpt and annotation in JSON output")
 	cmd.Flags().BoolVar(&showFirst, "show-first", false, "Append full body of top search result after JSON output (requires --json)")
 	cmd.Flags().StringVar(&similarTo, "similar", "", "Rank notes by BM25 similarity to this note ID (excludes the note itself)")
-	cmd.Flags().BoolVar(&envelope, "envelope", false, "Wrap search JSON in envelope with query, result_count, total_matching (requires --json --search)")
+	cmd.Flags().BoolVar(&envelope, "envelope", false, "Wrap JSON in envelope with result_count, total_matching, and results (search also includes query)")
+	cmd.Flags().BoolVar(&countOnly, "count", false, "Print only the number of notes matching all active filters")
+	cmd.Flags().IntVar(&page, "page", 0, "One-based stable result page (requires --json --envelope)")
+	cmd.Flags().StringVar(&snapshot, "snapshot", "", "Snapshot SHA-256 returned by page 1 (required for later pages)")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to project in --json output (id,title,type,status,tags,applies_when,excerpt,score,modified,match_reason,is_protocol,link_count,backlink_count,created,body_preview,representation)")
 	return cmd
 }
@@ -585,6 +632,137 @@ func printSearchJSON(cmd *cobra.Command, notes []*note.Note, allNotes []*note.No
 		projected[i] = projectFields(v, requestedFields)
 	}
 	return enc.Encode(projected)
+}
+
+const listPageMaxBytes = 48_000
+
+type paginatedListEnvelope struct {
+	Snapshot      string            `json:"snapshot"`
+	Page          int               `json:"page"`
+	Pages         int               `json:"pages"`
+	NextPage      int               `json:"next_page"`
+	ResultCount   int               `json:"result_count"`
+	TotalMatching int               `json:"total_matching"`
+	Query         string            `json:"query,omitempty"`
+	Results       []json.RawMessage `json:"results"`
+}
+
+func printPaginatedListJSON(cmd *cobra.Command, selected, allNotes []*note.Note, query string, scores map[string]float64, inbound map[string][]string, requestedFields []string, fullOutput, rich bool, totalMatching, page int, suppliedSnapshot, requestKey string) error {
+	var rendered bytes.Buffer
+	shadow := *cmd
+	shadow.SetOut(&rendered)
+	var err error
+	switch {
+	case rich:
+		err = printNotesRichJSON(&shadow, selected, requestedFields)
+	case query != "":
+		err = printSearchJSON(&shadow, selected, allNotes, query, scores, inbound, requestedFields, fullOutput)
+	default:
+		err = printNotesJSON(&shadow, selected, requestedFields)
+	}
+	if err != nil {
+		return err
+	}
+	var records []json.RawMessage
+	if err := json.Unmarshal(rendered.Bytes(), &records); err != nil {
+		return fmt.Errorf("list: paginate encoded results: %w", err)
+	}
+
+	h := sha256.New()
+	writeSnapshotPart(h, []byte("nn list page snapshot v1\x00"))
+	writeSnapshotPart(h, []byte(requestKey))
+	writeSnapshotPart(h, rendered.Bytes())
+	expectedSnapshot := hex.EncodeToString(h.Sum(nil))
+	if suppliedSnapshot != "" && suppliedSnapshot != expectedSnapshot {
+		return fmt.Errorf("list: stale or mismatched --snapshot; notebook, query, or result projection changed")
+	}
+
+	pages := [][]json.RawMessage{{}}
+	for _, record := range records {
+		candidate := append(append([]json.RawMessage(nil), pages[len(pages)-1]...), record)
+		if listPageFits(expectedSnapshot, query, totalMatching, candidate) {
+			pages[len(pages)-1] = candidate
+			continue
+		}
+		if !listPageFits(expectedSnapshot, query, totalMatching, []json.RawMessage{record}) {
+			return fmt.Errorf("list: one result cannot fit in a %d-byte page; narrow fields or disable --full", listPageMaxBytes)
+		}
+		pages = append(pages, []json.RawMessage{record})
+	}
+	if page > len(pages) {
+		return fmt.Errorf("list: --page %d out of range (pages: %d)", page, len(pages))
+	}
+	response := paginatedListEnvelope{Snapshot: expectedSnapshot, Page: page, Pages: len(pages), ResultCount: len(pages[page-1]), TotalMatching: totalMatching, Query: query, Results: pages[page-1]}
+	if page < len(pages) {
+		response.NextPage = page + 1
+	}
+	encoded, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("list: encode page: %w", err)
+	}
+	if len(encoded)+1 > listPageMaxBytes {
+		return fmt.Errorf("list: encoded page is %d bytes (limit %d)", len(encoded)+1, listPageMaxBytes)
+	}
+	_, err = outWriter(cmd).Write(append(encoded, '\n'))
+	return err
+}
+
+func listPageFits(snapshot, query string, totalMatching int, records []json.RawMessage) bool {
+	candidate := paginatedListEnvelope{Snapshot: snapshot, Page: math.MaxInt64, Pages: math.MaxInt64, NextPage: math.MaxInt64, ResultCount: len(records), TotalMatching: totalMatching, Query: query, Results: records}
+	encoded, err := json.Marshal(candidate)
+	return err == nil && len(encoded)+1 <= listPageMaxBytes
+}
+
+type listEnvelope struct {
+	ResultCount   int `json:"result_count"`
+	TotalMatching int `json:"total_matching"`
+	Results       any `json:"results"`
+}
+
+func printListEnvelopeJSON(cmd *cobra.Command, notes []*note.Note, requestedFields []string, totalMatching int, rich bool) error {
+	var results any
+	if rich {
+		values := make([]noteRichJSON, len(notes))
+		for i, n := range notes {
+			tags := n.Tags
+			if tags == nil {
+				tags = []string{}
+			}
+			preview := n.Body
+			if len(preview) > bodyPreviewLen {
+				preview = preview[:bodyPreviewLen]
+			}
+			values[i] = noteRichJSON{ID: n.ID, Title: n.Title, Type: string(n.Type), Status: string(n.Status), Tags: tags, Created: n.Created.UTC().Format(time.RFC3339Nano), Modified: n.Modified.UTC().Format(time.RFC3339Nano), LinkCount: len(n.Links), BodyPreview: preview}
+		}
+		if len(requestedFields) == 0 {
+			results = values
+		} else {
+			projected := make([]map[string]any, len(values))
+			for i, value := range values {
+				projected[i] = projectFields(value, requestedFields)
+			}
+			results = projected
+		}
+	} else {
+		values := make([]noteJSON, len(notes))
+		for i, n := range notes {
+			tags := n.Tags
+			if tags == nil {
+				tags = []string{}
+			}
+			values[i] = noteJSON{ID: n.ID, Title: n.Title, Type: string(n.Type), Status: string(n.Status), Tags: tags, Created: n.Created.UTC().Format(time.RFC3339Nano), Modified: n.Modified.UTC().Format(time.RFC3339Nano), AppliesWhen: n.AppliesWhen, Representation: n.Representation}
+		}
+		if len(requestedFields) == 0 {
+			results = values
+		} else {
+			projected := make([]map[string]any, len(values))
+			for i, value := range values {
+				projected[i] = projectFields(value, requestedFields)
+			}
+			results = projected
+		}
+	}
+	return json.NewEncoder(outWriter(cmd)).Encode(listEnvelope{ResultCount: len(notes), TotalMatching: totalMatching, Results: results})
 }
 
 type searchEnvelope struct {

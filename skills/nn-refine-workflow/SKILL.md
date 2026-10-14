@@ -25,7 +25,11 @@ Invoke when you want to clean up multiple notes in one pass — for example:
 
 ### 1. Select the target set
 
-Choose a filter to identify the notes to refine:
+Choose a filter to identify the notes to refine. Preserve every selected predicate in every later inventory, body-retrieval, proposal, and mutation command. Before execution, print the exact resolved query and verify that each conversational scope term has a corresponding native flag; for example, “expired daily notes” must remain `nn list --expired --tag daily`, never a broader `--expired` query repaired afterward with `jq`.
+
+Preview cardinality before promising to load the full set. Prefer `--count` or a JSON envelope when available. If the set is too large for one bounded transport or semantic pass, propose deterministic partitions (for example, date ranges) and obtain agreement on that bounded plan. Retain the identity of the complete target set across partitions, and do not claim cross-set reasoning until every partition has been loaded.
+
+Use native composable filters before external filtering:
 
 ```
 # All drafts
@@ -49,7 +53,7 @@ nn graph show --focus <root-id> --depth 3
 
 ### 2. Load all notes before proposing any changes
 
-For each note in the set, run `nn show <id>` to load its body, links, and backlinks. Load the full set before forming any proposals — do not propose changes note-by-note as you read.
+For a bounded set, use multi-ID `nn show <id1> <id2> ...` or lossless paginated body transport to load bodies, links, and backlinks. For an agreed partitioned set, load every partition before forming the full-set proposal. Do not propose changes note-by-note as you read, and do not create an unbounded temporary artifact merely to satisfy “load all.”
 
 ### 3. Reason across the full set
 
@@ -91,7 +95,7 @@ nn promote --subgraph <root-id> --to reviewed --if-valid
 nn check <root-id>
 ```
 
-Execute only after the user confirms the proposal is correct.
+Execute only after the user confirms the proposal is correct. Re-render the exact selected predicates in every batch mutation. Batch deletion requires `nn delete --from-stdin --confirm`; omission of `--confirm` is an invalid proposal.
 
 ### 5. Health check
 
@@ -128,6 +132,8 @@ nn review [--format json]
 
 ## Success criteria
 
+- Every selected scope predicate appeared in the resolved inventory and mutation commands
+- Cardinality was previewed before committing to a full-set read; oversized sets were partitioned explicitly
 - All notes in the target set were loaded before any proposals were made
 - All proposed changes were grouped by note and presented as a single batch before execution
 - Splits used `bulk-new`; link corrections used `bulk-update-link`; subgraph promotion used `nn promote --subgraph --if-valid`

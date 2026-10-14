@@ -9,6 +9,7 @@ import (
 	"hash"
 	"math"
 	"sort"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/spf13/cobra"
@@ -50,6 +51,7 @@ type graphBodiesSnapshotRequest struct {
 	Links          []string `json:"links"`
 	Statuses       []string `json:"statuses"`
 	Representation string   `json:"representation"`
+	IDs            []string `json:"ids,omitempty"`
 }
 
 func newGraphBodiesCmd(state *rootState) *cobra.Command {
@@ -61,6 +63,7 @@ func newGraphBodiesCmd(state *rootState) *cobra.Command {
 	var representation string
 	var page int
 	var snapshot string
+	var ids string
 
 	cmd := &cobra.Command{
 		Use:   "bodies",
@@ -72,6 +75,10 @@ func newGraphBodiesCmd(state *rootState) *cobra.Command {
 			"  nn graph bodies --focus <id> --depth 1 --direction both --page 2 --snapshot <sha256>",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			explicitIDs := parseGraphBodyIDs(ids)
+			if len(explicitIDs) > 0 && (focus != "" || cmd.Flags().Changed("depth") || cmd.Flags().Changed("direction") || cmd.Flags().Changed("links") || cmd.Flags().Changed("status") || cmd.Flags().Changed("representation")) {
+				return fmt.Errorf("graph bodies: --ids cannot be combined with traversal selection flags")
+			}
 			if page < 1 {
 				return fmt.Errorf("graph bodies: --page must be at least 1")
 			}
@@ -94,7 +101,7 @@ func newGraphBodiesCmd(state *rootState) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("graph bodies: %w", err)
 			}
-			selected, err := selectGraphBodyNotes(notes, focus, depth, opts)
+			selected, err := selectGraphBodyNotes(notes, focus, depth, opts, explicitIDs)
 			if err != nil {
 				return err
 			}
@@ -104,7 +111,7 @@ func newGraphBodiesCmd(state *rootState) *cobra.Command {
 				}
 			}
 
-			expectedSnapshot, err := graphBodiesSnapshot(notes, focus, depth, opts)
+			expectedSnapshot, err := graphBodiesSnapshot(notes, focus, depth, opts, explicitIDs)
 			if err != nil {
 				return fmt.Errorf("graph bodies: snapshot: %w", err)
 			}
@@ -150,16 +157,40 @@ func newGraphBodiesCmd(state *rootState) *cobra.Command {
 	cmd.Flags().StringVar(&representation, "representation", "", "Representation required for traversed notes")
 	cmd.Flags().IntVar(&page, "page", 1, "One-based page to return")
 	cmd.Flags().StringVar(&snapshot, "snapshot", "", "Snapshot SHA-256 returned by page 1 (required for later pages)")
+	cmd.Flags().StringVar(&ids, "ids", "", "Comma-separated note IDs to transport instead of a graph traversal")
 	return cmd
 }
 
-func selectGraphBodyNotes(notes []*note.Note, focus string, depth int, opts graphShowTraversalOptions) ([]*note.Note, error) {
+func parseGraphBodyIDs(raw string) []string {
+	var ids []string
+	for _, value := range strings.Split(raw, ",") {
+		if value = strings.TrimSpace(value); value != "" {
+			ids = append(ids, value)
+		}
+	}
+	return ids
+}
+
+func selectGraphBodyNotes(notes []*note.Note, focus string, depth int, opts graphShowTraversalOptions, explicitIDs []string) ([]*note.Note, error) {
 	byID := make(map[string]*note.Note, len(notes))
 	for _, n := range notes {
 		byID[n.ID] = n
 	}
 	var selected []*note.Note
-	if focus != "" {
+	if len(explicitIDs) > 0 {
+		seen := make(map[string]bool, len(explicitIDs))
+		for _, id := range explicitIDs {
+			if seen[id] {
+				continue
+			}
+			seen[id] = true
+			n := byID[id]
+			if n == nil {
+				return nil, fmt.Errorf("graph bodies: note %q not found", id)
+			}
+			selected = append(selected, n)
+		}
+	} else if focus != "" {
 		root := byID[focus]
 		if root == nil {
 			return nil, fmt.Errorf("graph bodies: note %q not found", focus)
@@ -257,7 +288,7 @@ func graphBodySegmentsFit(snapshot string, segments []graphBodySegment) (bool, e
 	return len(encoded)+1 <= graphBodiesPageMaxBytes, nil
 }
 
-func graphBodiesSnapshot(notes []*note.Note, focus string, depth int, opts graphShowTraversalOptions) (string, error) {
+func graphBodiesSnapshot(notes []*note.Note, focus string, depth int, opts graphShowTraversalOptions, explicitIDs []string) (string, error) {
 	sortedNotes := append([]*note.Note(nil), notes...)
 	sort.Slice(sortedNotes, func(i, j int) bool { return sortedNotes[i].ID < sortedNotes[j].ID })
 	h := sha256.New()
@@ -278,6 +309,7 @@ func graphBodiesSnapshot(notes []*note.Note, focus string, depth int, opts graph
 		Links:          sortedGraphTraversalLinks(opts),
 		Statuses:       sortedGraphTraversalStatuses(opts),
 		Representation: opts.representation,
+		IDs:            append([]string(nil), explicitIDs...),
 	}
 	requestData, err := json.Marshal(request)
 	if err != nil {
