@@ -1046,8 +1046,8 @@ nn media runs RUN_ID [--json]
 nn media doctor [--install DEPENDENCY --confirm] [--json]
 ```
 
-- `prepare` combines inspection, requested sampling/contact sheet, and optional explicit Parakeet transcription in one durable run.
-- `context` retrieves that existing run without reprocessing. Its bounded packet preserves run/source/bundle/manifest provenance, qualified coverage, transcript segments/chunks, typed image path+MIME+timestamp attachments, and explicit truncation/next-page disclosure.
+- `prepare` classifies the source, extracts page-bounded text from PDFs, or combines audio/video inspection, requested sampling/contact sheet, and optional explicit Parakeet transcription in one durable run. PDF extraction uses PDFKit through `swift` on macOS and Poppler `pdftotext` on Linux and Windows; scanned PDFs without embedded text return a partial result rather than silently invoking OCR.
+- `context` retrieves that existing run without reprocessing. Its bounded packet preserves run/source/bundle/manifest provenance, qualified coverage, page-numbered document text, transcript segments/chunks, typed image path+MIME+timestamp attachments, and explicit truncation/next-page disclosure.
 - No media subcommand mutates notebook truth. To integrate evidence, request “integrate this media run RUN_ID”; nn-navigate loads every context page and actual image, searches existing notebook truth, and proposes changes without mutation until approval. There is no `nn integrate` command.
 - Explicit `--engine parakeet` remains experimental and requires ffmpeg plus `lucataco/tap/parakeet-cli`; document-level JSON uses disclosed synthesized `[0,duration]` boundaries.
 - Non-TTY execution never prompts or changes the requested plan. `doctor --install` narrows diagnostics but does not execute a package manager.
@@ -1056,6 +1056,7 @@ Examples:
 
 ```
 nn media prepare demo.mp4 --every 45s --contact-sheet --engine parakeet
+nn media prepare guide.pdf
 nn media context --run run-20260902-001 --max-bytes 32768 --page 1
 nn media runs run-20260902-001 --json
 ```

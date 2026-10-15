@@ -125,6 +125,7 @@ type ContextPacket struct {
 	ManifestLocator string            `json:"manifest_locator"`
 	SourceMetadata  Metadata          `json:"source_metadata"`
 	Coverage        Coverage          `json:"coverage"`
+	Documents       []DocumentText    `json:"documents,omitempty"`
 	Transcript      []TranscriptChunk `json:"transcript_chunks"`
 	Images          []ImageAttachment `json:"image_attachments"`
 	Page            int               `json:"page"`
@@ -135,6 +136,7 @@ type StoredRun struct {
 	Result         RunResult           `json:"result"`
 	Manifest       Manifest            `json:"manifest"`
 	SourceMetadata Metadata            `json:"source_metadata"`
+	Documents      []DocumentText      `json:"documents,omitempty"`
 	Transcript     []TranscriptSegment `json:"transcript,omitempty"`
 	Images         []ImageAttachment   `json:"images,omitempty"`
 }
@@ -230,16 +232,24 @@ func (s *LocalRunStore) Context(ctx context.Context, id string, maxBytes, page i
 	if page < 1 {
 		page = 1
 	}
-	pages := [][]TranscriptChunk{{}}
-	used := 0
-	for _, segment := range run.Transcript {
-		remaining := segment.Text
+	type packetPage struct {
+		documents  []DocumentText
+		transcript []TranscriptChunk
+		used       int
+	}
+	pages := []packetPage{{}}
+	appendText := func(text string, emit func(string)) error {
+		remaining := text
+		if remaining == "" {
+			emit("")
+			return nil
+		}
 		for remaining != "" {
-			available := maxBytes - used
+			current := &pages[len(pages)-1]
+			available := maxBytes - current.used
 			if available == 0 {
-				pages = append(pages, nil)
-				used = 0
-				available = maxBytes
+				pages = append(pages, packetPage{})
+				continue
 			}
 			n := len(remaining)
 			if n > available {
@@ -249,19 +259,40 @@ func (s *LocalRunStore) Context(ctx context.Context, id string, maxBytes, page i
 				}
 			}
 			if n == 0 {
-				return ContextPacket{}, fmt.Errorf("context max-bytes %d is smaller than one UTF-8 rune", maxBytes)
+				return fmt.Errorf("context max-bytes %d is smaller than one UTF-8 rune", maxBytes)
 			}
 			part := remaining[:n]
-			copySegment := segment
-			copySegment.Text = part
-			pages[len(pages)-1] = append(pages[len(pages)-1], TranscriptChunk{Segments: []TranscriptSegment{copySegment}, Text: part})
-			used += n
+			emit(part)
+			pages[len(pages)-1].used += n
 			remaining = remaining[n:]
+		}
+		return nil
+	}
+	for _, document := range run.Documents {
+		for _, documentPage := range document.Pages {
+			pageNumber := documentPage.Number
+			if err := appendText(documentPage.Text, func(part string) {
+				current := &pages[len(pages)-1]
+				current.documents = append(current.documents, DocumentText{MIME: document.MIME, Extractor: document.Extractor, Pages: []DocumentPage{{Number: pageNumber, Text: part}}})
+			}); err != nil {
+				return ContextPacket{}, err
+			}
+		}
+	}
+	for _, segment := range run.Transcript {
+		copySegment := segment
+		if err := appendText(segment.Text, func(part string) {
+			copySegment.Text = part
+			current := &pages[len(pages)-1]
+			current.transcript = append(current.transcript, TranscriptChunk{Segments: []TranscriptSegment{copySegment}, Text: part})
+		}); err != nil {
+			return ContextPacket{}, err
 		}
 	}
 	packet := ContextPacket{SchemaVersion: ContextPacketSchemaVersion, RunID: run.Result.RunID, SourceID: run.Result.SourceID, BundleID: run.Result.BundleID, ManifestLocator: run.Result.ManifestLocator, SourceMetadata: run.SourceMetadata, Coverage: run.Manifest.Coverage, Images: run.Images, Page: page}
 	if page <= len(pages) {
-		packet.Transcript = pages[page-1]
+		packet.Documents = pages[page-1].documents
+		packet.Transcript = pages[page-1].transcript
 	}
 	if page < len(pages) {
 		packet.Truncated = true

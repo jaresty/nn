@@ -56,6 +56,54 @@ func TestProductionMediaServiceInspectPersistsAcrossInstances(t *testing.T) {
 	}
 }
 
+func TestProductionMediaServicePreparesPDFWithoutFFProbe(t *testing.T) {
+	source := filepath.Join(t.TempDir(), "guide.pdf")
+	if err := os.WriteFile(source, []byte("%PDF-1.7 fixture"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var executable string
+	runner := processRunnerFunc(func(_ context.Context, spec im.CommandSpec) (im.CommandResult, error) {
+		executable = spec.Executable
+		return im.CommandResult{Started: true, Stdout: []byte("page one\fpage two\f")}, nil
+	})
+	service := newProductionMediaServiceAt(t.TempDir(), runner).(*productionMediaService)
+	service.goos = "darwin"
+	result, err := service.Execute(context.Background(), mediaCommandRequest{Operation: "prepare", Source: source})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Outcome != "succeeded" || executable != "swift" || stageNames(result.Stages) != "extract-text" {
+		t.Fatalf("PDF prepare result: executable=%q result=%#v", executable, result)
+	}
+	packetAny, err := service.Context(context.Background(), result.RunID, 8, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	packet := packetAny.(im.ContextPacket)
+	if len(packet.Documents) != 1 || packet.Documents[0].Pages[0].Number != 1 || packet.Documents[0].Pages[0].Text != "page one" || !packet.Truncated || packet.NextPage != 2 {
+		t.Fatalf("bounded page context: %#v", packet)
+	}
+}
+
+func TestProductionMediaServiceReportsPDFWithoutEmbeddedTextAsPartial(t *testing.T) {
+	source := filepath.Join(t.TempDir(), "scan.pdf")
+	if err := os.WriteFile(source, []byte("%PDF-1.7 fixture"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runner := processRunnerFunc(func(_ context.Context, _ im.CommandSpec) (im.CommandResult, error) {
+		return im.CommandResult{Started: true, Stdout: []byte("\f")}, nil
+	})
+	service := newProductionMediaServiceAt(t.TempDir(), runner).(*productionMediaService)
+	service.goos = "linux"
+	result, err := service.Execute(context.Background(), mediaCommandRequest{Operation: "prepare", Source: source})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Outcome != "partial" || len(result.Stages) != 1 || result.Stages[0].State != "partial" {
+		t.Fatalf("image-only PDF disclosure: %#v", result)
+	}
+}
+
 func TestProductionMediaServicePersistsDocumentLevelTranscriptEvidence(t *testing.T) {
 	source := filepath.Join(t.TempDir(), "input.mov")
 	if err := os.WriteFile(source, []byte("identity"), 0o600); err != nil {
@@ -172,6 +220,21 @@ func TestProductionMediaServiceSamplingFlagsAndPrepareSharePipeline(t *testing.T
 		}
 		if _, err := os.ReadFile(image.Path); err != nil {
 			t.Fatalf("image attachment is readable: %v", err)
+		}
+	}
+}
+
+func TestMediaDependencyMissingMessageNamesPlatformPackage(t *testing.T) {
+	cases := []struct {
+		dependency, goos, required string
+	}{
+		{dependency: "swift", goos: "darwin", required: "Xcode Command Line Tools"},
+		{dependency: "pdftotext", goos: "linux", required: "poppler-utils"},
+		{dependency: "pdftotext", goos: "windows", required: "Poppler for Windows"},
+	}
+	for _, tc := range cases {
+		if got := mediaDependencyMissingMessage(tc.dependency, tc.goos, "amd64"); !strings.Contains(got, tc.required) {
+			t.Errorf("%s/%s guidance %q does not contain %q", tc.goos, tc.dependency, got, tc.required)
 		}
 	}
 }

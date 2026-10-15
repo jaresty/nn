@@ -5,7 +5,7 @@
 
 ## Context
 
-`nn` can capture text from files and the web, but audio and video currently require an operator to assemble an external workflow. A recent video review used `ffprobe`/`ffmpeg` metadata inspection, a contact sheet sampled every 45 seconds, and individual frames at selected timestamps. That made a 5:53 recording inspectable without watching it continuously, but the resulting observations, commands, timestamps, and coverage limitations had to be recorded manually.
+`nn` can capture text from plain files and the web, but binary documents, audio, and video currently require an operator to assemble an external workflow. A recent video review used `ffprobe`/`ffmpeg` metadata inspection, a contact sheet sampled every 45 seconds, and individual frames at selected timestamps. A later PDF review used macOS PDFKit to recover page-bounded text from all 25 pages. These workflows made otherwise opaque sources inspectable, but the resulting observations, commands, page or timestamp coverage, and limitations had to be recorded manually.
 
 Transcription can improve coverage, but it is not equivalent to visual review and no single transcription runtime should become a hard dependency. Local engines such as Parakeet may be appropriate on supported machines; other installations may prefer `whisper.cpp`, `faster-whisper`, a hosted service, or no transcription at all.
 
@@ -21,7 +21,7 @@ The intended command family is:
 nn media inspect <file>
 nn media sample <file> [--every DURATION] [--frames TIMESTAMPS] [--contact-sheet]
 nn media transcribe <file> [--engine NAME]
-nn media prepare <file> [sampling and transcription flags]
+nn media prepare <file> [document extraction, sampling, and transcription flags]
 nn media context --run <run-id>
 ```
 
@@ -47,9 +47,13 @@ Dependency detection is automatic; installation is never automatic or silent. In
 
 An explicit install operation may install only a named dependency from a known recipe, for example through `nn media doctor --install <dependency>` or an equivalent command finalized during implementation. After installation, nn reruns capability discovery and reports the effective executable, version, and supported operations. Model downloads, hosted-engine credentials, remote media transfer, and license acceptance require separate explicit consent and are not implied by dependency installation.
 
-### Probe media before analysis
+### Classify sources before analysis
 
-`nn media inspect` uses `ffprobe` to emit machine-readable stream and container metadata, including duration, codecs, dimensions, frame rate, and audio-stream presence. The normalized metadata and the source file identity become part of the evidence manifest.
+`nn media` detects the source kind before planning extraction. Audio and video inspection uses `ffprobe` to emit machine-readable stream and container metadata, including duration, codecs, dimensions, frame rate, and audio-stream presence. PDF preparation uses a document-text adapter and does not route the source through `ffprobe`.
+
+PDF extraction preserves page boundaries, page ordinals, extractor identity, and per-page text. On macOS the preferred adapter uses PDFKit; on Linux and Windows the preferred external adapter is Poppler's `pdftotext`. Adapter availability and platform-specific installation guidance are reported by `nn media doctor`; no extractor is installed or substituted silently. A PDF with no embedded text is reported distinctly from an extraction failure so that future OCR remains an explicit, separately consented stage.
+
+The normalized metadata and the source file identity become part of the evidence manifest.
 
 The manifest records at least the source path supplied by the user, source size, modification time, and a stable source identity. The source-identity policy may use an eager, incremental, deferred, or custody-dependent content digest, but it must prevent a later file at the same path from being silently mistaken for the analyzed recording and must disclose the strength of the identity claim.
 
@@ -99,7 +103,7 @@ Media-relative timestamps identify their timeline and time base and distinguish 
 
 Human-readable rendering is derived from typed manifest and authored claim records. It must preserve run identity, evidence references, authorship, timestamps, failures, and coverage qualifiers without inventing stronger claims.
 
-A bounded integration packet separates source metadata, coverage, transcript evidence, visual artifacts, and manifest provenance. It contains no generated observations or inferences. `Coverage` states the audio span attempted and represented, processing outcome, known decode or transcript gaps, which video instants were sampled, and which requested stages failed or were skipped. It does not imply transcript correctness or coverage of unsampled intervals.
+A bounded integration packet separates source metadata, coverage, page-bounded document text, transcript evidence, visual artifacts, and manifest provenance. Document pages and timestamped transcript segments remain distinct typed channels. It contains no generated observations or inferences. `Coverage` states the audio span attempted and represented, processing outcome, known decode or transcript gaps, which video instants were sampled, and which requested stages failed or were skipped. It does not imply transcript correctness or coverage of unsampled intervals.
 
 During **✚ Integrate**, the active LLM receives the packet's actual sampled images as multimodal inputs together with bounded transcript segments and provenance. It distinguishes sourced claims from generated interpretation, compares proposed durable claims with existing notebook truth, and presents exact note and relationship changes for human approval. The resulting notebook changes may include a compact source-index note plus atomic concept, argument, observation, or model notes; they must not default to a transcript dump, artifact inventory, or one oversized generated note.
 
@@ -143,7 +147,7 @@ The workflow does not make semantic claims from frames or transcripts by itself.
 - Transcription can improve audio coverage without coupling `nn` to one model runtime.
 - Notes remain small and auditable because large artifacts live in evidence bundles.
 - Agent-mediated proposals preserve sampled intervals and failed or omitted stages while preventing raw transcript or artifact dumps from masquerading as integrated knowledge.
-- Users must install `ffmpeg`/`ffprobe` for media operations and separately install any selected transcription engine.
+- Users must install `ffmpeg`/`ffprobe` for audio/video operations, an applicable PDF extractor for PDF text extraction, and separately install any selected transcription engine.
 - External artifact roots introduce lifecycle concerns: bundles can be moved or deleted independently of notes, so future maintenance tooling should detect broken artifact references.
 - Content digests and generated images consume additional time and storage, especially for large recordings.
 - Partial pipeline success requires richer status reporting than a single success/failure exit message.
@@ -161,7 +165,7 @@ Implementation is blocked until four versioned contracts and one recovery path a
 After that gate, implement this decision in atomic stages:
 
 1. Implement the shared runner, capability model, manifest state machine, and artifact publication boundary.
-2. Add source probing and normalized metadata output using `ffprobe`.
+2. Add source classification, PDF page-text extraction, and normalized audio/video metadata output using `ffprobe`.
 3. Add deterministic frame extraction and contact-sheet generation using `ffmpeg`.
 4. Implement the transcription-adapter conformance harness and evaluate Parakeet as an experimental candidate.
 5. Add bounded context retrieval from existing runs, including actual image attachments and transcript segmentation, with no note-write capability.
@@ -173,6 +177,7 @@ The media package should own process execution, manifest state, artifact generat
 Tests must cover:
 
 - `ffprobe` JSON normalization from checked-in fixtures;
+- PDF source detection, page-boundary preservation, empty-text disclosure, and platform-specific adapter commands without requiring PDFKit or Poppler at test time;
 - deterministic sampling plans and timestamp formatting without requiring a codec runtime;
 - subprocess argument construction without shell interpolation;
 - adapter discovery, explicit missing-engine errors, and secret redaction;

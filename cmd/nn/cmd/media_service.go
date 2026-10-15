@@ -5,7 +5,9 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,6 +23,7 @@ type productionMediaService struct {
 	root   string
 	store  *im.LocalRunStore
 	runner im.ProcessRunner
+	goos   string
 }
 
 func newProductionMediaService() mediaCommandService {
@@ -32,10 +35,10 @@ func newProductionMediaService() mediaCommandService {
 			root = filepath.Join(os.TempDir(), "nn-media")
 		}
 	}
-	return &productionMediaService{root: root, store: im.NewLocalRunStore(root), runner: im.OSProcessRunner{}}
+	return &productionMediaService{root: root, store: im.NewLocalRunStore(root), runner: im.OSProcessRunner{}, goos: runtime.GOOS}
 }
 func newProductionMediaServiceAt(root string, runner im.ProcessRunner) mediaCommandService {
-	return &productionMediaService{root: root, store: im.NewLocalRunStore(root), runner: runner}
+	return &productionMediaService{root: root, store: im.NewLocalRunStore(root), runner: runner, goos: runtime.GOOS}
 }
 func mediaRunID() string {
 	var b [6]byte
@@ -60,7 +63,7 @@ func commandResult(r im.RunResult) mediaCommandResult {
 	}
 	return out
 }
-func (s *productionMediaService) persist(ctx context.Context, command, source string, stages []im.StageResult, metadata im.Metadata, transcript []im.TranscriptSegment, images []im.ImageAttachment) (mediaCommandResult, error) {
+func (s *productionMediaService) persist(ctx context.Context, command, source string, stages []im.StageResult, metadata im.Metadata, documents []im.DocumentText, transcript []im.TranscriptSegment, images []im.ImageAttachment) (mediaCommandResult, error) {
 	id := mediaRunID()
 	sid, err := sourceID(source)
 	if err != nil {
@@ -68,6 +71,9 @@ func (s *productionMediaService) persist(ctx context.Context, command, source st
 	}
 	result := im.RunResult{SchemaVersion: im.RunResultSchemaVersion, Command: command, RunID: im.RunID(id), BundleID: im.BundleID(id), SourceID: im.SourceID(sid), Stages: stages, Outcome: im.DeriveOutcome(stages)}
 	evidence := []im.EvidenceRecord{{ID: "source", Kind: im.EvidenceSourceIdentity}}
+	for i, document := range documents {
+		evidence = append(evidence, im.EvidenceRecord{ID: im.EvidenceID(fmt.Sprintf("document-%d", i+1)), Kind: im.EvidenceExtractedArtifact, Inputs: []string{"source"}, Transformation: document.Extractor + " page-bounded text extraction"})
+	}
 	if len(transcript) > 0 {
 		evidence = append(evidence, im.EvidenceRecord{ID: "transcript", Kind: im.EvidenceToolReport, Inputs: []string{"source"}, Transformation: "experimental Parakeet transcription"})
 	}
@@ -88,7 +94,7 @@ func (s *productionMediaService) persist(ctx context.Context, command, source st
 		coverage.KnownGaps = append(coverage.KnownGaps, im.CoverageGap{State: im.KnowledgeUnknown, Reason: "sampled instants do not cover intervening video intervals"})
 	}
 	manifest := im.Manifest{SchemaVersion: im.ManifestSchemaVersion, RunID: result.RunID, BundleID: result.BundleID, SourceID: result.SourceID, Lifecycle: im.LifecycleCompleted, Custody: im.CustodyReferenceInPlace, Publication: im.PublicationPublished, Evidence: evidence, Coverage: coverage}
-	if err := s.store.Publish(ctx, im.StoredRun{Result: result, Manifest: manifest, SourceMetadata: metadata, Transcript: transcript, Images: images}); err != nil {
+	if err := s.store.Publish(ctx, im.StoredRun{Result: result, Manifest: manifest, SourceMetadata: metadata, Documents: documents, Transcript: transcript, Images: images}); err != nil {
 		return mediaCommandResult{}, err
 	}
 	stored, err := s.store.Discover(ctx, id)
@@ -165,6 +171,44 @@ func (s *productionMediaService) sampling(ctx context.Context, r mediaCommandReq
 }
 
 func (s *productionMediaService) Execute(ctx context.Context, r mediaCommandRequest) (mediaCommandResult, error) {
+	header := make([]byte, 1024)
+	f, openErr := os.Open(r.Source)
+	if openErr != nil {
+		return s.failed(r.Operation, "source_unreadable", openErr), nil
+	}
+	n, readErr := f.Read(header)
+	closeErr := f.Close()
+	if readErr != nil && !errors.Is(readErr, io.EOF) {
+		return s.failed(r.Operation, "source_unreadable", readErr), nil
+	}
+	if closeErr != nil {
+		return s.failed(r.Operation, "source_unreadable", closeErr), nil
+	}
+	if im.IsPDF(r.Source, header[:n]) {
+		switch r.Operation {
+		case "inspect":
+			return s.persist(ctx, r.Operation, r.Source, []im.StageResult{{Name: "inspect", Requested: true, State: im.StageSucceeded}}, im.Metadata{}, nil, nil, nil)
+		case "prepare":
+			document, err := im.ExtractPDFText(ctx, s.runner, r.Source, s.goos)
+			if err != nil {
+				return s.failed(r.Operation, "document_extraction_failed", err), nil
+			}
+			state := im.StageSucceeded
+			allEmpty := true
+			for _, page := range document.Pages {
+				if strings.TrimSpace(page.Text) != "" {
+					allEmpty = false
+					break
+				}
+			}
+			if allEmpty {
+				state = im.StagePartial
+			}
+			return s.persist(ctx, r.Operation, r.Source, []im.StageResult{{Name: "extract-text", Requested: true, State: state}}, im.Metadata{}, []im.DocumentText{document}, nil, nil)
+		default:
+			return s.failed(r.Operation, "operation_inapplicable", fmt.Errorf("%s is not applicable to PDF sources; use prepare", r.Operation)), nil
+		}
+	}
 	switch r.Operation {
 	case "inspect", "prepare", "sample":
 		metadata, err := im.Inspect(ctx, s.runner, r.Source)
@@ -198,7 +242,7 @@ func (s *productionMediaService) Execute(ctx context.Context, r mediaCommandRequ
 				}
 			}
 		}
-		return s.persist(ctx, r.Operation, r.Source, stages, metadata, transcript, images)
+		return s.persist(ctx, r.Operation, r.Source, stages, metadata, nil, transcript, images)
 	case "transcribe":
 		if r.Engine != "parakeet" {
 			return s.failed("transcribe", "explicit_engine_required", fmt.Errorf("select experimental engine with --engine parakeet")), nil
@@ -208,7 +252,7 @@ func (s *productionMediaService) Execute(ctx context.Context, r mediaCommandRequ
 		if err != nil {
 			return s.failed("transcribe", "transcription_failed", err), nil
 		}
-		return s.persist(ctx, "transcribe", r.Source, []im.StageResult{{Name: "transcribe", Requested: true, State: im.StageSucceeded}}, im.Metadata{}, tr.Segments, nil)
+		return s.persist(ctx, "transcribe", r.Source, []im.StageResult{{Name: "transcribe", Requested: true, State: im.StageSucceeded}}, im.Metadata{}, nil, tr.Segments, nil)
 	default:
 		return mediaCommandResult{}, fmt.Errorf("unsupported media operation %q", r.Operation)
 	}
@@ -228,8 +272,24 @@ func (s *productionMediaService) Discover(ctx context.Context, id string) (media
 func (s *productionMediaService) Context(ctx context.Context, id string, maxBytes, page int) (any, error) {
 	return s.store.Context(ctx, id, maxBytes, page)
 }
+func mediaDependencyMissingMessage(dependency, goos, goarch string) string {
+	if dependency == "swift" {
+		return "swift unavailable on macOS; install Apple's Xcode Command Line Tools with: xcode-select --install"
+	}
+	if dependency == "pdftotext" && goos == "linux" {
+		return "pdftotext unavailable on Linux; install the Poppler utilities package (for example: apt install poppler-utils, dnf install poppler-utils, or apk add poppler-utils)"
+	}
+	if dependency == "pdftotext" && goos == "windows" {
+		return "pdftotext unavailable on Windows; install a Poppler for Windows distribution and add its bin directory to PATH"
+	}
+	return fmt.Sprintf("%s unavailable on %s/%s; install it explicitly with your package manager", dependency, goos, goarch)
+}
+
 func (s *productionMediaService) Doctor(_ context.Context, r mediaCommandRequest) (mediaCommandResult, error) {
 	deps := []string{"ffprobe", "ffmpeg"}
+	if pdfDependency, ok := im.PDFExtractorDependency(s.goos); ok {
+		deps = append(deps, pdfDependency)
+	}
 	if r.Install != "" {
 		deps = []string{r.Install}
 	}
@@ -240,7 +300,7 @@ func (s *productionMediaService) Doctor(_ context.Context, r mediaCommandRequest
 		if err != nil {
 			state = im.StageUnavailable
 			out.Outcome = string(im.OutcomePrerequisiteFailed)
-			out.Errors = append(out.Errors, mediaStructuredError{Code: "dependency_missing", Message: fmt.Sprintf("%s unavailable on %s/%s; install it explicitly with your package manager", dep, runtime.GOOS, runtime.GOARCH), Stage: dep})
+			out.Errors = append(out.Errors, mediaStructuredError{Code: "dependency_missing", Message: mediaDependencyMissingMessage(dep, s.goos, runtime.GOARCH), Stage: dep})
 		} else {
 			out.Warnings = append(out.Warnings, dep+"="+path)
 		}
