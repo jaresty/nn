@@ -53,6 +53,8 @@ An explicit install operation may install only a named dependency from a known r
 
 PDF extraction preserves page boundaries, page ordinals, extractor identity, and per-page text. On macOS the preferred adapter uses PDFKit; on Linux and Windows the preferred external adapter is Poppler's `pdftotext`. Adapter availability and platform-specific installation guidance are reported by `nn media doctor`; no extractor is installed or substituted silently. A PDF with no embedded text is reported distinctly from an extraction failure so that future OCR remains an explicit, separately consented stage.
 
+DOCX extraction uses Go's ZIP and XML support without an external runtime. It preserves ordered paragraph and table blocks with stable block ordinals and structured table rows and cells. It does not claim page boundaries: DOCX pagination depends on fonts, layout settings, and a rendering engine, none of which the package-level text extractor establishes.
+
 The normalized metadata and the source file identity become part of the evidence manifest.
 
 The manifest records at least the source path supplied by the user, source size, modification time, and a stable source identity. The source-identity policy may use an eager, incremental, deferred, or custody-dependent content digest, but it must prevent a later file at the same path from being silently mistaken for the analyzed recording and must disclose the strength of the identity claim.
@@ -103,7 +105,7 @@ Media-relative timestamps identify their timeline and time base and distinguish 
 
 Human-readable rendering is derived from typed manifest and authored claim records. It must preserve run identity, evidence references, authorship, timestamps, failures, and coverage qualifiers without inventing stronger claims.
 
-A bounded integration packet separates source metadata, coverage, page-bounded document text, transcript evidence, visual artifacts, and manifest provenance. Document pages and timestamped transcript segments remain distinct typed channels. It contains no generated observations or inferences. `Coverage` states the audio span attempted and represented, processing outcome, known decode or transcript gaps, which video instants were sampled, and which requested stages failed or were skipped. It does not imply transcript correctness or coverage of unsampled intervals.
+A bounded integration packet separates source metadata, coverage, structured document text, transcript evidence, visual artifacts, and manifest provenance. Page-bounded PDF text, flow-oriented DOCX blocks, and timestamped transcript segments remain distinct typed channels. It contains no generated observations or inferences. `Coverage` states the audio span attempted and represented, processing outcome, known decode or transcript gaps, which video instants were sampled, and which requested stages failed or were skipped. It does not imply transcript correctness or coverage of unsampled intervals.
 
 During **✚ Integrate**, the active LLM receives the packet's actual sampled images as multimodal inputs together with bounded transcript segments and provenance. It distinguishes sourced claims from generated interpretation, compares proposed durable claims with existing notebook truth, and presents exact note and relationship changes for human approval. The resulting notebook changes may include a compact source-index note plus atomic concept, argument, observation, or model notes; they must not default to a transcript dump, artifact inventory, or one oversized generated note.
 
@@ -178,6 +180,7 @@ Tests must cover:
 
 - `ffprobe` JSON normalization from checked-in fixtures;
 - PDF source detection, page-boundary preservation, empty-text disclosure, and platform-specific adapter commands without requiring PDFKit or Poppler at test time;
+- DOCX package validation and ordered paragraph/table extraction without inventing page boundaries;
 - deterministic sampling plans and timestamp formatting without requiring a codec runtime;
 - subprocess argument construction without shell interpolation;
 - adapter discovery, explicit missing-engine errors, and secret redaction;

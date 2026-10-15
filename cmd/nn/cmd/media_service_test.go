@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"archive/zip"
 	"context"
 	"encoding/json"
 	"os"
@@ -53,6 +54,46 @@ func TestProductionMediaServiceInspectPersistsAcrossInstances(t *testing.T) {
 	packet := packetAny.(im.ContextPacket)
 	if discovered.RunID != result.RunID || packet.SourceMetadata.VideoCodec != "h264" {
 		t.Fatalf("fresh production service recovery: %#v %#v", discovered, packet)
+	}
+}
+
+func TestProductionMediaServicePreparesDOCXWithoutExternalProcess(t *testing.T) {
+	source := filepath.Join(t.TempDir(), "guide.docx")
+	file, err := os.Create(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := zip.NewWriter(file)
+	entry, err := archive.Create("word/document.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = entry.Write([]byte(`<w:document xmlns:w="urn:w"><w:body><w:p><w:r><w:t>first paragraph</w:t></w:r></w:p><w:p><w:r><w:t>second paragraph</w:t></w:r></w:p></w:body></w:document>`))
+	if err := archive.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	runner := processRunnerFunc(func(_ context.Context, spec im.CommandSpec) (im.CommandResult, error) {
+		t.Fatalf("DOCX extraction invoked external process: %#v", spec)
+		return im.CommandResult{}, nil
+	})
+	service := newProductionMediaServiceAt(t.TempDir(), runner).(*productionMediaService)
+	result, err := service.Execute(context.Background(), mediaCommandRequest{Operation: "prepare", Source: source})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Outcome != "succeeded" || stageNames(result.Stages) != "extract-text" {
+		t.Fatalf("DOCX prepare result: %#v", result)
+	}
+	packetAny, err := service.Context(context.Background(), result.RunID, 15, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	packet := packetAny.(im.ContextPacket)
+	if len(packet.Documents) != 1 || packet.Documents[0].Blocks[0].Ordinal != 1 || packet.Documents[0].Blocks[0].Text != "first paragraph" || !packet.Truncated {
+		t.Fatalf("bounded DOCX context: %#v", packet)
 	}
 }
 

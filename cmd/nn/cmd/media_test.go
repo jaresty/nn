@@ -185,7 +185,7 @@ func TestMediaIntegrateSkillRoutesContextAndImages(t *testing.T) {
 			t.Fatal(err)
 		}
 		text := string(data)
-		for _, required := range []string{"integrate this media run", "nn media context --run", "documents", "page ordinals", "image-reading", "transcript", "non-mutating proposal", "not an `nn integrate`"} {
+		for _, required := range []string{"integrate this media run", "nn media context --run", "documents", "ordinals", "image-reading", "transcript", "non-mutating proposal", "not an `nn integrate`"} {
 			if !strings.Contains(text, required) {
 				t.Errorf("media Integrate routing %s contains %q", path, required)
 			}

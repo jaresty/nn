@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"syscall"
 	"unicode/utf8"
 )
@@ -276,6 +277,29 @@ func (s *LocalRunStore) Context(ctx context.Context, id string, maxBytes, page i
 				current.documents = append(current.documents, DocumentText{MIME: document.MIME, Extractor: document.Extractor, Pages: []DocumentPage{{Number: pageNumber, Text: part}}})
 			}); err != nil {
 				return ContextPacket{}, err
+			}
+		}
+		for _, block := range document.Blocks {
+			if block.Kind == "paragraph" {
+				ordinal := block.Ordinal
+				if err := appendText(block.Text, func(part string) {
+					current := &pages[len(pages)-1]
+					current.documents = append(current.documents, DocumentText{MIME: document.MIME, Extractor: document.Extractor, Blocks: []DocumentBlock{{Ordinal: ordinal, Kind: "paragraph", Text: part}}})
+				}); err != nil {
+					return ContextPacket{}, err
+				}
+				continue
+			}
+			for _, row := range block.Rows {
+				row := row
+				rowText := strings.Join(row, "\t")
+				ordinal := block.Ordinal
+				if err := appendText(rowText, func(part string) {
+					current := &pages[len(pages)-1]
+					current.documents = append(current.documents, DocumentText{MIME: document.MIME, Extractor: document.Extractor, Blocks: []DocumentBlock{{Ordinal: ordinal, Kind: "table", Text: part, Rows: [][]string{row}}}})
+				}); err != nil {
+					return ContextPacket{}, err
+				}
 			}
 		}
 	}

@@ -29,9 +29,10 @@ type DocumentPage struct {
 }
 
 type DocumentText struct {
-	MIME      string         `json:"mime"`
-	Extractor string         `json:"extractor"`
-	Pages     []DocumentPage `json:"pages"`
+	MIME      string          `json:"mime"`
+	Extractor string          `json:"extractor"`
+	Pages     []DocumentPage  `json:"pages,omitempty"`
+	Blocks    []DocumentBlock `json:"blocks,omitempty"`
 }
 
 func IsPDF(path string, header []byte) bool {

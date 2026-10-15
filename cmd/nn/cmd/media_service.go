@@ -184,6 +184,24 @@ func (s *productionMediaService) Execute(ctx context.Context, r mediaCommandRequ
 	if closeErr != nil {
 		return s.failed(r.Operation, "source_unreadable", closeErr), nil
 	}
+	if im.IsDOCX(r.Source) {
+		switch r.Operation {
+		case "inspect":
+			return s.persist(ctx, r.Operation, r.Source, []im.StageResult{{Name: "inspect", Requested: true, State: im.StageSucceeded}}, im.Metadata{}, nil, nil, nil)
+		case "prepare":
+			document, err := im.ExtractDOCXText(r.Source)
+			if err != nil {
+				return s.failed(r.Operation, "document_extraction_failed", err), nil
+			}
+			state := im.StageSucceeded
+			if len(document.Blocks) == 0 {
+				state = im.StagePartial
+			}
+			return s.persist(ctx, r.Operation, r.Source, []im.StageResult{{Name: "extract-text", Requested: true, State: state}}, im.Metadata{}, []im.DocumentText{document}, nil, nil)
+		default:
+			return s.failed(r.Operation, "operation_inapplicable", fmt.Errorf("%s is not applicable to DOCX sources; use prepare", r.Operation)), nil
+		}
+	}
 	if im.IsPDF(r.Source, header[:n]) {
 		switch r.Operation {
 		case "inspect":
