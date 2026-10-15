@@ -17,10 +17,11 @@ A natural request such as “integrate this media run RUN_ID” invokes Integrat
 
 1. Run `nn media context --run RUN_ID --page 1` and retrieve every disclosed next page; context retrieval must not reprocess media.
 2. Validate run, source, bundle, and manifest provenance plus qualified coverage and truncation disclosures.
-3. Use the available image-reading capability to load each actual path from every typed `image_attachments` record; a path string alone is not visual evidence. Treat image timestamps as sampled instants, never intervening coverage.
-4. Treat transcript chunks and images as evidence with their distinct limits. Synthesized document transcript boundaries are not native sentence timings.
-5. Search and read relevant existing notebook truth before deciding whether any creation, update, or relationship is justified.
-6. Produce the existing non-mutating proposal with sourced claims separated from interpretation, uncertainty, affected notes/edges, complete before/after intent, and expected operation/commit count. Write only after explicit human approval through existing mutation workflows.
+3. Reassemble every typed `documents` record in packet order while preserving its MIME type, extractor identity, and page ordinals. Repeated page ordinals across bounded packets are text segments of the same source page, not separate pages.
+4. Use the available image-reading capability to load each actual path from every typed `image_attachments` record; a path string alone is not visual evidence. Treat image timestamps as sampled instants, never intervening coverage.
+5. Treat document text, transcript chunks, and images as distinct evidence channels with their own limits. Synthesized document transcript boundaries are not native sentence timings.
+6. Search and read relevant existing notebook truth before deciding whether any creation, update, or relationship is justified.
+7. Produce the existing non-mutating proposal with sourced claims separated from interpretation, uncertainty, affected notes/edges, complete before/after intent, and expected operation/commit count. Write only after explicit human approval through existing mutation workflows.
 
 ## Contextual promotion
 

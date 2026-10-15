@@ -69,7 +69,7 @@ func newMediaCmd(_ *rootState, service mediaCommandService) *cobra.Command {
 		service = unavailableMediaService{}
 	}
 	var jsonMode bool
-	cmd := &cobra.Command{Use: "media", Short: "Prepare and retrieve provenance-preserving media evidence"}
+	cmd := &cobra.Command{Use: "media", Short: "Prepare and retrieve provenance-preserving document, audio, and video evidence"}
 	cmd.PersistentFlags().BoolVar(&jsonMode, "json", false, "Emit one versioned JSON result")
 	render := func(c *cobra.Command, result mediaCommandResult) error {
 		if result.SchemaVersion == "" {
@@ -142,7 +142,7 @@ func newMediaCmd(_ *rootState, service mediaCommandService) *cobra.Command {
 		return enc.Encode(packet)
 	}}
 	contextCmd.Flags().StringVar(&runID, "run", "", "Existing run ID")
-	contextCmd.Flags().IntVar(&maxBytes, "max-bytes", 32768, "Maximum transcript text bytes per packet page")
+	contextCmd.Flags().IntVar(&maxBytes, "max-bytes", 32768, "Maximum extracted document and transcript text bytes per packet page")
 	contextCmd.Flags().IntVar(&page, "page", 1, "Transcript packet page")
 	cmd.AddCommand(contextCmd)
 	var doctor mediaCommandRequest
