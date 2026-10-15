@@ -129,12 +129,13 @@ nn skills get nn-navigate --reference movement
 Read topology first, then retrieve the same traversal set's bodies as bounded JSON pages:
 
 ```sh
-nn graph show --focus <id> --depth 1 --direction both --zones --format json
+nn graph show --focus <id> --depth 1 --direction both --zones --format json --page 1
+nn graph show --focus <id> --depth 1 --direction both --zones --format json --page 2 --snapshot <topology-sha256-from-page-1>
 nn graph bodies --focus <id> --depth 1 --direction both --page 1
-nn graph bodies --focus <id> --depth 1 --direction both --page 2 --snapshot <sha256-from-page-1>
+nn graph bodies --focus <id> --depth 1 --direction both --page 2 --snapshot <body-sha256-from-page-1>
 ```
 
-Each compact page is at most 48,000 bytes including JSON overhead. Page 1 returns `snapshot`, `pages`, `next_page`, and ordered body `segments`; pass that snapshot to every later page. Retrieve every page before reconstructing bodies or making body-derived claims. Concatenate a note's UTF-8 segments by their one-based `segment` ordinal for exact bytes; huge bodies span segments and empty bodies have one explicit empty segment. A notebook or traversal change rejects the old snapshot. Body records contain no frontmatter, links, or presentation metadata. `nn graph show --bodies` remains accepted for exact legacy output but is deprecated and unbounded.
+Each compact topology or body page is at most 48,000 bytes including JSON overhead. A topology page contains `snapshot`, `page`, `pages`, `next_page`, `center`, `nodes`, and `edges`; concatenate both arrays across every page. A body page contains `snapshot`, `pages`, `next_page`, and ordered body `segments`. Each transport has its own snapshot; pass its page-1 snapshot to every later page while preserving the same selection flags. Retrieve every page before reconstructing topology or bodies, and before making body-derived claims. Concatenate a note's UTF-8 segments by their one-based `segment` ordinal for exact bytes; huge bodies span segments and empty bodies have one explicit empty segment. A notebook or traversal change rejects the old snapshot. Body records contain no frontmatter, links, or presentation metadata. `nn graph show --bodies` remains accepted for exact legacy output but is deprecated and unbounded.
 
 ### Graph Ask
 

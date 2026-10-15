@@ -22,11 +22,11 @@ func TestGraphBodiesDocsAndNavigationProtocols(t *testing.T) {
 
 	for path, required := range map[string][]string{
 		"README.md": {
-			"nn graph bodies", "--page", "--snapshot", "48,000", "every page",
+			"nn graph show", "nn graph bodies", "--page", "--snapshot", "48,000", "every page",
 		},
 		"skills/nn-guide/SKILL.md": {
-			"### nn graph bodies", "--focus <id>", "--direction outgoing|incoming|both",
-			"--links TYPE,...", "--status STATUS,...", "--representation VALUE",
+			"### nn graph show", "### nn graph bodies", "--focus <id>", "--direction outgoing|incoming|both",
+			"--links TYPE,...", "--status STATUS,...", "--representation VALUE", "nodes", "edges",
 			"48,000 bytes", "empty body", "stale or mismatched", "metadata boundary",
 		},
 		"skills/nn-navigate/SKILL.md": {
@@ -60,8 +60,8 @@ func TestGraphBodiesDocsAndNavigationProtocols(t *testing.T) {
 		t.Fatalf("show virtual CLI reference: %v", err)
 	}
 	for _, snippet := range []string{
-		"**nn graph bodies**", "--page N", "--snapshot SHA256", "same filtered traversal set",
-		"retrieve every page", "body-derived claims", "metadata boundary",
+		"**nn graph show**", "**nn graph bodies**", "--page N", "--snapshot SHA256", "same filtered traversal set",
+		"48,000 bytes", "concatenating every page's `nodes` and `edges`", "retrieve every page", "body-derived claims", "metadata boundary",
 	} {
 		if !strings.Contains(virtual, snippet) {
 			t.Errorf("virtual/global CLI protocol missing %q", snippet)

@@ -451,6 +451,8 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	var bodies bool
 	var presentationHints bool
 	var colorMode string
+	var page int
+	var snapshot string
 
 	cmd := &cobra.Command{
 		Use:   "show",
@@ -459,6 +461,21 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 			"Deprecated: --bodies remains available for compatibility but is unbounded; " +
 			"use `nn graph bodies` for lossless snapshot-bound paginated JSON bodies.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			pagination := cmd.Flags().Changed("page") || snapshot != ""
+			if pagination {
+				if format != "json" {
+					return fmt.Errorf("graph show: --page and --snapshot require --format json")
+				}
+				if !cmd.Flags().Changed("page") {
+					return fmt.Errorf("graph show: --snapshot requires --page")
+				}
+				if page < 1 {
+					return fmt.Errorf("graph show: --page must be at least 1")
+				}
+				if page > 1 && snapshot == "" {
+					return fmt.Errorf("graph show: --snapshot is required for page %d", page)
+				}
+			}
 			switch format {
 			case "text", "json", "mermaid":
 			default:
@@ -490,32 +507,8 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				byID[n.ID] = n
 			}
 
-			type summaryBudget struct {
-				Tier    string   `json:"tier"`
-				Length  string   `json:"length"`
-				Include []string `json:"include"`
-				Note    string   `json:"note,omitempty"`
-			}
-			type showNode struct {
-				ID            string         `json:"id"`
-				Title         string         `json:"title"`
-				Type          string         `json:"type"`
-				Tags          []string       `json:"tags"`
-				Zone          string         `json:"zone,omitempty"`
-				Body          string         `json:"body,omitempty"`
-				OutDegree     int            `json:"out_degree"`
-				InDegree      int            `json:"in_degree"`
-				SummaryBudget *summaryBudget `json:"summary_budget,omitempty"`
-			}
-			type showEdge struct {
-				From       string `json:"from"`
-				To         string `json:"to"`
-				Annotation string `json:"annotation,omitempty"`
-				LinkType   string `json:"type,omitempty"`
-			}
-
-			var resultNodes []showNode
-			var resultEdges []showEdge
+			var resultNodes []graphShowNode
+			var resultEdges []graphShowEdge
 			resultLevels := make(map[string]int)
 
 			if focus != "" {
@@ -532,13 +525,13 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					if tags == nil {
 						tags = []string{}
 					}
-					resultNodes = append(resultNodes, showNode{ID: e.n.ID, Title: e.n.Title, Type: string(e.n.Type), Tags: tags})
+					resultNodes = append(resultNodes, graphShowNode{ID: e.n.ID, Title: e.n.Title, Type: string(e.n.Type), Tags: tags})
 				}
 				sort.Slice(resultNodes, func(i, j int) bool { return resultNodes[i].ID < resultNodes[j].ID })
 				for _, e := range entries {
 					for _, lnk := range e.n.Links {
 						if visited[lnk.TargetID] && opts.allowsLink(lnk.Type) {
-							resultEdges = append(resultEdges, showEdge{e.n.ID, lnk.TargetID, lnk.Annotation, lnk.Type})
+							resultEdges = append(resultEdges, graphShowEdge{e.n.ID, lnk.TargetID, lnk.Annotation, lnk.Type})
 						}
 					}
 				}
@@ -585,9 +578,9 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 					if tags == nil {
 						tags = []string{}
 					}
-					resultNodes = append(resultNodes, showNode{ID: n.ID, Title: n.Title, Type: string(n.Type), Tags: tags})
+					resultNodes = append(resultNodes, graphShowNode{ID: n.ID, Title: n.Title, Type: string(n.Type), Tags: tags})
 					for _, lnk := range n.Links {
-						resultEdges = append(resultEdges, showEdge{n.ID, lnk.TargetID, lnk.Annotation, lnk.Type})
+						resultEdges = append(resultEdges, graphShowEdge{n.ID, lnk.TargetID, lnk.Annotation, lnk.Type})
 					}
 				}
 				sort.Slice(resultNodes, func(i, j int) bool { return resultNodes[i].ID < resultNodes[j].ID })
@@ -613,15 +606,15 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				}
 				resultNodes[i].InDegree = inDegree[resultNodes[i].ID]
 				if presentationHints {
-					budget := summaryBudget{Tier: "leaf", Length: "one clause", Include: []string{"title", "type", "central claim"}}
+					budget := graphShowSummaryBudget{Tier: "leaf", Length: "one clause", Include: []string{"title", "type", "central claim"}}
 					if resultNodes[i].InDegree >= 2 {
-						budget = summaryBudget{Tier: "connected", Length: "one sentence", Include: []string{"central claim", "relationship to focus"}}
+						budget = graphShowSummaryBudget{Tier: "connected", Length: "one sentence", Include: []string{"central claim", "relationship to focus"}}
 					}
 					if resultNodes[i].InDegree >= 5 {
-						budget = summaryBudget{Tier: "hub", Length: "2–3 sentences", Include: []string{"central claim", "why load-bearing", "relationship to focus"}}
+						budget = graphShowSummaryBudget{Tier: "hub", Length: "2–3 sentences", Include: []string{"central claim", "why load-bearing", "relationship to focus"}}
 						for _, tag := range resultNodes[i].Tags {
 							if strings.EqualFold(tag, "daily") || strings.EqualFold(tag, "index") {
-								budget = summaryBudget{Tier: "connected", Length: "one sentence", Include: []string{"central claim", "connector role"}, Note: "aggregation hub: summarize as connected"}
+								budget = graphShowSummaryBudget{Tier: "connected", Length: "one sentence", Include: []string{"central claim", "connector role"}, Note: "aggregation hub: summarize as connected"}
 								break
 							}
 						}
@@ -630,7 +623,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				}
 			}
 			if resultEdges == nil {
-				resultEdges = []showEdge{}
+				resultEdges = []graphShowEdge{}
 			}
 
 			w := outWriter(cmd)
@@ -705,19 +698,23 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 				return nil
 			}
 			if format == "json" {
+				if pagination {
+					requestKey := fmt.Sprintf("focus=%q|depth=%d|direction=%q|links=%q|status=%q|representation=%q|zones=%t|bodies=%t|presentation-hints=%t", focus, depth, direction, links, statuses, representation, zones, bodies, presentationHints)
+					return writeGraphShowPage(w, focus, requestKey, snapshot, page, resultNodes, resultEdges)
+				}
 				if focus != "" {
 					out := struct {
-						Center string     `json:"center"`
-						Nodes  []showNode `json:"nodes"`
-						Edges  []showEdge `json:"edges"`
+						Center string          `json:"center"`
+						Nodes  []graphShowNode `json:"nodes"`
+						Edges  []graphShowEdge `json:"edges"`
 					}{focus, resultNodes, resultEdges}
 					enc := json.NewEncoder(w)
 					enc.SetIndent("", "  ")
 					return enc.Encode(out)
 				}
 				out := struct {
-					Nodes []showNode `json:"nodes"`
-					Edges []showEdge `json:"edges"`
+					Nodes []graphShowNode `json:"nodes"`
+					Edges []graphShowEdge `json:"edges"`
 				}{resultNodes, resultEdges}
 				enc := json.NewEncoder(w)
 				enc.SetIndent("", "  ")
@@ -726,7 +723,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 			// renderNodeBody prints a node's tags and body indented beneath its
 			// title line when --bodies is set; a no-op otherwise. indent is the
 			// leading whitespace of the title line the body hangs under.
-			nodeByID := make(map[string]showNode, len(resultNodes))
+			nodeByID := make(map[string]graphShowNode, len(resultNodes))
 			for _, n := range resultNodes {
 				nodeByID[n.ID] = n
 			}
@@ -861,7 +858,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 						paintEdge("contradicts", "tension"), paintEdge("source-of", "lateral"), paintEdge("refines", "structural"))
 				}
 				fmt.Fprintln(w)
-				byZone := map[string][]showNode{}
+				byZone := map[string][]graphShowNode{}
 				for _, n := range resultNodes {
 					if n.ID == focus || n.Zone == "" {
 						continue
@@ -893,7 +890,7 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 			if focus != "" {
 				type treeEdge struct {
 					neighbor string
-					edge     showEdge
+					edge     graphShowEdge
 					arrow    string
 				}
 				adj := make(map[string][]treeEdge, len(resultEdges))
@@ -967,6 +964,8 @@ func newGraphShowCmd(state *rootState) *cobra.Command {
 	cmd.SetOut(graphShowOutputRouter{cmd: cmd})
 	cmd.Flags().BoolVar(&presentationHints, "presentation-hints", false, "Annotate nodes with degree-based LLM relay budgets without truncating bodies")
 	cmd.Flags().StringVar(&colorMode, "color", "auto", "Colorize zoned text output by zone: auto (color only to a TTY), always, or never")
+	cmd.Flags().IntVar(&page, "page", 0, "One-based stable JSON topology page")
+	cmd.Flags().StringVar(&snapshot, "snapshot", "", "Snapshot SHA-256 returned by page 1 (required for later pages)")
 	return cmd
 }
 
