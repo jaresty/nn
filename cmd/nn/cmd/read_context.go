@@ -23,10 +23,37 @@ const (
 )
 
 type readContextPassage struct {
-	Heading   string
-	LineStart int
-	LineEnd   int
-	Text      string
+	Heading      string
+	HeadingLevel int
+	SectionStart int
+	LineStart    int
+	LineEnd      int
+	Text         string
+}
+
+type readContextOverviewSection struct {
+	Heading    string `json:"heading"`
+	Level      int    `json:"level"`
+	LineStart  int    `json:"line_start"`
+	LineEnd    int    `json:"line_end"`
+	ChunkStart int    `json:"chunk_start"`
+	ChunkEnd   int    `json:"chunk_end"`
+	Current    bool   `json:"current"`
+	Evidence   string `json:"evidence"`
+}
+
+type readContextOverviewResponse struct {
+	Mode         string                       `json:"mode"`
+	Snapshot     string                       `json:"snapshot"`
+	Source       string                       `json:"source"`
+	CurrentChunk int                          `json:"current_chunk"`
+	Chunks       int                          `json:"chunks"`
+	Page         int                          `json:"page"`
+	Pages        int                          `json:"pages"`
+	PreviousPage int                          `json:"previous_page"`
+	NextPage     int                          `json:"next_page"`
+	Coverage     string                       `json:"coverage"`
+	Sections     []readContextOverviewSection `json:"sections"`
 }
 
 type readContextMatch struct {
@@ -60,16 +87,22 @@ func newReadContextCmd(state *rootState) *cobra.Command {
 	var snapshot string
 	var chunkBytes int
 	var matchLimit int
+	var overview bool
+	var page int
 
 	cmd := &cobra.Command{
 		Use:   "read-context <file>",
 		Short: "Read one bounded document passage with generated notebook relevance",
-		Long: "Return one heading-aware passage from a UTF-8 Markdown or text file plus bounded BM25-ranked notebook candidates. " +
-			"Generated relevance is not a stored relationship and the candidate set is not exhaustive. Fetch chunk 1 first, then pass its snapshot to later chunks.",
+		Long: "Return one heading-aware passage from a UTF-8 Markdown or text file plus bounded BM25-ranked notebook candidates, " +
+			"or use --overview for a paginated source-order document structure map. Generated relevance is not a stored relationship and the candidate set is not exhaustive. " +
+			"Fetch passage chunk 1 or overview page 1 first, then pass its snapshot to later chunks or pages.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if chunk < 1 {
 				return fmt.Errorf("read-context: --chunk must be at least 1")
+			}
+			if page < 1 {
+				return fmt.Errorf("read-context: --page must be at least 1")
 			}
 			if chunkBytes < readContextMinChunkBytes || chunkBytes > readContextMaxChunkBytes {
 				return fmt.Errorf("read-context: --chunk-bytes must be between %d and %d", readContextMinChunkBytes, readContextMaxChunkBytes)
@@ -77,10 +110,16 @@ func newReadContextCmd(state *rootState) *cobra.Command {
 			if matchLimit < 0 || matchLimit > readContextMaxMatches {
 				return fmt.Errorf("read-context: --matches must be between 0 and %d", readContextMaxMatches)
 			}
-			if chunk > 1 && snapshot == "" {
+			if !overview && cmd.Flags().Changed("page") {
+				return fmt.Errorf("read-context: --page requires --overview")
+			}
+			if !overview && chunk > 1 && snapshot == "" {
 				return fmt.Errorf("read-context: --snapshot is required for chunk %d", chunk)
 			}
-			if snapshot != "" && !cmd.Flags().Changed("chunk") {
+			if overview && page > 1 && snapshot == "" {
+				return fmt.Errorf("read-context: --snapshot is required for overview page %d", page)
+			}
+			if snapshot != "" && !overview && !cmd.Flags().Changed("chunk") {
 				return fmt.Errorf("read-context: --snapshot requires --chunk")
 			}
 
@@ -107,6 +146,30 @@ func newReadContextCmd(state *rootState) *cobra.Command {
 			if chunk > len(passages) {
 				return fmt.Errorf("read-context: --chunk %d out of range (chunks: %d)", chunk, len(passages))
 			}
+			if overview {
+				sections := buildReadContextOverview(passages, chunk)
+				pages, err := paginateReadContextOverview(path, expectedSnapshot, chunk, len(passages), sections)
+				if err != nil {
+					return err
+				}
+				if page > len(pages) {
+					return fmt.Errorf("read-context: --page %d out of range (pages: %d)", page, len(pages))
+				}
+				response := readContextOverviewResponse{
+					Mode: "overview", Snapshot: expectedSnapshot, Source: path,
+					CurrentChunk: chunk, Chunks: len(passages), Page: page, Pages: len(pages),
+					Coverage: "document-structure only; excludes generated relevance and stored graph relationships",
+					Sections: pages[page-1],
+				}
+				if page > 1 {
+					response.PreviousPage = page - 1
+				}
+				if page < len(pages) {
+					response.NextPage = page + 1
+				}
+				return writeReadContextJSON(cmd, response)
+			}
+
 			selected := passages[chunk-1]
 			matches, err := rankReadContextMatches(state, selected.Text, matchLimit)
 			if err != nil {
@@ -130,24 +193,83 @@ func newReadContextCmd(state *rootState) *cobra.Command {
 			if chunk < len(passages) {
 				response.NextChunk = chunk + 1
 			}
-			encoded, err := json.Marshal(response)
-			if err != nil {
-				return fmt.Errorf("read-context: encode response: %w", err)
-			}
-			if len(encoded)+1 > readContextPageMaxBytes {
-				return fmt.Errorf("read-context: encoded response is %d bytes (limit %d)", len(encoded)+1, readContextPageMaxBytes)
-			}
-			if _, err := outWriter(cmd).Write(append(encoded, '\n')); err != nil {
-				return fmt.Errorf("read-context: write response: %w", err)
-			}
-			return nil
+			return writeReadContextJSON(cmd, response)
 		},
 	}
 	cmd.Flags().IntVar(&chunk, "chunk", 1, "One-based document passage to return")
-	cmd.Flags().StringVar(&snapshot, "snapshot", "", "Source snapshot returned by chunk 1 (required for later chunks)")
+	cmd.Flags().StringVar(&snapshot, "snapshot", "", "Source snapshot returned by chunk 1 or overview page 1")
 	cmd.Flags().IntVar(&chunkBytes, "chunk-bytes", readContextDefaultChunkBytes, "Target source bytes per passage (256-6000)")
 	cmd.Flags().IntVar(&matchLimit, "matches", 5, "Maximum generated-relevance notebook candidates (0-20)")
+	cmd.Flags().BoolVar(&overview, "overview", false, "Return a paginated source-order document structure overview")
+	cmd.Flags().IntVar(&page, "page", 1, "One-based overview page to return (requires --overview)")
 	return cmd
+}
+
+func writeReadContextJSON(cmd *cobra.Command, response any) error {
+	encoded, err := json.Marshal(response)
+	if err != nil {
+		return fmt.Errorf("read-context: encode response: %w", err)
+	}
+	if len(encoded)+1 > readContextPageMaxBytes {
+		return fmt.Errorf("read-context: encoded response is %d bytes (limit %d)", len(encoded)+1, readContextPageMaxBytes)
+	}
+	if _, err := outWriter(cmd).Write(append(encoded, '\n')); err != nil {
+		return fmt.Errorf("read-context: write response: %w", err)
+	}
+	return nil
+}
+
+func buildReadContextOverview(passages []readContextPassage, currentChunk int) []readContextOverviewSection {
+	sections := make([]readContextOverviewSection, 0, len(passages))
+	for i, passage := range passages {
+		chunk := i + 1
+		heading := passage.Heading
+		if heading == "" {
+			heading = "Document"
+		}
+		if len(sections) > 0 && sections[len(sections)-1].LineStart == passage.SectionStart {
+			section := &sections[len(sections)-1]
+			section.LineEnd = passage.LineEnd
+			section.ChunkEnd = chunk
+			section.Current = section.Current || chunk == currentChunk
+			continue
+		}
+		sections = append(sections, readContextOverviewSection{
+			Heading: heading, Level: passage.HeadingLevel,
+			LineStart: passage.LineStart, LineEnd: passage.LineEnd,
+			ChunkStart: chunk, ChunkEnd: chunk, Current: chunk == currentChunk,
+			Evidence: "document-structure",
+		})
+	}
+	return sections
+}
+
+func paginateReadContextOverview(source, snapshot string, currentChunk, chunks int, sections []readContextOverviewSection) ([][]readContextOverviewSection, error) {
+	pages := [][]readContextOverviewSection{{}}
+	for _, section := range sections {
+		pageIndex := len(pages) - 1
+		candidate := append(append([]readContextOverviewSection{}, pages[pageIndex]...), section)
+		probe := readContextOverviewResponse{
+			Mode: "overview", Snapshot: snapshot, Source: source,
+			CurrentChunk: currentChunk, Chunks: chunks,
+			Page: pageIndex + 1, Pages: len(sections), PreviousPage: pageIndex, NextPage: pageIndex + 2,
+			Coverage: "document-structure only; excludes generated relevance and stored graph relationships",
+			Sections: candidate,
+		}
+		encoded, err := json.Marshal(probe)
+		if err != nil {
+			return nil, fmt.Errorf("read-context: encode overview: %w", err)
+		}
+		if len(encoded)+1 <= readContextPageMaxBytes {
+			pages[pageIndex] = candidate
+			continue
+		}
+		if len(pages[pageIndex]) == 0 {
+			return nil, fmt.Errorf("read-context: one overview section exceeds encoded response limit %d", readContextPageMaxBytes)
+		}
+		pages = append(pages, []readContextOverviewSection{section})
+	}
+	return pages, nil
 }
 
 func readContextSnapshot(data []byte, ext string, chunkBytes int) string {
@@ -164,6 +286,7 @@ func splitReadContextPassages(text string, markdown bool, maxBytes int) []readCo
 	lines := strings.SplitAfter(text, "\n")
 	type section struct {
 		heading string
+		level   int
 		start   int
 		end     int
 	}
@@ -179,12 +302,13 @@ func splitReadContextPassages(text string, markdown bool, maxBytes int) []readCo
 			if inFence {
 				continue
 			}
-			if heading := readContextATXHeading(trimmed); heading != "" {
+			if heading, level := readContextATXHeading(trimmed); heading != "" {
 				if i > sections[len(sections)-1].start {
 					sections[len(sections)-1].end = i
-					sections = append(sections, section{heading: heading, start: i})
+					sections = append(sections, section{heading: heading, level: level, start: i})
 				} else {
 					sections[len(sections)-1].heading = heading
+					sections[len(sections)-1].level = level
 				}
 			}
 		}
@@ -201,7 +325,7 @@ func splitReadContextPassages(text string, markdown bool, maxBytes int) []readCo
 			if b.Len() == 0 {
 				return
 			}
-			passages = append(passages, readContextPassage{Heading: sec.heading, LineStart: start + 1, LineEnd: end, Text: b.String()})
+			passages = append(passages, readContextPassage{Heading: sec.heading, HeadingLevel: sec.level, SectionStart: sec.start + 1, LineStart: start + 1, LineEnd: end, Text: b.String()})
 			b.Reset()
 			start = end
 		}
@@ -226,18 +350,18 @@ func splitReadContextPassages(text string, markdown bool, maxBytes int) []readCo
 	return passages
 }
 
-func readContextATXHeading(line string) string {
+func readContextATXHeading(line string) (string, int) {
 	if !strings.HasPrefix(line, "#") {
-		return ""
+		return "", 0
 	}
 	i := 0
 	for i < len(line) && line[i] == '#' {
 		i++
 	}
 	if i == 0 || i > 6 || i >= len(line) || line[i] != ' ' {
-		return ""
+		return "", 0
 	}
-	return strings.TrimSpace(strings.TrimRight(strings.TrimSpace(line[i+1:]), "#"))
+	return strings.TrimSpace(strings.TrimRight(strings.TrimSpace(line[i+1:]), "#")), i
 }
 
 func utf8SafePrefix(value string, maxBytes int) string {

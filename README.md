@@ -137,6 +137,8 @@ Each compact JSON response is at most 48,000 bytes and includes source snapshot,
 
 For a human-driven session, say `read together <file>` or use `:read <file>` under `nn-navigate`. The workflow retains a conversation-scoped document cursor, supports next/previous, pin/hide, note inspection, graph excursions, return to reading, and finish-reading without persisting reading state or creating links automatically.
 
+Use `nn read-context <file> --overview --chunk <current> --page 1` for a source-order structural map. Each record is labeled `document-structure` and includes heading level, line/chunk ranges, and the current-position marker; it contains neither generated relevance nor stored graph edges. Retrieve every later page with `--snapshot <sha256-from-page-1>`. In Read Together, `:overview` renders the complete map without changing the document frame or graph history.
+
 ### Lossless graph body transport
 
 Read topology first, then retrieve the same traversal set's bodies as bounded JSON pages:

@@ -57,6 +57,7 @@ The navigation DSL is a static skill contract of **colon-prefixed skill-level in
 :goto "<bookmark>"
 :arrive
 :read <document>
+:overview
 :next
 :previous
 :section "<heading>"
@@ -68,7 +69,7 @@ The navigation DSL is a static skill contract of **colon-prefixed skill-level in
 :finish-reading
 ```
 
-The canonical grammar is exactly **`:help`, `:guided`, `:advanced`, `:look`, `:where`, `:orient`**; **`:recenter "<label>"`, `:peek "<label>"`, `:show`, `:explain`, `:gaps`**; **`:scan local`, `:scan global`, `:analogize`, `:find-analog`, `:visualize`**; and **`:quiz`, `:ask`, `:back`, `:forward`, `:bookmark "<name>"`, `:goto "<bookmark>"`, `:arrive`**; Read Together adds **`:read <document>`, `:next`, `:previous`, `:section "<heading>"`, `:context`, `:deeper`, `:pin "<label>"`, `:hide "<label>"`, `:back-to-reading`, and `:finish-reading`** while a document frame is active. Quoted placeholders are arguments, not literal quote requirements when an unquoted remainder is unambiguous. Bookmark names retain the case-sensitive rules in `state`; label targets use the contextual resolution rule below.
+The canonical grammar is exactly **`:help`, `:guided`, `:advanced`, `:look`, `:where`, `:orient`**; **`:recenter "<label>"`, `:peek "<label>"`, `:show`, `:explain`, `:gaps`**; **`:scan local`, `:scan global`, `:analogize`, `:find-analog`, `:visualize`**; and **`:quiz`, `:ask`, `:back`, `:forward`, `:bookmark "<name>"`, `:goto "<bookmark>"`, `:arrive`**; Read Together adds **`:read <document>`, `:overview`, `:next`, `:previous`, `:section "<heading>"`, `:context`, `:deeper`, `:pin "<label>"`, `:hide "<label>"`, `:back-to-reading`, and `:finish-reading`** while a document frame is active. Quoted placeholders are arguments, not literal quote requirements when an unquoted remainder is unambiguous. Bookmark names retain the case-sensitive rules in `state`; label targets use the contextual resolution rule below.
 
 `:look` redraws retained Focus + Map + Moves; `:where` gives compact location state; `:orient` may refresh evidence. All location queries preserve navigation state; owners define details.
 

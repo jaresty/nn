@@ -422,7 +422,9 @@ Every node also carries a **degree marker**: `--format text` appends `â†‘<out> â
 
 Candidates are bounded `generated-relevance`: they are non-exhaustive and not a stored notebook relationship. The command never persists a cursor, reading state, generated match, note, or link.
 
-For interactive reading, dispatch `read together <file>` or `:read <file>` to `nn-navigate`, then load its lazy `read-together` owner. The owner keeps the document frame separate from graph history and requires an explicit note excursion before entering graph navigation.
+For a structural map, run `nn read-context <file> --overview --chunk <current> --page 1`. Overview records are source-ordered `document-structure` with heading level, line/chunk ranges, and an exact current marker; they exclude generated relevance and stored graph relationships. Retrieve each later page with the page-1 `--snapshot`; every encoded page remains within 48,000 bytes.
+
+For interactive reading, dispatch `read together <file>` or `:read <file>` to `nn-navigate`, then load its lazy `read-together` owner. The owner keeps the document frame separate from graph history and requires an explicit note excursion before entering graph navigation. `:overview` renders the complete paginated structure without moving the document cursor or graph history.
 
 ### Human-driven iterative navigation: dispatch to `nn-navigate`
 

@@ -31,6 +31,28 @@ type readContextTestResponse struct {
 	} `json:"matches"`
 }
 
+type readContextOverviewTestResponse struct {
+	Mode         string `json:"mode"`
+	Snapshot     string `json:"snapshot"`
+	Source       string `json:"source"`
+	CurrentChunk int    `json:"current_chunk"`
+	Chunks       int    `json:"chunks"`
+	Page         int    `json:"page"`
+	Pages        int    `json:"pages"`
+	NextPage     int    `json:"next_page"`
+	Coverage     string `json:"coverage"`
+	Sections     []struct {
+		Heading    string `json:"heading"`
+		Level      int    `json:"level"`
+		LineStart  int    `json:"line_start"`
+		LineEnd    int    `json:"line_end"`
+		ChunkStart int    `json:"chunk_start"`
+		ChunkEnd   int    `json:"chunk_end"`
+		Current    bool   `json:"current"`
+		Evidence   string `json:"evidence"`
+	} `json:"sections"`
+}
+
 func TestReadContextChunksMarkdownAndRanksGeneratedRelevance(t *testing.T) {
 	nbDir, execute := setupNotebook(t)
 	relevant := newTestNoteForCLI("20990101000000-0001", "Cache invalidation policy", note.TypeConcept)
@@ -230,6 +252,84 @@ func TestReadContextBoundsAndLabelsGeneratedRelevance(t *testing.T) {
 	}
 }
 
+func TestReadContextOverviewIsOrderedCurrentBoundedAndSnapshotPaged(t *testing.T) {
+	_, execute := setupNotebook(t)
+	path := filepath.Join(t.TempDir(), "overview.md")
+	var content strings.Builder
+	for i := 0; i < 80; i++ {
+		content.WriteString("## Section ")
+		content.WriteString(strings.Repeat("x", 700))
+		content.WriteString("\n\nbody\n\n")
+	}
+	if err := os.WriteFile(path, []byte(content.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := execute("read-context", path, "--overview", "--chunk", "2", "--chunk-bytes", "256", "--page", "1")
+	if err != nil {
+		t.Fatalf("overview page 1: %v", err)
+	}
+	if len(out) > readContextPageMaxBytes {
+		t.Fatalf("overview response = %d bytes, limit %d", len(out), readContextPageMaxBytes)
+	}
+	var first readContextOverviewTestResponse
+	if err := json.Unmarshal([]byte(out), &first); err != nil {
+		t.Fatal(err)
+	}
+	if first.Mode != "overview" || first.CurrentChunk != 2 || first.Pages < 2 || first.NextPage != 2 {
+		t.Fatalf("overview metadata = %+v", first)
+	}
+	current := 0
+	lastLine := 0
+	for _, section := range first.Sections {
+		if section.Evidence != "document-structure" {
+			t.Fatalf("evidence = %q", section.Evidence)
+		}
+		if section.LineStart < lastLine {
+			t.Fatalf("sections out of source order: %d after %d", section.LineStart, lastLine)
+		}
+		lastLine = section.LineStart
+		if section.Current {
+			current++
+			if first.CurrentChunk < section.ChunkStart || first.CurrentChunk > section.ChunkEnd {
+				t.Fatalf("current chunk %d outside section %+v", first.CurrentChunk, section)
+			}
+		}
+	}
+	if current != 1 {
+		t.Fatalf("current sections = %d, want 1", current)
+	}
+	if _, err := execute("read-context", path, "--overview", "--chunk", "2", "--chunk-bytes", "256", "--page", "2"); err == nil || !strings.Contains(err.Error(), "--snapshot is required") {
+		t.Fatalf("overview page 2 without snapshot error = %v", err)
+	}
+	out, err = execute("read-context", path, "--overview", "--chunk", "2", "--chunk-bytes", "256", "--page", "2", "--snapshot", first.Snapshot)
+	if err != nil {
+		t.Fatalf("overview page 2: %v", err)
+	}
+	if len(out) > readContextPageMaxBytes {
+		t.Fatalf("overview page 2 response = %d bytes, limit %d", len(out), readContextPageMaxBytes)
+	}
+}
+
+func TestReadTogetherOverviewContract(t *testing.T) {
+	files := map[string][]string{
+		"../../../docs/adr/0070-read-together-document-navigation.md": {"`:overview`", "document-structure", "preserves the document frame and graph history"},
+		"../../../skills/nn-navigate/SKILL.md":                        {"`:overview`", "read-together"},
+		"../../../skills/nn-navigate/references/read-together.md":     {"`:overview`", "document-structure", "does not change the document frame or graph history"},
+	}
+	for path, required := range files {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, text := range required {
+			if !strings.Contains(string(content), text) {
+				t.Errorf("%s missing %q", path, text)
+			}
+		}
+	}
+}
+
 func TestReadTogetherRegistrationDocumentationAndStateBoundaries(t *testing.T) {
 	root := NewRootCmdForTest("")
 	if command, _, err := root.Find([]string{"read-context"}); err != nil || command.Name() != "read-context" {
@@ -238,13 +338,13 @@ func TestReadTogetherRegistrationDocumentationAndStateBoundaries(t *testing.T) {
 
 	files := map[string][]string{
 		"../../../README.md": {
-			"nn read-context", "48,000", "generated-relevance", "not a stored graph relationship", "without persisting reading state or creating links automatically",
+			"nn read-context", "48,000", "generated-relevance", "not a stored graph relationship", "without persisting reading state or creating links automatically", "--overview", "--page", "document-structure",
 		},
 		"../../../skills/nn-guide/SKILL.md": {
-			"nn read-context", "generated-relevance", "read-together", "not a stored", "non-exhaustive",
+			"nn read-context", "generated-relevance", "read-together", "not a stored", "non-exhaustive", "--overview", "--page", "document-structure",
 		},
 		"show.go": {
-			"**nn read-context**", "generated-relevance", "not a stored", "non-exhaustive",
+			"**nn read-context**", "generated-relevance", "not a stored", "non-exhaustive", "--overview", "--page", "document-structure",
 		},
 		"../../../skills/nn-navigate/SKILL.md": {
 			"`read-together`", "document passages, generated relevance, and stored graph truth remain separate", "only an explicit note excursion enters graph navigation",

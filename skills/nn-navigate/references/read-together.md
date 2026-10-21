@@ -7,7 +7,7 @@ applies_when: "When entering, advancing, reversing, refreshing, inspecting conte
 
 ## Purpose and activation
 
-Read Together is a human-driven `nn-navigate` mode for moving through a document while surfacing bounded notebook context. Activate it for `read together`, `:read <document>`, `:next`, `:previous`, `:section`, `:context`, `:deeper`, `:pin`, `:hide`, `:back-to-reading`, or `:finish-reading` when a document frame exists. These are conversational skill intents, not `nn` subcommands. The machine-readable primitive is `nn read-context`.
+Read Together is a human-driven `nn-navigate` mode for moving through a document while surfacing bounded notebook context. Activate it for `read together`, `:read <document>`, `:overview`, `:next`, `:previous`, `:section`, `:context`, `:deeper`, `:pin`, `:hide`, `:back-to-reading`, or `:finish-reading` when a document frame exists. These are conversational skill intents, not `nn` subcommands. The machine-readable primitive is `nn read-context`.
 
 Read Together preserves three distinct evidence classes:
 
@@ -58,6 +58,14 @@ A stale or mismatched snapshot invalidates the document frame. Do not continue f
 
 `:next` selects `next_chunk`; `:previous` selects `previous_chunk`. At either boundary, retain state and state that the beginning or end has been reached. `:section "<heading>"` resolves only against headings already observed in the current session unless the implementation has retrieved a deterministic section index; never guess an unseen destination. `:context` refreshes generated relevance for the current passage. `:deeper` graph-expands explicitly selected or pinned note IDs; it does not increase the claim strength of BM25 matches.
 
+`:overview` retrieves the complete bounded structural map. Start with:
+
+```bash
+nn read-context <file> --overview --chunk <current-chunk> --page 1
+```
+
+If `pages` is greater than one, retrieve every later page in order with the page-1 snapshot and identical source/chunking options. Do not present or resolve unseen headings until all pages arrive under one snapshot. Each returned item is `document-structure`, not generated relevance or a stored graph relationship. Render headings in source order with indentation from `level`, line and chunk ranges, and exactly one current marker. This observational action does not change the document frame or graph history. After a complete overview, `:section "<heading>"` may resolve against its retrieved headings using exact text or a unique case-insensitive fragment; ambiguity never guesses.
+
 ## Pins, hides, and note inspection
 
 `:pin "<label>"` and `:hide "<label>"` resolve only current Context labels using the same full-label-or-unique-fragment discipline as Navigate presentation. Pins remain visible across passages but retain their original provenance as generated relevance or manually selected context. Hiding suppresses a candidate from presentation only; it does not alter retrieval, notebook truth, or future independent matches. Ambiguity and unavailable labels retain all state and show narrowed contextual help without guessing.
@@ -100,6 +108,7 @@ Use dashed or explicitly labeled `match` connectors only for passage-to-note rel
 
 Keep these action classes discoverable when structurally available:
 
+- `Document overview — :overview` without moving;
 - `Next passage — :next` and `Previous passage — :previous`;
 - `Inspect note — :peek "<label>"` without moving;
 - `Follow note — :recenter "<label>"` for an explicit graph excursion;

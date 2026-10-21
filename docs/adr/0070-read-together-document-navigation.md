@@ -33,6 +33,14 @@ Chunk 1 does not require a supplied snapshot. Every later chunk requires the sna
 
 The command is read-only. It does not persist a cursor, reading history, pins, generated matches, notes, or links.
 
+### Add a bounded document overview
+
+`nn read-context <file> --overview --chunk <current> [--page N] [--snapshot SHA256]` returns a source-order structural map rather than a passage or notebook matches. Each section record carries its heading, heading level, line range, chunk range, exact current-position marker, and the evidence label `document-structure`. The overview coverage explicitly excludes generated relevance and stored graph relationships.
+
+Overview page 1 bootstraps the same source-and-chunking snapshot used by passage mode. Every later overview page requires that matching snapshot and rejects changed source bytes or chunking options. Pages are formed from complete section records, and every encoded page including its final newline remains at most 48,000 bytes.
+
+The conversational `:overview` action renders the complete paginated structure, highlights the current section, and preserves the document frame and graph history. It enables `:section "<heading>"` to resolve against retrieved source structure rather than only headings previously encountered while reading.
+
 ### Add Read Together as a Navigate mode
 
 Read Together is an `nn-navigate` skill workflow, not an `nn read-together` runtime command. It owns conversation-scoped document state:
