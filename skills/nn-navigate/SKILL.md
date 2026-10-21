@@ -10,7 +10,7 @@ Binding dispatcher for iterative, human-driven navigation of the nn note graph. 
 
 ## Preflight and activation
 
-Activate this skill when a human is co-navigating a positioned graph walk, exploration proceeds iteratively across turns, or the request uses `teleport`, `orient`, `recenter`, `peek`, `scan`, `arrive`, `navigate`, positioned Navigation Ask, Back/Forward, history, or bookmarks as navigation actions. A positioned Navigation Ask is the Navigation action that must suspend and restore a retained navigation frame.
+Activate this skill when a human is co-navigating a positioned graph walk, exploration proceeds iteratively across turns, or the request uses `teleport`, `orient`, `recenter`, `peek`, `scan`, `arrive`, `navigate`, positioned Navigation Ask, Back/Forward, history, bookmarks, or Read Together document actions as navigation actions. A positioned Navigation Ask is the Navigation action that must suspend and restore a retained navigation frame.
 
 Standalone `nn ask --surface ...` does not activate `nn-navigate`; it is an independent CLI workflow documented by `nn-guide`. The presence of a retained Navigation frame elsewhere in the conversation does not change a standalone Ask into positioned Navigation Ask unless the request uses Ask as an action within that walk.
 
@@ -56,9 +56,19 @@ The navigation DSL is a static skill contract of **colon-prefixed skill-level in
 :bookmark "<name>"
 :goto "<bookmark>"
 :arrive
+:read <document>
+:next
+:previous
+:section "<heading>"
+:context
+:deeper
+:pin "<label>"
+:hide "<label>"
+:back-to-reading
+:finish-reading
 ```
 
-The canonical grammar is exactly **`:help`, `:guided`, `:advanced`, `:look`, `:where`, `:orient`**; **`:recenter "<label>"`, `:peek "<label>"`, `:show`, `:explain`, `:gaps`**; **`:scan local`, `:scan global`, `:analogize`, `:find-analog`, `:visualize`**; and **`:quiz`, `:ask`, `:back`, `:forward`, `:bookmark "<name>"`, `:goto "<bookmark>"`, `:arrive`**. Quoted placeholders are arguments, not literal quote requirements when an unquoted remainder is unambiguous. Bookmark names retain the case-sensitive rules in `state`; label targets use the contextual resolution rule below.
+The canonical grammar is exactly **`:help`, `:guided`, `:advanced`, `:look`, `:where`, `:orient`**; **`:recenter "<label>"`, `:peek "<label>"`, `:show`, `:explain`, `:gaps`**; **`:scan local`, `:scan global`, `:analogize`, `:find-analog`, `:visualize`**; and **`:quiz`, `:ask`, `:back`, `:forward`, `:bookmark "<name>"`, `:goto "<bookmark>"`, `:arrive`**; Read Together adds **`:read <document>`, `:next`, `:previous`, `:section "<heading>"`, `:context`, `:deeper`, `:pin "<label>"`, `:hide "<label>"`, `:back-to-reading`, and `:finish-reading`** while a document frame is active. Quoted placeholders are arguments, not literal quote requirements when an unquoted remainder is unambiguous. Bookmark names retain the case-sensitive rules in `state`; label targets use the contextual resolution rule below.
 
 `:look` redraws retained Focus + Map + Moves; `:where` gives compact location state; `:orient` may refresh evidence. All location queries preserve navigation state; owners define details.
 
@@ -100,6 +110,7 @@ Do not guess a reference path, read a packaged path directly, or assume the comp
 | Local territory, Global landscape, typed destination discovery, typed impact, or typed path witnesses | `scan-and-routes`; also `presentation`; fetch `movement` before a resulting Recenter/Arrive |
 | Show verbatim, Explain in depth, Analogize, Find an analog, Find gaps, Visualize, or Quiz | `lenses`; also `presentation`; fetch `state` if recovery or retained-frame validity is at issue |
 | Teleport/Visit/Recenter/Go to history mutation, Back, Forward, Bookmark, Look, Where am I?, Ask frame preservation, unknown-state recovery, or compaction | `state`; fetch `movement` and `presentation` before restoring a positioned view |
+| Read Together enter, passage movement, context refresh, pin/hide, note inspection, graph excursion, return, finish, or document-frame compaction | `read-together`; also `state`; fetch `presentation` before a human-facing view, `movement` before a graph excursion, and `integrate` before mutation |
 
 Reference ownership is action ownership. Execute no specialized detail from memory when its owner has not been fetched. If an action becomes applicable only after inspecting evidence—for example, a Scan reveals a Recenter destination—pause at that boundary, fetch the newly applicable owner, and only then act. If compaction removed a fetched reference from active context, treat it as unfetched and retrieve it again.
 
@@ -120,13 +131,15 @@ menu_ui:
   interaction_mode: guided
   current_menu: Quick actions
   menu_stack: []
+document_frame: null # complete Read Together frame when active
+graph_excursion_origin: null # saved document frame during an explicit note excursion
 ```
 
 Every frame carries enough active traversal context to reproduce the positioned view. Preserve direction, link types, status, representation, depth, route witness, impact types/direction/depth, destination query, and any other active graph constraint in `filters` or an explicitly typed equivalent. `visited_evidence` is bounded source evidence retained for interpretation; it is not permission to turn generated content into notebook fact.
 
 Back and Forward contain complete frames in stack order. Every bookmark maps its case-sensitive name to a complete saved frame. Menu UI is a separate ordered stack: changing or dismissing a menu does not change graph history, and graph movement does not masquerade as a menu pop. Interaction mode is conversation-scoped UI state independent of every frame: Back, Forward, Recenter, and Go to do not restore or replace it. None of this state may be written to note bodies, frontmatter, links, SQLite, protocol notes, Git, configuration, or environment.
 
-Ask snapshots and restores the same complete frame plus the interaction mode, invoking menu, and ordered menu stack. Lenses, Peek, and Scan read or interpret retained evidence without changing focus, graph history, or interaction mode. Failed, cancelled, unavailable, and complete-frame no-op actions retain all state unless an owning reference explicitly defines a non-state side effect.
+Ask snapshots and restores the same complete frame plus the interaction mode, invoking menu, and ordered menu stack. Read Together retains a separate complete document frame; its passage is never inserted into graph history, and an explicit graph excursion saves and restores that document frame under the `read-together` owner. Lenses, Peek, and Scan read or interpret retained evidence without changing focus, graph history, or interaction mode. Failed, cancelled, unavailable, and complete-frame no-op actions retain all state unless an owning reference explicitly defines a non-state side effect.
 
 If state is missing or incomplete, say it is unknown. Never reconstruct history, filters, traversal witnesses, bookmarks, visited evidence, the current menu, or a menu stack from notebook content or plausible conversation clues. Establish a new landing or ask the human to restate recoverable state.
 
@@ -136,7 +149,7 @@ Teleport, Visit, Recenter, and Go to may adopt a new destination; Back and Forwa
 
 A successful destination-adopting move pushes the prior complete current frame onto Back and clears Forward. An initial cold landing has no prior frame to push. Back moves the current frame to Forward and restores the latest Back frame; Forward performs the symmetric operation. A destination equal to the complete current frame is a no-op. Failed resolution, empty stacks, unknown bookmarks, declined bookmark replacement, Ask, Peek, Scan, lenses, menu navigation, picker dismissal, Arrive, and `Where am I?` never mutate graph history.
 
-Recenter walks one explicit next hop. A typed witness does not permit jumping to the final destination while claiming to walk the path: select a witness, move to its next node, and Orient again. Teleport is the explicit far relocation. Ask never turns a selected note or human artifact into an implicit Recenter. Generated analogies, layouts, groups, classifications, arrows, and human comments never create notes or links automatically.
+Recenter walks one explicit next hop. A typed witness does not permit jumping to the final destination while claiming to walk the path: select a witness, move to its next node, and Orient again. Teleport is the explicit far relocation. Ask never turns a selected note or human artifact into an implicit Recenter. Generated analogies, layouts, groups, classifications, arrows, document-to-note relevance matches, and human comments never create notes or links automatically.
 
 After every successful focus-changing move, rerun Orient, reset menu UI to Quick actions, and apply the full presentation gate. Preserve interaction mode: Guided renders persistent Navigation help at Quick actions, while Advanced keeps it closed. Arrive stops but retains the final focus, frame, and interaction mode. Conversational `navigate` resumes from the retained focus; it does not search for a different entry point merely because the picker had closed or discussion intervened.
 
@@ -248,4 +261,4 @@ Before compaction, fetch `nn skills get nn-navigate --reference state`. Serializ
 
 Files are notebook truth; the index is cache. Keep stored bodies/edges distinct from generated maps, routes, human artifacts, analogies, and layouts. Search, similarity, geometry, or analogy is not relationship proof. Read exact affected bodies and stored edges before mutation.
 
-Only **✚ Integrate** owns Navigation-discovered notebook mutation; fetch `nn skills get nn-navigate --reference integrate`. It proposes before writing, requires approval, preserves specialized safeguards, and never treats generated material as stored truth. Natural requests such as “integrate this media run RUN_ID” dispatch here: retrieve every bounded page with `nn media context --run RUN_ID`, preserve page or flow-block ordinals from every typed `documents` record, use available image-reading capability to load every typed image attachment, treat document text, transcript, and images as distinct evidence channels, search and read existing notebook truth, then produce the ordinary non-mutating proposal. This is not an `nn integrate` command. Other actions may suggest changes but remain non-mutating. At every seam: retain state, fetch ownership, read bounded evidence, present after validation, and mutate only under the explicit owner.
+Only **✚ Integrate** owns Navigation-discovered notebook mutation; fetch `nn skills get nn-navigate --reference integrate`. It proposes before writing, requires approval, preserves specialized safeguards, and never treats generated material as stored truth. Natural requests such as “integrate this media run RUN_ID” dispatch here: retrieve every bounded page with `nn media context --run RUN_ID`, preserve page or flow-block ordinals from every typed `documents` record, use available image-reading capability to load every typed image attachment, treat document text, transcript, and images as distinct evidence channels, search and read existing notebook truth, then produce the ordinary non-mutating proposal. This is not an `nn integrate` command. Other actions may suggest changes but remain non-mutating. Read Together is owned by the `read-together` reference: document passages, generated relevance, and stored graph truth remain separate, and only an explicit note excursion enters graph navigation. At every seam: retain state, fetch ownership, read bounded evidence, present after validation, and mutate only under the explicit owner.

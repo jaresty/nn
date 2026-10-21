@@ -124,6 +124,19 @@ nn skills get nn-navigate --list-references   # sorted names + applicability
 nn skills get nn-navigate --reference movement
 ```
 
+### Read Together document context
+
+Read one heading-aware passage and its bounded notebook candidates:
+
+```sh
+nn read-context ./document.md --chunk 1
+nn read-context ./document.md --chunk 2 --snapshot <sha256-from-chunk-1>
+```
+
+Each compact JSON response is at most 48,000 bytes and includes source snapshot, chunk progress, heading, line range, exact passage text, and up to five BM25-ranked candidates. Every candidate is labeled `generated-relevance`: it is not a stored graph relationship, and the bounded set is not exhaustive. Later chunks require the chunk-1 snapshot and reject changed source bytes or chunking options. Supported MVP inputs are UTF-8 `.md`, `.markdown`, and `.txt` files.
+
+For a human-driven session, say `read together <file>` or use `:read <file>` under `nn-navigate`. The workflow retains a conversation-scoped document cursor, supports next/previous, pin/hide, note inspection, graph excursions, return to reading, and finish-reading without persisting reading state or creating links automatically.
+
 ### Lossless graph body transport
 
 Read topology first, then retrieve the same traversal set's bodies as bounded JSON pages:

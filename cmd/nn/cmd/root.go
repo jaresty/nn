@@ -52,6 +52,7 @@ func registerNoteCommands(root *cobra.Command, state *rootState, cfgFile string)
 		newNewCmd(state),
 		newShowCmd(state),
 		newReadCmd(state),
+		newReadContextCmd(state),
 		newGrepCmd(state),
 		newListCmd(state),
 		newSearchCmd(state),

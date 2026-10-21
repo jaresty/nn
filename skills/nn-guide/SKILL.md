@@ -416,9 +416,17 @@ The deprecated `--bodies` compatibility flag includes each node's full body inli
 
 Every node also carries a **degree marker**: `--format text` appends `↑<out> ↓<in>` (outgoing/incoming link counts over the whole notebook) to each node line; `--format json` adds `out_degree`/`in_degree`. High inbound degree marks a **hub** (a load-bearing note many others depend on); near-zero marks a **leaf**. The zoned text view is preceded by a **key** mapping each zone to its link types. `--color auto|always|never` (default auto) prefixes each element with a **colored-circle emoji marker** — chosen over ANSI because emoji survive markdown and agent relay (an agent can retype 🟣 in prose; ANSI color dies there): **zone headers** by zone, **node titles** by note type (🟢 concept · 🟣 model · ⚪ observation · 🟡 hypothesis · 🔵 question · 🔴 argument · 🟦 protocol), and **edge labels** by link family (🔴 tension = contradicts/questions · 🔵 lateral = source-of/requires/follows · 🟦 structural = refines/extends/grounded-by/governs/supports). With markers on, the zoned key also prints the type and link-family emoji legends. `auto` emits markers only to a TTY (so piped output and json stay clean and parseable); `always` forces them — **use `--color always` when relaying output to a human, since the emoji carry the type/family coloring through to chat where ANSI cannot**; `never` suppresses them.
 
+### Read Together document context
+
+`nn read-context <file> [--chunk N] [--snapshot SHA256] [--chunk-bytes N] [--matches N]` returns one deterministic, heading-aware UTF-8 Markdown or text passage as compact JSON. Fetch chunk 1 first; every later chunk requires its snapshot, and changed source bytes or chunking options are rejected. Every response is at most 48,000 encoded bytes.
+
+Candidates are bounded `generated-relevance`: they are non-exhaustive and not a stored notebook relationship. The command never persists a cursor, reading state, generated match, note, or link.
+
+For interactive reading, dispatch `read together <file>` or `:read <file>` to `nn-navigate`, then load its lazy `read-together` owner. The owner keeps the document frame separate from graph history and requires an explicit note excursion before entering graph navigation.
+
 ### Human-driven iterative navigation: dispatch to `nn-navigate`
 
-Use this dispatch when a human is driving an iterative graph walk, the conversation must retain a positioned focus across steps, or the request invokes teleport, orient, recenter, peek, scan, arrive, Back/Forward history, bookmarks, or navigation compaction. For a one-shot command or graph syntax/semantics lookup, remain in `nn-guide`.
+Use this dispatch when a human is driving an iterative graph walk, the conversation must retain a positioned focus across steps, or the request invokes teleport, orient, recenter, peek, scan, arrive, Back/Forward history, bookmarks, Read Together document actions, or navigation compaction. For a one-shot command or graph syntax/semantics lookup, remain in `nn-guide`.
 
 Before navigating, run `nn skills list` if it has not yet run this session, then explicitly load the dedicated owner:
 

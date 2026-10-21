@@ -8,14 +8,14 @@ import (
 	"testing"
 )
 
-func TestNNNavigateHasCompactCoreAndExactlySevenReferences(t *testing.T) {
+func TestNNNavigateHasCompactCoreAndExactlyEightReferences(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "skills", "nn-navigate")
 	core, err := os.ReadFile(filepath.Join(root, "SKILL.md"))
 	if err != nil {
 		t.Fatalf("read core: %v", err)
 	}
-	if len(core) < 15*1024 || len(core) > 25*1024 {
-		t.Fatalf("nn-navigate core is %d bytes, want preferred compact range 15-25 KiB (and always under 50 KiB)", len(core))
+	if len(core) < 15*1024 || len(core) > 30*1024 {
+		t.Fatalf("nn-navigate core is %d bytes, want preferred compact range 15-30 KiB (and always under 50 KiB)", len(core))
 	}
 	if len(core) >= 50*1024 {
 		t.Fatalf("nn-navigate core is %d bytes, must be under 50 KiB", len(core))
@@ -31,7 +31,7 @@ func TestNNNavigateHasCompactCoreAndExactlySevenReferences(t *testing.T) {
 			names = append(names, entry.Name())
 		}
 	}
-	want := []string{"ask.md", "integrate.md", "lenses.md", "movement.md", "presentation.md", "scan-and-routes.md", "state.md"}
+	want := []string{"ask.md", "integrate.md", "lenses.md", "movement.md", "presentation.md", "read-together.md", "scan-and-routes.md", "state.md"}
 	if !reflect.DeepEqual(names, want) {
 		t.Fatalf("nn-navigate references = %v, want exactly %v", names, want)
 	}
@@ -133,8 +133,8 @@ func TestNNNavigatePresentationReferenceKeepsArriveTerminal(t *testing.T) {
 	presentation := string(data)
 	for assertion, required := range map[string]string{
 		"[P1a/P1b/P3b] Arrive stops without automatically opening a chooser": "Arrive is terminal in every interaction mode: close any open chooser and do not automatically open another chooser or modal",
-		"[P2] Arrive retains the final positioned frame":                         "Retain the final focus, complete frame, history, bookmarks, and interaction mode",
-		"[P3a] Arrive exposes only the explicit conversational resume":           "Show only the non-modal `navigate` resume affordance after the Arrive report",
+		"[P2] Arrive retains the final positioned frame":                     "Retain the final focus, complete frame, history, bookmarks, and interaction mode",
+		"[P3a] Arrive exposes only the explicit conversational resume":       "Show only the non-modal `navigate` resume affordance after the Arrive report",
 	} {
 		if !strings.Contains(presentation, required) {
 			t.Errorf("%s: presentation reference missing %q", assertion, required)
@@ -444,7 +444,7 @@ func TestNNNavigateReferenceActionOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	files["core"] = string(core)
-	for _, name := range []string{"ask", "integrate", "lenses", "movement", "presentation", "scan-and-routes", "state"} {
+	for _, name := range []string{"ask", "integrate", "lenses", "movement", "presentation", "read-together", "scan-and-routes", "state"} {
 		data, err := os.ReadFile(filepath.Join(root, "references", name+".md"))
 		if err != nil {
 			t.Fatalf("read %s reference: %v", name, err)
@@ -458,6 +458,7 @@ func TestNNNavigateReferenceActionOwnership(t *testing.T) {
 		"**Selection completes the landing decision.**":                           "movement",
 		"##### Stable emoji relay palette":                                        "presentation",
 		"nn graph routes --focus ID --links TYPES --search QUERY":                 "scan-and-routes",
+		"Read Together preserves three distinct evidence classes":                 "read-together",
 		"an existing exact-case name requires explicit confirmation":              "state",
 	}
 	for marker, owner := range owners {
@@ -478,7 +479,7 @@ func TestNNNavigateBundlePreservesKeyContracts(t *testing.T) {
 	var bundle strings.Builder
 	for _, path := range []string{
 		"SKILL.md", "references/presentation.md", "references/ask.md", "references/movement.md",
-		"references/scan-and-routes.md", "references/lenses.md", "references/state.md",
+		"references/read-together.md", "references/scan-and-routes.md", "references/lenses.md", "references/state.md",
 	} {
 		data, err := os.ReadFile(filepath.Join(root, path))
 		if err != nil {
