@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jaresty/nn/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -93,7 +94,24 @@ func newTranscriptSearchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			result, err := searchTranscriptFilesMatching(files, match, agentID, before, raw, limit)
+			var result transcriptSearchResult
+			if raw {
+				result, err = searchTranscriptFilesMatching(files, match, agentID, before, true, limit)
+			} else {
+				cache, openErr := openTranscriptSearchCache(config.DefaultIndexDBPath())
+				if openErr != nil {
+					return openErr
+				}
+				if regex {
+					result, _, err = cache.Search(files, match, agentID, before, false, limit)
+				} else {
+					result, _, err = cache.SearchSubstring(files, args[0], agentID, before, limit)
+				}
+				closeErr := cache.Close()
+				if err == nil && closeErr != nil {
+					err = fmt.Errorf("transcript search cache: close: %w", closeErr)
+				}
+			}
 			if err != nil {
 				return err
 			}
