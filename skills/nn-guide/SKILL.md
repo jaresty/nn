@@ -418,7 +418,7 @@ Every node also carries a **degree marker**: `--format text` appends `â†‘<out> â
 
 ### Read Together document context
 
-`nn read-context <file> [--chunk N] [--snapshot SHA256] [--chunk-bytes N] [--matches N]` returns one deterministic, heading-aware UTF-8 Markdown or text passage as compact JSON. Fetch chunk 1 first; every later chunk requires its snapshot, and changed source bytes or chunking options are rejected. Every response is at most 48,000 encoded bytes.
+`nn read-context <file> [--chunk N] [--snapshot SHA256] [--chunk-bytes N] [--matches N]` returns one deterministic, heading-aware UTF-8 Markdown or text reading window as compact JSON. The target defaults to 8 KiB and accepts 256 B through 24 KiB; headings remain structural metadata while adjacent short sections pack together, and only oversized sections split internally. Fetch chunk 1 first; every later chunk requires its snapshot, and changed source bytes or chunking options are rejected. Every response is at most 48,000 encoded bytes.
 
 Candidates are bounded `generated-relevance`: they are non-exhaustive and not a stored notebook relationship. The command never persists a cursor, reading state, generated match, note, or link.
 

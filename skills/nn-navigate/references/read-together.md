@@ -46,7 +46,7 @@ Enter with:
 nn read-context <file> --chunk 1
 ```
 
-The source must be a supported UTF-8 Markdown or text file. Read `snapshot`, `chunk`, `chunks`, `next_chunk`, heading, line range, passage, coverage, and matches. The command response is evidence input, not the human-facing presentation.
+The source must be a supported UTF-8 Markdown or text file. Read `snapshot`, `chunk`, `chunks`, `next_chunk`, heading, line range, passage, coverage, and matches. Reading windows default to 8 KiB: headings remain structural metadata, adjacent short sections pack together, and only oversized sections split internally. The command response is evidence input, not the human-facing presentation.
 
 For every later chunk, preserve source and chunking options and pass the original snapshot:
 

@@ -16,11 +16,18 @@ import (
 
 const (
 	readContextPageMaxBytes      = 48_000
-	readContextDefaultChunkBytes = 4_000
+	readContextDefaultChunkBytes = 8 * 1024
 	readContextMinChunkBytes     = 256
-	readContextMaxChunkBytes     = 6_000
+	readContextMaxChunkBytes     = 24 * 1024
 	readContextMaxMatches        = 20
 )
+
+type readContextPassageSection struct {
+	Heading      string
+	HeadingLevel int
+	SectionStart int
+	LineEnd      int
+}
 
 type readContextPassage struct {
 	Heading      string
@@ -29,6 +36,7 @@ type readContextPassage struct {
 	LineStart    int
 	LineEnd      int
 	Text         string
+	Sections     []readContextPassageSection
 }
 
 type readContextOverviewSection struct {
@@ -198,7 +206,7 @@ func newReadContextCmd(state *rootState) *cobra.Command {
 	}
 	cmd.Flags().IntVar(&chunk, "chunk", 1, "One-based document passage to return")
 	cmd.Flags().StringVar(&snapshot, "snapshot", "", "Source snapshot returned by chunk 1 or overview page 1")
-	cmd.Flags().IntVar(&chunkBytes, "chunk-bytes", readContextDefaultChunkBytes, "Target source bytes per passage (256-6000)")
+	cmd.Flags().IntVar(&chunkBytes, "chunk-bytes", readContextDefaultChunkBytes, "Target source bytes per passage (256-24576)")
 	cmd.Flags().IntVar(&matchLimit, "matches", 5, "Maximum generated-relevance notebook candidates (0-20)")
 	cmd.Flags().BoolVar(&overview, "overview", false, "Return a paginated source-order document structure overview")
 	cmd.Flags().IntVar(&page, "page", 1, "One-based overview page to return (requires --overview)")
@@ -223,23 +231,34 @@ func buildReadContextOverview(passages []readContextPassage, currentChunk int) [
 	sections := make([]readContextOverviewSection, 0, len(passages))
 	for i, passage := range passages {
 		chunk := i + 1
-		heading := passage.Heading
-		if heading == "" {
-			heading = "Document"
+		passageSections := passage.Sections
+		if len(passageSections) == 0 {
+			passageSections = []readContextPassageSection{{
+				Heading: passage.Heading, HeadingLevel: passage.HeadingLevel,
+				SectionStart: passage.SectionStart, LineEnd: passage.LineEnd,
+			}}
 		}
-		if len(sections) > 0 && sections[len(sections)-1].LineStart == passage.SectionStart {
-			section := &sections[len(sections)-1]
-			section.LineEnd = passage.LineEnd
-			section.ChunkEnd = chunk
-			section.Current = section.Current || chunk == currentChunk
-			continue
+		for _, metadata := range passageSections {
+			heading := metadata.Heading
+			if heading == "" {
+				heading = "Document"
+			}
+			if len(sections) > 0 && sections[len(sections)-1].LineStart == metadata.SectionStart {
+				section := &sections[len(sections)-1]
+				if metadata.LineEnd > section.LineEnd {
+					section.LineEnd = metadata.LineEnd
+				}
+				section.ChunkEnd = chunk
+				section.Current = section.Current || chunk == currentChunk
+				continue
+			}
+			sections = append(sections, readContextOverviewSection{
+				Heading: heading, Level: metadata.HeadingLevel,
+				LineStart: metadata.SectionStart, LineEnd: metadata.LineEnd,
+				ChunkStart: chunk, ChunkEnd: chunk, Current: chunk == currentChunk,
+				Evidence: "document-structure",
+			})
 		}
-		sections = append(sections, readContextOverviewSection{
-			Heading: heading, Level: passage.HeadingLevel,
-			LineStart: passage.LineStart, LineEnd: passage.LineEnd,
-			ChunkStart: chunk, ChunkEnd: chunk, Current: chunk == currentChunk,
-			Evidence: "document-structure",
-		})
 	}
 	return sections
 }
@@ -314,36 +333,75 @@ func splitReadContextPassages(text string, markdown bool, maxBytes int) []readCo
 		}
 	}
 	sections[len(sections)-1].end = len(lines)
+
 	var passages []readContextPassage
+	var current readContextPassage
+	flushPassage := func() {
+		if current.Text == "" {
+			return
+		}
+		passages = append(passages, current)
+		current = readContextPassage{}
+	}
+	appendFragment := func(sec section, lineStart, lineEnd int, fragment string) {
+		if fragment == "" {
+			return
+		}
+		if current.Text != "" && len(current.Text)+len(fragment) > maxBytes {
+			flushPassage()
+		}
+		if current.Text == "" {
+			current.Heading = sec.heading
+			current.HeadingLevel = sec.level
+			current.SectionStart = sec.start + 1
+			current.LineStart = lineStart
+		}
+		current.Text += fragment
+		current.LineEnd = lineEnd
+		metadata := readContextPassageSection{
+			Heading: sec.heading, HeadingLevel: sec.level,
+			SectionStart: sec.start + 1, LineEnd: lineEnd,
+		}
+		if len(current.Sections) > 0 && current.Sections[len(current.Sections)-1].SectionStart == metadata.SectionStart {
+			current.Sections[len(current.Sections)-1].LineEnd = lineEnd
+		} else {
+			current.Sections = append(current.Sections, metadata)
+		}
+	}
+
 	for _, sec := range sections {
 		if sec.end <= sec.start {
 			continue
 		}
-		start := sec.start
-		var b strings.Builder
-		flush := func(end int) {
-			if b.Len() == 0 {
-				return
-			}
-			passages = append(passages, readContextPassage{Heading: sec.heading, HeadingLevel: sec.level, SectionStart: sec.start + 1, LineStart: start + 1, LineEnd: end, Text: b.String()})
-			b.Reset()
-			start = end
+		fragmentStart := sec.start
+		var fragment strings.Builder
+		flushFragment := func(lineEnd int) {
+			appendFragment(sec, fragmentStart+1, lineEnd, fragment.String())
+			fragment.Reset()
 		}
 		for i := sec.start; i < sec.end; i++ {
 			line := lines[i]
-			if b.Len() > 0 && b.Len()+len(line) > maxBytes {
-				flush(i)
+			if fragment.Len() > 0 && fragment.Len()+len(line) > maxBytes {
+				flushFragment(i)
+				fragmentStart = i
 			}
 			for len(line) > maxBytes {
+				if fragment.Len() > 0 {
+					flushFragment(i)
+				}
+				fragmentStart = i
 				cut := utf8SafePrefix(line, maxBytes)
-				b.WriteString(cut)
+				appendFragment(sec, i+1, i+1, cut)
 				line = line[len(cut):]
-				flush(i + 1)
 			}
-			b.WriteString(line)
+			if fragment.Len() == 0 {
+				fragmentStart = i
+			}
+			fragment.WriteString(line)
 		}
-		flush(sec.end)
+		flushFragment(sec.end)
 	}
+	flushPassage()
 	if len(passages) == 0 {
 		return []readContextPassage{{LineStart: 1, LineEnd: 1, Text: ""}}
 	}

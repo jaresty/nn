@@ -19,7 +19,7 @@ nn read-context <file> [--chunk N] [--snapshot SHA256]
                        [--chunk-bytes N] [--matches N]
 ```
 
-The MVP accepts UTF-8 `.md`, `.markdown`, and `.txt` files. It splits source text deterministically into heading-aware passages, preserving source order and line ranges. Oversized sections split at paragraph or line boundaries, with UTF-8-safe fallback segmentation. `--chunk` is one-based and defaults to 1. `--chunk-bytes` controls the target source size and is part of the snapshot request; it has a bounded valid range. The command returns exactly one passage.
+The MVP accepts UTF-8 `.md`, `.markdown`, and `.txt` files. It parses headings as structural metadata, then greedily packs adjacent short sections into target-sized reading windows while preserving exact source order and text. Headings are preferred rather than mandatory passage boundaries; only an individually oversized section splits at line boundaries with UTF-8-safe fallback segmentation. `--chunk` is one-based and defaults to 1. `--chunk-bytes` defaults to 8 KiB, accepts 256 B through 24 KiB, and remains part of the snapshot request. The command returns exactly one reading window.
 
 The compact JSON response contains:
 

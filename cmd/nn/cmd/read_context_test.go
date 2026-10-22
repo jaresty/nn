@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/jaresty/nn/internal/note"
 )
@@ -201,6 +202,66 @@ func TestReadContextSupportedFormatsAreDeterministicAndSourceOrdered(t *testing.
 	}
 }
 
+func TestReadContextPacksShortSectionsIntoTargetSizedWindows(t *testing.T) {
+	_, execute := setupNotebook(t)
+	const content = "# One\n\nalpha π\n\n## Two\n\nbeta\n\n### Three\n\ngamma\n"
+	path := filepath.Join(t.TempDir(), "packed.md")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	passages := splitReadContextPassages(content, true, 256)
+	if len(passages) != 1 {
+		t.Fatalf("packed passages = %d, want 1 for adjacent short sections", len(passages))
+	}
+	if passages[0].Text != content || !utf8.ValidString(passages[0].Text) {
+		t.Fatalf("packed text did not preserve exact UTF-8 source: %q", passages[0].Text)
+	}
+	if readContextDefaultChunkBytes != 8*1024 || readContextMaxChunkBytes != 24*1024 {
+		t.Fatalf("chunk defaults = default %d max %d, want 8192 and 24576", readContextDefaultChunkBytes, readContextMaxChunkBytes)
+	}
+
+	out, err := execute("read-context", path, "--overview", "--chunk", "1", "--chunk-bytes", "256", "--page", "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var overview readContextOverviewTestResponse
+	if err := json.Unmarshal([]byte(out), &overview); err != nil {
+		t.Fatal(err)
+	}
+	if overview.Chunks != 1 || len(overview.Sections) != 3 {
+		t.Fatalf("overview mapping = chunks %d sections %d, want 1 and 3", overview.Chunks, len(overview.Sections))
+	}
+	for _, section := range overview.Sections {
+		if section.ChunkStart != 1 || section.ChunkEnd != 1 || !section.Current {
+			t.Fatalf("packed overview section = %+v, want chunk 1 current", section)
+		}
+	}
+
+	if _, err := execute("read-context", path, "--chunk-bytes", "24576", "--matches", "0"); err != nil {
+		t.Fatalf("24 KiB target rejected: %v", err)
+	}
+	if _, err := execute("read-context", path, "--chunk-bytes", "24577", "--matches", "0"); err == nil || !strings.Contains(err.Error(), "between 256 and 24576") {
+		t.Fatalf("above-24 KiB error = %v", err)
+	}
+
+	oversized := "# Large\n\n" + strings.Repeat("é", 300)
+	largePassages := splitReadContextPassages(oversized, true, 256)
+	if len(largePassages) < 2 {
+		t.Fatalf("oversized section passages = %d, want at least 2", len(largePassages))
+	}
+	var rebuilt strings.Builder
+	for _, passage := range largePassages {
+		if !utf8.ValidString(passage.Text) {
+			t.Fatalf("invalid UTF-8 passage: %q", passage.Text)
+		}
+		rebuilt.WriteString(passage.Text)
+	}
+	if rebuilt.String() != oversized {
+		t.Fatalf("oversized source reconstruction differs")
+	}
+}
+
 func TestReadContextSnapshotBindsChunkingOptions(t *testing.T) {
 	_, execute := setupNotebook(t)
 	path := filepath.Join(t.TempDir(), "source.md")
@@ -308,6 +369,27 @@ func TestReadContextOverviewIsOrderedCurrentBoundedAndSnapshotPaged(t *testing.T
 	}
 	if len(out) > readContextPageMaxBytes {
 		t.Fatalf("overview page 2 response = %d bytes, limit %d", len(out), readContextPageMaxBytes)
+	}
+}
+
+func TestReadTogetherChunkPackingContract(t *testing.T) {
+	files := map[string][]string{
+		"../../../docs/adr/0070-read-together-document-navigation.md": {"adjacent short sections", "8 KiB", "24 KiB"},
+		"../../../README.md":                {"adjacent short sections", "8 KiB", "24 KiB"},
+		"../../../skills/nn-guide/SKILL.md": {"adjacent short sections", "8 KiB", "24 KiB"},
+		"show.go":                           {"adjacent short sections", "8 KiB", "24 KiB"},
+		"../../../skills/nn-navigate/references/read-together.md": {"adjacent short sections", "8 KiB"},
+	}
+	for path, required := range files {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, text := range required {
+			if !strings.Contains(string(content), text) {
+				t.Errorf("%s missing %q", path, text)
+			}
+		}
 	}
 }
 

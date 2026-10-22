@@ -133,7 +133,7 @@ nn read-context ./document.md --chunk 1
 nn read-context ./document.md --chunk 2 --snapshot <sha256-from-chunk-1>
 ```
 
-Each compact JSON response is at most 48,000 bytes and includes source snapshot, chunk progress, heading, line range, exact passage text, and up to five BM25-ranked candidates. Every candidate is labeled `generated-relevance`: it is not a stored graph relationship, and the bounded set is not exhaustive. Later chunks require the chunk-1 snapshot and reject changed source bytes or chunking options. Supported MVP inputs are UTF-8 `.md`, `.markdown`, and `.txt` files.
+Each compact JSON response is at most 48,000 bytes and includes source snapshot, chunk progress, heading, line range, exact passage text, and up to five BM25-ranked candidates. Every candidate is labeled `generated-relevance`: it is not a stored graph relationship, and the bounded set is not exhaustive. Later chunks require the chunk-1 snapshot and reject changed source bytes or chunking options. Supported MVP inputs are UTF-8 `.md`, `.markdown`, and `.txt` files. Passage targets default to 8 KiB and accept 256 B through 24 KiB; headings remain structural metadata while adjacent short sections pack into one reading window instead of forcing tiny per-heading steps.
 
 For a human-driven session, say `read together <file>` or use `:read <file>` under `nn-navigate`. The workflow retains a conversation-scoped document cursor, supports next/previous, pin/hide, note inspection, graph excursions, return to reading, and finish-reading without persisting reading state or creating links automatically.
 
