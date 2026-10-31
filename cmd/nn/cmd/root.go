@@ -18,6 +18,7 @@ import (
 // rootState holds resolved runtime state shared by all subcommands.
 type rootState struct {
 	notebookDir string
+	notebook    string // --notebook flag; overrides $NN_NOTEBOOK
 	backend     backend.Backend
 }
 
@@ -38,6 +39,8 @@ Workflow guidance is embedded in the binary:
 			return initState(cmd, state, cfgFile)
 		},
 	}
+
+	root.PersistentFlags().StringVar(&state.notebook, "notebook", "", "Select a named notebook from config (overrides $NN_NOTEBOOK)")
 
 	registerNoteCommands(root, state, cfgFile)
 	registerGraphCommands(root, state)
@@ -141,7 +144,10 @@ func initState(cmd *cobra.Command, state *rootState, cfgFile string) error {
 		return nil
 	}
 
-	nbName := os.Getenv("NN_NOTEBOOK")
+	nbName := state.notebook
+	if nbName == "" {
+		nbName = os.Getenv("NN_NOTEBOOK")
+	}
 	if cfgFile == "" {
 		cfgFile = defaultConfigPath()
 	}
