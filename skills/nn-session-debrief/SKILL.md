@@ -258,78 +258,15 @@ For each significant capture from this session, invoke the `nn-refine` workflow 
 
 ### 5. (Weekly mode only) Notebook health review
 
-When invoked with `--weekly`, run the full health report first:
+When invoked with `--weekly`, load and follow the dedicated weekly review skill instead of sweeping here:
 
 ```
-nn review
+nn skills get nn-weekly-review
 ```
 
-Use its output to drive the rest of the pass:
-- **Orphans section** → surface each orphaned draft for linking or deletion
-- **Long notes section** → flag notes exceeding the atomicity threshold for splitting
-- **Aging notes section** → two buckets using the same thresholds as `nn show` freshness:
-  - `aging (3–14 days)`: surface for recheck — propose `nn show <id>` and update if content is stale
-  - `stale (>14 days)`: content may be outdated — verify before relying on it; propose update or deletion if superseded
-- **Structural gaps** → act on any other pattern `nn review` identifies
-- **Recurring manual checks → rules** → review the week's friction notes (`nn list --search "friction" --status draft --json`): if a notebook-health or structural check was run by hand more than once, propose promoting it to a built-in or shared `nn-rule` so `nn rules check`/`nn rules query` surfaces it automatically going forward. If the check needs facts the engine does not expose, keep it as a `rules-engine`-tagged feature-request note instead.
+`nn-weekly-review` owns the health report, the stale-draft and expired-note sweeps, the loop-until-clear contract, the `--auto` mode and the receipt. Pass `--auto` through if the user asked for it.
 
-Then sweep unactioned drafts:
-
-```
-nn list --older-than 14 --status draft --rich --json
-```
-
-`--rich` includes `created` and `modified` timestamps in JSON output. `--older-than 14` filters to notes not modified in 14+ days (same threshold as the stale tier). `--sort modified` sorts by last-modified date. These flags compose freely.
-
-For each draft not touched in 14+ days: check outbound link count first.
-- **Has outbound links + coherent body** → promotion candidate, not a deletion candidate; propose `nn promote`
-- **Zero links in either direction** → true orphan, candidate for deletion; surface for user to decide
-- **No inbound, but has outbound** → dead-end note that hasn't been linked to yet; link it rather than delete it
-
-**Rules-engine shortcut (optional):** these two structural buckets are expressible as `nn-rule` fences and queryable with `nn rules query` (both verified):
-
-```nn-rule
-has_out(N) :- link(N, _, _).
-has_in(N) :- link(_, N, _).
-orphan_draft(N) :- note(N, _, "draft"), !has_out(N), !has_in(N).
-dead_end_draft(N) :- note(N, _, "draft"), has_out(N), !has_in(N).
-```
-
-`nn rules query orphan_draft` (deletion candidates) and `nn rules query dead_end_draft` (link-it candidates) surface the buckets directly, complementing `nn list --orphan`/`--no-inbound`.
-
-Then sweep expired ephemeral notes (concrete/time-bound notes flagged by the staleness check in the gate). First report actionable cleanup scopes as the exact composable query plus its cardinality; preserve that query unchanged if the user continues into cleanup. Never replace a selected filtered set with a broader inventory and recover it later using `jq`.
-
-```
-# All expired notes
-nn list --expired --count
-nn list --expired --json --envelope --fields id,title,modified,type,tags,backlink_count --page 1
-
-# Example semantic slice: expired daily notes
-nn list --expired --tag daily --count
-nn list --expired --tag daily --json --envelope --fields id,title,modified,type,tags,backlink_count --page 1
-# If next_page is nonzero, repeat the exact query and projection:
-nn list --expired --tag daily --json --envelope --fields id,title,modified,type,tags,backlink_count --page 2 --snapshot <sha256-from-page-1>
-```
-
-When pagination is active, retrieve every reported page before claiming complete inventory coverage. Preserve every option exactly across pages and use the page-1 snapshot on each continuation; stale or mismatched continuation must restart at page 1. For the resulting explicit ID set, retrieve complete stored bodies with `nn graph bodies --ids ID1,ID2,... --page 1` and every disclosed continuation page before performing full-set semantic review. Do not substitute a broader traversal selection.
-
-For each expired note: read its body (`nn show <id>`), then decide:
-- **Abstract principle present** → search for an existing note that captures that principle (`nn list --search "<principle>" --json`); if found, augment it (`nn update <id> --append "..." --since <modified>`), then delete the expired note (`nn delete <id> --confirm`); if not found, abstract the principle into a new note (`nn new --title "<abstract claim>" --type concept --no-edit`), then delete the expired note.
-- **No durable principle** → the note was purely situational; delete it (`nn delete <id> --confirm`).
-
-Do not delete a note with backlinks without first checking whether any linking note depends on its content; if so, inline the key claim into the linking note before deleting.
-
-**Available flags on `nn list` — use these before reaching for workarounds:**
-- `--tag TAG` — compose a semantic scope with lifecycle/status filters and preserve it in later commands
-- `--count` — return only the cardinality of the fully filtered set
-- `--envelope --json` — retain `result_count` and `total_matching` metadata for any filtered set
-- `--page N --snapshot SHA256` — retrieve stable sub-48KB list pages; page 1 issues the snapshot and later pages require it
-- `nn graph bodies --ids ID1,ID2,...` — retrieve lossless paginated bodies for the exact selected IDs without broadening scope
-- `--sort modified` — sort by last-modified date (most-recent first)
-- `--older-than N` — notes not modified in the last N days
-- `--rich --json` — includes `created` and `modified` timestamps in JSON output
-- `--no-inbound` — notes with no backlinks (deletion candidates; stricter than `--orphan`)
-- `--orphan` — notes with zero links in either direction
+**Completion:** emit the receipt `nn-weekly-review` produced, or `"skipped — not weekly mode"` otherwise.
 
 ### 6. Update daily page
 

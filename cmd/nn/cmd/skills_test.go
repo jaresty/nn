@@ -210,7 +210,7 @@ func TestSkillDescriptionsLeadWithUseWhen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nn skills list: %v", err)
 	}
-	for _, skill := range []string{"nn-workflow", "nn-guide", "nn-navigate", "nn-capture-discipline", "nn-session-debrief", "nn-link-suggester", "nn-refine", "nn-refine-workflow"} {
+	for _, skill := range []string{"nn-workflow", "nn-guide", "nn-navigate", "nn-capture-discipline", "nn-session-debrief", "nn-link-suggester", "nn-refine", "nn-refine-workflow", "nn-weekly-review"} {
 		content, readErr := execute("skills", "get", skill)
 		if readErr != nil {
 			t.Fatalf("nn skills get %s: %v", skill, readErr)

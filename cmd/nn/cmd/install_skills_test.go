@@ -18,7 +18,7 @@ func TestInstallSkillsList(t *testing.T) {
 	for _, skill := range []string{
 		"nn-workflow", "nn-guide", "nn-navigate",
 		"nn-capture-discipline", "nn-link-suggester", "nn-refine",
-		"nn-session-debrief", "nn-refine-workflow",
+		"nn-session-debrief", "nn-refine-workflow", "nn-weekly-review",
 	} {
 		if !strings.Contains(out, skill) {
 			t.Errorf("install-skills --list missing skill %q in output: %q", skill, out)
